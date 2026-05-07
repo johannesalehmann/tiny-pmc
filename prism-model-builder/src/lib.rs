@@ -37,7 +37,7 @@ pub fn build_model<
         >,
     >,
 >(
-    model: &mut Model<(), Identifier<S>, Expression<VariableReference, S>, VariableReference, S>,
+    model: &mut Model<Identifier<S>, Expression<VariableReference, S>, VariableReference, S>,
     atomic_propositions: &[Expression<VariableReference, S>],
     properties: I,
     user_provided_consts: &HashMap<String, UserProvidedConstValue>,
@@ -190,7 +190,6 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
         >,
     >(
         model: &mut Model<
-            (),
             Identifier<S>,
             Expression<VariableReference, S>,
             VariableReference,
@@ -295,7 +294,7 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
     fn process_state<S: Clone, E, EC: ExpressionContext<E>>(
         &mut self,
         state: usize,
-        model: &Model<(), Identifier<S>, E, VariableReference, S>,
+        model: &Model<Identifier<S>, E, VariableReference, S>,
         atomic_propositions: &[E],
         synchronised_actions: &SynchronisedActions,
         expression_context: &mut EC,
@@ -338,7 +337,7 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
     fn process_nonsynchronised_command<S: Clone, E, EC: ExpressionContext<E>>(
         &mut self,
         state: usize,
-        model: &Model<(), Identifier<S>, E, VariableReference, S>,
+        model: &Model<Identifier<S>, E, VariableReference, S>,
         action_index: &mut usize,
         command: &Command<Identifier<S>, E, VariableReference, S>,
         expression_context: &mut EC,
@@ -393,7 +392,7 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
     fn process_synchronising_action<S: Clone, E, EC: ExpressionContext<E>>(
         &mut self,
         state: usize,
-        model: &Model<(), Identifier<S>, E, VariableReference, S>,
+        model: &Model<Identifier<S>, E, VariableReference, S>,
         action_index: &mut usize,
         synchronised_action: &SynchronisedAction,
         expression_context: &mut EC,
@@ -608,7 +607,7 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
 
     fn create_initial_states<S: Clone, E, EC: ExpressionContext<E>>(
         &mut self,
-        model: &Model<(), Identifier<S>, E, VariableReference, S>,
+        model: &Model<Identifier<S>, E, VariableReference, S>,
         expression_context: &mut EC,
     ) -> Result<(), ModelBuildingError> {
         if model.init_constraint.is_some() {
@@ -683,7 +682,7 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
     fn print_valuation<S: Clone>(
         valuation: &M::Valuation,
         variable_info: &ModelVariableInfo<M::Valuation>,
-        model: &Model<(), Identifier<S>, Expression<VariableReference, S>, VariableReference, S>,
+        model: &Model<Identifier<S>, Expression<VariableReference, S>, VariableReference, S>,
     ) {
         print!("(");
         let mut first = true;

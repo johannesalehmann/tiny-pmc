@@ -3,8 +3,8 @@ use crate::{
     Rewards, RewardsElement, RewardsManager, Update, VariableInfo, VariableManager, VariableRange,
 };
 
-impl<AM: Default, A, E, V, S: Clone> super::Model<AM, A, E, V, S> {
-    pub fn map_expressions_into<E2, F: Fn(E) -> E2>(self, f: F) -> super::Model<AM, A, E2, V, S> {
+impl<A, E, V, S: Clone> super::Model<A, E, V, S> {
+    pub fn map_expressions_into<E2, F: Fn(E) -> E2>(self, f: F) -> super::Model<A, E2, V, S> {
         let mut variables = Vec::new();
         for variable in self.variable_manager.variables {
             let range = match variable.range {
@@ -120,7 +120,6 @@ impl<AM: Default, A, E, V, S: Clone> super::Model<AM, A, E, V, S> {
             model_type: self.model_type,
             variable_manager,
             formulas,
-            action_manager: self.action_manager,
             modules,
             renamed_modules: self.renamed_modules,
             init_constraint,

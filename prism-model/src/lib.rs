@@ -10,9 +10,6 @@ pub use expressions::{
 mod module;
 pub use module::{AddModuleError, Module, ModuleManager, RenameRule, RenameRules, RenamedModule};
 
-mod actions;
-pub use actions::{Action, ActionManager, ActionReference, AddActionError};
-
 mod formulas;
 pub use formulas::{
     AddFormulaError, CyclicDependency, CyclicDependencyEntry, Formula, FormulaManager,

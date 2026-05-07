@@ -20,7 +20,6 @@ pub struct ParseResults<'a, 'b> {
     pub model: ParseResult<
         'a,
         prism_model::Model<
-            (),
             prism_model::Identifier<Span>,
             prism_model::Expression<prism_model::VariableReference, Span>,
             prism_model::VariableReference,

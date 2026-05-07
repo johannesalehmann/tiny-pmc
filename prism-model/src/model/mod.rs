@@ -18,13 +18,11 @@ use crate::{
 };
 use std::fmt::{Display, Formatter};
 
-pub struct Model<AM, A, E, V, S: Clone> {
+pub struct Model<A, E, V, S: Clone> {
     pub model_type: ModelType<S>,
 
     pub variable_manager: VariableManager<E, S>,
     pub formulas: FormulaManager<E, S>,
-
-    pub action_manager: AM,
 
     pub modules: ModuleManager<A, E, V, S>,
     pub renamed_modules: Vec<RenamedModule<S>>,
@@ -37,13 +35,12 @@ pub struct Model<AM, A, E, V, S: Clone> {
     pub span: S,
 }
 
-impl<AM: Default, A, E, V, S: Clone> Model<AM, A, E, V, S> {
+impl<A, E, V, S: Clone> Model<A, E, V, S> {
     pub fn new(model_type: ModelType<S>, span: S) -> Self {
         Self {
             model_type,
             variable_manager: VariableManager::new(),
             formulas: FormulaManager::new(),
-            action_manager: AM::default(),
             modules: ModuleManager::new(),
             renamed_modules: Vec::new(),
             init_constraint: None,
@@ -57,7 +54,6 @@ impl<AM: Default, A, E, V, S: Clone> Model<AM, A, E, V, S> {
         model_type: ModelType<S>,
         variable_manager: VariableManager<E, S>,
         formulas: FormulaManager<E, S>,
-        action_manager: AM,
         modules: ModuleManager<A, E, V, S>,
         renamed_modules: Vec<RenamedModule<S>>,
         init_constraint: Option<E>,
@@ -69,7 +65,6 @@ impl<AM: Default, A, E, V, S: Clone> Model<AM, A, E, V, S> {
             model_type,
             variable_manager,
             formulas,
-            action_manager,
             modules,
             renamed_modules,
             init_constraint,
@@ -79,7 +74,7 @@ impl<AM: Default, A, E, V, S: Clone> Model<AM, A, E, V, S> {
         }
     }
 }
-impl<AM: Default, E, V, S: Clone> Model<AM, crate::Identifier<S>, E, V, S> {
+impl<E, V, S: Clone> Model<crate::Identifier<S>, E, V, S> {
     pub fn name_unnamed_actions(&mut self) {
         self.name_unnamed_actions_with_custom_name(|i, _| format!("unnamed_action_{i}"))
     }
@@ -132,16 +127,15 @@ impl<AM: Default, E, V, S: Clone> Model<AM, crate::Identifier<S>, E, V, S> {
     }
 }
 
-impl<AM, A, V, S: Clone> Model<AM, A, Expression<V, S>, V, S> {
+impl<A, V, S: Clone> Model<A, Expression<V, S>, V, S> {
     pub fn map_span<S2: Clone, F: Fn(S) -> S2>(
         self,
         map: &F,
-    ) -> Model<AM, A, Expression<V, S2>, V, S2> {
+    ) -> Model<A, Expression<V, S2>, V, S2> {
         Model {
             model_type: self.model_type.map_span(map),
             variable_manager: self.variable_manager.map_span(map),
             formulas: self.formulas.map_span(map),
-            action_manager: self.action_manager,
             modules: self.modules.map_span(map),
             renamed_modules: self
                 .renamed_modules
@@ -220,8 +214,8 @@ impl<E, S: Clone> VariableIdentifierProvider<E, S> for Identifier<S> {
     }
 }
 
-impl<AM, A, V: VariableIdentifierProvider<Expression<V, S>, S>, S: Clone>
-    Model<AM, A, Expression<V, S>, V, S>
+impl<A, V: VariableIdentifierProvider<Expression<V, S>, S>, S: Clone>
+    Model<A, Expression<V, S>, V, S>
 {
     pub fn init_statements_to_init_block(&mut self)
     where
@@ -311,9 +305,9 @@ impl<S> Display for ModelType<S> {
     }
 }
 
-impl<AM, A, E, V, S: Clone> crate::private::Sealed for Model<AM, A, E, V, S> {}
-impl<Ctx, AM, A: Display, E: Displayable<Ctx>, V: Displayable<Ctx>, S: Clone> Displayable<Ctx>
-    for Model<AM, A, E, V, S>
+impl<A, E, V, S: Clone> crate::private::Sealed for Model<A, E, V, S> {}
+impl<Ctx, A: Display, E: Displayable<Ctx>, V: Displayable<Ctx>, S: Clone> Displayable<Ctx>
+    for Model<A, E, V, S>
 {
     fn fmt_internal(&self, f: &mut Formatter<'_>, context: &Ctx) -> std::fmt::Result {
         writeln!(f, "{}", self.model_type)?;
@@ -355,16 +349,16 @@ impl<Ctx, AM, A: Display, E: Displayable<Ctx>, V: Displayable<Ctx>, S: Clone> Di
     }
 }
 
-impl<AM, A: Display, S: Clone> Display
-    for Model<AM, A, Expression<VariableReference, S>, VariableReference, S>
+impl<A: Display, S: Clone> Display
+    for Model<A, Expression<VariableReference, S>, VariableReference, S>
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.displayable(&self.variable_manager).fmt(f)
     }
 }
 
-impl<AM, A: Display, S: Clone> Display
-    for Model<AM, A, Expression<Identifier<S>, S>, Identifier<S>, S>
+impl<A: Display, S: Clone> Display
+    for Model<A, Expression<Identifier<S>, S>, Identifier<S>, S>
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.displayable(&()).fmt(f)

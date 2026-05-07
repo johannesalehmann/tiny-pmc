@@ -26,7 +26,7 @@ pub struct SynchronisedActionModule {
 
 impl SynchronisedActions {
     pub fn from_prism<S: Clone, E>(
-        model: &Model<(), Identifier<S>, E, VariableReference, S>,
+        model: &Model<Identifier<S>, E, VariableReference, S>,
     ) -> Self {
         let mut actions: HashMap<String, SynchronisedAction> = HashMap::new();
 

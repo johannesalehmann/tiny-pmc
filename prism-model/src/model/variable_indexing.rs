@@ -4,11 +4,11 @@ use crate::{
     RewardsManager, VariableInfo, VariableReference,
 };
 
-impl<S: Clone> super::Model<(), Identifier<S>, Expression<Identifier<S>, S>, Identifier<S>, S> {
+impl<S: Clone> super::Model<Identifier<S>, Expression<Identifier<S>, S>, Identifier<S>, S> {
     pub fn replace_identifiers_by_variable_indices(
         self,
     ) -> Result<
-        super::Model<(), Identifier<S>, Expression<VariableReference, S>, VariableReference, S>,
+        super::Model<Identifier<S>, Expression<VariableReference, S>, VariableReference, S>,
         Vec<UnknownVariableError<S>>,
     > {
         let mut errors: Vec<UnknownVariableError<_>> = Vec::new();
@@ -201,7 +201,6 @@ impl<S: Clone> super::Model<(), Identifier<S>, Expression<Identifier<S>, S>, Ide
                 self.model_type.clone(),
                 variables,
                 formulas,
-                self.action_manager,
                 modules,
                 renamed_modules,
                 init_constraint,

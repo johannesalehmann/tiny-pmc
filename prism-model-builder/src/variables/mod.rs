@@ -53,7 +53,7 @@ impl<V: Valuation> ModelVariableInfo<V> {
     }
 
     pub fn new<S: Clone, E, EC: ExpressionContext<E>>(
-        model: &Model<(), Identifier<S>, E, VariableReference, S>,
+        model: &Model<Identifier<S>, E, VariableReference, S>,
         user_provided_consts: &HashMap<String, UserProvidedConstValue>,
         expression_context: &mut EC,
     ) -> Result<Self, ModelBuildingError> {
@@ -79,7 +79,7 @@ impl<V: Valuation> ModelVariableInfo<V> {
     }
 
     fn prepare_valuation_context<S: Clone, E>(
-        model: &Model<(), Identifier<S>, E, VariableReference, S>,
+        model: &Model<Identifier<S>, E, VariableReference, S>,
         valuation_map: &ValuationMap,
         details: &VariableDetails,
     ) -> V::ContextType {

@@ -17,7 +17,6 @@ pub fn program_parser<'a, 'b, I>() -> impl Parser<
     'a,
     I,
     prism_model::Model<
-        (),
         Identifier<Span>,
         Expression<Identifier<Span>, Span>,
         Identifier<Span>,
@@ -61,7 +60,6 @@ fn build_program_from_type_and_elements<'a>(
     span: SimpleSpan,
     emitter: &mut chumsky::input::Emitter<PrismParserError<Span, Token>>,
 ) -> prism_model::Model<
-    (),
     Identifier<Span>,
     Expression<Identifier<Span>, Span>,
     Identifier<Span>,
@@ -202,7 +200,6 @@ fn build_program_from_type_and_elements<'a>(
         model_type,
         variables,
         formulas,
-        (),
         modules,
         renamed_modules,
         init_constraint.map(|(i, _)| i),

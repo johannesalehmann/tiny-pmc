@@ -1,6 +1,6 @@
 use crate::{CyclicDependency, Expression, Identifier, IdentityMapExpression, VariableManager};
 
-impl<AM, A, S: Clone> super::Model<AM, A, Expression<Identifier<S>, S>, Identifier<S>, S> {
+impl<A, S: Clone> super::Model<A, Expression<Identifier<S>, S>, Identifier<S>, S> {
     pub fn substitute_formulas(&mut self, default_span: S) -> Result<(), CyclicDependency<S>> {
         let order = self.formulas.get_formula_replacement_ordering()?;
 

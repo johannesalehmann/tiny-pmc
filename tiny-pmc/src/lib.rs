@@ -7,7 +7,6 @@ pub mod checking;
 pub mod parsing;
 
 pub type PrismModel = prism_model::Model<
-    (),
     Identifier<SimpleSpan>,
     Expression<VariableReference, SimpleSpan>,
     VariableReference,
