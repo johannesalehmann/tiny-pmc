@@ -4,7 +4,7 @@ pub use command::{Assignment, Command, Update};
 mod expressions;
 pub use expressions::{
     DefaultMapExpression, Expression, GlobalVariableReference, IdentityMapExpression,
-    MapExpression, VariableScope,
+    MapExpression, VariableScope, UnknownVariableError
 };
 
 mod module;
@@ -35,9 +35,6 @@ pub use variables::{
 
 mod identifier;
 pub use identifier::{Identifier, InvalidName};
-
-mod properties;
-pub use properties::SubstitutableQuery;
 
 use std::fmt::{Display, Formatter};
 

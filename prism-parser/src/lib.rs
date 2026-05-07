@@ -2,6 +2,7 @@ mod character_to_line;
 mod error;
 mod lexer;
 mod parser;
+mod substitutable_query;
 
 pub use character_to_line::CharacterToLineMap;
 use chumsky::prelude::*;
@@ -95,7 +96,7 @@ pub fn parse_prism<'a, 'b, P: AsRef<str>>(
                     .zip(property_errors.iter_mut())
                     .for_each(|(p_option, errs)| {
                         if let Some(p) = p_option {
-                            use prism_model::SubstitutableQuery;
+                            use substitutable_query::SubstitutableQuery;
                             p.substitute_labels(SimpleSpan::new(0, 1), &output.labels);
                             let substitution =
                                 p.substitute_formulas(SimpleSpan::new(0, 1), &output.formulas);
@@ -131,7 +132,7 @@ pub fn parse_prism<'a, 'b, P: AsRef<str>>(
                         .zip(property_errors.iter_mut())
                         .map(|(p, errs)| {
                             p.map_or(None, |p| {
-                                use prism_model::SubstitutableQuery;
+                                use substitutable_query::SubstitutableQuery;
                                 match p.replace_identifiers_by_variable_indices(
                                     &output.variable_manager,
                                 ) {

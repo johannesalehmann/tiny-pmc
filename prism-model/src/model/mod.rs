@@ -202,7 +202,7 @@ impl<AM, A, V, S: Clone> Model<AM, A, Expression<V, S>, V, S> {
 // TODO: This trait is only used to enable init_statements_to_init_block to work both when `V` is
 //  `Identifier` and when `V` is `VariableReference`. Perhaps we can use some more general mechanism
 //  or expose this trait more broadly?
-trait VariableIdentifierProvider<E, S: Clone> {
+pub trait VariableIdentifierProvider<E, S: Clone> {
     fn get_variable_identifier(info: &VariableInfo<E, S>, index: usize) -> Self;
 }
 

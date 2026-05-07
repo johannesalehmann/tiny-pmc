@@ -1,8 +1,4 @@
-use crate::expressions::UnknownVariableError;
-use crate::{
-    CyclicDependency, Expression, FormulaManager, Identifier, LabelManager, VariableManager,
-    VariableReference,
-};
+use prism_model::{LabelManager, Expression, Identifier, FormulaManager, CyclicDependency, VariableManager, VariableReference, UnknownVariableError};
 use probabilistic_properties::Query;
 
 pub trait SubstitutableQuery<S: Clone> {
@@ -31,11 +27,11 @@ pub trait SubstitutableQuery<S: Clone> {
     >;
 }
 impl<S: Clone> SubstitutableQuery<S>
-    for Query<
-        Expression<Identifier<S>, S>,
-        Expression<Identifier<S>, S>,
-        Expression<Identifier<S>, S>,
-    >
+for Query<
+    Expression<Identifier<S>, S>,
+    Expression<Identifier<S>, S>,
+    Expression<Identifier<S>, S>,
+>
 {
     fn substitute_labels(
         &mut self,
