@@ -7,32 +7,33 @@ mod substitutable_query;
 pub use character_to_line::CharacterToLineMap;
 use chumsky::prelude::*;
 pub use error::{PrismParserError, PrismParserValidationError};
-pub use lexer::{Span, Token};
+pub use lexer::{ParserSpan, Token};
+use prism_model::{FullSpan, Span, VariableReference};
 use std::borrow::Cow;
 
 pub struct ParseResult<'a, O> {
     pub output: Option<O>,
     pub character_to_lines: Option<CharacterToLineMap>,
-    pub errors: Vec<PrismParserError<'a, Span, String>>,
+    pub errors: Vec<PrismParserError<'a, ParserSpan, String>>,
 }
 
 pub struct ParseResults<'a, 'b> {
     pub model: ParseResult<
         'a,
         prism_model::Model<
-            prism_model::Identifier<Span>,
-            prism_model::Expression<prism_model::VariableReference, Span>,
-            prism_model::VariableReference,
-            Span,
+            VariableReference,
+            ParserSpan,
+            prism_model::Expression<prism_model::VariableReference, ParserSpan>,
+            prism_model::Identifier<ParserSpan>,
         >,
     >,
     pub properties: Vec<
         ParseResult<
             'b,
             probabilistic_properties::Query<
-                prism_model::Expression<prism_model::VariableReference, Span>,
-                prism_model::Expression<prism_model::VariableReference, Span>,
-                prism_model::Expression<prism_model::VariableReference, Span>,
+                prism_model::Expression<prism_model::VariableReference, ParserSpan>,
+                prism_model::Expression<prism_model::VariableReference, ParserSpan>,
+                prism_model::Expression<prism_model::VariableReference, ParserSpan>,
             >,
         >,
     >,
@@ -52,11 +53,10 @@ pub fn parse_prism<'a, 'b, P: AsRef<str>>(
     if let Some(lexer_output) = lex(source, &mut model_errors) {
         let (output, parse_errors) = parser::program_parser()
             .map_with(|ast, e| (ast, e.span()))
-            .parse(
-                lexer_output
-                    .as_slice()
-                    .map((source.len()..source.len()).into(), |(t, s)| (t, s)),
-            )
+            .parse(lexer_output.as_slice().map(
+                ParserSpan::from_start_end(source.len(), source.len()),
+                |(t, s)| (t, s),
+            ))
             .into_output_errors();
         process_parser_errors(&mut model_errors, parse_errors);
         let output = output.map(|(o, _)| o);
@@ -75,11 +75,10 @@ pub fn parse_prism<'a, 'b, P: AsRef<str>>(
                 lexer_output.map_or(None, |lexer_output| {
                     let (output, parse_errors) = parser::query_parser()
                         .map_with(|ast, e| (ast, e.span()))
-                        .parse(
-                            lexer_output
-                                .as_slice()
-                                .map((source.len()..source.len()).into(), |(t, s)| (t, s)),
-                        )
+                        .parse(lexer_output.as_slice().map(
+                            FullSpan::from_start_end(source.len(), source.len()).into(),
+                            |(t, s)| (t, s),
+                        ))
                         .into_output_errors();
 
                     process_parser_errors(errs, parse_errors);
@@ -96,9 +95,9 @@ pub fn parse_prism<'a, 'b, P: AsRef<str>>(
                     .for_each(|(p_option, errs)| {
                         if let Some(p) = p_option {
                             use substitutable_query::SubstitutableQuery;
-                            p.substitute_labels(SimpleSpan::new(0, 1), &output.labels);
+                            p.substitute_labels(FullSpan::empty(), &output.labels);
                             let substitution =
-                                p.substitute_formulas(SimpleSpan::new(0, 1), &output.formulas);
+                                p.substitute_formulas(FullSpan::empty(), &output.formulas);
                             if let Err(err) = substitution {
                                 errs.push(
                                     PrismParserValidationError::CyclicFormulaDependency {
@@ -111,7 +110,7 @@ pub fn parse_prism<'a, 'b, P: AsRef<str>>(
                         }
                     });
 
-                if let Err(err) = output.substitute_formulas(SimpleSpan::new(0, 1)) {
+                if let Err(err) = output.substitute_formulas() {
                     model_errors.push(
                         PrismParserValidationError::CyclicFormulaDependency { cycle: err }.into(),
                     )
@@ -221,8 +220,8 @@ pub fn parse_prism<'a, 'b, P: AsRef<str>>(
 }
 
 fn process_parser_errors(
-    errors: &mut Vec<PrismParserError<Span, String>>,
-    parse_errors: Vec<PrismParserError<Span, Token>>,
+    errors: &mut Vec<PrismParserError<ParserSpan, String>>,
+    parse_errors: Vec<PrismParserError<ParserSpan, Token>>,
 ) {
     for mut error in parse_errors {
         if let PrismParserError::ExpectedFound {
@@ -258,7 +257,7 @@ fn process_parser_errors(
 
 pub fn lex(
     source: &str,
-    errors: &mut Vec<PrismParserError<Span, String>>,
+    errors: &mut Vec<PrismParserError<ParserSpan, String>>,
 ) -> Option<Vec<lexer::Spanned<Token>>> {
     let (lexer_output, lexer_errors) = lexer::raw_lex(source).into_output_errors();
     if !lexer_errors.is_empty() {

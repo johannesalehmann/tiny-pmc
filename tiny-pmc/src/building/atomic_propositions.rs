@@ -1,9 +1,8 @@
-use chumsky::prelude::SimpleSpan;
-use prism_model::{Expression, VariableReference};
+use prism_model::{Expression, Span, VariableReference};
 
-pub fn prism_objectives_to_atomic_propositions<I, F>(
-    atomic_proposition: &mut Vec<Expression<VariableReference, SimpleSpan>>,
-    queries: Vec<probabilistic_properties::Query<I, F, Expression<VariableReference, SimpleSpan>>>,
+pub fn prism_objectives_to_atomic_propositions<I, F, S: Span>(
+    atomic_proposition: &mut Vec<Expression<VariableReference, S>>,
+    queries: Vec<probabilistic_properties::Query<I, F, Expression<VariableReference, S>>>,
 ) -> Vec<probabilistic_properties::Query<I, F, probabilistic_models::AtomicProposition>> {
     let mut new_properties = Vec::new();
     for query in queries {

@@ -3,13 +3,12 @@ use super::{
     label_parser, model_type_parser, module_parser, renamed_module_parser, rewards_parser,
 };
 use crate::error::ElementKind;
-use crate::{PrismParserError, PrismParserValidationError, Span, Token};
+use crate::{ParserSpan, PrismParserError, PrismParserValidationError, Token};
 use chumsky::IterParser;
 use chumsky::Parser;
 use chumsky::input::ValueInput;
-use chumsky::prelude::SimpleSpan;
 use prism_model::{
-    Expression, Identifier, ModelType, ModuleManager, VariableAddError, VariableInfo,
+    Expression, Identifier, ModelType, ModuleManager, Span, VariableAddError, VariableInfo,
     VariableManager,
 };
 
@@ -17,15 +16,15 @@ pub fn program_parser<'a, 'b, I>() -> impl Parser<
     'a,
     I,
     prism_model::Model<
-        Identifier<Span>,
-        Expression<Identifier<Span>, Span>,
-        Identifier<Span>,
-        Span,
+        Identifier<ParserSpan>,
+        ParserSpan,
+        Expression<Identifier<ParserSpan>, ParserSpan>,
+        Identifier<ParserSpan>,
     >,
     E<'a>,
 >
 where
-    I: ValueInput<'a, Token = Token, Span = Span>,
+    I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
     program_element_parser()
         .repeated()
@@ -34,10 +33,10 @@ where
 }
 
 fn add_or_emit_variable(
-    manager: &mut VariableManager<Expression<Identifier<Span>, Span>, Span>,
-    variable: VariableInfo<Expression<Identifier<Span>, Span>, Span>,
-    kind: crate::error::ElementKind,
-    emitter: &mut chumsky::input::Emitter<PrismParserError<Span, Token>>,
+    manager: &mut VariableManager<ParserSpan, Expression<Identifier<ParserSpan>, ParserSpan>>,
+    variable: VariableInfo<ParserSpan, Expression<Identifier<ParserSpan>, ParserSpan>>,
+    kind: ElementKind,
+    emitter: &mut chumsky::input::Emitter<PrismParserError<ParserSpan, Token>>,
 ) {
     let span = variable.span;
     match manager.add_variable(variable) {
@@ -57,13 +56,13 @@ fn add_or_emit_variable(
 
 fn build_program_from_type_and_elements<'a>(
     elements: Vec<ProgramElement>,
-    span: SimpleSpan,
-    emitter: &mut chumsky::input::Emitter<PrismParserError<Span, Token>>,
+    span: ParserSpan,
+    emitter: &mut chumsky::input::Emitter<PrismParserError<ParserSpan, Token>>,
 ) -> prism_model::Model<
-    Identifier<Span>,
-    Expression<Identifier<Span>, Span>,
-    Identifier<Span>,
-    Span,
+    Identifier<ParserSpan>,
+    ParserSpan,
+    Expression<Identifier<ParserSpan>, ParserSpan>,
+    Identifier<ParserSpan>,
 > {
     let mut model_type = Option::None;
     let mut modules = ModuleManager::new();
@@ -191,7 +190,7 @@ fn build_program_from_type_and_elements<'a>(
     let model_type = match model_type {
         None => {
             emitter.emit(PrismParserValidationError::MissingModelType.into());
-            ModelType::Mdp(Span::new(0, 0))
+            ModelType::Mdp(ParserSpan::empty())
         }
         Some(model_type) => model_type,
     };
@@ -210,28 +209,39 @@ fn build_program_from_type_and_elements<'a>(
 }
 
 enum ProgramElement {
-    ModelType(ModelType<Span>),
-    Const(prism_model::VariableInfo<Expression<Identifier<Span>, Span>, Span>),
-    Label(prism_model::Label<Expression<Identifier<Span>, Span>, Span>),
+    ModelType(ModelType<ParserSpan>),
+    Const(prism_model::VariableInfo<ParserSpan, Expression<Identifier<ParserSpan>, ParserSpan>>),
+    Label(prism_model::Label<ParserSpan, Expression<Identifier<ParserSpan>, ParserSpan>>),
     Module(
         prism_model::Module<
-            Identifier<Span>,
-            Expression<Identifier<Span>, Span>,
-            Identifier<Span>,
-            Span,
+            Identifier<ParserSpan>,
+            ParserSpan,
+            Expression<Identifier<ParserSpan>, ParserSpan>,
+            Identifier<ParserSpan>,
         >,
-        Vec<VariableInfo<Expression<Identifier<Span>, Span>, Span>>,
+        Vec<VariableInfo<ParserSpan, Expression<Identifier<ParserSpan>, ParserSpan>>>,
     ),
-    RenamedModule(prism_model::RenamedModule<Span>),
-    GlobalVariable(prism_model::VariableInfo<Expression<Identifier<Span>, Span>, Span>),
-    Formula(prism_model::Formula<Expression<Identifier<Span>, Span>, Span>),
-    InitConstraint(prism_model::Expression<Identifier<Span>, Span>, Span),
-    Rewards(prism_model::Rewards<Identifier<Span>, Expression<Identifier<Span>, Span>, Span>),
+    RenamedModule(prism_model::RenamedModule<ParserSpan>),
+    GlobalVariable(
+        prism_model::VariableInfo<ParserSpan, Expression<Identifier<ParserSpan>, ParserSpan>>,
+    ),
+    Formula(prism_model::Formula<ParserSpan, Expression<Identifier<ParserSpan>, ParserSpan>>),
+    InitConstraint(
+        prism_model::Expression<Identifier<ParserSpan>, ParserSpan>,
+        ParserSpan,
+    ),
+    Rewards(
+        prism_model::Rewards<
+            ParserSpan,
+            Expression<Identifier<ParserSpan>, ParserSpan>,
+            Identifier<ParserSpan>,
+        >,
+    ),
 }
 
 fn program_element_parser<'a, 'b, I>() -> impl Parser<'a, I, ProgramElement, E<'a>>
 where
-    I: ValueInput<'a, Token = Token, Span = Span>,
+    I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
     model_type_parser()
         .map(ProgramElement::ModelType)

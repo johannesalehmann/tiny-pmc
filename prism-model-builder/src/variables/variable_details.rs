@@ -2,7 +2,7 @@ use crate::ExpressionContext;
 use crate::expressions::VariableType;
 use crate::variables::const_valuations::ConstValuations;
 use crate::variables::valuation_map::{ValuationMap, ValuationMapEntry};
-use prism_model::VariableManager;
+use prism_model::{Span, VariableManager};
 
 pub struct VariableDetail {
     pub bounds: Option<(i64, i64)>,
@@ -33,8 +33,8 @@ impl VariableDetails {
         }
     }
 
-    pub fn new<S: Clone, E, EC: ExpressionContext<E>>(
-        variables: &VariableManager<E, S>,
+    pub fn new<S: Span, E, EC: ExpressionContext<E>>(
+        variables: &VariableManager<S, E>,
         valuation_map: &ValuationMap,
         const_values: &ConstValuations,
         expression_context: &mut EC,

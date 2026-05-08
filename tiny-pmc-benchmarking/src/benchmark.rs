@@ -95,6 +95,7 @@ impl Benchmark {
         .unwrap();
 
         for property in properties {
+            let _ = property;
             // TODO
         }
 

@@ -1,3 +1,4 @@
+use crate::spans::Span;
 use crate::{Expression, Identifier, MapExpression};
 use std::marker::PhantomData;
 
@@ -15,7 +16,7 @@ impl<S, S2, F: Fn(S) -> S2> MapSpan<S, S2, F> {
     }
 }
 
-impl<V, S: Clone, S2: Clone, F: Fn(S) -> S2> MapExpression<V, S, super::Expression<V, S2>>
+impl<V, S: Span, S2: Span, F: Fn(S) -> S2> MapExpression<V, S, Expression<V, S2>>
     for MapSpan<S, S2, F>
 {
     fn visit_int(&mut self, val: i64, span: S) -> Expression<V, S2> {

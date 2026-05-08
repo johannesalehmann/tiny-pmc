@@ -1,21 +1,25 @@
 use crate::expressions::UnknownVariableError;
+use crate::spans::Span;
 use crate::{
     Assignment, Command, Expression, Identifier, Label, LabelManager, Model, RewardsElement,
-    RewardsManager, VariableInfo, VariableReference,
+    RewardsManager, VariableInfo, VariableRange, VariableReference,
 };
 
-impl<S: Clone> super::Model<Identifier<S>, Expression<Identifier<S>, S>, Identifier<S>, S> {
+impl<S: Span> Model<Identifier<S>, S, Expression<Identifier<S>, S>, Identifier<S>> {
     pub fn replace_identifiers_by_variable_indices(
         self,
     ) -> Result<
-        super::Model<Identifier<S>, Expression<VariableReference, S>, VariableReference, S>,
+        Model<VariableReference, S, Expression<VariableReference, S>, Identifier<S>>,
         Vec<UnknownVariableError<S>>,
     > {
         let mut errors: Vec<UnknownVariableError<_>> = Vec::new();
 
         let mut variables = Vec::with_capacity(self.variable_manager.variables.len());
         for variable in &self.variable_manager.variables {
-            let range = variable
+            let range: Result<
+                VariableRange<S, Expression<VariableReference, S>>,
+                Vec<UnknownVariableError<S>>,
+            > = variable
                 .range
                 .replace_identifiers_by_variable_indices(&self.variable_manager);
             let initial_value = match &variable.initial_value {

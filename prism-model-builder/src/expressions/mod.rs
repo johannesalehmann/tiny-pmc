@@ -6,7 +6,7 @@ pub mod stack_based_expressions;
 mod tree_walking_enumerator;
 pub use tree_walking_enumerator::TreeWalkingEvaluator;
 
-use prism_model::{VariableRange, VariableReference};
+use prism_model::{Span, VariableRange, VariableReference};
 
 pub trait ValuationSource {
     fn get_int(&self, index: VariableReference) -> i64;
@@ -23,7 +23,7 @@ pub enum VariableType {
 }
 
 impl VariableType {
-    pub fn from_range<E, S: Clone>(range: &VariableRange<E, S>) -> Self {
+    pub fn from_range<S: Span, E>(range: &VariableRange<S, E>) -> Self {
         match range {
             VariableRange::BoundedInt { .. } => VariableType::Int,
             VariableRange::UnboundedInt { .. } => VariableType::Int,

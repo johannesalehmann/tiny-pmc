@@ -1,13 +1,16 @@
 use crate::expressions::UnknownVariableError;
 use crate::module::RenameRules;
+use crate::spans::{FullSpan, Span};
 use crate::{Displayable, Expression, Identifier};
 use std::fmt::Formatter;
 
-pub struct VariableManager<E, S: Clone> {
-    pub variables: Vec<VariableInfo<E, S>>,
+pub type VariableManagerNamedVars<S: Span = FullSpan> =
+    VariableManager<S, Expression<Identifier<S>, S>>;
+pub struct VariableManager<S: Span = FullSpan, E = Expression<VariableReference, S>> {
+    pub variables: Vec<VariableInfo<S, E>>,
 }
 
-impl<E, S: Clone> VariableManager<E, S> {
+impl<S: Span, E> VariableManager<S, E> {
     pub fn new() -> Self {
         Self {
             variables: Vec::new(),
@@ -16,7 +19,7 @@ impl<E, S: Clone> VariableManager<E, S> {
 
     pub fn add_variable(
         &mut self,
-        variable_info: VariableInfo<E, S>,
+        variable_info: VariableInfo<S, E>,
     ) -> Result<VariableReference, VariableAddError> {
         if let Some(existing_variable) = self.get_reference(&variable_info.name) {
             Err(VariableAddError::VariableExists {
@@ -46,14 +49,14 @@ impl<E, S: Clone> VariableManager<E, S> {
         None
     }
 
-    pub fn get(&self, reference: &VariableReference) -> Option<&VariableInfo<E, S>> {
+    pub fn get(&self, reference: &VariableReference) -> Option<&VariableInfo<S, E>> {
         self.variables.get(reference.index)
     }
 }
 
-impl<E, S: Clone> crate::private::Sealed for VariableManager<E, S> {}
-impl<Ctx, E: Displayable<Ctx>, S: Clone> Displayable<(VariablePrintingStyle, &Ctx)>
-    for VariableManager<E, S>
+impl<S: Span, E> crate::private::Sealed for VariableManager<S, E> {}
+impl<Ctx, E: Displayable<Ctx>, S: Span> Displayable<(VariablePrintingStyle, &Ctx)>
+    for VariableManager<S, E>
 {
     fn fmt_internal(
         &self,
@@ -99,11 +102,11 @@ impl<Ctx, E: Displayable<Ctx>, S: Clone> Displayable<(VariablePrintingStyle, &Ct
     }
 }
 
-impl<V, S: Clone> VariableManager<Expression<V, S>, S> {
-    pub fn map_span<S2: Clone, F: Fn(S) -> S2>(
+impl<V, S: Span> VariableManager<S, Expression<V, S>> {
+    pub fn map_span<S2: Span, F: Fn(S) -> S2>(
         self,
         map: &F,
-    ) -> VariableManager<Expression<V, S2>, S2> {
+    ) -> VariableManager<S2, Expression<V, S2>> {
         VariableManager {
             variables: self
                 .variables
@@ -113,13 +116,13 @@ impl<V, S: Clone> VariableManager<Expression<V, S>, S> {
         }
     }
 }
-impl<S: Clone> VariableManager<Expression<Identifier<S>, S>, S> {
+impl<S: Span> VariableManager<S, Expression<Identifier<S>, S>> {
     pub fn add_renamed(
         &mut self,
         old_module_index: usize,
         new_module_index: usize,
         rename_rules: &RenameRules<S>,
-    ) -> Result<VariableManager<Expression<Identifier<S>, S>, S>, MissingVariableRenaming<S>> {
+    ) -> Result<VariableManager<S, Expression<Identifier<S>, S>>, MissingVariableRenaming<S>> {
         let variables = Vec::with_capacity(self.variables.len());
         for i in 0..self.variables.len() {
             let variable = &self.variables[i];
@@ -158,7 +161,7 @@ pub enum VariableAddError {
     VariableExists { reference: VariableReference },
 }
 
-pub struct MissingVariableRenaming<S: Clone> {
+pub struct MissingVariableRenaming<S: Span> {
     pub variable_name: Identifier<S>,
     pub original_definition: S,
 }
@@ -177,19 +180,21 @@ impl std::fmt::Debug for VariableAddError {
     }
 }
 
-pub struct VariableInfo<E, S: Clone> {
+pub type VariableInfoNamedVars<S> = VariableInfo<S, Expression<Identifier<S>, S>>;
+
+pub struct VariableInfo<S: Span = FullSpan, E = Expression<VariableReference, S>> {
     pub is_constant: bool,
     pub scope: Option<usize>,
-    pub range: VariableRange<E, S>,
+    pub range: VariableRange<S, E>,
     pub name: Identifier<S>,
     pub initial_value: Option<E>,
     pub span: S,
 }
 
-impl<E, S: Clone> VariableInfo<E, S> {
+impl<S: Span, E> VariableInfo<S, E> {
     pub fn new(
         name: Identifier<S>,
-        range: VariableRange<E, S>,
+        range: VariableRange<S, E>,
         is_constant: bool,
         scope: Option<usize>,
         span: S,
@@ -206,7 +211,7 @@ impl<E, S: Clone> VariableInfo<E, S> {
 
     pub fn with_initial_value(
         name: Identifier<S>,
-        range: VariableRange<E, S>,
+        range: VariableRange<S, E>,
         is_constant: bool,
         scope: Option<usize>,
         initial_value: E,
@@ -224,7 +229,7 @@ impl<E, S: Clone> VariableInfo<E, S> {
 
     pub fn with_optional_initial_value(
         name: Identifier<S>,
-        range: VariableRange<E, S>,
+        range: VariableRange<S, E>,
         is_constant: bool,
         scope: Option<usize>,
         initial_value: Option<E>,
@@ -240,11 +245,11 @@ impl<E, S: Clone> VariableInfo<E, S> {
         }
     }
 }
-impl<V, S: Clone> VariableInfo<Expression<V, S>, S> {
-    pub fn map_span<S2: Clone, F: Fn(S) -> S2>(
+impl<V, S: Span> VariableInfo<S, Expression<V, S>> {
+    pub fn map_span<S2: Span, F: Fn(S) -> S2>(
         self,
         map: &F,
-    ) -> VariableInfo<Expression<V, S2>, S2> {
+    ) -> VariableInfo<S2, Expression<V, S2>> {
         VariableInfo {
             is_constant: self.is_constant,
             scope: self.scope,
@@ -256,15 +261,18 @@ impl<V, S: Clone> VariableInfo<Expression<V, S>, S> {
     }
 }
 
+pub type VariableRangeNamedVars<S: Span = FullSpan> =
+    VariableRange<S, Expression<Identifier<S>, S>>;
+
 #[derive(Debug, PartialEq, Clone)]
-pub enum VariableRange<E, S: Clone> {
+pub enum VariableRange<S: Span = FullSpan, E = Expression<VariableReference, S>> {
     BoundedInt { min: E, max: E, span: S },
     UnboundedInt { span: S },
     Boolean { span: S },
     Float { span: S },
 }
 
-impl<E, S: Clone> VariableRange<E, S> {
+impl<S: Span, E> VariableRange<S, E> {
     pub fn is_legal_for_constant(&self) -> bool {
         match self {
             VariableRange::BoundedInt { .. } => false,
@@ -301,11 +309,11 @@ impl<E, S: Clone> VariableRange<E, S> {
     }
 }
 
-impl<V, S: Clone> VariableRange<Expression<V, S>, S> {
-    pub fn map_span<S2: Clone, F: Fn(S) -> S2>(
+impl<V, S: Span> VariableRange<S, Expression<V, S>> {
+    pub fn map_span<S2: Span, F: Fn(S) -> S2>(
         self,
         map: &F,
-    ) -> VariableRange<Expression<V, S2>, S2> {
+    ) -> VariableRange<S2, Expression<V, S2>> {
         match self {
             VariableRange::BoundedInt { min, max, span } => VariableRange::BoundedInt {
                 min: min.map_span(map),
@@ -319,8 +327,8 @@ impl<V, S: Clone> VariableRange<Expression<V, S>, S> {
     }
 }
 
-impl<E, S: Clone> crate::private::Sealed for VariableRange<E, S> {}
-impl<Ctx, E: Displayable<Ctx>, S: Clone> Displayable<Ctx> for VariableRange<E, S> {
+impl<S: Span, E> crate::private::Sealed for VariableRange<S, E> {}
+impl<Ctx, E: Displayable<Ctx>, S: Span> Displayable<Ctx> for VariableRange<S, E> {
     fn fmt_internal(&self, f: &mut Formatter<'_>, context: &Ctx) -> std::fmt::Result {
         match self {
             VariableRange::BoundedInt { min, max, .. } => {
@@ -343,7 +351,7 @@ impl<Ctx, E: Displayable<Ctx>, S: Clone> Displayable<Ctx> for VariableRange<E, S
         }
     }
 }
-impl<S: Clone> VariableRange<Expression<Identifier<S>, S>, S> {
+impl<S: Span> VariableRange<S, Expression<Identifier<S>, S>> {
     pub fn renamed(&self, rename_rules: &RenameRules<S>) -> Self {
         match self {
             VariableRange::BoundedInt { min, max, span } => VariableRange::BoundedInt {
@@ -361,8 +369,8 @@ impl<S: Clone> VariableRange<Expression<Identifier<S>, S>, S> {
 
     pub fn replace_identifiers_by_variable_indices(
         &self,
-        variable_manager: &VariableManager<Expression<Identifier<S>, S>, S>,
-    ) -> Result<VariableRange<Expression<VariableReference, S>, S>, Vec<UnknownVariableError<S>>>
+        variable_manager: &VariableManager<S, Expression<Identifier<S>, S>>,
+    ) -> Result<VariableRange<S, Expression<VariableReference, S>>, Vec<UnknownVariableError<S>>>
     {
         match self {
             VariableRange::BoundedInt { min, max, span } => {
@@ -416,13 +424,13 @@ impl std::fmt::Debug for VariableReference {
 }
 
 impl crate::private::Sealed for VariableReference {}
-impl<S: Clone> Displayable<VariableManager<Expression<VariableReference, S>, S>>
+impl<S: Span> Displayable<VariableManager<S, Expression<VariableReference, S>>>
     for VariableReference
 {
     fn fmt_internal(
         &self,
         f: &mut Formatter<'_>,
-        context: &VariableManager<Expression<VariableReference, S>, S>,
+        context: &VariableManager<S, Expression<VariableReference, S>>,
     ) -> std::fmt::Result {
         let variable = context.get(&self).unwrap();
         write!(f, "{}", variable.name)
@@ -437,7 +445,7 @@ pub enum VariablePrintingStyle {
 }
 
 impl VariablePrintingStyle {
-    fn accepts<V, S: Clone>(&self, variable: &VariableInfo<V, S>) -> bool {
+    fn accepts<S: Span, E>(&self, variable: &VariableInfo<S, E>) -> bool {
         match self {
             VariablePrintingStyle::Const => variable.is_constant,
             VariablePrintingStyle::GlobalVar => !variable.is_constant && variable.scope.is_none(),

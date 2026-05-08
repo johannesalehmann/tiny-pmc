@@ -1,8 +1,9 @@
 use crate::Identifier;
 use crate::expressions::MapExpression;
+use crate::spans::Span;
 
 #[allow(unused_variables)]
-pub trait DefaultMapExpression<V, S: Clone, T: Default> {
+pub trait DefaultMapExpression<V, S: Span, T: Default> {
     fn visit_int(&mut self, val: i64, span: S) -> T {
         T::default()
     }
@@ -74,7 +75,7 @@ pub trait DefaultMapExpression<V, S: Clone, T: Default> {
     }
 }
 
-impl<V, S: Clone, T: Default, M: DefaultMapExpression<V, S, T>> MapExpression<V, S, T> for M {
+impl<V, S: Span, T: Default, M: DefaultMapExpression<V, S, T>> MapExpression<V, S, T> for M {
     fn visit_int(&mut self, val: i64, span: S) -> T {
         self.visit_int(val, span)
     }

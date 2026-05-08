@@ -1,5 +1,5 @@
 use crate::parser::{E, expression_parser, identifier_parser};
-use crate::{Span, Token};
+use crate::{ParserSpan, Token};
 use chumsky::IterParser;
 use chumsky::Parser;
 use chumsky::input::ValueInput;
@@ -9,11 +9,15 @@ use prism_model::{Expression, Identifier, RewardsTarget};
 pub fn rewards_parser<'a, 'b, I>() -> impl Parser<
     'a,
     I,
-    prism_model::Rewards<Identifier<Span>, Expression<Identifier<Span>, Span>, Span>,
+    prism_model::Rewards<
+        ParserSpan,
+        Expression<Identifier<ParserSpan>, ParserSpan>,
+        Identifier<ParserSpan>,
+    >,
     E<'a>,
 >
 where
-    I: ValueInput<'a, Token = Token, Span = Span>,
+    I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
     let rewards_name_parser = just(Token::Quote)
         .ignore_then(identifier_parser())
@@ -32,11 +36,15 @@ where
 fn rewards_element_parser<'a, 'b, I>() -> impl Parser<
     'a,
     I,
-    prism_model::RewardsElement<Identifier<Span>, Expression<Identifier<Span>, Span>, Span>,
+    prism_model::RewardsElement<
+        ParserSpan,
+        Expression<Identifier<ParserSpan>, ParserSpan>,
+        Identifier<ParserSpan>,
+    >,
     E<'a>,
 >
 where
-    I: ValueInput<'a, Token = Token, Span = Span>,
+    I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
     just(Token::LeftSqBracket)
         .ignore_then(identifier_parser().or_not())

@@ -4,6 +4,7 @@ mod maps;
 use crate::expressions::label_substitution::LabelSubstitutionVisitor;
 use crate::expressions::map_variable::MapVariable;
 use crate::module::RenameRules;
+use crate::spans::{FullSpan, Span};
 use crate::{
     CyclicDependency, Displayable, FormulaManager, Identifier, LabelManager, VariableManager,
     VariableReference,
@@ -25,8 +26,10 @@ pub enum VariableScope {
     LocalVariable { module: String },
 }
 
+pub type ExpressionNamedVars<S: Span = FullSpan> = Expression<Identifier<S>, S>;
+
 #[derive(PartialEq, Clone)]
-pub enum Expression<V, S: Clone> {
+pub enum Expression<V = VariableReference, S: Span = FullSpan> {
     Int(i64, S),
     Float(f64, S),
     Bool(bool, S),
@@ -57,7 +60,7 @@ pub enum Expression<V, S: Clone> {
     ),
 }
 
-impl<V, S: Clone> Expression<V, S> {
+impl<V, S: Span> Expression<V, S> {
     pub fn span(&self) -> &S {
         match self {
             Expression::Int(_, s) => s,
@@ -86,7 +89,7 @@ impl<V, S: Clone> Expression<V, S> {
         }
     }
 
-    pub fn map_span<S2: Clone, F: Fn(S) -> S2>(self, map: &F) -> Expression<V, S2> {
+    pub fn map_span<S2: Span, F: Fn(S) -> S2>(self, map: &F) -> Expression<V, S2> {
         let mut visitor = maps::map_span::MapSpan::new(map);
         self.visit(&mut visitor)
     }
@@ -129,101 +132,106 @@ impl<V, S: Clone> Expression<V, S> {
     }
 }
 
-impl<V> Expression<V, ()> {
+impl<V, S: Span> Expression<V, S> {
     pub fn int(val: i64) -> Self {
-        Expression::Int(val, ())
+        Expression::Int(val, S::empty())
     }
     pub fn float(val: f64) -> Self {
-        Expression::Float(val, ())
+        Expression::Float(val, S::empty())
     }
     pub fn bool(val: bool) -> Self {
-        Expression::Bool(val, ())
+        Expression::Bool(val, S::empty())
     }
     pub fn var_or_const(id: V) -> Self {
-        Expression::VarOrConst(id, ())
+        Expression::VarOrConst(id, S::empty())
     }
     pub fn label(id: V) -> Self {
-        Expression::Label(id, ())
+        Expression::Label(id, S::empty())
     }
 
-    pub fn function<A: Into<Vec<Self>>>(identifier: Identifier<()>, args: A) -> Self {
-        Expression::Function(identifier, args.into(), ())
+    pub fn function<A: Into<Vec<Self>>>(identifier: Identifier<S>, args: A) -> Self {
+        Expression::Function(identifier, args.into(), S::empty())
     }
 
     pub fn negate_value(self) -> Self {
-        Expression::Minus(Box::new(self), ())
+        Expression::Minus(Box::new(self), S::empty())
     }
 
     pub fn times(self, other: Self) -> Self {
-        Expression::Multiplication(Box::new(self), Box::new(other), ())
+        Expression::Multiplication(Box::new(self), Box::new(other), S::empty())
     }
 
     pub fn divide_by(self, other: Self) -> Self {
-        Expression::Division(Box::new(self), Box::new(other), ())
+        Expression::Division(Box::new(self), Box::new(other), S::empty())
     }
 
     pub fn plus(self, other: Self) -> Self {
-        Expression::Addition(Box::new(self), Box::new(other), ())
+        Expression::Addition(Box::new(self), Box::new(other), S::empty())
     }
 
     pub fn minus(self, other: Self) -> Self {
-        Expression::Subtraction(Box::new(self), Box::new(other), ())
+        Expression::Subtraction(Box::new(self), Box::new(other), S::empty())
     }
 
     pub fn less_than(self, other: Self) -> Self {
-        Expression::LessThan(Box::new(self), Box::new(other), ())
+        Expression::LessThan(Box::new(self), Box::new(other), S::empty())
     }
 
     pub fn less_or_equal(self, other: Self) -> Self {
-        Expression::LessOrEqual(Box::new(self), Box::new(other), ())
+        Expression::LessOrEqual(Box::new(self), Box::new(other), S::empty())
     }
 
     pub fn greater_than(self, other: Self) -> Self {
-        Expression::GreaterThan(Box::new(self), Box::new(other), ())
+        Expression::GreaterThan(Box::new(self), Box::new(other), S::empty())
     }
 
     pub fn greater_or_equal(self, other: Self) -> Self {
-        Expression::GreaterOrEqual(Box::new(self), Box::new(other), ())
+        Expression::GreaterOrEqual(Box::new(self), Box::new(other), S::empty())
     }
 
     pub fn equals_to(self, other: Self) -> Self {
-        Expression::Equals(Box::new(self), Box::new(other), ())
+        Expression::Equals(Box::new(self), Box::new(other), S::empty())
     }
 
     pub fn not_equals_to(self, other: Self) -> Self {
-        Expression::NotEquals(Box::new(self), Box::new(other), ())
+        Expression::NotEquals(Box::new(self), Box::new(other), S::empty())
     }
 
     pub fn negate_bool(self) -> Self {
-        Expression::Negation(Box::new(self), ())
+        Expression::Negation(Box::new(self), S::empty())
     }
 
     pub fn and(self, other: Self) -> Self {
-        Expression::Conjunction(Box::new(self), Box::new(other), ())
+        Expression::Conjunction(Box::new(self), Box::new(other), S::empty())
     }
 
     pub fn or(self, other: Self) -> Self {
-        Expression::Disjunction(Box::new(self), Box::new(other), ())
+        Expression::Disjunction(Box::new(self), Box::new(other), S::empty())
     }
 
     pub fn if_and_only_if(self, other: Self) -> Self {
-        Expression::IfAndOnlyIf(Box::new(self), Box::new(other), ())
+        Expression::IfAndOnlyIf(Box::new(self), Box::new(other), S::empty())
     }
 
     pub fn implies(self, other: Self) -> Self {
-        Expression::Implies(Box::new(self), Box::new(other), ())
+        Expression::Implies(Box::new(self), Box::new(other), S::empty())
     }
 
     pub fn ternary(self, branch_1: Self, branch_2: Self) -> Self {
-        Expression::Ternary(Box::new(self), Box::new(branch_1), Box::new(branch_2), ())
+        Expression::Ternary(
+            Box::new(self),
+            Box::new(branch_1),
+            Box::new(branch_2),
+            S::empty(),
+        )
     }
 }
 
-impl<S: Clone> Expression<Identifier<S>, S> {
+impl<S: Span> Expression<Identifier<S>, S> {
     pub fn substitute_labels(
         &mut self,
         default_span: S,
-        labels: &LabelManager<Expression<Identifier<S>, S>, S>,
+        labels: &LabelManager<S, Expression<Identifier<S>, S>>,
     ) {
         for label in &labels.labels {
             let mut visitor = LabelSubstitutionVisitor {
@@ -238,7 +246,7 @@ impl<S: Clone> Expression<Identifier<S>, S> {
     pub fn substitute_formulas(
         &mut self,
         default_span: S,
-        formulas: &FormulaManager<Expression<Identifier<S>, S>, S>,
+        formulas: &FormulaManager<S, Expression<Identifier<S>, S>>,
     ) -> Result<(), CyclicDependency<S>> {
         let order = formulas.get_formula_replacement_ordering()?;
 
@@ -255,20 +263,18 @@ impl<S: Clone> Expression<Identifier<S>, S> {
 
         Ok(())
     }
-}
 
-impl<S: Clone> Expression<Identifier<S>, S> {
     pub fn renamed(&self, rename_rules: &RenameRules<S>) -> Self {
         let mut visitor = RenamingVisitor { rename_rules };
         self.clone().visit(&mut visitor) // This clone is not required in principle, but cannot be avoided as long as visitors consume their expression
     }
 }
-struct RenamingVisitor<'a, S: Clone> {
+struct RenamingVisitor<'a, S: Span> {
     rename_rules: &'a RenameRules<S>,
 }
 
-impl<'a, S: Clone> identity_map::Private for RenamingVisitor<'a, S> {}
-impl<'a, S: Clone> IdentityMapExpression<Identifier<S>, S> for RenamingVisitor<'a, S> {
+impl<'a, S: Span> identity_map::Private for RenamingVisitor<'a, S> {}
+impl<'a, S: Span> IdentityMapExpression<Identifier<S>, S> for RenamingVisitor<'a, S> {
     fn visit_var_or_const(&mut self, name: Identifier<S>, span: S) -> Expression<Identifier<S>, S> {
         match self.rename_rules.get_renaming(&name) {
             None => Expression::VarOrConst(name, span),
@@ -276,10 +282,10 @@ impl<'a, S: Clone> IdentityMapExpression<Identifier<S>, S> for RenamingVisitor<'
         }
     }
 }
-impl<S: Clone> Expression<Identifier<S>, S> {
+impl<S: Span> Expression<Identifier<S>, S> {
     pub fn replace_identifiers_by_variable_indices<R>(
         self,
-        variable_manager: &VariableManager<R, S>,
+        variable_manager: &VariableManager<S, R>,
     ) -> Result<Expression<VariableReference, S>, Vec<UnknownVariableError<S>>> {
         let errors = Vec::new();
         let mut replace_visitor: MapVariable<Identifier<S>, VariableReference, _, _> =
@@ -305,11 +311,11 @@ impl<S: Clone> Expression<Identifier<S>, S> {
 }
 
 #[derive(Clone)]
-pub struct UnknownVariableError<S: Clone> {
+pub struct UnknownVariableError<S: Span> {
     pub identifier: Identifier<S>,
 }
 
-impl<V, S: Clone> Expression<V, S> {
+impl<V, S: Span> Expression<V, S> {
     fn fmt_internal<VD: Display, F: Fn(&V) -> VD + Clone>(
         &self,
         f: &mut Formatter<'_>,
@@ -443,8 +449,8 @@ impl<V, S: Clone> Expression<V, S> {
     }
 }
 
-impl<V: std::fmt::Debug, S: Clone> std::fmt::Debug for Expression<V, S> {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+impl<V: std::fmt::Debug, S: Span> std::fmt::Debug for Expression<V, S> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Expression::Int(a, _) => {
                 write!(f, "{}", a)
@@ -530,8 +536,8 @@ impl<V: std::fmt::Debug, S: Clone> std::fmt::Debug for Expression<V, S> {
     }
 }
 
-impl<V, S: Clone> crate::private::Sealed for Expression<V, S> {}
-impl<Ctx, V: Displayable<Ctx>, S: Clone> Displayable<Ctx> for Expression<V, S> {
+impl<V, S: Span> crate::private::Sealed for Expression<V, S> {}
+impl<Ctx, V: Displayable<Ctx>, S: Span> Displayable<Ctx> for Expression<V, S> {
     fn fmt_internal(&self, f: &mut Formatter<'_>, context: &Ctx) -> std::fmt::Result {
         self.fmt_internal(f, 0, |v| format!("{}", v.displayable(context)))
     }

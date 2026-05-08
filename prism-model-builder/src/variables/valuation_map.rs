@@ -1,4 +1,4 @@
-use prism_model::VariableManager;
+use prism_model::{Span, VariableManager};
 
 pub struct ValuationMap {
     entries: Vec<ValuationMapEntry>,
@@ -18,7 +18,7 @@ impl ValuationMap {
             ],
         }
     }
-    pub fn new<S: Clone, E>(variables: &VariableManager<E, S>) -> Self {
+    pub fn new<S: Span, E>(variables: &VariableManager<S, E>) -> Self {
         let mut entries = Vec::new();
 
         let mut variables_count = 0;

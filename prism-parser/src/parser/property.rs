@@ -1,5 +1,5 @@
 use super::{E, expression_parser, identifier_parser};
-use crate::{Span, Token};
+use crate::{ParserSpan, Token};
 use chumsky::Parser;
 use chumsky::input::ValueInput;
 use chumsky::prelude::{Recursive, just};
@@ -12,14 +12,14 @@ pub fn query_parser<'a, 'b, I>() -> impl Parser<
     'a,
     I,
     Query<
-        Expression<Identifier<Span>, Span>,
-        Expression<Identifier<Span>, Span>,
-        Expression<Identifier<Span>, Span>,
+        Expression<Identifier<ParserSpan>, ParserSpan>,
+        Expression<Identifier<ParserSpan>, ParserSpan>,
+        Expression<Identifier<ParserSpan>, ParserSpan>,
     >,
     E<'a>,
 > + Clone
 where
-    I: ValueInput<'a, Token = Token, Span = Span>,
+    I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
     let mut state_formula_parser = Recursive::declare();
     let mut path_formula_parser = Recursive::declare();
@@ -99,7 +99,7 @@ where
 pub fn probability_min_max<'a, 'b, I>()
 -> impl Parser<'a, I, Option<NonDeterminismKind>, E<'a>> + Clone
 where
-    I: ValueInput<'a, Token = Token, Span = Span>,
+    I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
     just(Token::P)
         .map(|_| None)
@@ -110,13 +110,13 @@ pub fn reward_name_and_min_max<'a, 'b, I>() -> impl Parser<
     'a,
     I,
     (
-        Option<prism_model::Identifier<Span>>,
+        Option<prism_model::Identifier<ParserSpan>>,
         Option<NonDeterminismKind>,
     ),
     E<'a>,
 > + Clone
 where
-    I: ValueInput<'a, Token = Token, Span = Span>,
+    I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
     just(Token::R)
         .ignore_then(reward_name())
@@ -132,9 +132,10 @@ where
         .or(just(Token::RMin).map(|_| (None, Some(NonDeterminismKind::Minimise))))
 }
 
-pub fn reward_name<'a, 'b, I>() -> impl Parser<'a, I, prism_model::Identifier<Span>, E<'a>> + Clone
+pub fn reward_name<'a, 'b, I>()
+-> impl Parser<'a, I, prism_model::Identifier<ParserSpan>, E<'a>> + Clone
 where
-    I: ValueInput<'a, Token = Token, Span = Span>,
+    I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
     just(Token::LeftCurlyBracket).ignore_then(
         just(Token::Quote)
@@ -146,7 +147,7 @@ where
 
 pub fn time_min_max<'a, 'b, I>() -> impl Parser<'a, I, Option<NonDeterminismKind>, E<'a>> + Clone
 where
-    I: ValueInput<'a, Token = Token, Span = Span>,
+    I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
     just(Token::T)
         .map(|_| None)
@@ -155,7 +156,7 @@ where
 }
 pub fn lra_min_max<'a, 'b, I>() -> impl Parser<'a, I, Option<NonDeterminismKind>, E<'a>> + Clone
 where
-    I: ValueInput<'a, Token = Token, Span = Span>,
+    I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
     just(Token::LRA)
         .map(|_| None)
@@ -171,9 +172,9 @@ pub fn define_path_formula_parser<
             'a,
             I,
             StateFormula<
-                Expression<Identifier<Span>, Span>,
-                Expression<Identifier<Span>, Span>,
-                Expression<Identifier<Span>, Span>,
+                Expression<Identifier<ParserSpan>, ParserSpan>,
+                Expression<Identifier<ParserSpan>, ParserSpan>,
+                Expression<Identifier<ParserSpan>, ParserSpan>,
             >,
             E<'a>,
         > + Clone,
@@ -183,14 +184,14 @@ pub fn define_path_formula_parser<
     'a,
     I,
     PathFormula<
-        Expression<Identifier<Span>, Span>,
-        Expression<Identifier<Span>, Span>,
-        Expression<Identifier<Span>, Span>,
+        Expression<Identifier<ParserSpan>, ParserSpan>,
+        Expression<Identifier<ParserSpan>, ParserSpan>,
+        Expression<Identifier<ParserSpan>, ParserSpan>,
     >,
     E<'a>,
 > + Clone
 where
-    I: ValueInput<'a, Token = Token, Span = Span>,
+    I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
     let until = state_formula_parser
         .clone()
@@ -247,9 +248,9 @@ pub fn define_state_formula_parser<
             'a,
             I,
             PathFormula<
-                Expression<Identifier<Span>, Span>,
-                Expression<Identifier<Span>, Span>,
-                Expression<Identifier<Span>, Span>,
+                Expression<Identifier<ParserSpan>, ParserSpan>,
+                Expression<Identifier<ParserSpan>, ParserSpan>,
+                Expression<Identifier<ParserSpan>, ParserSpan>,
             >,
             E<'a>,
         > + Clone,
@@ -259,14 +260,14 @@ pub fn define_state_formula_parser<
     'a,
     I,
     StateFormula<
-        Expression<Identifier<Span>, Span>,
-        Expression<Identifier<Span>, Span>,
-        Expression<Identifier<Span>, Span>,
+        Expression<Identifier<ParserSpan>, ParserSpan>,
+        Expression<Identifier<ParserSpan>, ParserSpan>,
+        Expression<Identifier<ParserSpan>, ParserSpan>,
     >,
     E<'a>,
 > + Clone
 where
-    I: ValueInput<'a, Token = Token, Span = Span>,
+    I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
     let expression = expression_parser().map(|e| StateFormula::Expression(e));
 
@@ -298,9 +299,9 @@ where
 }
 
 pub fn bound_parser<'a, 'b, I>()
--> impl Parser<'a, I, Bound<Expression<Identifier<Span>, Span>>, E<'a>> + Clone
+-> impl Parser<'a, I, Bound<Expression<Identifier<ParserSpan>, ParserSpan>>, E<'a>> + Clone
 where
-    I: ValueInput<'a, Token = Token, Span = Span>,
+    I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
     let operator = just(Token::LessThan)
         .map(|_| BoundOperator::LessThan)
@@ -323,9 +324,9 @@ pub fn reward_formula<
             'a,
             I,
             StateFormula<
-                Expression<Identifier<Span>, Span>,
-                Expression<Identifier<Span>, Span>,
-                Expression<Identifier<Span>, Span>,
+                Expression<Identifier<ParserSpan>, ParserSpan>,
+                Expression<Identifier<ParserSpan>, ParserSpan>,
+                Expression<Identifier<ParserSpan>, ParserSpan>,
             >,
             E<'a>,
         > + Clone,
@@ -335,14 +336,14 @@ pub fn reward_formula<
     'a,
     I,
     RewardFormula<
-        Expression<Identifier<Span>, Span>,
-        Expression<Identifier<Span>, Span>,
-        Expression<Identifier<Span>, Span>,
+        Expression<Identifier<ParserSpan>, ParserSpan>,
+        Expression<Identifier<ParserSpan>, ParserSpan>,
+        Expression<Identifier<ParserSpan>, ParserSpan>,
     >,
     E<'a>,
 > + Clone
 where
-    I: ValueInput<'a, Token = Token, Span = Span>,
+    I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
     let instantaneous = just(Token::Instantaneous)
         .ignore_then(just(Token::Equal))

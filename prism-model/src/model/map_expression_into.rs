@@ -1,10 +1,11 @@
+use crate::spans::Span;
 use crate::{
     Assignment, Command, Formula, FormulaManager, Label, LabelManager, Module, ModuleManager,
     Rewards, RewardsElement, RewardsManager, Update, VariableInfo, VariableManager, VariableRange,
 };
 
-impl<A, E, V, S: Clone> super::Model<A, E, V, S> {
-    pub fn map_expressions_into<E2, F: Fn(E) -> E2>(self, f: F) -> super::Model<A, E2, V, S> {
+impl<V, S: Span, E, A> super::Model<V, S, E, A> {
+    pub fn map_expressions_into<E2, F: Fn(E) -> E2>(self, f: F) -> super::Model<V, S, E2, A> {
         let mut variables = Vec::new();
         for variable in self.variable_manager.variables {
             let range = match variable.range {

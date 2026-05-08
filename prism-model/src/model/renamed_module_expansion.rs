@@ -1,7 +1,8 @@
 use crate::module::AddModuleError;
+use crate::spans::Span;
 use crate::{Expression, Identifier, Module};
 
-impl<S: Clone> super::Model<Identifier<S>, Expression<Identifier<S>, S>, Identifier<S>, S> {
+impl<S: Span> super::Model<Identifier<S>, S, Expression<Identifier<S>, S>, Identifier<S>> {
     pub fn expand_renamed_models(&mut self) -> Result<(), ModuleExpansionError<S>> {
         let renamed_modules = std::mem::replace(&mut self.renamed_modules, Vec::new());
         for renamed_module in renamed_modules {
@@ -51,7 +52,7 @@ impl<S: Clone> super::Model<Identifier<S>, Expression<Identifier<S>, S>, Identif
 }
 
 #[derive(Debug, PartialEq)]
-pub enum ModuleExpansionError<S: Clone> {
+pub enum ModuleExpansionError<S: Span> {
     RenamingSourceDoesNotExist {
         old_name: Identifier<S>,
         new_name: Identifier<S>,

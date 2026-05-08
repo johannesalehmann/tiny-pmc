@@ -1,4 +1,5 @@
 use crate::expressions::DefaultMapExpression;
+use crate::spans::Span;
 use crate::{Expression, Formula, FormulaManager, Identifier};
 use std::collections::HashMap;
 
@@ -13,12 +14,12 @@ impl<S> SpannedDependency<S> {
     }
 }
 
-pub struct FormulaCountingVisitor<'a, S: Clone> {
-    formulas: &'a Vec<Formula<Expression<Identifier<S>, S>, S>>,
+pub struct FormulaCountingVisitor<'a, S: Span> {
+    formulas: &'a Vec<Formula<S, Expression<Identifier<S>, S>>>,
     found_formulas: Vec<SpannedDependency<S>>,
 }
 
-impl<'a, S: Clone> DefaultMapExpression<Identifier<S>, S, ()> for FormulaCountingVisitor<'a, S> {
+impl<'a, S: Span> DefaultMapExpression<Identifier<S>, S, ()> for FormulaCountingVisitor<'a, S> {
     fn visit_var_or_const(&mut self, name: Identifier<S>, span: S) -> () {
         for (i, formula) in self.formulas.iter().enumerate() {
             if formula.name == name {
@@ -31,7 +32,7 @@ impl<'a, S: Clone> DefaultMapExpression<Identifier<S>, S, ()> for FormulaCountin
     }
 }
 
-impl<S: Clone> FormulaManager<Expression<Identifier<S>, S>, S> {
+impl<S: Span> FormulaManager<S, Expression<Identifier<S>, S>> {
     pub fn get_spanned_formulas_in_expression(
         &self,
         expression: Expression<Identifier<S>, S>,
@@ -51,8 +52,7 @@ impl<S: Clone> FormulaManager<Expression<Identifier<S>, S>, S> {
     }
 }
 
-impl<S: Clone> FormulaManager<Expression<Identifier<S>, S>, S> {
-    // The S: Clone dependency can be removed by adding a visitor pattern for &Expression and passing &f.condition instead of f.condition.clone() to get_formulas_in_expression
+impl<S: Span> FormulaManager<S, Expression<Identifier<S>, S>> {
     pub fn get_formula_replacement_ordering(&self) -> Result<Vec<usize>, CyclicDependency<S>> {
         let mut dependencies = self
             .formulas
@@ -133,12 +133,12 @@ impl<S: Clone> FormulaManager<Expression<Identifier<S>, S>, S> {
 }
 
 #[derive(Debug, PartialEq)]
-pub struct CyclicDependency<S: Clone> {
+pub struct CyclicDependency<S: Span> {
     pub entries: Vec<CyclicDependencyEntry<S>>,
 }
 
 #[derive(Debug, PartialEq)]
-pub struct CyclicDependencyEntry<S: Clone> {
+pub struct CyclicDependencyEntry<S: Span> {
     pub formula_name: Identifier<S>,
     pub formula_span: S,
     pub dependency_span: S,

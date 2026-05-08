@@ -1,5 +1,5 @@
 use crate::parser::{E, identifier_parser, identifier_parser_potentially_reserved};
-use crate::{Span, Token};
+use crate::{ParserSpan, Token};
 use chumsky::IterParser;
 use chumsky::input::ValueInput;
 use chumsky::prelude::{just, recursive};
@@ -7,9 +7,9 @@ use chumsky::{Parser, select};
 use prism_model::Identifier;
 
 pub fn expression_parser<'a, 'b, I>()
--> impl Parser<'a, I, prism_model::Expression<Identifier<Span>, Span>, E<'a>> + Clone
+-> impl Parser<'a, I, prism_model::Expression<Identifier<ParserSpan>, ParserSpan>, E<'a>> + Clone
 where
-    I: ValueInput<'a, Token = Token, Span = Span>,
+    I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
     use prism_model::Expression;
     recursive(|expr| {

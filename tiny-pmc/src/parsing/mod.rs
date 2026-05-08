@@ -2,10 +2,9 @@ use crate::PrismModel;
 use ariadne::ReportBuilder;
 use ariadne::{Label, Report, ReportKind, Source};
 use chumsky::error::RichPattern;
-use chumsky::span::SimpleSpan;
 use chumsky::util::MaybeRef;
 use prism_model::{InvalidName, ModuleExpansionError};
-use prism_parser::{CharacterToLineMap, PrismParserError, PrismParserValidationError, Span};
+use prism_parser::{CharacterToLineMap, ParserSpan, PrismParserError, PrismParserValidationError};
 use std::ops::Range;
 
 mod constants;
@@ -21,7 +20,7 @@ pub fn parse_model_from_source<'a, P: AsRef<str>>(
     properties: &[P],
 ) -> Result<
     (PrismModel, Vec<crate::PrismQuery>, CharacterToLineMap),
-    Vec<(ErrorSource, PrismParserError<'a, SimpleSpan, String>)>,
+    Vec<(ErrorSource, PrismParserError<'a, ParserSpan, String>)>,
 > {
     let parse_results = prism_parser::parse_prism(source, properties);
     let mut attributed_errors = Vec::new();
@@ -80,7 +79,11 @@ pub fn parse_prism_and_print_errors<P: AsRef<str>>(
     }
 }
 
-fn print_error(file_name: &Option<&str>, source: &str, error: PrismParserError<Span, String>) {
+fn print_error(
+    file_name: &Option<&str>,
+    source: &str,
+    error: PrismParserError<ParserSpan, String>,
+) {
     let file_name = match file_name {
         Some(name) => name,
         None => "input",
@@ -105,10 +108,10 @@ fn print_error(file_name: &Option<&str>, source: &str, error: PrismParserError<S
 
 fn build_expected_found<'a>(
     file_name: &'a str,
-    span: Span,
+    span: ParserSpan,
     expected: &Vec<RichPattern<String>>,
     found: Option<MaybeRef<String>>,
-    contexts: &Vec<(RichPattern<String>, Span)>,
+    contexts: &Vec<(RichPattern<String>, ParserSpan)>,
     help: &Option<String>,
 ) -> ReportBuilder<'a, (&'a str, Range<usize>)> {
     let mut builder = Report::build(ReportKind::Error, (file_name, span.into_range()));
@@ -160,7 +163,7 @@ fn found_message(found: Option<MaybeRef<String>>) -> String {
     }
 }
 
-fn context_message(contexts: &Vec<(RichPattern<String>, Span)>) -> String {
+fn context_message(contexts: &Vec<(RichPattern<String>, ParserSpan)>) -> String {
     let context_message = contexts
         .iter()
         .map(|(pattern, _)| format!("\"{:?}\"", pattern))
@@ -187,7 +190,7 @@ fn pattern_to_string(pattern: &RichPattern<String>) -> String {
 
 fn build_validation(
     file_name: &str,
-    error: PrismParserValidationError<Span>,
+    error: PrismParserValidationError<ParserSpan>,
 ) -> ReportBuilder<'_, (&str, Range<usize>)> {
     match error {
         PrismParserValidationError::UnsupportedModelType { model_type, span } => {
@@ -291,12 +294,12 @@ fn build_validation(
                 InvalidName::Empty => ("Identifier must not be empty", span.into_range(), None),
                 InvalidName::StartsWithNumber { .. } => (
                     "Identifier must not start with number",
-                    span.start..span.start + 1,
+                    span.into_range().start..span.into_range().start + 1,
                     None,
                 ),
                 InvalidName::InvalidCharacter { location, .. } => (
                     "Invalid character",
-                    span.start + location..span.start + location + 1,
+                    span.into_range().start + location..span.into_range().start + location + 1,
                     Some("Valid characters are `A`..`Z`, `a`..`z`, `0`..`9` and `_`."),
                 ),
                 InvalidName::Reserved { .. } => ("Is a reserved keyword", span.into_range(), None),

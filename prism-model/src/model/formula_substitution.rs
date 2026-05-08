@@ -1,7 +1,8 @@
+use crate::spans::Span;
 use crate::{CyclicDependency, Expression, Identifier, IdentityMapExpression, VariableManager};
 
-impl<A, S: Clone> super::Model<A, Expression<Identifier<S>, S>, Identifier<S>, S> {
-    pub fn substitute_formulas(&mut self, default_span: S) -> Result<(), CyclicDependency<S>> {
+impl<S: Span, A> super::Model<Identifier<S>, S, Expression<Identifier<S>, S>, A> {
+    pub fn substitute_formulas(&mut self) -> Result<(), CyclicDependency<S>> {
         let order = self.formulas.get_formula_replacement_ordering()?;
 
         for formula_index in order {
@@ -12,7 +13,7 @@ impl<A, S: Clone> super::Model<A, Expression<Identifier<S>, S>, Identifier<S>, S
             };
 
             let mut replace_expression = |e: &mut Expression<Identifier<S>, S>| {
-                let condition = std::mem::replace(e, Expression::Bool(false, default_span.clone()));
+                let condition = std::mem::replace(e, Expression::Bool(false, S::empty()));
                 *e = condition.visit(&mut visitor);
             };
 
@@ -40,8 +41,8 @@ impl<A, S: Clone> super::Model<A, Expression<Identifier<S>, S>, Identifier<S>, S
                 }
             }
             let mut replace_in_var_defs = |vm: &mut VariableManager<
-                Expression<Identifier<S>, S>,
                 S,
+                Expression<Identifier<S>, S>,
             >| {
                 for variable in &mut vm.variables {
                     if let Some(initial_value) = &mut variable.initial_value {
@@ -62,15 +63,13 @@ impl<A, S: Clone> super::Model<A, Expression<Identifier<S>, S>, Identifier<S>, S
     }
 }
 
-pub struct FormulaSubstitutionVisitor<'a, S: Clone> {
+pub struct FormulaSubstitutionVisitor<'a, S: Span> {
     pub formula_name: &'a Identifier<S>,
-    pub expression: &'a crate::Expression<crate::Identifier<S>, S>,
+    pub expression: &'a Expression<Identifier<S>, S>,
 }
 
-impl<'a, S: Clone> crate::expressions::identity_map::Private for FormulaSubstitutionVisitor<'a, S> {}
-impl<'a, S: Clone> IdentityMapExpression<crate::Identifier<S>, S>
-    for FormulaSubstitutionVisitor<'a, S>
-{
+impl<'a, S: Span> crate::expressions::identity_map::Private for FormulaSubstitutionVisitor<'a, S> {}
+impl<'a, S: Span> IdentityMapExpression<Identifier<S>, S> for FormulaSubstitutionVisitor<'a, S> {
     fn visit_var_or_const(&mut self, name: Identifier<S>, span: S) -> Expression<Identifier<S>, S> {
         if &name == self.formula_name {
             self.expression.clone()

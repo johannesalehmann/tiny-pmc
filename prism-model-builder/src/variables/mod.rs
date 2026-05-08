@@ -15,7 +15,7 @@ use valuation_map::*;
 
 use crate::variables::variable_details::VariableDetails;
 use crate::{ExpressionContext, ModelBuildingError, UserProvidedConstValue};
-use prism_model::{Identifier, Model, VariableRange, VariableReference};
+use prism_model::{Identifier, Model, Span, VariableRange, VariableReference};
 use probabilistic_models::{ContextBuilder, Valuation};
 use std::collections::HashMap;
 
@@ -52,8 +52,8 @@ impl<V: Valuation> ModelVariableInfo<V> {
         }
     }
 
-    pub fn new<S: Clone, E, EC: ExpressionContext<E>>(
-        model: &Model<Identifier<S>, E, VariableReference, S>,
+    pub fn new<S: Span, E, EC: ExpressionContext<E>>(
+        model: &Model<VariableReference, S, E, Identifier<S>>,
         user_provided_consts: &HashMap<String, UserProvidedConstValue>,
         expression_context: &mut EC,
     ) -> Result<Self, ModelBuildingError> {
@@ -78,8 +78,8 @@ impl<V: Valuation> ModelVariableInfo<V> {
         })
     }
 
-    fn prepare_valuation_context<S: Clone, E>(
-        model: &Model<Identifier<S>, E, VariableReference, S>,
+    fn prepare_valuation_context<S: Span, E>(
+        model: &Model<VariableReference, S, E, Identifier<S>>,
         valuation_map: &ValuationMap,
         details: &VariableDetails,
     ) -> V::ContextType {

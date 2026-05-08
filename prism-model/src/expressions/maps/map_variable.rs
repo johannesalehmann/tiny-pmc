@@ -1,3 +1,4 @@
+use crate::spans::Span;
 use crate::{Expression, Identifier, MapExpression};
 use std::marker::PhantomData;
 
@@ -16,7 +17,7 @@ impl<V, V2, C, F: Fn(V, &mut C) -> V2> MapVariable<V, V2, C, F> {
     }
 }
 #[allow(private_bounds)]
-impl<V, V2, C, S: Clone, F: Fn(V, &mut C) -> V2> MapExpression<V, S, Expression<V2, S>>
+impl<V, V2, C, S: Span, F: Fn(V, &mut C) -> V2> MapExpression<V, S, Expression<V2, S>>
     for MapVariable<V, V2, C, F>
 {
     fn visit_int(&mut self, val: i64, span: S) -> Expression<V2, S> {

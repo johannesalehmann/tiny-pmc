@@ -1,22 +1,29 @@
-use crate::{Displayable, Expression, Identifier};
+use crate::spans::{FullSpan, Span};
+use crate::{Displayable, Expression, Identifier, VariableReference};
 use std::fmt::{Display, Formatter};
 
-pub struct RewardsManager<A, E, S: Clone> {
-    pub rewards: Vec<Rewards<A, E, S>>,
+pub type RewardsManagerNamedVars<S: Span = FullSpan, A = Identifier<S>> =
+    RewardsManager<S, Expression<Identifier<S>, S>, A>;
+pub struct RewardsManager<
+    S: Span = FullSpan,
+    E = Expression<VariableReference, S>,
+    A = Identifier<S>,
+> {
+    pub rewards: Vec<Rewards<S, E, A>>,
 }
 
-impl<A, E, S: Clone> RewardsManager<A, E, S> {
+impl<S: Span, E, A> RewardsManager<S, E, A> {
     pub fn new() -> Self {
         Self {
             rewards: Vec::new(),
         }
     }
 
-    pub fn get(&self, index: usize) -> Option<&Rewards<A, E, S>> {
+    pub fn get(&self, index: usize) -> Option<&Rewards<S, E, A>> {
         self.rewards.get(index)
     }
 
-    pub fn add(&mut self, rewards: Rewards<A, E, S>) -> Result<(), AddRewardsError> {
+    pub fn add(&mut self, rewards: Rewards<S, E, A>) -> Result<(), AddRewardsError> {
         for (index, other_rewards) in self.rewards.iter().enumerate() {
             if other_rewards.name == rewards.name {
                 return Err(AddRewardsError::RewardsExist { index });
@@ -27,11 +34,11 @@ impl<A, E, S: Clone> RewardsManager<A, E, S> {
     }
 }
 
-impl<A, V, S: Clone> RewardsManager<A, Expression<V, S>, S> {
-    pub fn map_span<S2: Clone, F: Fn(S) -> S2>(
+impl<V, S: Span, A> RewardsManager<S, Expression<V, S>, A> {
+    pub fn map_span<S2: Span, F: Fn(S) -> S2>(
         self,
         map: &F,
-    ) -> RewardsManager<A, Expression<V, S2>, S2> {
+    ) -> RewardsManager<S2, Expression<V, S2>, A> {
         RewardsManager {
             rewards: self.rewards.into_iter().map(|r| r.map_span(map)).collect(),
         }
@@ -43,13 +50,16 @@ pub enum AddRewardsError {
     RewardsExist { index: usize },
 }
 
-pub struct Rewards<A, E, S: Clone> {
+pub type RewardsNamedVars<S: Span = FullSpan, A = Identifier<S>> =
+    Rewards<S, Expression<Identifier<S>, S>, A>;
+
+pub struct Rewards<S: Span = FullSpan, E = Expression<VariableReference, S>, A = Identifier<S>> {
     pub name: Option<Identifier<S>>,
-    pub entries: Vec<RewardsElement<A, E, S>>,
+    pub entries: Vec<RewardsElement<S, E, A>>,
     pub span: S,
 }
 
-impl<A, E, S: Clone> Rewards<A, E, S> {
+impl<S: Span, E, A> Rewards<S, E, A> {
     pub fn new(name: Option<Identifier<S>>, span: S) -> Self {
         Self {
             name: name.into(),
@@ -59,7 +69,7 @@ impl<A, E, S: Clone> Rewards<A, E, S> {
     }
     pub fn with_entries(
         name: Option<Identifier<S>>,
-        entries: Vec<RewardsElement<A, E, S>>,
+        entries: Vec<RewardsElement<S, E, A>>,
         span: S,
     ) -> Self {
         Self {
@@ -69,8 +79,8 @@ impl<A, E, S: Clone> Rewards<A, E, S> {
         }
     }
 }
-impl<A, V, S: Clone> Rewards<A, Expression<V, S>, S> {
-    pub fn map_span<S2: Clone, F: Fn(S) -> S2>(self, map: &F) -> Rewards<A, Expression<V, S2>, S2> {
+impl<V, S: Span, A> Rewards<S, Expression<V, S>, A> {
+    pub fn map_span<S2: Span, F: Fn(S) -> S2>(self, map: &F) -> Rewards<S2, Expression<V, S2>, A> {
         Rewards {
             name: self.name.map(|i| i.map_span(map)),
             entries: self.entries.into_iter().map(|e| e.map_span(map)).collect(),
@@ -79,8 +89,8 @@ impl<A, V, S: Clone> Rewards<A, Expression<V, S>, S> {
     }
 }
 
-impl<A, E, S: Clone> crate::private::Sealed for Rewards<A, E, S> {}
-impl<Ctx, A: Display, E: Displayable<Ctx>, S: Clone> Displayable<Ctx> for Rewards<A, E, S> {
+impl<S: Span, E, A> crate::private::Sealed for Rewards<S, E, A> {}
+impl<Ctx, S: Span, E: Displayable<Ctx>, A: Display> Displayable<Ctx> for Rewards<S, E, A> {
     fn fmt_internal(&self, f: &mut Formatter<'_>, context: &Ctx) -> std::fmt::Result {
         write!(f, "rewards")?;
         if let Some(name) = &self.name {
@@ -95,7 +105,7 @@ impl<Ctx, A: Display, E: Displayable<Ctx>, S: Clone> Displayable<Ctx> for Reward
 }
 
 #[derive(Clone)]
-pub enum RewardsTarget<A> {
+pub enum RewardsTarget<A = Identifier<FullSpan>> {
     State,
     Action(Option<A>),
 }
@@ -113,14 +123,21 @@ impl<A: Display> Display for RewardsTarget<A> {
     }
 }
 
-pub struct RewardsElement<A, E, S: Clone> {
+pub type RewardsElementNamedVars<S: Span = FullSpan, A = Identifier<S>> =
+    RewardsElement<S, Expression<Identifier<S>, S>, A>;
+
+pub struct RewardsElement<
+    S: Span = FullSpan,
+    E = Expression<VariableReference, S>,
+    A = Identifier<S>,
+> {
     pub condition: E,
     pub value: E,
     pub target: RewardsTarget<A>,
     pub span: S,
 }
 
-impl<A, E, S: Clone> RewardsElement<A, E, S> {
+impl<S: Span, E, A> RewardsElement<S, E, A> {
     pub fn new(condition: E, value: E, span: S) -> Self {
         Self {
             condition,
@@ -146,11 +163,11 @@ impl<A, E, S: Clone> RewardsElement<A, E, S> {
         }
     }
 }
-impl<A, V, S: Clone> RewardsElement<A, Expression<V, S>, S> {
-    pub fn map_span<S2: Clone, F: Fn(S) -> S2>(
+impl<V, S: Span, A> RewardsElement<S, Expression<V, S>, A> {
+    pub fn map_span<S2: Span, F: Fn(S) -> S2>(
         self,
         map: &F,
-    ) -> RewardsElement<A, Expression<V, S2>, S2> {
+    ) -> RewardsElement<S2, Expression<V, S2>, A> {
         RewardsElement {
             condition: self.condition.map_span(map),
             value: self.value.map_span(map),
@@ -160,8 +177,8 @@ impl<A, V, S: Clone> RewardsElement<A, Expression<V, S>, S> {
     }
 }
 
-impl<A, E, S: Clone> crate::private::Sealed for RewardsElement<A, E, S> {}
-impl<Ctx, A: Display, E: Displayable<Ctx>, S: Clone> Displayable<Ctx> for RewardsElement<A, E, S> {
+impl<S: Span, E, A> crate::private::Sealed for RewardsElement<S, E, A> {}
+impl<Ctx, A: Display, E: Displayable<Ctx>, S: Span> Displayable<Ctx> for RewardsElement<S, E, A> {
     fn fmt_internal(&self, f: &mut Formatter<'_>, context: &Ctx) -> std::fmt::Result {
         write!(
             f,

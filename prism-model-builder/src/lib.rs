@@ -15,7 +15,7 @@ use crate::synchronised_actions::{SynchronisedAction, SynchronisedActions};
 use crate::variables::{ConstAndVarValuationSource, ModelVariableInfo};
 use log::info;
 use prism_model::{
-    Command, Expression, Identifier, Model, Update, VariableManager, VariableRange,
+    Command, Expression, Identifier, Model, Span, Update, VariableManager, VariableRange,
     VariableReference,
 };
 use probabilistic_models::probabilistic_properties::Query;
@@ -27,7 +27,7 @@ use probabilistic_models::{DistributionBuilder, Predecessor};
 use std::collections::HashMap;
 
 pub fn build_model<
-    S: Clone,
+    S: Span,
     M: ModelTypes,
     I: Iterator<
         Item = Query<
@@ -37,7 +37,7 @@ pub fn build_model<
         >,
     >,
 >(
-    model: &mut Model<Identifier<S>, Expression<VariableReference, S>, VariableReference, S>,
+    model: &mut Model<VariableReference, S, Expression<VariableReference, S>, Identifier<S>>,
     atomic_propositions: &[Expression<VariableReference, S>],
     properties: I,
     user_provided_consts: &HashMap<String, UserProvidedConstValue>,
@@ -150,7 +150,7 @@ pub struct ExplicitModelBuilder<M: ModelTypes> {
 
 impl<M: ModelTypes> ExplicitModelBuilder<M> {
     fn build_properties<
-        S: Clone,
+        S: Span,
         I: Iterator<
             Item = Query<
                 Expression<VariableReference, S>,
@@ -180,7 +180,7 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
     }
 
     pub fn build_model<
-        S: Clone,
+        S: Span,
         I: Iterator<
             Item = Query<
                 Expression<VariableReference, S>,
@@ -189,12 +189,7 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
             >,
         >,
     >(
-        model: &mut Model<
-            Identifier<S>,
-            Expression<VariableReference, S>,
-            VariableReference,
-            S,
-        >,
+        model: &mut Model<VariableReference, S, Expression<VariableReference, S>, Identifier<S>>,
         atomic_propositions: &[Expression<VariableReference, S>],
         properties: I,
         user_provided_consts: &HashMap<String, UserProvidedConstValue>,
@@ -291,10 +286,10 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
         }
     }
 
-    fn process_state<S: Clone, E, EC: ExpressionContext<E>>(
+    fn process_state<S: Span, E, EC: ExpressionContext<E>>(
         &mut self,
         state: usize,
-        model: &Model<Identifier<S>, E, VariableReference, S>,
+        model: &Model<VariableReference, S, E, Identifier<S>>,
         atomic_propositions: &[E],
         synchronised_actions: &SynchronisedActions,
         expression_context: &mut EC,
@@ -334,12 +329,12 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
         Ok(())
     }
 
-    fn process_nonsynchronised_command<S: Clone, E, EC: ExpressionContext<E>>(
+    fn process_nonsynchronised_command<S: Span, E, EC: ExpressionContext<E>>(
         &mut self,
         state: usize,
-        model: &Model<Identifier<S>, E, VariableReference, S>,
+        model: &Model<VariableReference, S, E, Identifier<S>>,
         action_index: &mut usize,
-        command: &Command<Identifier<S>, E, VariableReference, S>,
+        command: &Command<VariableReference, S, E, Identifier<S>>,
         expression_context: &mut EC,
     ) {
         let valuation = &self.model_in_progress.get_state(state).valuation;
@@ -389,10 +384,10 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
         }
     }
 
-    fn process_synchronising_action<S: Clone, E, EC: ExpressionContext<E>>(
+    fn process_synchronising_action<S: Span, E, EC: ExpressionContext<E>>(
         &mut self,
         state: usize,
-        model: &Model<Identifier<S>, E, VariableReference, S>,
+        model: &Model<VariableReference, S, E, Identifier<S>>,
         action_index: &mut usize,
         synchronised_action: &SynchronisedAction,
         expression_context: &mut EC,
@@ -552,12 +547,12 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
         }
     }
 
-    fn apply_assignments<S: Clone, E, EC: ExpressionContext<E>>(
+    fn apply_assignments<S: Span, E, EC: ExpressionContext<E>>(
         &self,
-        variable_manager: &VariableManager<E, S>,
+        variable_manager: &VariableManager<S, E>,
         valuation: &<M as ModelTypes>::Valuation,
         val_source: &ConstAndVarValuationSource<<M as ModelTypes>::Valuation>,
-        updates: &[&Update<E, VariableReference, S>],
+        updates: &[&Update<VariableReference, S, E>],
         expression_context: &mut EC,
     ) -> <M as ModelTypes>::Valuation {
         let mut new_valuation = valuation.clone();
@@ -605,9 +600,9 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
         new_valuation
     }
 
-    fn create_initial_states<S: Clone, E, EC: ExpressionContext<E>>(
+    fn create_initial_states<S: Span, E, EC: ExpressionContext<E>>(
         &mut self,
-        model: &Model<Identifier<S>, E, VariableReference, S>,
+        model: &Model<VariableReference, S, E, Identifier<S>>,
         expression_context: &mut EC,
     ) -> Result<(), ModelBuildingError> {
         if model.init_constraint.is_some() {
@@ -679,10 +674,10 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
     }
 
     #[allow(unused)]
-    fn print_valuation<S: Clone>(
+    fn print_valuation<S: Span>(
         valuation: &M::Valuation,
         variable_info: &ModelVariableInfo<M::Valuation>,
-        model: &Model<Identifier<S>, Expression<VariableReference, S>, VariableReference, S>,
+        model: &Model<VariableReference, S, Expression<VariableReference, S>, Identifier<S>>,
     ) {
         print!("(");
         let mut first = true;

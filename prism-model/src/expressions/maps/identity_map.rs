@@ -1,10 +1,11 @@
 use crate::expressions::MapExpression;
+use crate::spans::Span;
 use crate::{Expression, Identifier};
 
 pub(crate) trait Private {}
 
 #[allow(private_bounds)]
-pub trait IdentityMapExpression<V, S: Clone>: Private {
+pub trait IdentityMapExpression<V, S: Span>: Private {
     fn visit_int(&mut self, val: i64, span: S) -> Expression<V, S> {
         Expression::Int(val, span)
     }
@@ -157,7 +158,7 @@ pub trait IdentityMapExpression<V, S: Clone>: Private {
     }
 }
 
-impl<V, S: Clone, M: IdentityMapExpression<V, S>> MapExpression<V, S, Expression<V, S>> for M {
+impl<V, S: Span, M: IdentityMapExpression<V, S>> MapExpression<V, S, Expression<V, S>> for M {
     fn visit_int(&mut self, val: i64, span: S) -> Expression<V, S> {
         self.visit_int(val, span)
     }

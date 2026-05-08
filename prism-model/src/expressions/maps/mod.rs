@@ -2,6 +2,7 @@ mod default_map;
 pub use default_map::DefaultMapExpression;
 
 pub mod identity_map;
+use crate::spans::Span;
 pub use identity_map::IdentityMapExpression;
 
 pub mod map_span;
@@ -10,7 +11,7 @@ pub mod map_variable;
 
 use super::{Expression, Identifier};
 
-pub trait MapExpression<V, S: Clone, T> {
+pub trait MapExpression<V, S: Span, T> {
     fn visit_int(&mut self, val: i64, span: S) -> T;
     fn visit_float(&mut self, val: f64, span: S) -> T;
     fn visit_bool(&mut self, val: bool, span: S) -> T;
@@ -36,7 +37,7 @@ pub trait MapExpression<V, S: Clone, T> {
     fn visit_ternary(&mut self, condition: T, left: T, right: T, span: S) -> T;
 }
 
-impl<V, S: Clone> Expression<V, S> {
+impl<V, S: Span> Expression<V, S> {
     pub fn visit<T, M: MapExpression<V, S, T>>(self, m: &mut M) -> T {
         match self {
             Expression::Int(val, s) => m.visit_int(val, s),

@@ -1,12 +1,12 @@
 use super::E;
-use crate::{PrismParserValidationError, Span, Token};
+use crate::{ParserSpan, PrismParserValidationError, Token};
 use chumsky::input::ValueInput;
 use chumsky::{Parser, select};
 
 pub fn identifier_parser<'a, 'b, I>()
--> impl Parser<'a, I, prism_model::Identifier<Span>, E<'a>> + Clone
+-> impl Parser<'a, I, prism_model::Identifier<ParserSpan>, E<'a>> + Clone
 where
-    I: ValueInput<'a, Token = Token, Span = Span>,
+    I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
     (select! {
         Token::Identifier(name) = e => prism_model::Identifier::new::<String>(name.clone(), e.span()),
@@ -18,9 +18,9 @@ where
 }
 
 pub fn identifier_parser_potentially_reserved<'a, 'b, I>()
--> impl Parser<'a, I, prism_model::Identifier<Span>, E<'a>> + Clone
+-> impl Parser<'a, I, prism_model::Identifier<ParserSpan>, E<'a>> + Clone
 where
-    I: ValueInput<'a, Token = Token, Span = Span>,
+    I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
     select! {
         Token::Identifier(name) = e => prism_model::Identifier::new_potentially_reserved::<String>(name.clone(), e.span()),

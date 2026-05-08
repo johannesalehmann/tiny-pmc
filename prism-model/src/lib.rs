@@ -1,65 +1,53 @@
+#![allow(type_alias_bounds)]
+
 mod command;
-pub use command::{Assignment, Command, Update};
+pub use command::{
+    Assignment, AssignmentNamedVars, Command, CommandNamedVars, Update, UpdateNamedVars,
+};
 
 mod expressions;
 pub use expressions::{
-    DefaultMapExpression, Expression, GlobalVariableReference, IdentityMapExpression,
-    MapExpression, VariableScope, UnknownVariableError
+    DefaultMapExpression, Expression, ExpressionNamedVars, GlobalVariableReference,
+    IdentityMapExpression, MapExpression, UnknownVariableError, VariableScope,
 };
 
 mod module;
-pub use module::{AddModuleError, Module, ModuleManager, RenameRule, RenameRules, RenamedModule};
+pub use module::{
+    AddModuleError, Module, ModuleManager, ModuleManagerNamedVars, ModuleNamedVars, RenameRule,
+    RenameRules, RenamedModule,
+};
 
 mod formulas;
 pub use formulas::{
     AddFormulaError, CyclicDependency, CyclicDependencyEntry, Formula, FormulaManager,
+    FormulaManagerNamedVars, FormulaNamedVars,
 };
 
 mod labels;
-pub use labels::{AddLabelError, Label, LabelManager};
+pub use labels::{AddLabelError, Label, LabelManager, LabelManagerNamedVars, LabelNamedVars};
 
 mod model;
-pub use model::{Model, ModelType, ModuleExpansionError};
+pub use model::{Model, ModelNamedVars, ModelType, ModuleExpansionError};
 
 mod rewards;
-pub use rewards::{AddRewardsError, Rewards, RewardsElement, RewardsManager, RewardsTarget};
+pub use rewards::{
+    AddRewardsError, Rewards, RewardsElement, RewardsElementNamedVars, RewardsManager,
+    RewardsManagerNamedVars, RewardsNamedVars, RewardsTarget,
+};
 
 mod variables;
 pub use variables::{
-    VariableAddError, VariableInfo, VariableManager, VariablePrintingStyle, VariableRange,
+    VariableAddError, VariableInfo, VariableInfoNamedVars, VariableManager,
+    VariableManagerNamedVars, VariablePrintingStyle, VariableRange, VariableRangeNamedVars,
     VariableReference,
 };
 
 mod identifier;
 pub use identifier::{Identifier, InvalidName};
 
-use std::fmt::{Display, Formatter};
+mod displayable;
+pub(crate) use displayable::private;
+pub use displayable::{Displayable, DisplayableWithContext};
 
-pub trait Displayable<Ctx>: private::Sealed {
-    fn displayable<'a, 'b>(
-        &'a self,
-        context: &'b Ctx,
-    ) -> DisplayableWithContext<'a, 'b, Self, Ctx> {
-        DisplayableWithContext {
-            element: self,
-            context,
-        }
-    }
-
-    fn fmt_internal(&self, f: &mut Formatter<'_>, context: &Ctx) -> std::fmt::Result;
-}
-
-pub struct DisplayableWithContext<'a, 'b, O: ?Sized + Displayable<Ctx>, Ctx> {
-    element: &'a O,
-    context: &'b Ctx,
-}
-
-mod private {
-    pub trait Sealed {}
-}
-
-impl<O: ?Sized + Displayable<Ctx>, Ctx> Display for DisplayableWithContext<'_, '_, O, Ctx> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        self.element.fmt_internal(f, self.context)
-    }
-}
+mod spans;
+pub use spans::{FullSpan, Span};

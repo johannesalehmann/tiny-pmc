@@ -24,7 +24,7 @@ pub use program::*;
 pub use property::*;
 pub use rewards::*;
 
-pub use super::{Span, Token};
+pub use super::{ParserSpan, Token};
 use chumsky::prelude::*;
 
-pub type E<'a> = extra::Err<crate::PrismParserError<'a, Span, Token>>;
+pub type E<'a> = extra::Err<crate::PrismParserError<'a, ParserSpan, Token>>;

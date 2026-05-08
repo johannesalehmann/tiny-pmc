@@ -1,6 +1,7 @@
 use crate::VariableRange;
+use crate::spans::Span;
 
-impl<A, E, V, S: Clone> super::Model<A, E, V, S> {
+impl<V, S: Span, E, A> super::Model<V, S, E, A> {
     pub fn map_expressions<F: Fn(&mut E)>(&mut self, f: F) {
         for variable in &mut self.variable_manager.variables {
             match &mut variable.range {

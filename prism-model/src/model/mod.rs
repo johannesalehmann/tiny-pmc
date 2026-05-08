@@ -12,30 +12,35 @@ pub use renamed_module_expansion::ModuleExpansionError;
 use crate::formulas::FormulaManager;
 use crate::module::RenamedModule;
 use crate::rewards::RewardsManager;
+use crate::spans::{FullSpan, Span};
 use crate::{
     Displayable, Expression, Identifier, LabelManager, ModuleManager, VariableInfo,
     VariableManager, VariablePrintingStyle, VariableRange, VariableReference,
 };
 use std::fmt::{Display, Formatter};
 
-pub struct Model<A, E, V, S: Clone> {
+pub type ModelNamedVars<S: Span = FullSpan, A = Identifier<S>> =
+    Model<Identifier<S>, S, Expression<Identifier<S>, S>, A>;
+
+pub struct Model<V = VariableReference, S: Span = FullSpan, E = Expression<V, S>, A = Identifier<S>>
+{
     pub model_type: ModelType<S>,
 
-    pub variable_manager: VariableManager<E, S>,
-    pub formulas: FormulaManager<E, S>,
+    pub variable_manager: VariableManager<S, E>,
+    pub formulas: FormulaManager<S, E>,
 
-    pub modules: ModuleManager<A, E, V, S>,
+    pub modules: ModuleManager<V, S, E, A>,
     pub renamed_modules: Vec<RenamedModule<S>>,
 
     pub init_constraint: Option<E>,
 
-    pub labels: LabelManager<E, S>,
-    pub rewards: RewardsManager<A, E, S>,
+    pub labels: LabelManager<S, E>,
+    pub rewards: RewardsManager<S, E, A>,
 
     pub span: S,
 }
 
-impl<A, E, V, S: Clone> Model<A, E, V, S> {
+impl<V, S: Span, E, A> Model<V, S, E, A> {
     pub fn new(model_type: ModelType<S>, span: S) -> Self {
         Self {
             model_type,
@@ -52,13 +57,13 @@ impl<A, E, V, S: Clone> Model<A, E, V, S> {
 
     pub fn from_components(
         model_type: ModelType<S>,
-        variable_manager: VariableManager<E, S>,
-        formulas: FormulaManager<E, S>,
-        modules: ModuleManager<A, E, V, S>,
+        variable_manager: VariableManager<S, E>,
+        formulas: FormulaManager<S, E>,
+        modules: ModuleManager<V, S, E, A>,
         renamed_modules: Vec<RenamedModule<S>>,
         init_constraint: Option<E>,
-        labels: LabelManager<E, S>,
-        rewards: RewardsManager<A, E, S>,
+        labels: LabelManager<S, E>,
+        rewards: RewardsManager<S, E, A>,
         span: S,
     ) -> Self {
         Self {
@@ -74,7 +79,7 @@ impl<A, E, V, S: Clone> Model<A, E, V, S> {
         }
     }
 }
-impl<E, V, S: Clone> Model<crate::Identifier<S>, E, V, S> {
+impl<V, S: Span, E> Model<V, S, E, Identifier<S>> {
     pub fn name_unnamed_actions(&mut self) {
         self.name_unnamed_actions_with_custom_name(|i, _| format!("unnamed_action_{i}"))
     }
@@ -127,11 +132,29 @@ impl<E, V, S: Clone> Model<crate::Identifier<S>, E, V, S> {
     }
 }
 
-impl<A, V, S: Clone> Model<A, Expression<V, S>, V, S> {
-    pub fn map_span<S2: Clone, F: Fn(S) -> S2>(
-        self,
-        map: &F,
-    ) -> Model<A, Expression<V, S2>, V, S2> {
+// TODO: This trait is only used to enable init_statements_to_init_block to work both when `V` is
+//  `Identifier` and when `V` is `VariableReference`. Perhaps we can use some more general mechanism
+//  or expose this trait more broadly?
+pub trait VariableIdentifierProvider<S: Span, E> {
+    fn get_variable_identifier(info: &VariableInfo<S, E>, index: usize) -> Self;
+}
+
+impl<S: Span, E> VariableIdentifierProvider<S, E> for VariableReference {
+    fn get_variable_identifier(info: &VariableInfo<S, E>, index: usize) -> Self {
+        let _ = info;
+        VariableReference::new(index)
+    }
+}
+
+impl<S: Span, E> VariableIdentifierProvider<S, E> for Identifier<S> {
+    fn get_variable_identifier(info: &VariableInfo<S, E>, index: usize) -> Self {
+        let _ = index;
+        info.name.clone()
+    }
+}
+
+impl<V, S: Span, A> Model<V, S, Expression<V, S>, A> {
+    pub fn map_span<S2: Span, F: Fn(S) -> S2>(self, map: &F) -> Model<V, S2, Expression<V, S2>, A> {
         Model {
             model_type: self.model_type.map_span(map),
             variable_manager: self.variable_manager.map_span(map),
@@ -191,35 +214,10 @@ impl<A, V, S: Clone> Model<A, Expression<V, S>, V, S> {
             }
         }
     }
-}
 
-// TODO: This trait is only used to enable init_statements_to_init_block to work both when `V` is
-//  `Identifier` and when `V` is `VariableReference`. Perhaps we can use some more general mechanism
-//  or expose this trait more broadly?
-pub trait VariableIdentifierProvider<E, S: Clone> {
-    fn get_variable_identifier(info: &VariableInfo<E, S>, index: usize) -> Self;
-}
-
-impl<E, S: Clone> VariableIdentifierProvider<E, S> for VariableReference {
-    fn get_variable_identifier(info: &VariableInfo<E, S>, index: usize) -> Self {
-        let _ = info;
-        VariableReference::new(index)
-    }
-}
-
-impl<E, S: Clone> VariableIdentifierProvider<E, S> for Identifier<S> {
-    fn get_variable_identifier(info: &VariableInfo<E, S>, index: usize) -> Self {
-        let _ = index;
-        info.name.clone()
-    }
-}
-
-impl<A, V: VariableIdentifierProvider<Expression<V, S>, S>, S: Clone>
-    Model<A, Expression<V, S>, V, S>
-{
     pub fn init_statements_to_init_block(&mut self)
     where
-        V: Clone,
+        V: Clone + VariableIdentifierProvider<S, Expression<V, S>>,
     {
         // TODO: Fix how new spans are created
         if self.init_constraint.is_some() {
@@ -266,12 +264,12 @@ impl<A, V: VariableIdentifierProvider<Expression<V, S>, S>, S: Clone>
 }
 
 #[derive(Copy, Clone)]
-pub enum ModelType<S> {
+pub enum ModelType<S: Span = FullSpan> {
     Dtmc(S),
     Ctmc(S),
     Mdp(S),
 }
-impl<S> ModelType<S> {
+impl<S: Span> ModelType<S> {
     pub fn get_span(&self) -> &S {
         match self {
             ModelType::Dtmc(s) => s,
@@ -280,7 +278,7 @@ impl<S> ModelType<S> {
         }
     }
 
-    pub fn map_span<S2, F: Fn(S) -> S2>(self, map: &F) -> ModelType<S2> {
+    pub fn map_span<S2: Span, F: Fn(S) -> S2>(self, map: &F) -> ModelType<S2> {
         match self {
             ModelType::Dtmc(span) => ModelType::Dtmc(map(span)),
             ModelType::Ctmc(span) => ModelType::Ctmc(map(span)),
@@ -289,7 +287,7 @@ impl<S> ModelType<S> {
     }
 }
 
-impl<S> Display for ModelType<S> {
+impl<S: Span> Display for ModelType<S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             ModelType::Dtmc(_) => {
@@ -305,9 +303,9 @@ impl<S> Display for ModelType<S> {
     }
 }
 
-impl<A, E, V, S: Clone> crate::private::Sealed for Model<A, E, V, S> {}
-impl<Ctx, A: Display, E: Displayable<Ctx>, V: Displayable<Ctx>, S: Clone> Displayable<Ctx>
-    for Model<A, E, V, S>
+impl<A, E, V, S: Span> crate::private::Sealed for Model<V, S, E, A> {}
+impl<Ctx, A: Display, E: Displayable<Ctx>, V: Displayable<Ctx>, S: Span> Displayable<Ctx>
+    for Model<V, S, E, A>
 {
     fn fmt_internal(&self, f: &mut Formatter<'_>, context: &Ctx) -> std::fmt::Result {
         writeln!(f, "{}", self.model_type)?;
@@ -349,17 +347,15 @@ impl<Ctx, A: Display, E: Displayable<Ctx>, V: Displayable<Ctx>, S: Clone> Displa
     }
 }
 
-impl<A: Display, S: Clone> Display
-    for Model<A, Expression<VariableReference, S>, VariableReference, S>
+impl<S: Span, A: Display> Display
+    for Model<VariableReference, S, Expression<VariableReference, S>, A>
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.displayable(&self.variable_manager).fmt(f)
     }
 }
 
-impl<A: Display, S: Clone> Display
-    for Model<A, Expression<Identifier<S>, S>, Identifier<S>, S>
-{
+impl<S: Span, A: Display> Display for Model<Identifier<S>, S, Expression<Identifier<S>, S>, A> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.displayable(&()).fmt(f)
     }

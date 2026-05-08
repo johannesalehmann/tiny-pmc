@@ -3,24 +3,28 @@ mod formula_dependencies;
 pub use formula_dependencies::*;
 use std::fmt::Formatter;
 
-use crate::{Displayable, Expression, Identifier};
+use crate::spans::{FullSpan, Span};
+use crate::{Displayable, Expression, Identifier, VariableReference};
 
-pub struct FormulaManager<E, S: Clone> {
-    pub formulas: Vec<Formula<E, S>>,
+pub type FormulaManagerNamedVars<S: Span = FullSpan> =
+    FormulaManager<S, Expression<Identifier<S>, S>>;
+
+pub struct FormulaManager<S: Span = FullSpan, E = Expression<VariableReference, S>> {
+    pub formulas: Vec<Formula<S, E>>,
 }
 
-impl<E, S: Clone> FormulaManager<E, S> {
+impl<S: Span, E> FormulaManager<S, E> {
     pub fn new() -> Self {
         Self {
             formulas: Vec::new(),
         }
     }
 
-    pub fn get(&self, index: usize) -> Option<&Formula<E, S>> {
+    pub fn get(&self, index: usize) -> Option<&Formula<S, E>> {
         self.formulas.get(index)
     }
 
-    pub fn add_formula(&mut self, formula: Formula<E, S>) -> Result<(), AddFormulaError> {
+    pub fn add_formula(&mut self, formula: Formula<S, E>) -> Result<(), AddFormulaError> {
         for (index, other_formula) in self.formulas.iter().enumerate() {
             if other_formula.name == formula.name {
                 return Err(AddFormulaError::FormulaExists { index });
@@ -31,19 +35,19 @@ impl<E, S: Clone> FormulaManager<E, S> {
     }
 }
 
-impl<V, S: Clone> FormulaManager<Expression<V, S>, S> {
-    pub fn map_span<S2: Clone, F: Fn(S) -> S2>(
+impl<V, S: Span> FormulaManager<S, Expression<V, S>> {
+    pub fn map_span<S2: Span, F: Fn(S) -> S2>(
         self,
         map: &F,
-    ) -> FormulaManager<Expression<V, S2>, S2> {
+    ) -> FormulaManager<S2, Expression<V, S2>> {
         FormulaManager {
             formulas: self.formulas.into_iter().map(|f| f.map_span(map)).collect(),
         }
     }
 }
 
-impl<E, S: Clone> crate::private::Sealed for FormulaManager<E, S> {}
-impl<Ctx, E: Displayable<Ctx>, S: Clone> Displayable<Ctx> for FormulaManager<E, S> {
+impl<S: Span, E> crate::private::Sealed for FormulaManager<S, E> {}
+impl<Ctx, E: Displayable<Ctx>, S: Span> Displayable<Ctx> for FormulaManager<S, E> {
     fn fmt_internal(&self, f: &mut Formatter<'_>, context: &Ctx) -> std::fmt::Result {
         for formula in &self.formulas {
             writeln!(f, "{}", formula.displayable(context))?;
@@ -60,13 +64,14 @@ pub enum AddFormulaError {
     FormulaExists { index: usize },
 }
 
-pub struct Formula<E, S: Clone> {
+pub type FormulaNamedVars<S: Span> = Formula<S, Expression<Identifier<S>, S>>;
+pub struct Formula<S: Span, E = Expression<VariableReference, S>> {
     pub name: Identifier<S>,
     pub condition: E,
     pub span: S,
 }
 
-impl<E, S: Clone> Formula<E, S> {
+impl<S: Span, E> Formula<S, E> {
     pub fn new(name: Identifier<S>, condition: E, span: S) -> Self {
         Self {
             name,
@@ -76,8 +81,8 @@ impl<E, S: Clone> Formula<E, S> {
     }
 }
 
-impl<V, S: Clone> Formula<Expression<V, S>, S> {
-    pub fn map_span<S2: Clone, F: Fn(S) -> S2>(self, map: &F) -> Formula<Expression<V, S2>, S2> {
+impl<S: Span, V> Formula<S, Expression<V, S>> {
+    pub fn map_span<S2: Span, F: Fn(S) -> S2>(self, map: &F) -> Formula<S2, Expression<V, S2>> {
         Formula {
             name: self.name.map_span(map),
             condition: self.condition.map_span(&map),
@@ -86,8 +91,8 @@ impl<V, S: Clone> Formula<Expression<V, S>, S> {
     }
 }
 
-impl<E, S: Clone> crate::private::Sealed for Formula<E, S> {}
-impl<Ctx, E: Displayable<Ctx>, S: Clone> Displayable<Ctx> for Formula<E, S> {
+impl<S: Span, E> crate::private::Sealed for Formula<S, E> {}
+impl<Ctx, S: Span, E: Displayable<Ctx>> Displayable<Ctx> for Formula<S, E> {
     fn fmt_internal(&self, f: &mut Formatter<'_>, context: &Ctx) -> std::fmt::Result {
         write!(
             f,

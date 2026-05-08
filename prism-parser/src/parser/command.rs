@@ -1,5 +1,5 @@
 use crate::parser::{E, expression_parser, identifier_parser};
-use crate::{Span, Token};
+use crate::{ParserSpan, Token};
 use chumsky::IterParser;
 use chumsky::Parser;
 use chumsky::input::ValueInput;
@@ -10,15 +10,15 @@ pub fn command_parser<'a, 'b, I>() -> impl Parser<
     'a,
     I,
     prism_model::Command<
-        Identifier<Span>,
-        Expression<Identifier<Span>, Span>,
-        Identifier<Span>,
-        Span,
+        Identifier<ParserSpan>,
+        ParserSpan,
+        Expression<Identifier<ParserSpan>, ParserSpan>,
+        Identifier<ParserSpan>,
     >,
     E<'a>,
 >
 where
-    I: ValueInput<'a, Token = Token, Span = Span>,
+    I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
     let action_parser = just(Token::LeftSqBracket)
         .ignore_then(identifier_parser().or_not())
@@ -53,11 +53,15 @@ where
 fn update_parser<'a, 'b, I>() -> impl Parser<
     'a,
     I,
-    prism_model::Update<Expression<Identifier<Span>, Span>, Identifier<Span>, Span>,
+    prism_model::Update<
+        Identifier<ParserSpan>,
+        ParserSpan,
+        Expression<Identifier<ParserSpan>, ParserSpan>,
+    >,
     E<'a>,
 >
 where
-    I: ValueInput<'a, Token = Token, Span = Span>,
+    I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
     expression_parser()
         .then_ignore(just(Token::Colon))
@@ -78,11 +82,15 @@ where
 fn assignment_parser<'a, 'b, I>() -> impl Parser<
     'a,
     I,
-    prism_model::Assignment<Expression<Identifier<Span>, Span>, Identifier<Span>, Span>,
+    prism_model::Assignment<
+        Identifier<ParserSpan>,
+        ParserSpan,
+        Expression<Identifier<ParserSpan>, ParserSpan>,
+    >,
     E<'a>,
 >
 where
-    I: ValueInput<'a, Token = Token, Span = Span>,
+    I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
     just(Token::LeftBracket)
         .ignore_then(identifier_parser())

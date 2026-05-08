@@ -49,7 +49,7 @@ macro_rules! test_expr {
         #[test]
         fn [<$name _stack_based_expression>]() {
             let expression = $ex;
-            let variable_manager: VariableManager<StackBasedExpression<VariableReference>, ()> = VariableManager::new();
+            let variable_manager: VariableManager<(), StackBasedExpression<VariableReference>> = VariableManager::new();
             let stack_based_expression = StackBasedExpression::from_expression(&expression, &variable_manager);
             let value = stack_based_expression.[<evaluate_as_ $expected_type>](&MockValueSource {});
             assert_eq!(

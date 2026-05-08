@@ -1,14 +1,18 @@
 use super::{E, expression_parser, identifier_parser};
-use crate::{Span, Token};
+use crate::{ParserSpan, Token};
 use chumsky::Parser;
 use chumsky::input::ValueInput;
 use chumsky::prelude::just;
 use prism_model::{Expression, Identifier};
 
-pub fn label_parser<'a, 'b, I>()
--> impl Parser<'a, I, prism_model::Label<Expression<Identifier<Span>, Span>, Span>, E<'a>>
+pub fn label_parser<'a, 'b, I>() -> impl Parser<
+    'a,
+    I,
+    prism_model::Label<ParserSpan, Expression<Identifier<ParserSpan>, ParserSpan>>,
+    E<'a>,
+>
 where
-    I: ValueInput<'a, Token = Token, Span = Span>,
+    I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
     just(Token::Label)
         .ignore_then(identifier_parser().delimited_by(just(Token::Quote), just(Token::Quote)))

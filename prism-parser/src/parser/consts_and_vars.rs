@@ -1,14 +1,18 @@
 use super::{E, expression_parser, identifier_parser};
-use crate::{PrismParserValidationError, Span, Token};
+use crate::{ParserSpan, PrismParserValidationError, Token};
 use chumsky::Parser;
 use chumsky::input::ValueInput;
 use chumsky::prelude::just;
 use prism_model::{Expression, Identifier, VariableInfo};
 
-pub fn const_parser<'a, 'b, I>()
--> impl Parser<'a, I, prism_model::VariableInfo<Expression<Identifier<Span>, Span>, Span>, E<'a>>
+pub fn const_parser<'a, 'b, I>() -> impl Parser<
+    'a,
+    I,
+    prism_model::VariableInfo<ParserSpan, Expression<Identifier<ParserSpan>, ParserSpan>>,
+    E<'a>,
+>
 where
-    I: ValueInput<'a, Token = Token, Span = Span>,
+    I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
     just(Token::Const)
         .ignore_then(variable_domain_parser().or_not().map_with(|t, e| {
@@ -38,10 +42,14 @@ where
         .labelled("constant")
         .as_context()
 }
-pub fn global_variable_declaration_parser<'a, 'b, I>()
--> impl Parser<'a, I, prism_model::VariableInfo<Expression<Identifier<Span>, Span>, Span>, E<'a>>
+pub fn global_variable_declaration_parser<'a, 'b, I>() -> impl Parser<
+    'a,
+    I,
+    prism_model::VariableInfo<ParserSpan, Expression<Identifier<ParserSpan>, ParserSpan>>,
+    E<'a>,
+>
 where
-    I: ValueInput<'a, Token = Token, Span = Span>,
+    I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
     let init_parser = just(Token::Init).ignore_then(expression_parser());
     just(Token::Global)
@@ -64,10 +72,14 @@ where
         .as_context()
 }
 
-pub fn variable_declaration_parser<'a, 'b, I>()
--> impl Parser<'a, I, prism_model::VariableInfo<Expression<Identifier<Span>, Span>, Span>, E<'a>>
+pub fn variable_declaration_parser<'a, 'b, I>() -> impl Parser<
+    'a,
+    I,
+    prism_model::VariableInfo<ParserSpan, Expression<Identifier<ParserSpan>, ParserSpan>>,
+    E<'a>,
+>
 where
-    I: ValueInput<'a, Token = Token, Span = Span>,
+    I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
     let init_parser = just(Token::Init).ignore_then(expression_parser());
     identifier_parser()
@@ -83,10 +95,14 @@ where
         .as_context()
 }
 
-fn variable_domain_parser<'a, 'b, I>()
--> impl Parser<'a, I, prism_model::VariableRange<Expression<Identifier<Span>, Span>, Span>, E<'a>>
+fn variable_domain_parser<'a, 'b, I>() -> impl Parser<
+    'a,
+    I,
+    prism_model::VariableRange<ParserSpan, Expression<Identifier<ParserSpan>, ParserSpan>>,
+    E<'a>,
+>
 where
-    I: ValueInput<'a, Token = Token, Span = Span>,
+    I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
     let range_parser = just(Token::LeftSqBracket)
         .ignore_then(

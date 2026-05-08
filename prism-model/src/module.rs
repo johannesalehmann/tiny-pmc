@@ -1,18 +1,29 @@
-use crate::{Command, Displayable, Expression, Identifier, VariableManager, VariablePrintingStyle};
+use crate::spans::{FullSpan, Span};
+use crate::{
+    Command, Displayable, Expression, Identifier, VariableManager, VariablePrintingStyle,
+    VariableReference,
+};
 use std::fmt::{Display, Formatter};
 
-pub struct ModuleManager<A, E, V, S: Clone> {
-    pub modules: Vec<Module<A, E, V, S>>,
+pub type ModuleManagerNamedVars<S: Span = FullSpan, A = Identifier<S>> =
+    ModuleManager<Identifier<S>, S, Expression<Identifier<S>, S>, A>;
+pub struct ModuleManager<
+    V = VariableReference,
+    S: Span = FullSpan,
+    E = Expression<V, S>,
+    A = Identifier<S>,
+> {
+    pub modules: Vec<Module<V, S, E, A>>,
 }
 
-impl<A, E, V, S: Clone> ModuleManager<A, E, V, S> {
+impl<V, S: Span, E, A> ModuleManager<V, S, E, A> {
     pub fn new() -> Self {
         Self {
             modules: Vec::new(),
         }
     }
 
-    pub fn get(&self, index: usize) -> Option<&Module<A, E, V, S>> {
+    pub fn get(&self, index: usize) -> Option<&Module<V, S, E, A>> {
         self.modules.get(index)
     }
 
@@ -24,11 +35,11 @@ impl<A, E, V, S: Clone> ModuleManager<A, E, V, S> {
             .map(|(i, _)| i)
     }
 
-    pub fn get_by_name(&self, name: &Identifier<S>) -> Option<&Module<A, E, V, S>> {
+    pub fn get_by_name(&self, name: &Identifier<S>) -> Option<&Module<V, S, E, A>> {
         self.modules.iter().find(|m| &m.name == name)
     }
 
-    pub fn add(&mut self, module: Module<A, E, V, S>) -> Result<usize, AddModuleError> {
+    pub fn add(&mut self, module: Module<V, S, E, A>) -> Result<usize, AddModuleError> {
         for (index, other_module) in self.modules.iter().enumerate() {
             if other_module.name == module.name {
                 return Err(AddModuleError::ModuleExists { index });
@@ -39,11 +50,11 @@ impl<A, E, V, S: Clone> ModuleManager<A, E, V, S> {
         Ok(index)
     }
 }
-impl<A, V, S: Clone> ModuleManager<A, Expression<V, S>, V, S> {
-    pub fn map_span<S2: Clone, F: Fn(S) -> S2>(
+impl<V, S: Span, A> ModuleManager<V, S, Expression<V, S>, A> {
+    pub fn map_span<S2: Span, F: Fn(S) -> S2>(
         self,
         map: &F,
-    ) -> ModuleManager<A, Expression<V, S2>, V, S2> {
+    ) -> ModuleManager<V, S2, Expression<V, S2>, A> {
         let mut module_manager = ModuleManager {
             modules: Vec::with_capacity(self.modules.len()),
         };
@@ -60,13 +71,20 @@ pub enum AddModuleError {
     ModuleExists { index: usize },
 }
 
-pub struct Module<A, E, V, S: Clone> {
+pub type ModuleNamedVars<S: Span = FullSpan, A = Identifier<S>> =
+    Module<Identifier<S>, S, Expression<Identifier<S>, S>, A>;
+pub struct Module<
+    V = VariableReference,
+    S: Span = FullSpan,
+    E = Expression<V, S>,
+    A = Identifier<S>,
+> {
     pub name: Identifier<S>,
-    pub commands: Vec<Command<A, E, V, S>>,
+    pub commands: Vec<Command<V, S, E, A>>,
     pub span: S,
 }
 
-impl<A, E, V, S: Clone> Module<A, E, V, S> {
+impl<V, S: Span, E, A> Module<V, S, E, A> {
     pub fn new(name: Identifier<S>, span: S) -> Self {
         Self {
             name,
@@ -75,11 +93,11 @@ impl<A, E, V, S: Clone> Module<A, E, V, S> {
         }
     }
 }
-impl<A, V, S: Clone> Module<A, Expression<V, S>, V, S> {
-    pub fn map_span<S2: Clone, F: Fn(S) -> S2>(
+impl<V, S: Span, A> Module<V, S, Expression<V, S>, A> {
+    pub fn map_span<S2: Span, F: Fn(S) -> S2>(
         self,
         map: &F,
-    ) -> Module<A, Expression<V, S2>, V, S2> {
+    ) -> Module<V, S2, Expression<V, S2>, A> {
         Module {
             name: self.name.map_span(map),
             commands: self.commands.into_iter().map(|c| c.map_span(map)).collect(),
@@ -88,14 +106,14 @@ impl<A, V, S: Clone> Module<A, Expression<V, S>, V, S> {
     }
 }
 
-impl<A, E, V, S: Clone> crate::private::Sealed for Module<A, E, V, S> {}
-impl<'a, 'b, Ctx, A: Display, E: Displayable<Ctx>, V: Displayable<Ctx>, S: Clone>
-    Displayable<(usize, &VariableManager<E, S>, &Ctx)> for Module<A, E, V, S>
+impl<V, S: Span, E, A> crate::private::Sealed for Module<V, S, E, A> {}
+impl<'a, 'b, Ctx, V: Displayable<Ctx>, S: Span, E: Displayable<Ctx>, A: Display>
+    Displayable<(usize, &VariableManager<S, E>, &Ctx)> for Module<V, S, E, A>
 {
     fn fmt_internal(
         &self,
         f: &mut Formatter<'_>,
-        (own_index, variable_manager, context): &(usize, &VariableManager<E, S>, &Ctx),
+        (own_index, variable_manager, context): &(usize, &VariableManager<S, E>, &Ctx),
     ) -> std::fmt::Result {
         writeln!(f, "module {}", self.name)?;
         write!(
@@ -116,14 +134,14 @@ impl<'a, 'b, Ctx, A: Display, E: Displayable<Ctx>, V: Displayable<Ctx>, S: Clone
 }
 
 #[derive(Clone)]
-pub struct RenamedModule<S: Clone> {
+pub struct RenamedModule<S: Span = FullSpan> {
     pub old_name: Identifier<S>,
     pub new_name: Identifier<S>,
     pub rename_rules: RenameRules<S>,
     pub span: S,
 }
 
-impl<S: Clone> RenamedModule<S> {
+impl<S: Span> RenamedModule<S> {
     pub fn new(
         old_name: Identifier<S>,
         new_name: Identifier<S>,
@@ -138,7 +156,7 @@ impl<S: Clone> RenamedModule<S> {
         }
     }
 
-    pub fn map_span<S2: Clone, F: Fn(S) -> S2>(self, map: &F) -> RenamedModule<S2> {
+    pub fn map_span<S2: Span, F: Fn(S) -> S2>(self, map: &F) -> RenamedModule<S2> {
         RenamedModule {
             old_name: self.old_name.map_span(map),
             new_name: self.new_name.map_span(map),
@@ -155,7 +173,7 @@ impl<S: Clone> RenamedModule<S> {
     }
 }
 
-impl<S: Clone> Display for RenamedModule<S> {
+impl<S: Span> Display for RenamedModule<S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "module {} = {} [", self.new_name, self.old_name)?;
         let mut is_first = true;
@@ -171,11 +189,11 @@ impl<S: Clone> Display for RenamedModule<S> {
 }
 
 #[derive(Clone)]
-pub struct RenameRules<S: Clone> {
+pub struct RenameRules<S: Span> {
     pub rules: Vec<RenameRule<S>>,
 }
 
-impl<S: Clone> RenameRules<S> {
+impl<S: Span> RenameRules<S> {
     pub fn new() -> Self {
         Self { rules: Vec::new() }
     }
@@ -191,12 +209,12 @@ impl<S: Clone> RenameRules<S> {
 }
 
 #[derive(Clone)]
-pub struct RenameRule<S: Clone> {
+pub struct RenameRule<S: Span> {
     pub old_name: Identifier<S>,
     pub new_name: Identifier<S>,
     pub span: S,
 }
-impl<S: Clone> RenameRule<S> {
+impl<S: Span> RenameRule<S> {
     pub fn new(old_name: Identifier<S>, new_name: Identifier<S>, span: S) -> Self {
         Self {
             old_name,
@@ -205,7 +223,7 @@ impl<S: Clone> RenameRule<S> {
         }
     }
 
-    pub fn map_span<S2: Clone, F: Fn(S) -> S2>(self, map: &F) -> RenameRule<S2> {
+    pub fn map_span<S2: Span, F: Fn(S) -> S2>(self, map: &F) -> RenameRule<S2> {
         RenameRule {
             old_name: self.old_name.map_span(map),
             new_name: self.new_name.map_span(map),
@@ -213,7 +231,7 @@ impl<S: Clone> RenameRule<S> {
         }
     }
 }
-impl<S: Clone> Display for RenameRule<S> {
+impl<S: Span> Display for RenameRule<S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{} = {}", self.old_name, self.new_name)
     }

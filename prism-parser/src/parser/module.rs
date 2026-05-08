@@ -1,5 +1,5 @@
 use super::{E, command_parser, identifier_parser, variable_declaration_parser};
-use crate::{PrismParserError, Span, Token};
+use crate::{ParserSpan, PrismParserError, Token};
 use chumsky::IterParser;
 use chumsky::Parser;
 use chumsky::input::ValueInput;
@@ -11,17 +11,17 @@ pub fn module_parser<'a, 'b, I>() -> impl Parser<
     I,
     (
         prism_model::Module<
-            Identifier<Span>,
-            Expression<Identifier<Span>, Span>,
-            Identifier<Span>,
-            Span,
+            Identifier<ParserSpan>,
+            ParserSpan,
+            Expression<Identifier<ParserSpan>, ParserSpan>,
+            Identifier<ParserSpan>,
         >,
-        Vec<VariableInfo<Expression<Identifier<Span>, Span>, Span>>,
+        Vec<VariableInfo<ParserSpan, Expression<Identifier<ParserSpan>, ParserSpan>>>,
     ),
     E<'a>,
 >
 where
-    I: ValueInput<'a, Token = Token, Span = Span>,
+    I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
     just(Token::Module)
         .ignore_then(identifier_parser())
@@ -35,18 +35,18 @@ where
 }
 
 fn create_module_from_name_and_elements(
-    name: Identifier<Span>,
+    name: Identifier<ParserSpan>,
     module_elements: Vec<ModuleElement>,
-    span: Span,
-    _emitter: &mut chumsky::input::Emitter<PrismParserError<Span, Token>>,
+    span: ParserSpan,
+    _emitter: &mut chumsky::input::Emitter<PrismParserError<ParserSpan, Token>>,
 ) -> (
     prism_model::Module<
-        Identifier<Span>,
-        Expression<Identifier<Span>, Span>,
-        Identifier<Span>,
-        Span,
+        Identifier<ParserSpan>,
+        ParserSpan,
+        Expression<Identifier<ParserSpan>, ParserSpan>,
+        Identifier<ParserSpan>,
     >,
-    Vec<VariableInfo<Expression<Identifier<Span>, Span>, Span>>,
+    Vec<VariableInfo<ParserSpan, Expression<Identifier<ParserSpan>, ParserSpan>>>,
 ) {
     let mut module = prism_model::Module::new(name, span);
     let mut variables = Vec::new();
@@ -66,9 +66,9 @@ fn create_module_from_name_and_elements(
 }
 
 pub fn renamed_module_parser<'a, 'b, I>()
--> impl Parser<'a, I, prism_model::RenamedModule<Span>, E<'a>>
+-> impl Parser<'a, I, prism_model::RenamedModule<ParserSpan>, E<'a>>
 where
-    I: ValueInput<'a, Token = Token, Span = Span>,
+    I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
     just(Token::Module)
         .ignore_then(identifier_parser())
@@ -96,9 +96,9 @@ where
         .as_context()
 }
 
-fn rename_rule_parser<'a, 'b, I>() -> impl Parser<'a, I, prism_model::RenameRule<Span>, E<'a>>
+fn rename_rule_parser<'a, 'b, I>() -> impl Parser<'a, I, prism_model::RenameRule<ParserSpan>, E<'a>>
 where
-    I: ValueInput<'a, Token = Token, Span = Span>,
+    I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
     identifier_parser()
         .then_ignore(just(Token::Equal))
@@ -113,18 +113,18 @@ where
 enum ModuleElement {
     Command(
         prism_model::Command<
-            Identifier<Span>,
-            Expression<Identifier<Span>, Span>,
-            Identifier<Span>,
-            Span,
+            Identifier<ParserSpan>,
+            ParserSpan,
+            Expression<Identifier<ParserSpan>, ParserSpan>,
+            Identifier<ParserSpan>,
         >,
     ),
-    Variable(prism_model::VariableInfo<Expression<Identifier<Span>, Span>, Span>),
+    Variable(prism_model::VariableInfo<ParserSpan, Expression<Identifier<ParserSpan>, ParserSpan>>),
 }
 
 fn module_element_parser<'a, 'b, I>() -> impl Parser<'a, I, ModuleElement, E<'a>>
 where
-    I: ValueInput<'a, Token = Token, Span = Span>,
+    I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
     command_parser()
         .map(|c| ModuleElement::Command(c))

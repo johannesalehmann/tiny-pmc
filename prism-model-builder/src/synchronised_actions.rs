@@ -1,4 +1,4 @@
-use prism_model::{Identifier, Model, VariableReference};
+use prism_model::{Identifier, Model, Span, VariableReference};
 use std::collections::HashMap;
 
 pub struct SynchronisedActions {
@@ -25,9 +25,7 @@ pub struct SynchronisedActionModule {
 }
 
 impl SynchronisedActions {
-    pub fn from_prism<S: Clone, E>(
-        model: &Model<Identifier<S>, E, VariableReference, S>,
-    ) -> Self {
+    pub fn from_prism<S: Span, E>(model: &Model<VariableReference, S, E, Identifier<S>>) -> Self {
         let mut actions: HashMap<String, SynchronisedAction> = HashMap::new();
 
         for (module_index, module) in model.modules.modules.iter().enumerate() {

@@ -1,6 +1,6 @@
 use crate::expressions::ValuationSource;
 use crate::{ExpressionContext, UserProvidedConstValue};
-use prism_model::{VariableManager, VariableReference};
+use prism_model::{Span, VariableManager, VariableReference};
 use std::collections::HashMap;
 
 pub struct ConstValuations {
@@ -19,8 +19,8 @@ impl ConstValuations {
         }
     }
 
-    pub fn new<S: Clone, E, EC: ExpressionContext<E>>(
-        variables: &VariableManager<E, S>,
+    pub fn new<S: Span, E, EC: ExpressionContext<E>>(
+        variables: &VariableManager<S, E>,
         user_provided_consts: &HashMap<String, UserProvidedConstValue>,
         expression_context: &mut EC,
     ) -> Self {
@@ -38,10 +38,10 @@ impl ConstValuations {
         Self { valuations }
     }
 
-    fn compute_initial_const_value<S: Clone, E, EC: ExpressionContext<E>>(
-        variables: &VariableManager<E, S>,
+    fn compute_initial_const_value<S: Span, E, EC: ExpressionContext<E>>(
+        variables: &VariableManager<S, E>,
         user_provided_consts: &HashMap<String, UserProvidedConstValue>,
-        var: &prism_model::VariableInfo<E, S>,
+        var: &prism_model::VariableInfo<S, E>,
         expression_context: &mut EC,
     ) -> ConstValuation {
         if let Some(value) = user_provided_consts.get(&var.name.name) {
@@ -56,8 +56,8 @@ impl ConstValuations {
         }
     }
 
-    fn process_user_initial_value<S: Clone, E>(
-        var: &prism_model::VariableInfo<E, S>,
+    fn process_user_initial_value<S: Span, E>(
+        var: &prism_model::VariableInfo<S, E>,
         value: &UserProvidedConstValue,
     ) -> ConstValuation {
         use crate::VariableRange;
@@ -78,10 +78,10 @@ impl ConstValuations {
         }
     }
 
-    fn evaluate_initial_expression<S: Clone, E, EC: ExpressionContext<E>>(
-        variables: &VariableManager<E, S>,
+    fn evaluate_initial_expression<S: Span, E, EC: ExpressionContext<E>>(
+        variables: &VariableManager<S, E>,
         user_provided_consts: &HashMap<String, UserProvidedConstValue>,
-        var: &prism_model::VariableInfo<E, S>,
+        var: &prism_model::VariableInfo<S, E>,
         expression_context: &mut EC,
     ) -> ConstValuation {
         let value_source =
@@ -145,17 +145,17 @@ impl ConstValuation {
     }
 }
 
-struct ConstRecursiveEvaluator<'a, 'b, 'c, S: Clone, E, EC: ExpressionContext<E>> {
-    variables: &'a VariableManager<E, S>,
+struct ConstRecursiveEvaluator<'a, 'b, 'c, S: Span, E, EC: ExpressionContext<E>> {
+    variables: &'a VariableManager<S, E>,
     const_values: &'b HashMap<String, UserProvidedConstValue>,
     expression_context: &'c EC,
 }
 
-impl<'a, 'b, 'c, S: Clone, E, EC: ExpressionContext<E>>
+impl<'a, 'b, 'c, S: Span, E, EC: ExpressionContext<E>>
     ConstRecursiveEvaluator<'a, 'b, 'c, S, E, EC>
 {
     pub fn new(
-        variables: &'a VariableManager<E, S>,
+        variables: &'a VariableManager<S, E>,
         const_values: &'b HashMap<String, UserProvidedConstValue>,
         expression_context: &'c EC,
     ) -> Self {
@@ -167,7 +167,7 @@ impl<'a, 'b, 'c, S: Clone, E, EC: ExpressionContext<E>>
     }
 }
 
-impl<'a, 'b, 'c, S: Clone, E, EC: ExpressionContext<E>> ValuationSource
+impl<'a, 'b, 'c, S: Span, E, EC: ExpressionContext<E>> ValuationSource
     for ConstRecursiveEvaluator<'a, 'b, 'c, S, E, EC>
 {
     fn get_int(&self, index: VariableReference) -> i64 {

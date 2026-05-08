@@ -1,34 +1,35 @@
 use crate::Displayable;
 use crate::module::RenameRules;
+use crate::spans::Span;
 use std::fmt::{Display, Formatter};
 
 #[derive(Clone)]
-pub struct Identifier<S: Clone> {
+pub struct Identifier<S: Span> {
     pub name: String,
     pub span: S,
 }
 
-impl<S: Clone> std::fmt::Debug for Identifier<S> {
+impl<S: Span> std::fmt::Debug for Identifier<S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.name)
     }
 }
 
-impl<S: Clone> Display for Identifier<S> {
+impl<S: Span> Display for Identifier<S> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.name)
     }
 }
 
-impl<S: Clone> crate::private::Sealed for Identifier<S> {}
-impl<S: Clone> Displayable<()> for Identifier<S> {
+impl<S: Span> crate::private::Sealed for Identifier<S> {}
+impl<S: Span> Displayable<()> for Identifier<S> {
     fn fmt_internal(&self, f: &mut Formatter<'_>, context: &()) -> std::fmt::Result {
         let _ = context;
         self.fmt(f)
     }
 }
 
-impl<S: Clone> Identifier<S> {
+impl<S: Span> Identifier<S> {
     const RESERVED_NAMES: &'static [&'static str] = &[
         "A",
         "bool",
@@ -136,7 +137,7 @@ impl<S: Clone> Identifier<S> {
         Ok(Self { name, span })
     }
 
-    pub fn map_span<S2: Clone, F: Fn(S) -> S2>(self, map: &F) -> Identifier<S2> {
+    pub fn map_span<S2: Span, F: Fn(S) -> S2>(self, map: &F) -> Identifier<S2> {
         Identifier {
             name: self.name,
             span: map(self.span),
@@ -147,7 +148,7 @@ impl<S: Clone> Identifier<S> {
     }
 }
 
-impl<S: Clone> PartialEq for Identifier<S> {
+impl<S: Span> PartialEq for Identifier<S> {
     fn eq(&self, other: &Self) -> bool {
         self.name == other.name
     }

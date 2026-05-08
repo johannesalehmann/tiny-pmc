@@ -1,5 +1,5 @@
 use crate::expressions::{ValuationSource, VariableType};
-use prism_model::{Expression, Identifier, VariableReference};
+use prism_model::{Expression, Identifier, Span, VariableReference};
 use std::ops::{Add, Div, Mul, Sub};
 
 pub struct TreeWalkingEvaluator {}
@@ -9,7 +9,7 @@ impl TreeWalkingEvaluator {
         Self {}
     }
 
-    fn evaluate<V: ValuationSource, S: Clone>(
+    fn evaluate<V: ValuationSource, S: Span>(
         &self,
         expression: &Expression<VariableReference, S>,
         valuations: &V,
@@ -120,7 +120,7 @@ impl TreeWalkingEvaluator {
         }
     }
 
-    fn evaluate_function<V: ValuationSource, S: Clone>(
+    fn evaluate_function<V: ValuationSource, S: Span>(
         &self,
         name: &Identifier<S>,
         params: &Vec<Expression<VariableReference, S>>,
@@ -175,12 +175,7 @@ impl TreeWalkingEvaluator {
         }
     }
 
-    fn min_or_max<
-        V: ValuationSource,
-        S: Clone,
-        FI: Fn(i64, i64) -> i64,
-        FF: Fn(f64, f64) -> f64,
-    >(
+    fn min_or_max<V: ValuationSource, S: Span, FI: Fn(i64, i64) -> i64, FF: Fn(f64, f64) -> f64>(
         &self,
         params: &Vec<Expression<VariableReference, S>>,
         valuations: &V,
@@ -210,7 +205,7 @@ impl TreeWalkingEvaluator {
         }
     }
 
-    fn round<V: ValuationSource, S: Clone, FF: Fn(f64) -> f64>(
+    fn round<V: ValuationSource, S: Span, FF: Fn(f64) -> f64>(
         &self,
         params: &Vec<Expression<VariableReference, S>>,
         valuations: &V,
@@ -226,7 +221,7 @@ impl TreeWalkingEvaluator {
 
     fn binary_operation_int_float<
         V: ValuationSource,
-        S: Clone,
+        S: Span,
         IOut: Into<Value>,
         FOut: Into<Value>,
         FI: Fn(i64, i64) -> IOut,
@@ -252,7 +247,7 @@ impl TreeWalkingEvaluator {
 
     fn binary_operation_int_float_bool<
         V: ValuationSource,
-        S: Clone,
+        S: Span,
         IOut: Into<Value>,
         FOut: Into<Value>,
         BOut: Into<Value>,
@@ -283,7 +278,7 @@ impl TreeWalkingEvaluator {
 
     fn binary_operation_bool<
         V: ValuationSource,
-        S: Clone,
+        S: Span,
         TB: Into<Value>,
         FB: Fn(bool, bool) -> TB,
     >(
@@ -369,7 +364,7 @@ impl Value {
 }
 
 impl TreeWalkingEvaluator {
-    pub fn evaluate_as_int<V: ValuationSource, S: Clone>(
+    pub fn evaluate_as_int<V: ValuationSource, S: Span>(
         &self,
         expression: &Expression<VariableReference, S>,
         valuations: &V,
@@ -377,7 +372,7 @@ impl TreeWalkingEvaluator {
         self.evaluate(expression, valuations).as_int()
     }
 
-    pub fn evaluate_as_bool<V: ValuationSource, S: Clone>(
+    pub fn evaluate_as_bool<V: ValuationSource, S: Span>(
         &self,
         expression: &Expression<VariableReference, S>,
         valuations: &V,
@@ -385,7 +380,7 @@ impl TreeWalkingEvaluator {
         self.evaluate(expression, valuations).as_bool()
     }
 
-    pub fn evaluate_as_float<V: ValuationSource, S: Clone>(
+    pub fn evaluate_as_float<V: ValuationSource, S: Span>(
         &self,
         expression: &Expression<VariableReference, S>,
         valuations: &V,

@@ -1,11 +1,10 @@
-use crate::Span;
 use chumsky::error::{Error, LabelError, RichPattern};
 use chumsky::input::Input;
 use chumsky::util::MaybeRef;
 use prism_model::{Expression, Identifier};
 
 #[derive(Debug, PartialEq)]
-pub enum PrismParserError<'a, S: Clone, T> {
+pub enum PrismParserError<'a, S: prism_model::Span, T> {
     ExpectedFound {
         span: S,
         expected: Vec<RichPattern<'a, T>>,
@@ -17,7 +16,7 @@ pub enum PrismParserError<'a, S: Clone, T> {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum PrismParserValidationError<S: Clone> {
+pub enum PrismParserValidationError<S: prism_model::Span> {
     UnsupportedModelType {
         model_type: &'static str,
         span: S,
@@ -34,7 +33,7 @@ pub enum PrismParserValidationError<S: Clone> {
         duplicate_occurrence_inner: S,
     },
     IllegalConstType {
-        illegal_type: prism_model::VariableRange<Expression<Identifier<Span>, Span>, S>,
+        illegal_type: prism_model::VariableRange<S, Expression<Identifier<S>, S>>,
         span: S,
     },
     DuplicateElement {
@@ -68,13 +67,15 @@ pub enum ElementKind {
     Module,
 }
 
-impl<'a, S: Clone, T> Into<PrismParserError<'a, S, T>> for PrismParserValidationError<S> {
+impl<'a, S: prism_model::Span, T> Into<PrismParserError<'a, S, T>>
+    for PrismParserValidationError<S>
+{
     fn into(self) -> PrismParserError<'a, S, T> {
         PrismParserError::Validation(self)
     }
 }
 
-impl<'a, S: Clone, T> PrismParserError<'a, S, T> {
+impl<'a, S: prism_model::Span, T> PrismParserError<'a, S, T> {
     pub fn into_owned<'b>(self) -> PrismParserError<'b, S, T>
     where
         T: Clone,
@@ -132,7 +133,7 @@ impl<'a, S: Clone, T> PrismParserError<'a, S, T> {
 impl<'a, I: Input<'a>> Error<'a, I> for PrismParserError<'a, I::Span, I::Token>
 where
     I::Token: PartialEq + Clone,
-    I::Span: Clone,
+    I::Span: prism_model::Span,
 {
     fn merge(mut self, mut other: Self) -> Self {
         if let (
@@ -152,7 +153,7 @@ where
 impl<'a, I: Input<'a>, L> LabelError<'a, I, L> for PrismParserError<'a, I::Span, I::Token>
 where
     I::Token: PartialEq + Clone,
-    I::Span: Clone,
+    I::Span: prism_model::Span,
     L: Into<RichPattern<'a, I::Token>>,
 {
     fn expected_found<Iter: IntoIterator<Item = L>>(
