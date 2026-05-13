@@ -13,12 +13,6 @@ pub use maps::*;
 use std::fmt::{Display, Formatter};
 
 #[derive(PartialEq, Clone)]
-pub struct GlobalVariableReference {
-    reference: VariableReference,
-    scope: VariableScope,
-}
-
-#[derive(PartialEq, Clone)]
 pub enum VariableScope {
     GlobalVariable,
     GlobalConst,
