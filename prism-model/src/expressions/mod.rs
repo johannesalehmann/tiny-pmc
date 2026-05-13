@@ -12,14 +12,6 @@ use crate::{
 pub use maps::*;
 use std::fmt::{Display, Formatter};
 
-#[derive(PartialEq, Clone)]
-pub enum VariableScope {
-    GlobalVariable,
-    GlobalConst,
-    Formula,
-    LocalVariable { module: String },
-}
-
 pub type ExpressionNamedVars<S: Span = FullSpan> = Expression<Identifier<S>, S>;
 
 #[derive(PartialEq, Clone)]

@@ -94,7 +94,7 @@ pub use command::{
 mod expressions;
 pub use expressions::{
     DefaultMapExpression, Expression, ExpressionNamedVars, IdentityMapExpression, MapExpression,
-    UnknownVariableError, VariableScope,
+    UnknownVariableError,
 };
 
 mod module;
