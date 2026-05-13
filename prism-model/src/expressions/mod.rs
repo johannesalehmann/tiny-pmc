@@ -99,7 +99,7 @@ impl<V, S: Span> Expression<V, S> {
         self.visit(&mut visitor)
     }
 
-    fn get_precedence(&self) -> usize {
+    pub fn get_precedence(&self) -> usize {
         // As per https://www.prismmodelchecker.org/manual/ThePRISMLanguage/Expressions
         // ranging from 1 (for ternary) to 11 (for unary minus)
         // Precedence 12 is used for atoms (literals, variables)
@@ -136,85 +136,155 @@ impl<V, S: Span> Expression<V, S> {
     pub fn int(val: i64) -> Self {
         Expression::Int(val, S::empty())
     }
+    pub fn int_spanned(val: i64, span: S) -> Self {
+        Expression::Int(val, span)
+    }
     pub fn float(val: f64) -> Self {
         Expression::Float(val, S::empty())
+    }
+    pub fn float_spanned(val: f64, span: S) -> Self {
+        Expression::Float(val, span)
     }
     pub fn bool(val: bool) -> Self {
         Expression::Bool(val, S::empty())
     }
+    pub fn bool_spanned(val: bool, span: S) -> Self {
+        Expression::Bool(val, span)
+    }
     pub fn var_or_const(id: V) -> Self {
         Expression::VarOrConst(id, S::empty())
     }
+    pub fn var_or_const_spanned(id: V, span: S) -> Self {
+        Expression::VarOrConst(id, span)
+    }
     pub fn label(id: V) -> Self {
         Expression::Label(id, S::empty())
+    }
+    pub fn label_spanned(id: V, span: S) -> Self {
+        Expression::Label(id, span)
     }
 
     pub fn function<A: Into<Vec<Self>>>(identifier: Identifier<S>, args: A) -> Self {
         Expression::Function(identifier, args.into(), S::empty())
     }
+    pub fn function_spanned<A: Into<Vec<Self>>>(
+        identifier: Identifier<S>,
+        args: A,
+        span: S,
+    ) -> Self {
+        Expression::Function(identifier, args.into(), span)
+    }
 
     pub fn negate_value(self) -> Self {
         Expression::Minus(Box::new(self), S::empty())
+    }
+    pub fn negate_value_spanned(self, span: S) -> Self {
+        Expression::Minus(Box::new(self), span)
     }
 
     pub fn times(self, other: Self) -> Self {
         Expression::Multiplication(Box::new(self), Box::new(other), S::empty())
     }
+    pub fn times_spanned(self, other: Self, span: S) -> Self {
+        Expression::Multiplication(Box::new(self), Box::new(other), span)
+    }
 
     pub fn divide_by(self, other: Self) -> Self {
         Expression::Division(Box::new(self), Box::new(other), S::empty())
+    }
+    pub fn divide_by_spanned(self, other: Self, span: S) -> Self {
+        Expression::Division(Box::new(self), Box::new(other), span)
     }
 
     pub fn plus(self, other: Self) -> Self {
         Expression::Addition(Box::new(self), Box::new(other), S::empty())
     }
+    pub fn plus_spanned(self, other: Self, span: S) -> Self {
+        Expression::Addition(Box::new(self), Box::new(other), span)
+    }
 
     pub fn minus(self, other: Self) -> Self {
         Expression::Subtraction(Box::new(self), Box::new(other), S::empty())
+    }
+    pub fn minus_spanned(self, other: Self, span: S) -> Self {
+        Expression::Subtraction(Box::new(self), Box::new(other), span)
     }
 
     pub fn less_than(self, other: Self) -> Self {
         Expression::LessThan(Box::new(self), Box::new(other), S::empty())
     }
+    pub fn less_than_spanned(self, other: Self, span: S) -> Self {
+        Expression::LessThan(Box::new(self), Box::new(other), span)
+    }
 
     pub fn less_or_equal(self, other: Self) -> Self {
         Expression::LessOrEqual(Box::new(self), Box::new(other), S::empty())
+    }
+    pub fn less_or_equal_spanned(self, other: Self, span: S) -> Self {
+        Expression::LessOrEqual(Box::new(self), Box::new(other), span)
     }
 
     pub fn greater_than(self, other: Self) -> Self {
         Expression::GreaterThan(Box::new(self), Box::new(other), S::empty())
     }
+    pub fn greater_than_spanned(self, other: Self, span: S) -> Self {
+        Expression::GreaterThan(Box::new(self), Box::new(other), span)
+    }
 
     pub fn greater_or_equal(self, other: Self) -> Self {
         Expression::GreaterOrEqual(Box::new(self), Box::new(other), S::empty())
+    }
+    pub fn greater_or_equal_spanned(self, other: Self, span: S) -> Self {
+        Expression::GreaterOrEqual(Box::new(self), Box::new(other), span)
     }
 
     pub fn equals_to(self, other: Self) -> Self {
         Expression::Equals(Box::new(self), Box::new(other), S::empty())
     }
+    pub fn equals_to_spanned(self, other: Self, span: S) -> Self {
+        Expression::Equals(Box::new(self), Box::new(other), span)
+    }
 
     pub fn not_equals_to(self, other: Self) -> Self {
         Expression::NotEquals(Box::new(self), Box::new(other), S::empty())
+    }
+    pub fn not_equals_to_spanned(self, other: Self, span: S) -> Self {
+        Expression::NotEquals(Box::new(self), Box::new(other), span)
     }
 
     pub fn negate_bool(self) -> Self {
         Expression::Negation(Box::new(self), S::empty())
     }
+    pub fn negate_bool_spanned(self, span: S) -> Self {
+        Expression::Negation(Box::new(self), span)
+    }
 
     pub fn and(self, other: Self) -> Self {
         Expression::Conjunction(Box::new(self), Box::new(other), S::empty())
+    }
+    pub fn and_spanned(self, other: Self, span: S) -> Self {
+        Expression::Conjunction(Box::new(self), Box::new(other), span)
     }
 
     pub fn or(self, other: Self) -> Self {
         Expression::Disjunction(Box::new(self), Box::new(other), S::empty())
     }
+    pub fn or_spanned(self, other: Self, span: S) -> Self {
+        Expression::Disjunction(Box::new(self), Box::new(other), span)
+    }
 
     pub fn if_and_only_if(self, other: Self) -> Self {
         Expression::IfAndOnlyIf(Box::new(self), Box::new(other), S::empty())
     }
+    pub fn if_and_only_if_spanned(self, other: Self, span: S) -> Self {
+        Expression::IfAndOnlyIf(Box::new(self), Box::new(other), span)
+    }
 
     pub fn implies(self, other: Self) -> Self {
         Expression::Implies(Box::new(self), Box::new(other), S::empty())
+    }
+    pub fn implies_spanned(self, other: Self, span: S) -> Self {
+        Expression::Implies(Box::new(self), Box::new(other), span)
     }
 
     pub fn ternary(self, branch_1: Self, branch_2: Self) -> Self {
@@ -224,6 +294,9 @@ impl<V, S: Span> Expression<V, S> {
             Box::new(branch_2),
             S::empty(),
         )
+    }
+    pub fn ternary_spanned(self, branch_1: Self, branch_2: Self, span: S) -> Self {
+        Expression::Ternary(Box::new(self), Box::new(branch_1), Box::new(branch_2), span)
     }
 }
 
