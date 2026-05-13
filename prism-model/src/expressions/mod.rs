@@ -14,6 +14,78 @@ use std::fmt::{Display, Formatter};
 
 pub type ExpressionNamedVars<S: Span = FullSpan> = Expression<Identifier<S>, S>;
 
+/// Represents an expression, consisting of mathematical and logical operations applied to constant
+/// values and variables.
+///
+/// `Expression` is a recursive datatype and represents any valid PRISM expression [1].
+///
+/// # Example
+///
+/// ```
+/// use prism_model::{Expression, FullSpan, Identifier, VariableReference, Span, VariableManager, VariableInfo, VariableRange};
+/// // -42 + 84.0
+/// let addition = Expression::int(-42).plus(Expression::float(84.0));
+///
+/// // false | 3 < 5
+/// let comparison = Expression::bool(false).or(Expression::int(3).less_than(Expression::int(5)));
+///
+/// // Associating expressions with a span to keep track of corresponding source code
+/// let spanned_expression = Expression::bool_spanned(true, FullSpan::from_range(12..16));
+/// assert_eq!(spanned_expression.span().end(), 16);
+///
+/// // Expressions referring to the variable with name `"x"` and index 5, respectively
+/// let named_var = Expression::var_or_const(Identifier::new("x").unwrap());
+/// let indexed_var = Expression::var_or_const(VariableReference::new(5));
+/// // `Variable::replace_identifiers_by_variable_indices(...)` transforms named_var into indexed_var
+///
+/// // min(3, -5)
+/// let min = Expression::Function(Identifier::new("min"), vec![Expression::Int(3), Expression::Int(-5)])
+/// ```
+///
+/// # Constructing expressions
+///
+/// Each expression has a helper function to construct it, e.g. [`Expression::int`] or
+/// [`Expression::equals_to`]. This creates an expression without a span. A similar helper function
+/// with suffix `_spanned`, e.g. [`Expression::int_spanned`] constructs an expression with a span
+/// in order to link the expression to the corresponding PRISM code.
+///
+/// # Evaluating expressions
+///
+/// This crate does not provide a method to evaluate expressions.
+///
+/// Crate [`prism-model-builder`]  provides a `TreeWalkingEvaluator` to evaluate expressions, given
+/// a suitable evaluation. For better performance, `prism-model-builder` also provides a
+/// `StackBasedExpression`. An expression can be transformed into a `StackBasedExpression` and then
+/// evaluated, yielding performance gains.
+///
+/// # Transforming expressions
+///
+/// To map the span of an expression, use `Expression::map_span(...)`. To map variable references,
+/// use `Expression::map_variable(...)`. An expression using [`Identifier`] to store variable names
+/// can be transformed into one using [`VariableReferences`] with
+/// [`Expression::replace_identifiers_by_variable_indices`].
+///
+/// Expressions can be transformed arbitrarily by implementing trait [`MapExpression`] and calling
+/// [`Expression::visit`].
+///
+/// # Formulas
+///
+/// References to formulas can be stored as a variable:
+/// ```
+/// use prism_model::{Expression, Identifier};
+/// let formula = Expression::var_or_const(Identifier::new("formula_name").unwrap());
+/// ```
+///
+/// As a formula does not have a variable index, they are generally replaced by the formula's value
+/// by its value before calling [`Expression::replace_identifiers_by_variable_indices`]. See
+/// [`Model::substitute_formulas`] for details.
+///
+/// # Labels
+///
+/// Labels are represented by [`Expression::Label`]. PRISM models cannot use labels in their
+/// expressions, but formulas can.
+///
+/// [1]: TODO
 #[derive(PartialEq, Clone)]
 pub enum Expression<V = VariableReference, S: Span = FullSpan> {
     Int(i64, S),
@@ -342,6 +414,22 @@ impl<'a, S: Span> IdentityMapExpression<Identifier<S>, S> for RenamingVisitor<'a
     }
 }
 impl<S: Span> Expression<Identifier<S>, S> {
+    /// TODO
+    ///
+    /// # Example
+    ///
+    /// TODO: Make sure this works
+    ///
+    /// ```
+    /// let named_variable = Expression::var_or_const(Identifier::new("x").unwrap());
+    /// let mut variable_manager = VariableManager::new();
+    /// let variable_reference =
+    ///     variable_manager.add_variable(VariableInfo::global_var("x", VariableRange::unbounded_int()));
+    ///
+    /// let indexed_variable = Expression::var_or_const(variable_reference);
+    ///
+    /// assert_eq!(indexed_variable, named_variable.replace_identifiers_by_variable_indices());
+    /// ```
     pub fn replace_identifiers_by_variable_indices<R>(
         self,
         variable_manager: &VariableManager<S, R>,

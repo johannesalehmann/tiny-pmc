@@ -316,6 +316,24 @@ impl<S: Span, E> VariableRange<S, E> {
     pub fn bounded_int_spanned(min: E, max: E, span: S) -> Self {
         Self::BoundedInt { min, max, span }
     }
+    pub fn unbounded_int() -> Self {
+        Self::unbounded_int_spanned(S::empty())
+    }
+    pub fn unbounded_int_spanned(span: S) -> Self {
+        Self::UnboundedInt { span }
+    }
+    pub fn bool() -> Self {
+        Self::bool_spanned(S::empty())
+    }
+    pub fn bool_spanned(span: S) -> Self {
+        Self::Boolean { span }
+    }
+    pub fn float() -> Self {
+        Self::float_spanned(S::empty())
+    }
+    pub fn float_spanned(span: S) -> Self {
+        Self::Float { span }
+    }
 
     pub fn is_legal_for_constant(&self) -> bool {
         match self {

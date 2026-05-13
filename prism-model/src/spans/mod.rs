@@ -9,6 +9,13 @@ pub trait Span: Clone {
     fn join(span_1: &Self, span_2: &Self) -> Self;
 
     fn range(&self) -> Option<Range<usize>>;
+
+    fn start(&self) -> Option<usize> {
+        self.range().map(|r| r.start)
+    }
+    fn end(&self) -> Option<usize> {
+        self.range().map(|r| r.end)
+    }
 }
 
 impl Span for () {
