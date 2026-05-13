@@ -9,8 +9,8 @@ where
     I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
     (select! {
-        Token::Identifier(name) = e => prism_model::Identifier::new::<String>(name.clone(), e.span()),
-        Token::T = e => prism_model::Identifier::new::<String>("T".to_string(), e.span())
+        Token::Identifier(name) = e => prism_model::Identifier::new_spanned::<String>(name.clone(), e.span()),
+        Token::T = e => prism_model::Identifier::new_spanned::<String>("T".to_string(), e.span())
     })
         .try_map_with(|i, e|
             i.map_err(|reason| PrismParserValidationError::InvalidIdentifierName { span: e.span(), reason }.into()))
@@ -23,10 +23,10 @@ where
     I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
     select! {
-        Token::Identifier(name) = e => prism_model::Identifier::new_potentially_reserved::<String>(name.clone(), e.span()),
-        Token::Min = e => prism_model::Identifier::new_potentially_reserved::<String>("min".to_string(), e.span()),
-        Token::Max = e => prism_model::Identifier::new_potentially_reserved::<String>("max".to_string(), e.span()),
-        Token::T = e => prism_model::Identifier::new_potentially_reserved::<String>("T".to_string(), e.span())
+        Token::Identifier(name) = e => prism_model::Identifier::new_potentially_reserved_spanned::<String>(name.clone(), e.span()),
+        Token::Min = e => prism_model::Identifier::new_potentially_reserved_spanned::<String>("min".to_string(), e.span()),
+        Token::Max = e => prism_model::Identifier::new_potentially_reserved_spanned::<String>("max".to_string(), e.span()),
+        Token::T = e => prism_model::Identifier::new_potentially_reserved_spanned::<String>("T".to_string(), e.span())
     }
         .try_map_with(|i, e|
             i.map_err(|reason| PrismParserValidationError::InvalidIdentifierName { span: e.span(), reason }.into()))

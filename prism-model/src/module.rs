@@ -85,7 +85,10 @@ pub struct Module<
 }
 
 impl<V, S: Span, E, A> Module<V, S, E, A> {
-    pub fn new(name: Identifier<S>, span: S) -> Self {
+    pub fn new(name: Identifier<S>) -> Self {
+        Self::new_spanned(name, S::empty())
+    }
+    pub fn new_spanned(name: Identifier<S>, span: S) -> Self {
         Self {
             name,
             commands: Vec::new(),

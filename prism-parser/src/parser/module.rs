@@ -48,7 +48,7 @@ fn create_module_from_name_and_elements(
     >,
     Vec<VariableInfo<ParserSpan, Expression<Identifier<ParserSpan>, ParserSpan>>>,
 ) {
-    let mut module = prism_model::Module::new(name, span);
+    let mut module = prism_model::Module::new_spanned(name, span);
     let mut variables = Vec::new();
 
     for element in module_elements {

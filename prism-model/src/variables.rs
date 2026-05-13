@@ -192,6 +192,33 @@ pub struct VariableInfo<S: Span = FullSpan, E = Expression<VariableReference, S>
 }
 
 impl<S: Span, E> VariableInfo<S, E> {
+    pub fn global_var(name: Identifier<S>, range: VariableRange<S, E>) -> Self {
+        Self::global_var_spanned(name, range, S::empty())
+    }
+    pub fn global_var_spanned(name: Identifier<S>, range: VariableRange<S, E>, span: S) -> Self {
+        Self::new(name, range, false, None, span)
+    }
+
+    pub fn global_const(name: Identifier<S>, range: VariableRange<S, E>) -> Self {
+        Self::global_const_spanned(name, range, S::empty())
+    }
+    pub fn global_const_spanned(name: Identifier<S>, range: VariableRange<S, E>, span: S) -> Self {
+        Self::new(name, range, true, None, span)
+    }
+
+    pub fn local_var(name: Identifier<S>, range: VariableRange<S, E>, module: usize) -> Self {
+        Self::local_var_spanned(name, range, module, S::empty())
+    }
+
+    pub fn local_var_spanned(
+        name: Identifier<S>,
+        range: VariableRange<S, E>,
+        module: usize,
+        span: S,
+    ) -> Self {
+        Self::new(name, range, true, Some(module), span)
+    }
+
     pub fn new(
         name: Identifier<S>,
         range: VariableRange<S, E>,
@@ -210,6 +237,16 @@ impl<S: Span, E> VariableInfo<S, E> {
     }
 
     pub fn with_initial_value(
+        name: Identifier<S>,
+        range: VariableRange<S, E>,
+        is_constant: bool,
+        scope: Option<usize>,
+        initial_value: E,
+    ) -> Self {
+        Self::with_initial_value_spanned(name, range, is_constant, scope, initial_value, S::empty())
+    }
+
+    pub fn with_initial_value_spanned(
         name: Identifier<S>,
         range: VariableRange<S, E>,
         is_constant: bool,
@@ -273,6 +310,13 @@ pub enum VariableRange<S: Span = FullSpan, E = Expression<VariableReference, S>>
 }
 
 impl<S: Span, E> VariableRange<S, E> {
+    pub fn bounded_int(min: E, max: E) -> Self {
+        Self::bounded_int_spanned(min, max, S::empty())
+    }
+    pub fn bounded_int_spanned(min: E, max: E, span: S) -> Self {
+        Self::BoundedInt { min, max, span }
+    }
+
     pub fn is_legal_for_constant(&self) -> bool {
         match self {
             VariableRange::BoundedInt { .. } => false,

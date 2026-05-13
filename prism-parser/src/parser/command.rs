@@ -44,7 +44,13 @@ where
         .then(updates_parser)
         .then_ignore(just(Token::Semicolon))
         .map_with(|(((action, action_span), guard), updates), e| {
-            prism_model::Command::with_updates(action, action_span, guard, updates, e.span())
+            prism_model::Command::with_updates_spanned(
+                action,
+                action_span,
+                guard,
+                updates,
+                e.span(),
+            )
         })
         .labelled("command")
         .as_context()
@@ -74,7 +80,7 @@ where
                 .collect::<Vec<_>>()),
         )
         .map_with(|(probability, assignments), e| {
-            prism_model::Update::with_assignments(probability, assignments, e.span())
+            prism_model::Update::with_assignments_spanned(probability, assignments, e.span())
         })
         .labelled("update")
         .as_context()
@@ -99,7 +105,7 @@ where
         .then_ignore(just(Token::RightBracket))
         .map_with(|(lhs, rhs), e| {
             let target_span = lhs.span;
-            prism_model::Assignment::new(lhs, rhs, target_span, e.span())
+            prism_model::Assignment::new_spanned(lhs, rhs, target_span, e.span())
         })
         .labelled("assignment")
         .as_context()

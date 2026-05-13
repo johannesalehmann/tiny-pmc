@@ -62,7 +62,7 @@ macro_rules! test_expr {
 }
 
 fn ident(name: &'static str) -> Identifier<()> {
-    Identifier::new_potentially_reserved(name, ()).unwrap()
+    Identifier::new_potentially_reserved_spanned(name, ()).unwrap()
 }
 
 fn int(int: i64) -> Expression<VariableReference, ()> {

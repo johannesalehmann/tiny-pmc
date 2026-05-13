@@ -88,13 +88,23 @@ impl<S: Span> Identifier<S> {
         "W",
     ];
 
-    pub fn new<Str: Into<String>>(
+    pub fn new<Str: Into<String>>(name: Str) -> Result<Self, crate::identifier::InvalidName> {
+        Self::new_with_reserved_option(name, false, S::empty())
+    }
+
+    pub fn new_spanned<Str: Into<String>>(
         name: Str,
         span: S,
     ) -> Result<Self, crate::identifier::InvalidName> {
         Self::new_with_reserved_option(name, false, span)
     }
+
     pub fn new_potentially_reserved<Str: Into<String>>(
+        name: Str,
+    ) -> Result<Self, crate::identifier::InvalidName> {
+        Self::new_with_reserved_option(name, true, S::empty())
+    }
+    pub fn new_potentially_reserved_spanned<Str: Into<String>>(
         name: Str,
         span: S,
     ) -> Result<Self, crate::identifier::InvalidName> {

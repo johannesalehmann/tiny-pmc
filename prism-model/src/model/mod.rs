@@ -41,7 +41,11 @@ pub struct Model<V = VariableReference, S: Span = FullSpan, E = Expression<V, S>
 }
 
 impl<V, S: Span, E, A> Model<V, S, E, A> {
-    pub fn new(model_type: ModelType<S>, span: S) -> Self {
+    pub fn new(model_type: ModelType<S>) -> Self {
+        Self::new_spanned(model_type, S::empty())
+    }
+
+    pub fn new_spanned(model_type: ModelType<S>, span: S) -> Self {
         Self {
             model_type,
             variable_manager: VariableManager::new(),
@@ -93,7 +97,7 @@ impl<V, S: Span, E> Model<V, S, E, Identifier<S>> {
             for command in &mut module.commands {
                 if command.action.is_none() {
                     command.action = Some(
-                        crate::Identifier::new_potentially_reserved(
+                        crate::Identifier::new_potentially_reserved_spanned(
                             name_function(counter, &command.action_span),
                             command.action_span.clone(),
                         )
@@ -176,7 +180,7 @@ impl<V, S: Span, A> Model<V, S, Expression<V, S>, A> {
         for module in &mut self.modules.modules {
             for command in &mut module.commands {
                 if command.updates.len() == 0 {
-                    command.updates.push(crate::Update::new(
+                    command.updates.push(crate::Update::new_spanned(
                         Expression::Float(1.0, command.span.clone()),
                         command.span.clone(),
                     )); // TODO: The expression's and update's span should only cover the `true` token, but its span is currently not tracked
@@ -269,7 +273,32 @@ pub enum ModelType<S: Span = FullSpan> {
     Ctmc(S),
     Mdp(S),
 }
+
 impl<S: Span> ModelType<S> {
+    pub fn dtmc() -> Self {
+        Self::Dtmc(S::empty())
+    }
+
+    pub fn dtmc_spanned(span: S) -> Self {
+        Self::Dtmc(span)
+    }
+
+    pub fn ctmc() -> Self {
+        Self::Ctmc(S::empty())
+    }
+
+    pub fn ctmc_spanned(span: S) -> Self {
+        Self::Ctmc(span)
+    }
+
+    pub fn mdp() -> Self {
+        Self::Mdp(S::empty())
+    }
+
+    pub fn mdp_spanned(span: S) -> Self {
+        Self::Mdp(span)
+    }
+
     pub fn get_span(&self) -> &S {
         match self {
             ModelType::Dtmc(s) => s,

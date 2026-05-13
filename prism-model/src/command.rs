@@ -21,7 +21,10 @@ pub struct Command<
 }
 
 impl<V, S: Span, E, A> Command<V, S, E, A> {
-    pub fn new(action: Option<A>, action_span: S, guard: E, span: S) -> Self {
+    pub fn new(action: Option<A>, guard: E) -> Self {
+        Self::new_spanned(action, S::empty(), guard, S::empty())
+    }
+    pub fn new_spanned(action: Option<A>, action_span: S, guard: E, span: S) -> Self {
         Self {
             action,
             action_span,
@@ -31,7 +34,11 @@ impl<V, S: Span, E, A> Command<V, S, E, A> {
         }
     }
 
-    pub fn with_updates(
+    pub fn with_updates(action: Option<A>, guard: E, updates: Vec<Update<V, S, E>>) -> Self {
+        Self::with_updates_spanned(action, S::empty(), guard, updates, S::empty())
+    }
+
+    pub fn with_updates_spanned(
         action: Option<A>,
         action_span: S,
         guard: E,
@@ -114,14 +121,20 @@ pub struct Update<V = VariableReference, S: Span = FullSpan, E = Expression<V, S
 }
 
 impl<V, S: Span, E> Update<V, S, E> {
-    pub fn new(probability: E, span: S) -> Self {
+    pub fn new(probability: E) -> Self {
+        Self::new_spanned(probability, S::empty())
+    }
+    pub fn new_spanned(probability: E, span: S) -> Self {
         Self {
             probability,
             assignments: Vec::new(),
             span,
         }
     }
-    pub fn with_assignments(
+    pub fn with_assignments(probability: E, assignments: Vec<Assignment<V, S, E>>) -> Self {
+        Self::with_assignments_spanned(probability, assignments, S::empty())
+    }
+    pub fn with_assignments_spanned(
         probability: E,
         assignments: Vec<Assignment<V, S, E>>,
         span: S,
@@ -135,7 +148,7 @@ impl<V, S: Span, E> Update<V, S, E> {
 }
 impl<V, S: Span> Update<V, S, Expression<V, S>> {
     pub fn map_span<S2: Span, F: Fn(S) -> S2>(self, map: &F) -> Update<V, S2, Expression<V, S2>> {
-        let mut update = Update::new(self.probability.map_span(map), map(self.span));
+        let mut update = Update::new_spanned(self.probability.map_span(map), map(self.span));
         for assignment in self.assignments {
             update.assignments.push(assignment.map_span(map));
         }
@@ -193,7 +206,10 @@ pub struct Assignment<V = VariableReference, S: Span = FullSpan, E = Expression<
 }
 
 impl<V, S: Span, E> Assignment<V, S, E> {
-    pub fn new(target: V, value: E, target_span: S, span: S) -> Self {
+    pub fn new(target: V, value: E) -> Self {
+        Self::new_spanned(target, value, S::empty(), S::empty())
+    }
+    pub fn new_spanned(target: V, value: E, target_span: S, span: S) -> Self {
         Self {
             target,
             value,
