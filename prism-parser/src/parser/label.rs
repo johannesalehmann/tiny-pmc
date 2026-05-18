@@ -19,7 +19,9 @@ where
         .then_ignore(just(Token::Equal))
         .then(expression_parser())
         .then_ignore(just(Token::Semicolon))
-        .map_with(|(name, expression), e| prism_model::Label::new(name, expression, e.span()))
+        .map_with(|(name, expression), e| {
+            prism_model::Label::new_spanned(name, expression, e.span())
+        })
         .labelled("label")
         .as_context()
 }

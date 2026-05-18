@@ -83,7 +83,10 @@ pub struct Label<S: Span = FullSpan, E = Expression<VariableReference, S>> {
 }
 
 impl<S: Span, E> Label<S, E> {
-    pub fn new(name: Identifier<S>, condition: E, span: S) -> Self {
+    pub fn new(name: Identifier<S>, condition: E) -> Self {
+        Self::new_spanned(name, condition, S::empty())
+    }
+    pub fn new_spanned(name: Identifier<S>, condition: E, span: S) -> Self {
         Self {
             name,
             condition,
