@@ -1,10 +1,10 @@
-use crate::Displayable;
 use crate::module::RenameRules;
 use crate::spans::Span;
+use crate::{Displayable, FullSpan};
 use std::fmt::{Display, Formatter};
 
 #[derive(Clone)]
-pub struct Identifier<S: Span> {
+pub struct Identifier<S: Span = FullSpan> {
     pub name: String,
     pub span: S,
 }
