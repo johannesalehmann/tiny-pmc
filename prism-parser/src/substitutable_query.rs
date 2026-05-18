@@ -5,15 +5,10 @@ use prism_model::{
 use probabilistic_properties::Query;
 
 pub trait SubstitutableQuery<S: Span> {
-    fn substitute_labels(
-        &mut self,
-        default_span: S,
-        labels: &LabelManager<S, Expression<Identifier<S>, S>>,
-    );
+    fn substitute_labels(&mut self, labels: &LabelManager<S, Expression<Identifier<S>, S>>);
 
     fn substitute_formulas(
         &mut self,
-        default_span: S,
         formulas: &FormulaManager<S, Expression<Identifier<S>, S>>,
     ) -> Result<(), CyclicDependency<S>>;
 
@@ -36,36 +31,31 @@ impl<S: Span> SubstitutableQuery<S>
         Expression<Identifier<S>, S>,
     >
 {
-    fn substitute_labels(
-        &mut self,
-        default_span: S,
-        labels: &LabelManager<S, Expression<Identifier<S>, S>>,
-    ) {
+    fn substitute_labels(&mut self, labels: &LabelManager<S, Expression<Identifier<S>, S>>) {
         self.as_mut().map_e(&mut |ex| {
-            ex.substitute_labels(default_span.clone(), labels);
+            ex.substitute_labels(labels);
         });
         self.as_mut().map_f(&mut |ex| {
-            ex.substitute_labels(default_span.clone(), labels);
+            ex.substitute_labels(labels);
         });
         self.as_mut().map_i(&mut |ex| {
-            ex.substitute_labels(default_span.clone(), labels);
+            ex.substitute_labels(labels);
         });
     }
     fn substitute_formulas(
         &mut self,
-        default_span: S,
         formulas: &FormulaManager<S, Expression<Identifier<S>, S>>,
     ) -> Result<(), CyclicDependency<S>> {
         self.as_mut().try_map_e(&mut |ex| {
-            ex.substitute_formulas(default_span.clone(), formulas)?;
+            ex.substitute_formulas(formulas)?;
             Ok(())
         })?;
         self.as_mut().try_map_f(&mut |ex| {
-            ex.substitute_formulas(default_span.clone(), formulas)?;
+            ex.substitute_formulas(formulas)?;
             Ok(())
         })?;
         self.as_mut().try_map_i(&mut |ex| {
-            ex.substitute_formulas(default_span.clone(), formulas)?;
+            ex.substitute_formulas(formulas)?;
             Ok(())
         })?;
 

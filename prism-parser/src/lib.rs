@@ -95,9 +95,8 @@ pub fn parse_prism<'a, 'b, P: AsRef<str>>(
                     .for_each(|(p_option, errs)| {
                         if let Some(p) = p_option {
                             use substitutable_query::SubstitutableQuery;
-                            p.substitute_labels(FullSpan::empty(), &output.labels);
-                            let substitution =
-                                p.substitute_formulas(FullSpan::empty(), &output.formulas);
+                            p.substitute_labels(&output.labels);
+                            let substitution = p.substitute_formulas(&output.formulas);
                             if let Err(err) = substitution {
                                 errs.push(
                                     PrismParserValidationError::CyclicFormulaDependency {

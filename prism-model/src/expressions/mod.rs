@@ -359,24 +359,19 @@ impl<V, S: Span> Expression<V, S> {
 }
 
 impl<S: Span> Expression<Identifier<S>, S> {
-    pub fn substitute_labels(
-        &mut self,
-        default_span: S,
-        labels: &LabelManager<S, Expression<Identifier<S>, S>>,
-    ) {
+    pub fn substitute_labels(&mut self, labels: &LabelManager<S, Expression<Identifier<S>, S>>) {
         for label in &labels.labels {
             let mut visitor = LabelSubstitutionVisitor {
                 label_name: &label.name,
                 expression: &label.condition,
             };
 
-            let condition = std::mem::replace(self, Expression::Bool(false, default_span.clone()));
+            let condition = std::mem::replace(self, Expression::Bool(false, S::empty()));
             *self = condition.visit(&mut visitor);
         }
     }
     pub fn substitute_formulas(
         &mut self,
-        default_span: S,
         formulas: &FormulaManager<S, Expression<Identifier<S>, S>>,
     ) -> Result<(), CyclicDependency<S>> {
         let order = formulas.get_formula_replacement_ordering()?;
@@ -388,7 +383,7 @@ impl<S: Span> Expression<Identifier<S>, S> {
                 expression: &formula.condition,
             };
 
-            let condition = std::mem::replace(self, Expression::Bool(false, default_span.clone()));
+            let condition = std::mem::replace(self, Expression::Bool(false, S::empty()));
             *self = condition.visit(&mut visitor);
         }
 
