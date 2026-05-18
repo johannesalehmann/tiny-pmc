@@ -63,7 +63,7 @@
 //!
 //! Within expressions, variables can either be represented by an [`Identifier`] or by a
 //! [`VariableReference`]. The former uses a [`String`] internally, the latter an index.
-//! [`Model::replace_identifier_by_variable_indices`] transforms a model using [`Identifier`] into
+//! [`Model::replace_identifiers_by_variable_indices()`] transforms a model using [`Identifier`] into
 //! one using [`VariableReference`]. Eponymous functions are available in most model components.
 //!
 //! When dealing with models that use [`Identifier`], one can use the type alias [`ModelNamedVars`]

@@ -38,7 +38,8 @@ impl Span for () {
     }
 }
 
-#[derive(Copy, Clone)]
+// TODO:  Implement `Debug` in a nicer, custom way
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub struct FullSpan {
     inner: FullSpanInner,
 }
@@ -57,7 +58,7 @@ impl FullSpan {
     }
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 enum FullSpanInner {
     Empty,
     Full { start: usize, end: usize },
