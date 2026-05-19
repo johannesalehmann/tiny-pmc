@@ -13,6 +13,15 @@ impl<S: Span, E> LabelManager<S, E> {
         Self { labels: Vec::new() }
     }
 
+    pub fn with_labels(mut labels: Vec<Label<S, E>>) -> Result<Self, AddLabelError> {
+        let mut res = Self::new();
+
+        for label in labels.drain(..) {
+            res.add_label(label)?;
+        }
+        Ok(res)
+    }
+
     pub fn add_label(&mut self, label: Label<S, E>) -> Result<(), AddLabelError> {
         for (index, other_label) in self.labels.iter().enumerate() {
             if other_label.name == label.name {

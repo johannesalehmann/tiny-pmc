@@ -1,3 +1,5 @@
+#![warn(missing_docs)]
+
 mod label_substitution;
 mod maps;
 
@@ -12,9 +14,17 @@ use crate::{
 pub use maps::*;
 use std::fmt::{Display, Formatter};
 
+/// An expression using [`Identifier`] to refer to variables, instead of the default of
+/// [`VariableReference`].
+///
+/// Use [`Expression::replace_identifiers_by_variable_indices`] to convert
+/// from the former to the latter.
+///
 pub type ExpressionNamedVars<S: Span = FullSpan> = Expression<Identifier<S>, S>;
 
 // TODO: Add link to prism-model-builder crate once it is published
+
+// TODO: Break up the big example into smaller examples
 
 /// Represents an expression, consisting of mathematical and logical operations applied to constant
 /// values and variables.
@@ -24,7 +34,7 @@ pub type ExpressionNamedVars<S: Span = FullSpan> = Expression<Identifier<S>, S>;
 /// # Example
 ///
 /// ```
-/// use prism_model::{Expression, FullSpan, Identifier, VariableReference, Span, VariableManager, VariableInfo, VariableRange};
+/// # use prism_model::*;
 /// // -42 + 84.0
 /// let addition: Expression = Expression::int(-42).plus(Expression::float(84.0));
 ///
@@ -36,7 +46,7 @@ pub type ExpressionNamedVars<S: Span = FullSpan> = Expression<Identifier<S>, S>;
 /// assert_eq!(spanned_expression.span().end(), Some(16));
 ///
 /// // Expressions referring to the variable with name `"x"` and index 5, respectively
-/// let named_var: Expression<Identifier<FullSpan>> = Expression::var_or_const(Identifier::new("x").unwrap());
+/// let named_var: ExpressionNamedVars = Expression::var_or_const(Identifier::new("x").unwrap());
 /// let indexed_var: Expression = Expression::var_or_const(VariableReference::new(5));
 /// // `Variable::replace_identifiers_by_variable_indices(...)` transforms named_var into indexed_var
 ///
@@ -55,7 +65,7 @@ pub type ExpressionNamedVars<S: Span = FullSpan> = Expression<Identifier<S>, S>;
 ///
 /// # Evaluating expressions
 ///
-/// This crate does not provide a method to evaluate expressions.
+/// This crate *does not* provide a method to evaluate expressions.
 ///
 /// Crate `prism-model-builder` provides a `TreeWalkingEvaluator` to evaluate expressions, given
 /// a suitable valuation. For better performance, `prism-model-builder` also provides a
@@ -64,8 +74,8 @@ pub type ExpressionNamedVars<S: Span = FullSpan> = Expression<Identifier<S>, S>;
 ///
 /// # Transforming expressions
 ///
-/// To map the span of an expression, use `Expression::map_span(...)`. To map variable references,
-/// use `Expression::map_variable(...)`. An expression using [`Identifier`] to store variable names
+/// To map the span of an expression, use [`Expression::map_span()`]. To map variable references,
+/// use [`Expression::map_variable()`]. An expression using [`Identifier`] to store variable names
 /// can be transformed into one using [`VariableReference`] with
 /// [`Expression::replace_identifiers_by_variable_indices`].
 ///
@@ -209,7 +219,7 @@ pub enum Expression<V = VariableReference, S: Span = FullSpan> {
     /// # Constructing `Expression<VariableReference>::VarOrConst`:
     ///
     /// Let `vm` be a [`VariableManager`]. Usually, this is the one stored in
-    /// [`Model::variable_manager`].
+    /// [`crate::Model::variable_manager`].
     /// ```
     /// # use prism_model::*;
     /// let mut vm: VariableManager = VariableManager::new();
@@ -279,6 +289,8 @@ pub enum Expression<V = VariableReference, S: Span = FullSpan> {
     /// the expression's [`Span`].
     VarOrConst(V, S),
 
+    // TODO: Consider using `Identifier` instead of V to represent labels. After all, it never makes
+    //  sense to using `VariableReference` to refer to a label.
     /// A label.
     ///
     /// Labels can only meaningfully be represented by [`Expression<Identifier>`], not by
@@ -1004,6 +1016,17 @@ pub enum Expression<V = VariableReference, S: Span = FullSpan> {
 }
 
 impl<V, S: Span> Expression<V, S> {
+    /// Returns the span of the expression.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use prism_model::*;
+    /// let expr: Expression = Expression::int_spanned(123, FullSpan::from_range(10..13));
+    /// let span = expr.span();
+    /// assert_eq!(span.start(), Some(10));
+    /// assert_eq!(span.end(), Some(13));
+    /// ```
     pub fn span(&self) -> &S {
         match self {
             Expression::Int(_, s) => s,
@@ -1032,21 +1055,102 @@ impl<V, S: Span> Expression<V, S> {
         }
     }
 
+    /// Maps the span of the expression to another value of (potentially) different type.
+    ///
+    /// # Example
+    ///
+    /// Offset every span by 1:
+    ///
+    /// ```
+    /// # use prism_model::*;
+    /// let expr_1: Expression = Expression::bool_spanned(true, FullSpan::from_range(4..8));
+    /// let expr_2: Expression = expr_1.map_span(&| s| {
+    ///     FullSpan::from_range(s.start().unwrap() + 1.. s.end().unwrap() + 1)
+    /// });
+    /// assert_eq!(expr_2.span(), &FullSpan::from_range(5..9));
+    /// ```
+    ///
+    /// This function can also be used to erase the span:
+    ///
+    /// ```
+    /// # use prism_model::*;
+    /// # let expr_1: Expression = Expression::bool_spanned(true, FullSpan::from_range(4..8));
+    /// # let expr_2: Expression = expr_1.map_span(&| s| {
+    /// #     FullSpan::from_range(s.start().unwrap() + 1.. s.end().unwrap() + 1)
+    /// # });
+    /// let expr_3 = expr_2.map_span(&|_| ());
+    /// assert_eq!(expr_3.span(), &());
+    /// ```
+    ///
+    /// # Notes
+    ///
+    /// This operation is eager, i.e. it directly computes the new expression.
     pub fn map_span<S2: Span, F: Fn(S) -> S2>(self, map: &F) -> Expression<V, S2> {
         let mut visitor = maps::map_span::MapSpan::new(map);
         self.visit(&mut visitor)
     }
 
+    /// Maps every variable reference in the expression to another value of (potentially) different
+    /// type.
+    ///
+    /// This is the general-purpose variable-transformation method. For the common case of
+    /// converting an [`Expression<Identifier>`] into an [`Expression<VariableReference>`],
+    /// prefer [`Expression::replace_identifiers_by_variable_indices()`], which additionally
+    /// reports unknown variables as errors.
+    ///
+    /// # Example
+    ///
+    /// Append `"_var"` to every variable name:
+    ///
+    /// ```
+    /// # use prism_model::*;
+    /// let e: Expression<Identifier> = Expression::var_or_const(Identifier::new("x").unwrap())
+    ///     .plus(Expression::var_or_const(Identifier::new("y").unwrap()));
+    ///
+    /// let shifted: Expression<Identifier>
+    ///     = e.map_variable(&|r| Identifier::new(format!("{}_var", r.name)).unwrap());
+    /// ```
+    ///
+    /// # Notes
+    ///
+    /// This operation is eager, i.e. it directly computes the new expression.
     pub fn map_variable<V2, F: Fn(V) -> V2>(self, map: &F) -> Expression<V2, S> {
         let mut visitor = maps::map_variable::MapVariable::new(|v, _| map(v), ());
         self.visit(&mut visitor)
     }
 
+    /// Returns the precedence of this expression as defined by PRISM [1].
+    ///
+    /// Higher values bind more tightly. The scale runs from 1 (loosest binding) to 12
+    /// (tightest binding). The value 0 is not returned by this method; it can be used to indicate
+    /// that there is no surrounding expression (to prevent parentheses from being inserted at the
+    /// top level).
+    ///
+    /// # Usage
+    ///
+    /// The function can be used to insert parentheses only when necessary. For surrounding
+    /// expression `e_outer` and inner expression `e_inner`, parentheses around `e_inner` are only
+    /// required when `e_outer.get_precedence() >= e_inner.get_precedence()`.
+    ///
+    /// # Details
+    ///
+    /// | Precedence | Operators |
+    /// |------------|-----------|
+    /// | 12 | atoms: literals, variables, labels, function calls |
+    /// | 11 | unary minus (`-x`) |
+    /// | 10 | `*`, `/` |
+    /// | 9 | `+`, `-` |
+    /// | 8 | `<`, `<=`, `>`, `>=` |
+    /// | 7 | `=`, `!=` |
+    /// | 6 | boolean negation (`!`) |
+    /// | 5 | `&` |
+    /// | 4 | `\|` |
+    /// | 3 | `<=>` |
+    /// | 2 | `=>` |
+    /// | 1 | ternary `? :` |
+    ///
+    /// [1]: https://prismmodelchecker.org/manual/ThePRISMLanguage/Expressions
     pub fn get_precedence(&self) -> usize {
-        // As per https://www.prismmodelchecker.org/manual/ThePRISMLanguage/Expressions
-        // ranging from 1 (for ternary) to 11 (for unary minus)
-        // Precedence 12 is used for atoms (literals, variables)
-        // 0 is used to indicate there is no surrounding precedence
         match self {
             Expression::Int(_, _) => 12,
             Expression::Float(_, _) => 12,
@@ -1076,40 +1180,116 @@ impl<V, S: Span> Expression<V, S> {
 }
 
 impl<V, S: Span> Expression<V, S> {
+    /// Constructs an integer literal expression with empty span.
+    ///
+    /// For details, see [`Expression::Int`].
+    ///
+    /// To construct an integer literal expression with custom [`Span`], use
+    /// [`Expression::int_spanned()`].
     pub fn int(val: i64) -> Self {
         Expression::Int(val, S::empty())
     }
+
+    /// Constructs an integer literal expression with given [`Span`].
+    ///
+    /// For details, see [`Expression::Int`].
+    ///
+    /// To construct an integer literal expression with empty span, use [`Expression::int()`].
     pub fn int_spanned(val: i64, span: S) -> Self {
         Expression::Int(val, span)
     }
+    /// Constructs a floating-point literal expression with empty span.
+    ///
+    /// For details, see [`Expression::Float`].
+    ///
+    /// To construct a floating-point literal expression with custom [`Span`], use
+    /// [`Expression::float_spanned()`].
     pub fn float(val: f64) -> Self {
         Expression::Float(val, S::empty())
     }
+
+    /// Constructs a floating-point literal expression with given [`Span`].
+    ///
+    /// For details, see [`Expression::Float`].
+    ///
+    /// To construct a floating-point literal expression with empty span, use
+    /// [`Expression::float()`].
     pub fn float_spanned(val: f64, span: S) -> Self {
         Expression::Float(val, span)
     }
+
+    /// Constructs a boolean literal expression with empty span.
+    ///
+    /// For details, see [`Expression::Bool`].
+    ///
+    /// To construct a boolean literal expression with custom [`Span`], use
+    /// [`Expression::bool_spanned()`].
     pub fn bool(val: bool) -> Self {
         Expression::Bool(val, S::empty())
     }
+
+    /// Constructs a boolean literal expression with given [`Span`].
+    ///
+    /// For details, see [`Expression::Bool`].
+    ///
+    /// To construct a boolean literal expression with empty span, use [`Expression::bool()`].
     pub fn bool_spanned(val: bool, span: S) -> Self {
         Expression::Bool(val, span)
     }
+
+    /// Constructs a variable, constant, or formula reference expression with empty span.
+    ///
+    /// For details, see [`Expression::VarOrConst`].
+    ///
+    /// To construct a variable reference expression with custom [`Span`], use
+    /// [`Expression::var_or_const_spanned()`].
     pub fn var_or_const(id: V) -> Self {
         Expression::VarOrConst(id, S::empty())
     }
+
+    /// Constructs a variable, constant, or formula reference expression with given [`Span`].
+    ///
+    /// For details, see [`Expression::VarOrConst`].
+    ///
+    /// To construct a variable reference expression with empty span, use
+    /// [`Expression::var_or_const()`].
     pub fn var_or_const_spanned(id: V, span: S) -> Self {
         Expression::VarOrConst(id, span)
     }
+
+    /// Constructs a label expression with empty span.
+    ///
+    /// For details, see [`Expression::Label`].
+    ///
+    /// To construct a label expression with custom [`Span`], use [`Expression::label_spanned()`].
     pub fn label(id: V) -> Self {
         Expression::Label(id, S::empty())
     }
+
+    /// Constructs a label expression with given [`Span`].
+    ///
+    /// For details, see [`Expression::Label`].
+    ///
+    /// To construct a label expression with empty span, use [`Expression::label()`].
     pub fn label_spanned(id: V, span: S) -> Self {
         Expression::Label(id, span)
     }
 
+    /// Constructs a function call expression with empty span.
+    ///
+    /// For details, see [`Expression::Function`].
+    ///
+    /// To construct a function call expression with custom [`Span`], use
+    /// [`Expression::function_spanned()`].
     pub fn function<A: Into<Vec<Self>>>(identifier: Identifier<S>, args: A) -> Self {
         Expression::Function(identifier, args.into(), S::empty())
     }
+
+    /// Constructs a function call expression with given [`Span`].
+    ///
+    /// For details, see [`Expression::Function`].
+    ///
+    /// To construct a function call expression with empty span, use [`Expression::function()`].
     pub fn function_spanned<A: Into<Vec<Self>>>(
         identifier: Identifier<S>,
         args: A,
@@ -1118,118 +1298,325 @@ impl<V, S: Span> Expression<V, S> {
         Expression::Function(identifier, args.into(), span)
     }
 
+    /// Constructs an integer and float negation expression with empty span.
+    ///
+    /// For details, see [`Expression::Minus`].
+    ///
+    /// To construct a negation expression with custom [`Span`], use
+    /// [`Expression::negate_value_spanned()`].
     pub fn negate_value(self) -> Self {
         Expression::Minus(Box::new(self), S::empty())
     }
+
+    /// Constructs an integer and float negation expression with given [`Span`].
+    ///
+    /// For details, see [`Expression::Minus`].
+    ///
+    /// To construct a negation expression with empty span, use [`Expression::negate_value()`].
     pub fn negate_value_spanned(self, span: S) -> Self {
         Expression::Minus(Box::new(self), span)
     }
 
+    /// Constructs a multiplication expression with empty span.
+    ///
+    /// For details, see [`Expression::Multiplication`].
+    ///
+    /// To construct a multiplication expression with custom [`Span`], use
+    /// [`Expression::times_spanned()`].
     pub fn times(self, other: Self) -> Self {
         Expression::Multiplication(Box::new(self), Box::new(other), S::empty())
     }
+
+    /// Constructs a multiplication expression with given [`Span`].
+    ///
+    /// For details, see [`Expression::Multiplication`].
+    ///
+    /// To construct a multiplication expression with empty span, use [`Expression::times()`].
     pub fn times_spanned(self, other: Self, span: S) -> Self {
         Expression::Multiplication(Box::new(self), Box::new(other), span)
     }
 
+    /// Constructs a division expression with empty span.
+    ///
+    /// For details, see [`Expression::Division`].
+    ///
+    /// To construct a division expression with custom [`Span`], use
+    /// [`Expression::divide_by_spanned()`].
     pub fn divide_by(self, other: Self) -> Self {
         Expression::Division(Box::new(self), Box::new(other), S::empty())
     }
+
+    /// Constructs a division expression with given [`Span`].
+    ///
+    /// For details, see [`Expression::Division`].
+    ///
+    /// To construct a division expression with empty span, use [`Expression::divide_by()`].
     pub fn divide_by_spanned(self, other: Self, span: S) -> Self {
         Expression::Division(Box::new(self), Box::new(other), span)
     }
 
+    /// Constructs an addition expression with empty span.
+    ///
+    /// For details, see [`Expression::Addition`].
+    ///
+    /// To construct an addition expression with custom [`Span`], use
+    /// [`Expression::plus_spanned()`].
     pub fn plus(self, other: Self) -> Self {
         Expression::Addition(Box::new(self), Box::new(other), S::empty())
     }
+
+    /// Constructs an addition expression with given [`Span`].
+    ///
+    /// For details, see [`Expression::Addition`].
+    ///
+    /// To construct an addition expression with empty span, use [`Expression::plus()`].
     pub fn plus_spanned(self, other: Self, span: S) -> Self {
         Expression::Addition(Box::new(self), Box::new(other), span)
     }
 
+    /// Constructs a subtraction expression with empty span.
+    ///
+    /// For details, see [`Expression::Subtraction`].
+    ///
+    /// To construct a subtraction expression with custom [`Span`], use
+    /// [`Expression::minus_spanned()`].
     pub fn minus(self, other: Self) -> Self {
         Expression::Subtraction(Box::new(self), Box::new(other), S::empty())
     }
+
+    /// Constructs a subtraction expression with given [`Span`].
+    ///
+    /// For details, see [`Expression::Subtraction`].
+    ///
+    /// To construct a subtraction expression with empty span, use [`Expression::minus()`].
     pub fn minus_spanned(self, other: Self, span: S) -> Self {
         Expression::Subtraction(Box::new(self), Box::new(other), span)
     }
 
+    /// Constructs a less-than comparison expression with empty span.
+    ///
+    /// For details, see [`Expression::LessThan`].
+    ///
+    /// To construct a less-than comparison expression with custom [`Span`], use
+    /// [`Expression::less_than_spanned()`].
     pub fn less_than(self, other: Self) -> Self {
         Expression::LessThan(Box::new(self), Box::new(other), S::empty())
     }
+
+    /// Constructs a less-than comparison expression with given [`Span`].
+    ///
+    /// For details, see [`Expression::LessThan`].
+    ///
+    /// To construct a less-than comparison expression with empty span, use
+    /// [`Expression::less_than()`].
     pub fn less_than_spanned(self, other: Self, span: S) -> Self {
         Expression::LessThan(Box::new(self), Box::new(other), span)
     }
 
+    /// Constructs a less-or-equal comparison expression with empty span.
+    ///
+    /// For details, see [`Expression::LessOrEqual`].
+    ///
+    /// To construct a less-or-equal comparison expression with custom [`Span`], use
+    /// [`Expression::less_or_equal_spanned()`].
     pub fn less_or_equal(self, other: Self) -> Self {
         Expression::LessOrEqual(Box::new(self), Box::new(other), S::empty())
     }
+
+    /// Constructs a less-or-equal comparison expression with given [`Span`].
+    ///
+    /// For details, see [`Expression::LessOrEqual`].
+    ///
+    /// To construct a less-or-equal comparison expression with empty span, use
+    /// [`Expression::less_or_equal()`].
     pub fn less_or_equal_spanned(self, other: Self, span: S) -> Self {
         Expression::LessOrEqual(Box::new(self), Box::new(other), span)
     }
 
+    /// Constructs a greater-than comparison expression with empty span.
+    ///
+    /// For details, see [`Expression::GreaterThan`].
+    ///
+    /// To construct a greater-than comparison expression with custom [`Span`], use
+    /// [`Expression::greater_than_spanned()`].
     pub fn greater_than(self, other: Self) -> Self {
         Expression::GreaterThan(Box::new(self), Box::new(other), S::empty())
     }
+
+    /// Constructs a greater-than comparison expression with given [`Span`].
+    ///
+    /// For details, see [`Expression::GreaterThan`].
+    ///
+    /// To construct a greater-than comparison expression with empty span, use
+    /// [`Expression::greater_than()`].
     pub fn greater_than_spanned(self, other: Self, span: S) -> Self {
         Expression::GreaterThan(Box::new(self), Box::new(other), span)
     }
 
+    /// Constructs a greater-or-equal comparison expression with empty span.
+    ///
+    /// For details, see [`Expression::GreaterOrEqual`].
+    ///
+    /// To construct a greater-or-equal comparison expression with custom [`Span`], use
+    /// [`Expression::greater_or_equal_spanned()`].
     pub fn greater_or_equal(self, other: Self) -> Self {
         Expression::GreaterOrEqual(Box::new(self), Box::new(other), S::empty())
     }
+
+    /// Constructs a greater-or-equal comparison expression with given [`Span`].
+    ///
+    /// For details, see [`Expression::GreaterOrEqual`].
+    ///
+    /// To construct a greater-or-equal comparison expression with empty span, use
+    /// [`Expression::greater_or_equal()`].
     pub fn greater_or_equal_spanned(self, other: Self, span: S) -> Self {
         Expression::GreaterOrEqual(Box::new(self), Box::new(other), span)
     }
 
+    /// Constructs an equality comparison expression with empty span.
+    ///
+    /// For details, see [`Expression::Equals`].
+    ///
+    /// To construct an equality comparison expression with custom [`Span`], use
+    /// [`Expression::equals_to_spanned()`].
     pub fn equals_to(self, other: Self) -> Self {
         Expression::Equals(Box::new(self), Box::new(other), S::empty())
     }
+
+    /// Constructs an equality comparison expression with given [`Span`].
+    ///
+    /// For details, see [`Expression::Equals`].
+    ///
+    /// To construct an equality comparison expression with empty span, use
+    /// [`Expression::equals_to()`].
     pub fn equals_to_spanned(self, other: Self, span: S) -> Self {
         Expression::Equals(Box::new(self), Box::new(other), span)
     }
 
+    /// Constructs an inequality comparison expression with empty span.
+    ///
+    /// For details, see [`Expression::NotEquals`].
+    ///
+    /// To construct an inequality comparison expression with custom [`Span`], use
+    /// [`Expression::not_equals_to_spanned()`].
     pub fn not_equals_to(self, other: Self) -> Self {
         Expression::NotEquals(Box::new(self), Box::new(other), S::empty())
     }
+
+    /// Constructs an inequality comparison expression with given [`Span`].
+    ///
+    /// For details, see [`Expression::NotEquals`].
+    ///
+    /// To construct an inequality comparison expression with empty span, use
+    /// [`Expression::not_equals_to()`].
     pub fn not_equals_to_spanned(self, other: Self, span: S) -> Self {
         Expression::NotEquals(Box::new(self), Box::new(other), span)
     }
 
+    /// Constructs a boolean negation expression with empty span.
+    ///
+    /// For details, see [`Expression::Negation`].
+    ///
+    /// To construct a boolean negation expression with custom [`Span`], use
+    /// [`Expression::negate_bool_spanned()`].
     pub fn negate_bool(self) -> Self {
         Expression::Negation(Box::new(self), S::empty())
     }
+
+    /// Constructs a boolean negation expression with given [`Span`].
+    ///
+    /// For details, see [`Expression::Negation`].
+    ///
+    /// To construct a boolean negation expression with empty span, use
+    /// [`Expression::negate_bool()`].
     pub fn negate_bool_spanned(self, span: S) -> Self {
         Expression::Negation(Box::new(self), span)
     }
 
+    /// Constructs a boolean conjunction expression with empty span.
+    ///
+    /// For details, see [`Expression::Conjunction`].
+    ///
+    /// To construct a boolean conjunction expression with custom [`Span`], use
+    /// [`Expression::and_spanned()`].
     pub fn and(self, other: Self) -> Self {
         Expression::Conjunction(Box::new(self), Box::new(other), S::empty())
     }
+
+    /// Constructs a boolean conjunction expression with given [`Span`].
+    ///
+    /// For details, see [`Expression::Conjunction`].
+    ///
+    /// To construct a boolean conjunction expression with empty span, use [`Expression::and()`].
     pub fn and_spanned(self, other: Self, span: S) -> Self {
         Expression::Conjunction(Box::new(self), Box::new(other), span)
     }
 
+    /// Constructs a boolean disjunction expression with empty span.
+    ///
+    /// For details, see [`Expression::Disjunction`].
+    ///
+    /// To construct a boolean disjunction expression with custom [`Span`], use
+    /// [`Expression::or_spanned()`].
     pub fn or(self, other: Self) -> Self {
         Expression::Disjunction(Box::new(self), Box::new(other), S::empty())
     }
+
+    /// Constructs a boolean disjunction expression with given [`Span`].
+    ///
+    /// For details, see [`Expression::Disjunction`].
+    ///
+    /// To construct a boolean disjunction expression with empty span, use [`Expression::or()`].
     pub fn or_spanned(self, other: Self, span: S) -> Self {
         Expression::Disjunction(Box::new(self), Box::new(other), span)
     }
 
+    /// Constructs a boolean equivalence expression with empty span.
+    ///
+    /// For details, see [`Expression::IfAndOnlyIf`].
+    ///
+    /// To construct a boolean equivalence expression with custom [`Span`], use
+    /// [`Expression::if_and_only_if_spanned()`].
     pub fn if_and_only_if(self, other: Self) -> Self {
         Expression::IfAndOnlyIf(Box::new(self), Box::new(other), S::empty())
     }
+
+    /// Constructs a boolean equivalence expression with given [`Span`].
+    ///
+    /// For details, see [`Expression::IfAndOnlyIf`].
+    ///
+    /// To construct a boolean equivalence expression with empty span, use
+    /// [`Expression::if_and_only_if()`].
     pub fn if_and_only_if_spanned(self, other: Self, span: S) -> Self {
         Expression::IfAndOnlyIf(Box::new(self), Box::new(other), span)
     }
 
+    /// Constructs a boolean implication expression with empty span.
+    ///
+    /// For details, see [`Expression::Implies`].
+    ///
+    /// To construct a boolean implication expression with custom [`Span`], use
+    /// [`Expression::implies_spanned()`].
     pub fn implies(self, other: Self) -> Self {
         Expression::Implies(Box::new(self), Box::new(other), S::empty())
     }
+
+    /// Constructs a boolean implication expression with given [`Span`].
+    ///
+    /// For details, see [`Expression::Implies`].
+    ///
+    /// To construct a boolean implication expression with empty span, use
+    /// [`Expression::implies()`].
     pub fn implies_spanned(self, other: Self, span: S) -> Self {
         Expression::Implies(Box::new(self), Box::new(other), span)
     }
 
+    /// Constructs a ternary expression with empty span.
+    ///
+    /// For details, see [`Expression::Ternary`].
+    ///
+    /// To construct a ternary expression with custom [`Span`], use
+    /// [`Expression::ternary_spanned()`].
     pub fn ternary(self, branch_1: Self, branch_2: Self) -> Self {
         Expression::Ternary(
             Box::new(self),
@@ -1238,12 +1625,60 @@ impl<V, S: Span> Expression<V, S> {
             S::empty(),
         )
     }
+
+    /// Constructs a ternary expression with given [`Span`].
+    ///
+    /// For details, see [`Expression::Ternary`].
+    ///
+    /// To construct a ternary expression with empty span, use [`Expression::ternary()`].
     pub fn ternary_spanned(self, branch_1: Self, branch_2: Self, span: S) -> Self {
         Expression::Ternary(Box::new(self), Box::new(branch_1), Box::new(branch_2), span)
     }
 }
 
 impl<S: Span> Expression<Identifier<S>, S> {
+    /// Replaces every [`Expression::Label`] in this expression whose name matches a label in
+    /// `labels` with that label's condition expression.
+    ///
+    /// Label occurrences that have no matching entry in `labels` are left unchanged as
+    /// [`Expression::Label`] nodes.
+    ///
+    /// # Example
+    ///
+    /// Let `labels` be a [`LabelManager`] with a label `"done"` with value `true`.
+    /// ```
+    /// # use prism_model::*;
+    /// let done = Identifier::new("done").unwrap();
+    /// let labels: LabelManagerNamedVars = LabelManager::with_labels(vec![
+    ///     Label::new(done.clone(), Expression::bool(true)),
+    /// ]).unwrap();
+    /// ```
+    ///
+    /// Let `expr` be the expression `"done" & false`.
+    ///
+    /// ```
+    /// # use prism_model::*;
+    /// # let done = Identifier::new("done").unwrap();
+    /// # let labels: LabelManagerNamedVars = LabelManager::with_labels(vec![
+    /// #     Label::new(done.clone(), Expression::bool(true)),
+    /// # ]).unwrap();
+    /// let mut expr = Expression::label(done).and(Expression::bool(false));
+    /// # expr.substitute_labels(&labels);
+    /// # assert_eq!(expr, Expression::bool(true).and(Expression::bool(false)));
+    /// ```
+    ///
+    /// Then calling `substitute_labels()` yields the expression `true & false`.
+    ///
+    /// ```
+    /// # use prism_model::*;
+    /// # let done = Identifier::new("done").unwrap();
+    /// # let labels: LabelManagerNamedVars = LabelManager::with_labels(vec![
+    /// #     Label::new(done.clone(), Expression::bool(true)),
+    /// # ]).unwrap();
+    /// # let mut expr = Expression::label(done).and(Expression::bool(false));
+    /// expr.substitute_labels(&labels);
+    /// assert_eq!(expr, Expression::bool(true).and(Expression::bool(false)));
+    /// ```
     pub fn substitute_labels(&mut self, labels: &LabelManager<S, Expression<Identifier<S>, S>>) {
         for label in &labels.labels {
             let mut visitor = LabelSubstitutionVisitor {
@@ -1255,6 +1690,71 @@ impl<S: Span> Expression<Identifier<S>, S> {
             *self = condition.visit(&mut visitor);
         }
     }
+
+    /// Replaces every [`Expression::VarOrConst`] in this expression whose name matches a formula
+    /// in `formulas` with that formula's condition expression.
+    ///
+    /// Formulas may reference other formulas. This method expands formulas according to the
+    /// topological ordering of the formula dependency graph. This ensures nested formulas are fully
+    /// expanded.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`CyclicDependency`] if the formula dependency graph contains a cycle, i.e. a
+    /// formula (directly or transitively) references itself.
+    ///
+    /// # Example
+    ///
+    /// Let `formulas` be a [`FormulaManager`] with formulas `thresh = 10` and
+    /// `almost_max = threshold - 1`:
+    ///
+    /// ```
+    /// # use prism_model::*;
+    /// let thresh: Identifier = Identifier::new("thresh").unwrap();
+    /// let almost: Identifier = Identifier::new("almost").unwrap();
+    /// let mut formulas: FormulaManagerNamedVars = FormulaManager::with_formulas(vec![
+    ///     Formula::new(thresh.clone(), Expression::int(10)),
+    ///     Formula::new(almost.clone(), Expression::var_or_const(thresh.clone()).minus(Expression::int(1))),
+    /// ]).unwrap();
+    /// ```
+    ///
+    /// Let `expr = x > almost`:
+    ///
+    /// ```
+    /// # use prism_model::*;
+    /// # let thresh: Identifier = Identifier::new("thresh").unwrap();
+    /// # let almost: Identifier = Identifier::new("almost").unwrap();
+    /// # let mut formulas: FormulaManagerNamedVars = FormulaManager::with_formulas(vec![
+    /// #     Formula::new(thresh.clone(), Expression::int(10)),
+    /// #     Formula::new(almost.clone(), Expression::var_or_const(thresh.clone()).minus(Expression::int(1))),
+    /// # ]).unwrap();
+    /// # let x: Identifier = Identifier::new("x").unwrap();
+    /// let mut expr = Expression::var_or_const(x.clone()).greater_than(Expression::var_or_const(almost));
+    /// # expr.substitute_formulas(&formulas).unwrap();
+    /// # assert_eq!(
+    /// #     expr,
+    /// #     Expression::var_or_const(x).greater_than(Expression::int(10).minus(Expression::int(1)))
+    /// # );
+    /// ```
+    ///
+    /// Then calling `substitute_formulas()` yields `expr = x > 10 - 1`:
+    ///
+    /// ```
+    /// # use prism_model::*;
+    /// # let thresh: Identifier = Identifier::new("thresh").unwrap();
+    /// # let almost: Identifier = Identifier::new("almost").unwrap();
+    /// # let mut formulas: FormulaManagerNamedVars = FormulaManager::with_formulas(vec![
+    /// #     Formula::new(thresh.clone(), Expression::int(10)),
+    /// #     Formula::new(almost.clone(), Expression::var_or_const(thresh.clone()).minus(Expression::int(1))),
+    /// # ]).unwrap();
+    /// # let x: Identifier = Identifier::new("x").unwrap();
+    /// # let mut expr = Expression::var_or_const(x.clone()).greater_than(Expression::var_or_const(almost));
+    /// expr.substitute_formulas(&formulas).expect("Circular dependency");
+    /// assert_eq!(
+    ///     expr,
+    ///     Expression::var_or_const(x).greater_than(Expression::int(10).minus(Expression::int(1)))
+    /// );
+    /// ```
     pub fn substitute_formulas(
         &mut self,
         formulas: &FormulaManager<S, Expression<Identifier<S>, S>>,
@@ -1275,6 +1775,38 @@ impl<S: Span> Expression<Identifier<S>, S> {
         Ok(())
     }
 
+    /// Renames the variables in the expression according to the given [`RenameRules`].
+    ///
+    /// This function is mainly used to expand a [`crate::RenamedModule`].
+    ///
+    /// # Example
+    ///
+    /// These rename rules swap `x` and `y`:
+    ///
+    /// ```
+    /// # use prism_model::*;
+    /// let x = Identifier::new("x").unwrap();
+    /// let y = Identifier::new("y").unwrap();
+    /// let rename_rules: RenameRules = RenameRules::with_rules(&[
+    ///     RenameRule::new(x.clone(), y.clone()),
+    ///     RenameRule::new(y.clone(), x.clone()),
+    /// ]);
+    /// ```
+    /// Given the expression `x / y`, calling `renamed()` produces the expression `y / x`:
+    ///
+    /// ```
+    /// # use prism_model::*;
+    /// # let x = Identifier::new("x").unwrap();
+    /// # let y = Identifier::new("y").unwrap();
+    /// # let rename_rules: RenameRules = RenameRules::with_rules(&[
+    /// #     RenameRule::new(x.clone(), y.clone()),
+    /// #     RenameRule::new(y.clone(), x.clone()),
+    /// # ]);
+    /// let x_by_y = Expression::var_or_const(x.clone())
+    ///     .divide_by(Expression::var_or_const(y.clone()));
+    /// let y_by_x = x_by_y.renamed(&rename_rules);
+    /// assert_eq!(y_by_x, Expression::var_or_const(y).divide_by(Expression::var_or_const(x)))
+    /// ```
     pub fn renamed(&self, rename_rules: &RenameRules<S>) -> Self {
         let mut visitor = RenamingVisitor { rename_rules };
         self.clone().visit(&mut visitor) // This clone is not required in principle, but cannot be avoided as long as visitors consume their expression
@@ -1294,26 +1826,88 @@ impl<'a, S: Span> IdentityMapExpression<Identifier<S>, S> for RenamingVisitor<'a
     }
 }
 impl<S: Span> Expression<Identifier<S>, S> {
-    /// TODO
+    /// Replaces each [`Expression::VarOrConst`] by the variable's or constant's index in
+    /// `variable_manager`.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Vec<`[`UnknownVariableError<S>`]`>`, which contains an entry for every
+    /// [`Expression::VarOrConst`] which does not correspond to a variable or constant in
+    /// `variable_manager`.
+    ///
+    /// # Formulas
+    ///
+    /// The expression must not contain any formulas. Use [`Expression::substitute_formulas()`] to
+    /// replace each formula with its corresponding condition before calling this function.
     ///
     /// # Example
     ///
-    /// TODO: Make sure this works
+    /// Let `variable_manager` be a variable manager with a single variable `x`.
     ///
     /// ```
-    /// use prism_model::*;
-    /// let named_variable: Expression<Identifier> = Expression::var_or_const(Identifier::new("x").unwrap());
-    /// let mut variable_manager: VariableManager<_, Expression<Identifier>> = VariableManager::new();
-    /// let variable_reference = variable_manager.add_variable(
-    ///     VariableInfo::global_var(Identifier::new("x").unwrap(),
-    ///     VariableRange::unbounded_int())
+    /// # use prism_model::*;
+    /// let mut variable_manager: VariableManagerNamedVars = VariableManager::new();
+    /// let var_ref = variable_manager.add_variable(
+    ///     VariableInfo::global_var(Identifier::new("x").unwrap(), VariableRange::unbounded_int())
     /// ).unwrap();
+    /// #
+    /// # let named_var: ExpressionNamedVars = Expression::var_or_const(Identifier::new("x").unwrap());
+    /// # let refed_var = Expression::var_or_const(var_ref);
+    /// #
+    /// # assert_eq!(
+    /// #     refed_var, named_var.replace_identifiers_by_variable_indices(&variable_manager).unwrap()
+    /// # );
+    /// ```
     ///
-    /// let indexed_variable = Expression::var_or_const(variable_reference);
+    /// Let `named_var` be an expression referring to `x` by its name.
     ///
+    /// ```
+    /// # use prism_model::*;
+    /// # let mut variable_manager: VariableManagerNamedVars = VariableManager::new();
+    /// # let var_ref = variable_manager.add_variable(
+    /// #     VariableInfo::global_var(Identifier::new("x").unwrap(), VariableRange::unbounded_int())
+    /// # ).unwrap();
+    /// #
+    /// let named_var: ExpressionNamedVars = Expression::var_or_const(Identifier::new("x").unwrap());
+    /// # let refed_var = Expression::var_or_const(var_ref);
+    /// #
+    /// # assert_eq!(
+    /// #     refed_var, named_var.replace_identifiers_by_variable_indices(&variable_manager).unwrap()
+    /// # );
+    /// ```
+    ///
+    /// Let `refed_var` be an expression referring to `x` by its reference. (This can alternatively
+    /// be obtained by calling [`VariableManager::get_reference()`]).
+    ///
+    /// ```
+    /// # use prism_model::*;
+    /// # let mut variable_manager: VariableManagerNamedVars = VariableManager::new();
+    /// # let var_ref = variable_manager.add_variable(
+    /// #     VariableInfo::global_var(Identifier::new("x").unwrap(), VariableRange::unbounded_int())
+    /// # ).unwrap();
+    /// #
+    /// # let named_var: ExpressionNamedVars = Expression::var_or_const(Identifier::new("x").unwrap());
+    /// let refed_var = Expression::var_or_const(var_ref);
+    /// #
+    /// # assert_eq!(
+    /// #     refed_var, named_var.replace_identifiers_by_variable_indices(&variable_manager).unwrap()
+    /// # );
+    /// ```
+    ///
+    /// Then calling `replace_identifiers_by_variable_indices` on `named_var` yields `refed_var`.
+    ///
+    /// ```
+    /// # use prism_model::*;
+    /// # let mut variable_manager: VariableManagerNamedVars = VariableManager::new();
+    /// # let var_ref = variable_manager.add_variable(
+    /// #     VariableInfo::global_var(Identifier::new("x").unwrap(), VariableRange::unbounded_int())
+    /// # ).unwrap();
+    /// #
+    /// # let named_var: ExpressionNamedVars = Expression::var_or_const(Identifier::new("x").unwrap());
+    /// # let refed_var = Expression::var_or_const(var_ref);
+    /// #
     /// assert_eq!(
-    ///     indexed_variable,
-    ///     named_variable.replace_identifiers_by_variable_indices(&variable_manager).unwrap()
+    ///     refed_var, named_var.replace_identifiers_by_variable_indices(&variable_manager).unwrap()
     /// );
     /// ```
     pub fn replace_identifiers_by_variable_indices<R>(
@@ -1343,8 +1937,17 @@ impl<S: Span> Expression<Identifier<S>, S> {
     }
 }
 
+/// Error to indicate that a variable was not found.
+///
+/// This is thrown when [`Expression::replace_identifiers_by_variable_indices()`] is called on an
+/// expression that contains [`Expression::VarOrConst`] with an identifier that is not in the given
+/// [`VariableManager`].
+///
+/// This error is also thrown when the expression contains a formula. See
+/// [`Expression::replace_identifiers_by_variable_indices()`] for details.
 #[derive(Clone, Debug)]
 pub struct UnknownVariableError<S: Span> {
+    /// The identifier of the variable, constant or formula that was not found.
     pub identifier: Identifier<S>,
 }
 

@@ -104,7 +104,7 @@ where
         .then_ignore(just(Token::Equal))
         .then(identifier_parser())
         .map_with(|(old_name, new_name), e| {
-            prism_model::RenameRule::new(old_name, new_name, e.span())
+            prism_model::RenameRule::new_spanned(old_name, new_name, e.span())
         })
         .labelled("rename rule")
         .as_context()

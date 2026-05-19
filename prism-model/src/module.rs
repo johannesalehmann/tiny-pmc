@@ -192,13 +192,23 @@ impl<S: Span> Display for RenamedModule<S> {
 }
 
 #[derive(Clone)]
-pub struct RenameRules<S: Span> {
+pub struct RenameRules<S: Span = FullSpan> {
     pub rules: Vec<RenameRule<S>>,
 }
 
 impl<S: Span> RenameRules<S> {
     pub fn new() -> Self {
         Self { rules: Vec::new() }
+    }
+
+    pub fn with_rules<R: Into<Vec<RenameRule<S>>>>(rules: R) -> Self {
+        Self {
+            rules: rules.into(),
+        }
+    }
+
+    pub fn add_rule(&mut self, rule: RenameRule<S>) {
+        self.rules.push(rule);
     }
 
     pub fn get_renaming(&self, old_name: &Identifier<S>) -> Option<Identifier<S>> {
@@ -212,13 +222,16 @@ impl<S: Span> RenameRules<S> {
 }
 
 #[derive(Clone)]
-pub struct RenameRule<S: Span> {
+pub struct RenameRule<S: Span = FullSpan> {
     pub old_name: Identifier<S>,
     pub new_name: Identifier<S>,
     pub span: S,
 }
 impl<S: Span> RenameRule<S> {
-    pub fn new(old_name: Identifier<S>, new_name: Identifier<S>, span: S) -> Self {
+    pub fn new(old_name: Identifier<S>, new_name: Identifier<S>) -> Self {
+        Self::new_spanned(old_name, new_name, S::empty())
+    }
+    pub fn new_spanned(old_name: Identifier<S>, new_name: Identifier<S>, span: S) -> Self {
         Self {
             old_name,
             new_name,

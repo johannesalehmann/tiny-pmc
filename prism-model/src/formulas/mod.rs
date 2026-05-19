@@ -20,6 +20,15 @@ impl<S: Span, E> FormulaManager<S, E> {
         }
     }
 
+    pub fn with_formulas(mut formulas: Vec<Formula<S, E>>) -> Result<Self, AddFormulaError> {
+        let mut res = Self::new();
+
+        for formula in formulas.drain(..) {
+            res.add_formula(formula)?;
+        }
+        Ok(res)
+    }
+
     pub fn get(&self, index: usize) -> Option<&Formula<S, E>> {
         self.formulas.get(index)
     }
