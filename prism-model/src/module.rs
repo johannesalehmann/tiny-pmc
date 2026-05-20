@@ -5,6 +5,8 @@ use crate::{
 };
 use std::fmt::{Display, Formatter};
 
+/// A [`ModuleManager`] using [`Identifier`] to refer to variables in expressions, instead of the
+/// default of [`VariableReference`].
 pub type ModuleManagerNamedVars<S: Span = FullSpan, A = Identifier<S>> =
     ModuleManager<Identifier<S>, S, Expression<Identifier<S>, S>, A>;
 pub struct ModuleManager<
@@ -71,6 +73,8 @@ pub enum AddModuleError {
     ModuleExists { index: usize },
 }
 
+/// A [`Module`] using [`Identifier`] to refer to variables in expressions, instead of the default
+/// of [`VariableReference`].
 pub type ModuleNamedVars<S: Span = FullSpan, A = Identifier<S>> =
     Module<Identifier<S>, S, Expression<Identifier<S>, S>, A>;
 pub struct Module<

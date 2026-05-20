@@ -2,6 +2,8 @@ use crate::spans::{FullSpan, Span};
 use crate::{Displayable, Expression, Identifier, VariableReference};
 use std::fmt::Formatter;
 
+/// A [`LabelManager`] using [`Identifier`] to refer to variables in expressions, instead of the
+/// default of [`VariableReference`].
 pub type LabelManagerNamedVars<S: Span = FullSpan> = LabelManager<S, Expression<Identifier<S>>>;
 
 pub struct LabelManager<S: Span = FullSpan, E = Expression<VariableReference, S>> {
@@ -84,6 +86,8 @@ pub enum AddLabelError {
     LabelExists { index: usize },
 }
 
+/// A [`Label`] using [`Identifier`] to refer to variables in expressions, instead of the default of
+/// [`VariableReference`].
 pub type LabelNamedVars<S: Span = FullSpan> = Label<S, Expression<Identifier<S>, S>>;
 pub struct Label<S: Span = FullSpan, E = Expression<VariableReference, S>> {
     pub name: Identifier<S>,

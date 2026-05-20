@@ -2,6 +2,8 @@ use crate::spans::{FullSpan, Span};
 use crate::{Displayable, Expression, Identifier, VariableReference};
 use std::fmt::{Display, Formatter};
 
+/// A [`RewardsManager`] using [`Identifier`] to refer to variables in expressions, instead of the
+/// default of [`VariableReference`].
 pub type RewardsManagerNamedVars<S: Span = FullSpan, A = Identifier<S>> =
     RewardsManager<S, Expression<Identifier<S>, S>, A>;
 pub struct RewardsManager<
@@ -50,6 +52,8 @@ pub enum AddRewardsError {
     RewardsExist { index: usize },
 }
 
+/// A [`Rewards`] using [`Identifier`] to refer to variables in expressions, instead of the default
+/// of [`VariableReference`].
 pub type RewardsNamedVars<S: Span = FullSpan, A = Identifier<S>> =
     Rewards<S, Expression<Identifier<S>, S>, A>;
 
@@ -123,6 +127,8 @@ impl<A: Display> Display for RewardsTarget<A> {
     }
 }
 
+/// A [`RewardsElement`] using [`Identifier`] to refer to variables in expressions, instead of the
+/// default of [`VariableReference`].
 pub type RewardsElementNamedVars<S: Span = FullSpan, A = Identifier<S>> =
     RewardsElement<S, Expression<Identifier<S>, S>, A>;
 

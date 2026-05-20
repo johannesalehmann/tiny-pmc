@@ -4,6 +4,8 @@ use crate::spans::{FullSpan, Span};
 use crate::{Displayable, Identifier, VariableReference};
 use std::fmt::{Display, Formatter};
 
+/// A [`Command`] using [`Identifier`] to refer to variables in expressions, instead of the default of
+/// [`VariableReference`].
 pub type CommandNamedVars<S: Span = FullSpan, A = Identifier<S>> =
     Command<Identifier<S>, S, Expression<Identifier<S>>, A>;
 
@@ -112,6 +114,8 @@ impl<Ctx, V: Displayable<Ctx>, S: Span, E: Displayable<Ctx>, A: Display> Display
     }
 }
 
+/// An [`Update`] using [`Identifier`] to refer to variables in expressions, instead of the default
+/// of [`VariableReference`].
 pub type UpdateNamedVars<S: Span = FullSpan> =
     Update<Identifier<S>, S, Expression<Identifier<S>, S>>;
 pub struct Update<V = VariableReference, S: Span = FullSpan, E = Expression<V, S>> {
@@ -196,6 +200,8 @@ impl<Ctx, V: Displayable<Ctx>, S: Span, E: Displayable<Ctx>> Displayable<Ctx> fo
     }
 }
 
+/// A [`Assignment`] using [`Identifier`] to refer to variables in expressions, instead of the
+/// default of [`VariableReference`].
 pub type AssignmentNamedVars<S: Span = FullSpan> =
     Assignment<Identifier<S>, S, Expression<Identifier<S>, S>>;
 pub struct Assignment<V = VariableReference, S: Span = FullSpan, E = Expression<V, S>> {

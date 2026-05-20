@@ -1,5 +1,3 @@
-#![warn(missing_docs)]
-
 mod label_substitution;
 mod maps;
 
@@ -19,7 +17,6 @@ use std::fmt::{Display, Formatter};
 ///
 /// Use [`Expression::replace_identifiers_by_variable_indices`] to convert
 /// from the former to the latter.
-///
 pub type ExpressionNamedVars<S: Span = FullSpan> = Expression<Identifier<S>, S>;
 
 // TODO: Add link to prism-model-builder crate once it is published

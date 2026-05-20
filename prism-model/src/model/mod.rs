@@ -19,6 +19,8 @@ use crate::{
 };
 use std::fmt::{Display, Formatter};
 
+/// A [`Module`](crate::Module) using [`Identifier`] to refer to variables in expressions, instead of the default
+/// of [`VariableReference`].
 pub type ModelNamedVars<S: Span = FullSpan, A = Identifier<S>> =
     Model<Identifier<S>, S, Expression<Identifier<S>, S>, A>;
 

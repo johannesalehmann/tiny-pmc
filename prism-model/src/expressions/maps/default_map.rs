@@ -1,3 +1,5 @@
+#[cfg(doc)]
+use crate::Expression;
 use crate::Identifier;
 use crate::expressions::MapExpression;
 use crate::spans::Span;

@@ -1,6 +1,7 @@
 // The `NamedVars` versions of every component use a type alias variable bound, which are currently
 // not checked. Let's suppress these warnings.
 #![allow(type_alias_bounds)]
+#![warn(missing_docs)]
 
 //! A library to represent a model written in the [PRISM modelling language](https://www.prismmodelchecker.org/manual/ThePRISMLanguage/Introduction).
 //!

@@ -6,6 +6,8 @@ use std::fmt::Formatter;
 use crate::spans::{FullSpan, Span};
 use crate::{Displayable, Expression, Identifier, VariableReference};
 
+/// A [`FormulaManager`] using [`Identifier`] to refer to variables in expressions, instead of the
+/// default of [`VariableReference`].
 pub type FormulaManagerNamedVars<S: Span = FullSpan> =
     FormulaManager<S, Expression<Identifier<S>, S>>;
 
@@ -73,6 +75,8 @@ pub enum AddFormulaError {
     FormulaExists { index: usize },
 }
 
+/// A [`Formula`] using [`Identifier`] to refer to variables in expressions, instead of the default
+/// of [`VariableReference`].
 pub type FormulaNamedVars<S: Span> = Formula<S, Expression<Identifier<S>, S>>;
 pub struct Formula<S: Span, E = Expression<VariableReference, S>> {
     pub name: Identifier<S>,
