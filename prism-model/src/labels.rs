@@ -58,6 +58,12 @@ impl<S: Span, E> LabelManager<S, E> {
 }
 
 impl<V, S: Span> LabelManager<S, Expression<V, S>> {
+    /// Maps the [`Span`] of every [`Label`] in this `LabelManager` according to mapping function
+    /// `map`.
+    ///
+    /// The new spans are of type `S2`, which may be different from the original span type `S`.
+    /// Usage is analogous to [`Expression::map_span()`]. Refer to its documentation for details and
+    /// examples.
     pub fn map_span<S2: Span, F: Fn(S) -> S2>(
         self,
         map: &F,
@@ -108,6 +114,14 @@ impl<S: Span, E> Label<S, E> {
     }
 }
 impl<V, S: Span> Label<S, Expression<V, S>> {
+    /// Maps every [`Span`] of this `Label` according to mapping function `map`.
+    ///
+    /// The new spans are of type `S2`, which may be different from the original span type `S`.
+    /// `map` is applied to [`name`](Self::name), [`condition`](Self::condition),
+    /// and [`span`](Self::span).
+    ///
+    /// Usage is analogous to [`Expression::map_span()`]. Refer to its documentation for details and
+    /// examples.
     pub fn map_span<S2: Span, F: Fn(S) -> S2>(self, map: &F) -> Label<S2, Expression<V, S2>> {
         Label {
             name: self.name.map_span(map),

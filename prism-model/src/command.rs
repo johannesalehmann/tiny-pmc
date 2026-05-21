@@ -58,6 +58,14 @@ impl<V, S: Span, E, A> Command<V, S, E, A> {
 }
 
 impl<V, S: Span, A> Command<V, S, Expression<V, S>, A> {
+    /// Maps every [`Span`] of this `Command` according to mapping function `map`.
+    ///
+    /// The new spans are of type `S2`, which may be different from the original span type `S`.
+    /// `map` is applied to [`action_span`](Self::action_span), [`guard`](Self::guard),
+    /// every [`Update`] in [`updates`](Self::updates) and [`span`](Self::span).
+    ///
+    /// Usage is analogous to [`Expression::map_span()`]. Refer to its documentation for details and
+    /// examples.
     pub fn map_span<S2: Span, F: Fn(S) -> S2>(
         self,
         map: &F,
@@ -151,6 +159,14 @@ impl<V, S: Span, E> Update<V, S, E> {
     }
 }
 impl<V, S: Span> Update<V, S, Expression<V, S>> {
+    /// Maps every [`Span`] of this `Update` according to mapping function `map`.
+    ///
+    /// The new spans are of type `S2`, which may be different from the original span type `S`.
+    /// `map` is applied to [`probability`](Self::probability), every [`Assignment`] in
+    /// [`assignments`](Self::assignments) and [`span`](Self::span).
+    ///
+    /// Usage is analogous to [`Expression::map_span()`]. Refer to its documentation for details and
+    /// examples.
     pub fn map_span<S2: Span, F: Fn(S) -> S2>(self, map: &F) -> Update<V, S2, Expression<V, S2>> {
         let mut update = Update::new_spanned(self.probability.map_span(map), map(self.span));
         for assignment in self.assignments {
@@ -225,6 +241,14 @@ impl<V, S: Span, E> Assignment<V, S, E> {
     }
 }
 impl<V, S: Span> Assignment<V, S, Expression<V, S>> {
+    /// Maps every [`Span`] of this `Assignment` according to mapping function `map`.
+    ///
+    /// The new spans are of type `S2`, which may be different from the original span type `S`.
+    /// `map` is applied to [`value`](Self::value), [`target_span`](Self::target_span) and
+    /// [`span`](Self::span).
+    ///
+    /// Usage is analogous to [`Expression::map_span()`]. Refer to its documentation for details and
+    /// examples.
     pub fn map_span<S2: Span, F: Fn(S) -> S2>(
         self,
         map: &F,

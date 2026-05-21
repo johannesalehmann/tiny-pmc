@@ -53,6 +53,12 @@ impl<V, S: Span, E, A> ModuleManager<V, S, E, A> {
     }
 }
 impl<V, S: Span, A> ModuleManager<V, S, Expression<V, S>, A> {
+    /// Maps the [`Span`]s of every [`Module`] in this `ModuleManager` according to mapping function
+    /// `map`.
+    ///
+    /// The new spans are of type `S2`, which may be different from the original span type `S`.
+    /// Usage is analogous to [`Expression::map_span()`]. Refer to its documentation for details and
+    /// examples.
     pub fn map_span<S2: Span, F: Fn(S) -> S2>(
         self,
         map: &F,
@@ -101,6 +107,14 @@ impl<V, S: Span, E, A> Module<V, S, E, A> {
     }
 }
 impl<V, S: Span, A> Module<V, S, Expression<V, S>, A> {
+    /// Maps every [`Span`] of this `Module` according to mapping function `map`.
+    ///
+    /// The new spans are of type `S2`, which may be different from the original span type `S`.
+    /// `map` is applied to [`name`](Self::name), every [`Command`] in
+    /// [`commands`](Self::commands) and [`span`](Self::span).
+    ///
+    /// Usage is analogous to [`Expression::map_span()`]. Refer to its documentation for details and
+    /// examples.
     pub fn map_span<S2: Span, F: Fn(S) -> S2>(
         self,
         map: &F,
@@ -163,6 +177,14 @@ impl<S: Span> RenamedModule<S> {
         }
     }
 
+    /// Maps every [`Span`] of this `RenamedModule` according to mapping function `map`.
+    ///
+    /// The new spans are of type `S2`, which may be different from the original span type `S`.
+    /// `map` is applied to [`old_name`](Self::old_name), [`new_name`](Self::new_name), every
+    /// [`RenameRule`] in [`rename_rules`](Self::rename_rules) and [`span`](Self::span).
+    ///
+    /// Usage is analogous to [`Expression::map_span()`]. Refer to its documentation for details and
+    /// examples.
     pub fn map_span<S2: Span, F: Fn(S) -> S2>(self, map: &F) -> RenamedModule<S2> {
         RenamedModule {
             old_name: self.old_name.map_span(map),
@@ -243,6 +265,14 @@ impl<S: Span> RenameRule<S> {
         }
     }
 
+    /// Maps every [`Span`] of this `RenameRule` according to mapping function `map`.
+    ///
+    /// The new spans are of type `S2`, which may be different from the original span type `S`.
+    /// `map` is applied to [`old_name`](Self::old_name), [`new_name`](Self::new_name) and
+    /// [`span`](Self::span).
+    ///
+    /// Usage is analogous to [`Expression::map_span()`]. Refer to its documentation for details and
+    /// examples.
     pub fn map_span<S2: Span, F: Fn(S) -> S2>(self, map: &F) -> RenameRule<S2> {
         RenameRule {
             old_name: self.old_name.map_span(map),

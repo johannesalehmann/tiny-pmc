@@ -160,6 +160,22 @@ impl<S: Span, E> VariableIdentifierProvider<S, E> for Identifier<S> {
 }
 
 impl<V, S: Span, A> Model<V, S, Expression<V, S>, A> {
+    /// Maps every [`Span`] of this `Model` according to mapping function `map`.
+    ///
+    /// The new spans are of type `S2`, which may be different from the original span type `S`.
+    /// `map` is applied to
+    /// [`model_type`](Self::model_type),
+    /// [`variable_manager`](Self::variable_manager),
+    /// [`formulas`](Self::formulas),
+    /// [`modules`](Self::modules),
+    /// [`renamed_modules`](Self::renamed_modules),
+    /// [`init_constraint`](Self::init_constraint),
+    /// [`labels`](Self::labels),
+    /// [`rewards`](Self::rewards) and
+    /// [`span`](Self::span).
+    ///
+    /// Usage is analogous to [`Expression::map_span()`]. Refer to its documentation for details and
+    /// examples.
     pub fn map_span<S2: Span, F: Fn(S) -> S2>(self, map: &F) -> Model<V, S2, Expression<V, S2>, A> {
         Model {
             model_type: self.model_type.map_span(map),
@@ -309,6 +325,11 @@ impl<S: Span> ModelType<S> {
         }
     }
 
+    /// Maps the [`Span`] of the model type according to mapping function `map`.
+    ///
+    /// The new value is of type `S2`, which may be different from the original span type `S`. Usage
+    /// is analogous to [`Expression::map_span()`]. Refer to its documentation for details and
+    /// examples.
     pub fn map_span<S2: Span, F: Fn(S) -> S2>(self, map: &F) -> ModelType<S2> {
         match self {
             ModelType::Dtmc(span) => ModelType::Dtmc(map(span)),

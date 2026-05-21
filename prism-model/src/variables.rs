@@ -105,6 +105,12 @@ impl<Ctx, E: Displayable<Ctx>, S: Span> Displayable<(VariablePrintingStyle, &Ctx
 }
 
 impl<V, S: Span> VariableManager<S, Expression<V, S>> {
+    /// Maps the [`Span`]s of every [`Variable`] in this `VariableManager` according to mapping
+    /// function `map`.
+    ///
+    /// The new spans are of type `S2`, which may be different from the original span type `S`.
+    /// Usage is analogous to [`Expression::map_span()`]. Refer to its documentation for details and
+    /// examples.
     pub fn map_span<S2: Span, F: Fn(S) -> S2>(
         self,
         map: &F,
@@ -287,6 +293,14 @@ impl<S: Span, E> VariableInfo<S, E> {
     }
 }
 impl<V, S: Span> VariableInfo<S, Expression<V, S>> {
+    /// Maps every [`Span`] of this variable according to mapping function `map`.
+    ///
+    /// The new spans are of type `S2`, which may be different from the original span type `S`.
+    /// `map` is applied to the [`range`](Self::range), [`name`](Self::name),
+    /// [`initial_value`](Self::initial_value) and [`span`](Self::span).
+    ///
+    /// Usage is analogous to [`Expression::map_span()`]. Refer to its documentation for details and
+    /// examples.
     pub fn map_span<S2: Span, F: Fn(S) -> S2>(
         self,
         map: &F,
@@ -378,6 +392,14 @@ impl<S: Span, E> VariableRange<S, E> {
 }
 
 impl<V, S: Span> VariableRange<S, Expression<V, S>> {
+    /// Maps every [`Span`] of this `VariableRange` according to mapping function `map`.
+    ///
+    /// The new spans are of type `S2`, which may be different from the original span type `S`.
+    /// For every variant of this enum, `map` is applied to `span`, and for
+    /// [`VariableRange::BoundedInt`], it is also applied to `min` and `max`.
+    ///
+    /// Usage is analogous to [`Expression::map_span()`]. Refer to its documentation for details and
+    /// examples.
     pub fn map_span<S2: Span, F: Fn(S) -> S2>(
         self,
         map: &F,

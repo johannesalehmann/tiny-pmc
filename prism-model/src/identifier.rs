@@ -147,6 +147,11 @@ impl<S: Span> Identifier<S> {
         Ok(Self { name, span })
     }
 
+    /// Maps the [`Span`] of this `Identifier` according to mapping function `map`.
+    ///
+    /// The new spans are of type `S2`, which may be different from the original span type `S`.
+    /// Usage is analogous to [`Expression::map_span()`]. Refer to its documentation for details and
+    /// examples.
     pub fn map_span<S2: Span, F: Fn(S) -> S2>(self, map: &F) -> Identifier<S2> {
         Identifier {
             name: self.name,

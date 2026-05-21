@@ -37,6 +37,12 @@ impl<S: Span, E, A> RewardsManager<S, E, A> {
 }
 
 impl<V, S: Span, A> RewardsManager<S, Expression<V, S>, A> {
+    /// Maps the [`Span`] of every [`Reward`] in this `RewardsElement` according to mapping function
+    /// `map`.
+    ///
+    /// The new spans are of type `S2`, which may be different from the original span type `S`.
+    /// Usage is analogous to [`Expression::map_span()`]. Refer to its documentation for details and
+    /// examples.
     pub fn map_span<S2: Span, F: Fn(S) -> S2>(
         self,
         map: &F,
@@ -84,6 +90,14 @@ impl<S: Span, E, A> Rewards<S, E, A> {
     }
 }
 impl<V, S: Span, A> Rewards<S, Expression<V, S>, A> {
+    /// Maps every [`Span`] of this `Rewards` according to mapping function `map`.
+    ///
+    /// The new spans are of type `S2`, which may be different from the original span type `S`.
+    /// `map` is applied to [`name`](Self::name), every [`RewardsElement`] in
+    /// [`entries`](Self::entries) and [`span`](Self::span).
+    ///
+    /// Usage is analogous to [`Expression::map_span()`]. Refer to its documentation for details and
+    /// examples.
     pub fn map_span<S2: Span, F: Fn(S) -> S2>(self, map: &F) -> Rewards<S2, Expression<V, S2>, A> {
         Rewards {
             name: self.name.map(|i| i.map_span(map)),
@@ -170,6 +184,14 @@ impl<S: Span, E, A> RewardsElement<S, E, A> {
     }
 }
 impl<V, S: Span, A> RewardsElement<S, Expression<V, S>, A> {
+    /// Maps every [`Span`] of this `RewardsElement` according to mapping function `map`.
+    ///
+    /// The new spans are of type `S2`, which may be different from the original span type `S`.
+    /// `map` is applied to [`range`](Self::range), [`name`](Self::name),
+    /// [`initial_value`](Self::initial_value) and [`span`](Self::span).
+    ///
+    /// Usage is analogous to [`Expression::map_span()`]. Refer to its documentation for details and
+    /// examples.
     pub fn map_span<S2: Span, F: Fn(S) -> S2>(
         self,
         map: &F,
