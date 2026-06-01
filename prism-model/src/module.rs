@@ -203,14 +203,14 @@ pub struct Module<
 }
 
 impl<V, S: Span, E, A> Module<V, S, E, A> {
-    /// Constructs a module with given name, empty list of updates and empty [`Span`].
+    /// Constructs a module with given name, empty list of commands and empty [`Span`].
     ///
     /// To construct a module with given span, use [`Module::new_spanned()`].
     pub fn new(name: Identifier<S>) -> Self {
         Self::new_spanned(name, S::empty())
     }
 
-    /// Constructs a module with given name, empty list of updates and given [`Span`].
+    /// Constructs a module with given name, empty list of commands and given [`Span`].
     ///
     /// To construct a module with empty span, use [`Module::new()`].
     pub fn new_spanned(name: Identifier<S>, span: S) -> Self {
@@ -373,7 +373,7 @@ impl<S: Span> Display for RenamedModule<S> {
     }
 }
 
-/// A list of [`RenameRule`]s, expressing a list of variable renaming.
+/// A list of [`RenameRule`]s, expressing a list of variable renamings.
 ///
 /// Each renaming replaces one variable identifier with another. The renamings are executed
 /// simultaneously: For example, given renaming rules `x` -> `y`, `y` -> `z` and `z` -> `x`, the

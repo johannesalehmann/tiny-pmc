@@ -17,9 +17,9 @@ use std::ops::Range;
 ///
 /// # Accessing spans
 ///
-/// Spans are accessed with  [`Span::range()`], [`Span::start()`] and [`Span::end()`].
+/// Spans are accessed with [`Span::range()`], [`Span::start()`] and [`Span::end()`].
 ///
-/// These function return `Option`s. The cases in which `None` is returned depend on the
+/// These functions return `Option`s. The cases in which `None` is returned depend on the
 /// implementation (see below).
 ///
 /// # Implementations
@@ -33,7 +33,7 @@ use std::ops::Range;
 /// return `None`, even when constructed with e.g. [`Span::from_range()`].
 ///
 /// Future implementations may return `Some` even when constructed with [`Span::empty()`]. For
-/// example, it may instantiate `start` and `end` with default values and return these instead o
+/// example, it may instantiate `start` and `end` with default values and return these instead of
 /// `None`.
 pub trait Span: Clone {
     /// Constructs a span given a start and end index. The start index is inclusive, the end index

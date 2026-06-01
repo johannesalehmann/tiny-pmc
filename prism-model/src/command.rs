@@ -22,9 +22,9 @@ pub type CommandNamedVars<S: Span = FullSpan, A = Identifier<S>> =
 /// the update are applied to the current valuations.
 ///
 /// If [`updates`](Command::updates) is empty, this indicates the *empty update*, which is
-/// equivalent to `1: ()`, i.e. doing nothing with probability 1. Call
+/// equivalent to the *identity update* `1: ()`, i.e. doing nothing with probability 1. Call
 /// [`Model::replace_empty_updates_with_identity_update()`](crate::Model::replace_empty_updates_with_identity_update)
-/// to replace all empty updates with the equivalent empty update.
+/// to replace all empty updates with the equivalent identity update.
 ///
 /// # Synchronisation
 ///
@@ -52,7 +52,7 @@ pub type CommandNamedVars<S: Span = FullSpan, A = Identifier<S>> =
 /// endmodule
 /// ```
 ///
-/// Then `M1` can only execute one of its `alpha` commands if `M3` and `M4` can also execute on of
+/// Then `M1` can only execute one of its `alpha` commands if `M3` and `M4` can also execute one of
 /// their `alpha` commands. In particular, the following combinations are possible:
 ///
 /// * `guard1`, `guard4` and `guard6`
@@ -75,7 +75,7 @@ pub struct Command<
     /// corresponds to `action = None`.
     pub action: Option<A>,
 
-    /// The [`Span`] of the action of the action component of the PRISM command definition.
+    /// The [`Span`] of the action component of the PRISM command definition.
     ///
     /// # Example
     ///
@@ -332,7 +332,7 @@ pub type UpdateNamedVars<S: Span = FullSpan> =
 
 /// An update, i.e. a probability and a list of variable assignments.
 ///
-/// An update corresponds to the prism syntax `probability: (assignment_1) & ... & (assignment_n)`.
+/// An update corresponds to the PRISM syntax `probability: (assignment_1) & ... & (assignment_n)`.
 /// A [`Command`] contains several updates, with their total probability equal to `1`.
 #[derive(PartialEq, Clone, Debug)]
 pub struct Update<V = VariableReference, S: Span = FullSpan, E = Expression<V, S>> {
@@ -379,7 +379,7 @@ impl<V, S: Span, E> Update<V, S, E> {
     /// assignments.
     ///
     /// To construct an update with given span, use [`Update::with_assignments_spanned()`].
-    /// To construct an update without assignments, use [`Update::new()`] and updates with
+    /// To construct an update without assignments, use [`Update::new()`] and add assignments with
     /// [`Update::add_assignment()`].
     pub fn with_assignments(probability: E, assignments: Vec<Assignment<V, S, E>>) -> Self {
         Self::with_assignments_spanned(probability, assignments, S::empty())
@@ -389,8 +389,8 @@ impl<V, S: Span, E> Update<V, S, E> {
     /// assignments.
     ///
     /// To construct an update with empty span, use [`Update::with_assignments()`].
-    /// To construct an update without assignments, use [`Update::new_spanned()`] and updates with
-    /// [`Update::add_assignment()`]
+    /// To construct an update without assignments, use [`Update::new_spanned()`] and add
+    /// assignments with [`Update::add_assignment()`].
     pub fn with_assignments_spanned(
         probability: E,
         assignments: Vec<Assignment<V, S, E>>,
@@ -472,7 +472,7 @@ impl<Ctx, V: Displayable<Ctx>, S: Span, E: Displayable<Ctx>> Displayable<Ctx> fo
     }
 }
 
-/// A [`Assignment`] using [`Identifier`] to refer to variables in expressions, instead of the
+/// An [`Assignment`] using [`Identifier`] to refer to variables in expressions, instead of the
 /// default of [`VariableReference`].
 pub type AssignmentNamedVars<S: Span = FullSpan> =
     Assignment<Identifier<S>, S, Expression<Identifier<S>, S>>;
@@ -484,7 +484,7 @@ pub type AssignmentNamedVars<S: Span = FullSpan> =
 /// Assignments are usually grouped in an [`Update`].
 #[derive(PartialEq, Clone, Debug)]
 pub struct Assignment<V = VariableReference, S: Span = FullSpan, E = Expression<V, S>> {
-    /// The variable that updated in this assignment.
+    /// The variable that is updated in this assignment.
     pub target: V,
 
     /// The new value for [`target`](Assignment::target).
@@ -493,7 +493,7 @@ pub struct Assignment<V = VariableReference, S: Span = FullSpan, E = Expression<
     /// The [`Span`] of `target`.
     ///
     /// If `V = `[`Identifier`], this is equal to `target.`[`span`](Identifier::span). If
-    /// `V = `[`VariableReference`], `target_span`  is useful because `VariableReference` does not
+    /// `V = `[`VariableReference`], `target_span` is useful because `VariableReference` does not
     /// store a span.
     pub target_span: S,
 

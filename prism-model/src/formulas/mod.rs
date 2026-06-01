@@ -56,7 +56,7 @@ pub type FormulaManagerNamedVars<S: Span = FullSpan> =
 pub struct FormulaManager<S: Span = FullSpan, E = Expression<VariableReference, S>> {
     // TODO: Make this private and instead provide suitable access methods; in particular, an
     //  iterator for `FormulaManager`
-    /// The collection of [`Formula`]s by this [`FormulaManager`].
+    /// The collection of [`Formula`]s held by this [`FormulaManager`].
     ///
     /// Do not add [`Formula`]`s` to this directly. Instead, use [`FormulaManager::add_formula()`],
     /// which ensures no duplicate names are added.
@@ -84,8 +84,7 @@ impl<S: Span, E> FormulaManager<S, E> {
 
     /// Constructs a [`FormulaManager`] with the given set of formulas.
     ///
-    /// To construct a non-empty [`FormulaManager`], use [`FormulaManager::with_formulas()`]
-    /// instead.
+    /// To construct an empty [`FormulaManager`], use [`FormulaManager::new()`] instead.
     ///
     /// # Example
     ///
@@ -150,7 +149,7 @@ impl<S: Span, E> FormulaManager<S, E> {
     ///
     /// # Example
     ///
-    /// Add the first formula named `circle_constant` is ok:
+    /// Adding the first formula named `circle_constant` is ok:
     /// ```
     /// # use prism_model::*;
     /// let mut formulas: FormulaManager = FormulaManager::new();
@@ -230,8 +229,6 @@ impl<Ctx, E: Displayable<Ctx>, S: Span> Displayable<Ctx> for FormulaManager<S, E
 pub enum AddFormulaError {
     /// Indicates that a [`Formula`] with the same [`name`](Formula::name) already exists in the
     /// [`FormulaManager`].
-    ///
-    ///
     FormulaExists {
         /// The index of the first [`Formula`] with the same name in the [`FormulaManager`].
         ///

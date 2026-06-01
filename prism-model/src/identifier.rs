@@ -33,7 +33,8 @@ use std::fmt::{Display, Formatter};
 /// ```
 ///
 /// To avoid the check for reserved keywords, use [`Identifier::new_potentially_reserved`]. This is
-/// particularly useful when constructing functions calls with
+/// particularly useful when constructing function calls (PRISM function names are reserved
+/// keywords):
 ///
 /// ```
 /// # use prism_model::{Expression, Identifier, InvalidName};

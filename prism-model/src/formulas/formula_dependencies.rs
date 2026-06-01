@@ -85,7 +85,6 @@ impl<S: Span> FormulaManager<S, Expression<Identifier<S>, S>> {
     /// A suitable expansion order is `["a", "c", "b"]`, as `c` depends on `a` and `b` depends on
     /// `a` and `c`.
     ///
-    ///
     /// # Errors
     ///
     /// If there is a cyclic dependency, [`CyclicDependency`] is returned, which includes details
@@ -177,9 +176,10 @@ impl<S: Span> FormulaManager<S, Expression<Identifier<S>, S>> {
 ///
 /// ```prism
 /// formula a = c + 5;
-/// formula b = a  / 2;
+/// formula b = a / 2;
 /// formula c = b * 2;
 /// ```
+// TODO: Describe how the cyclic dependency of these formulas looks
 #[derive(Debug, PartialEq)]
 pub struct CyclicDependency<S: Span> {
     /// The list of formulas that cyclically depend on each other.
@@ -198,7 +198,8 @@ pub struct CyclicDependencyEntry<S: Span> {
     /// The span of the formula's definition
     pub formula_span: S,
 
-    /// The part of the formula's definition that refers to the previous entry [`CyclicDependency`].
+    /// The part of the formula's definition that refers to the previous entry in
+    /// [`CyclicDependency`].
     pub dependency_span: S,
 }
 

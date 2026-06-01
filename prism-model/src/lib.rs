@@ -8,15 +8,16 @@
 //! # Features
 //!
 //! - Markov decision processes (MDPs) and discrete-time Markov chains [^other_types].
-//! - [model normalisation](Model#Normalising a model) (e.g. expanding formulas or adding renamed
-//!   modules)
-//! - [model transformations](Model#Transforming a model) (e.g. mapping expressions or adding an
+//! - [model normalisation](Model#normalising-a-model) (e.g. expanding formulas or renamed modules)
+//! - [model transformations](Model#transforming-a-model) (e.g. mapping expressions or adding an
 //!   init constraint)
-//! - [variable references by name or by index](Model#Variables and references)
+//! - [variable references by name or by index](Model#variables-and-references)
 //! - [spans](`Span`) to link model components to the corresponding source code
-//! - [generic types for variables, expressions, expressions and spans](Model#Generics)
+//! - [generic types for variables, expressions and spans](Model#generics)
 //!
 //! # Example
+//!
+//! A PRISM model is represented by [`Model`]. Refer to its documentation for more details.
 //!
 //! ```
 //! use prism_model::*;

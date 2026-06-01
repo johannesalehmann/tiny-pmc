@@ -13,7 +13,7 @@ use std::fmt::{Display, Formatter};
 ///
 /// By calling [`Displayable::displayable()`], the component to be displayed is transformed into a
 /// [`DisplayableWithContext`], which stores the necessary context (e.g. a
-/// [`VariableManager`](crate::VariableManager) for [`Expression`](crate::Expression) and implements
+/// [`VariableManager`](crate::VariableManager) for [`Expression`](crate::Expression)) and implements
 /// `Display`.
 ///
 /// # Example

@@ -45,7 +45,7 @@ pub type ExpressionNamedVars<S: Span = FullSpan> = Expression<Identifier<S>, S>;
 /// // Expressions referring to the variable with name `"x"` and index 5, respectively
 /// let named_var: ExpressionNamedVars = Expression::var_or_const(Identifier::new("x").unwrap());
 /// let indexed_var: Expression = Expression::var_or_const(VariableReference::new(5));
-/// // `Variable::replace_identifiers_by_variable_indices(...)` transforms named_var into indexed_var
+/// // `Expression::replace_identifiers_by_variable_indices(...)` transforms named_var into indexed_var
 ///
 /// // min(3, -5)
 /// let min: Expression = Expression::function(Identifier::new_potentially_reserved("min").unwrap(),
@@ -190,7 +190,7 @@ pub enum Expression<V = VariableReference, S: Span = FullSpan> {
     ///
     /// [`Expression`] is generic over the type used to represent variables. Usually, either
     /// [`Identifier`] is used (which stores a variable's name) or [`VariableReference`] (which
-    /// stores a variable's index in the model's [`VariableManager`].
+    /// stores a variable's index in the model's [`VariableManager`]).
     ///
     /// Formulas can only be represented by [`Expression<Identifier>`], not by
     /// [`Expression<VariableReference>`]. Call [`Expression::substitute_formulas()`] before
@@ -735,7 +735,7 @@ pub enum Expression<V = VariableReference, S: Span = FullSpan> {
     ///
     /// # Evaluation
     ///
-    /// `Expression::Equals(lhs, rhs, _)` evaluates to `true` if `lhs` is equals to `rhs`.
+    /// `Expression::Equals(lhs, rhs, _)` evaluates to `true` if `lhs` is equal to `rhs`.
     /// Otherwise, it evaluates to `false`. If the types of `lhs` or `rhs` are a combination of
     /// integer and float, both values are first converted to floats and then compared. For example,
     /// the following expression evaluates to `true`:
@@ -777,7 +777,7 @@ pub enum Expression<V = VariableReference, S: Span = FullSpan> {
     ///
     /// # Evaluation
     ///
-    /// `Expression::NotEquals(lhs, rhs, _)` evaluates to `true` if `lhs` is not equals to `rhs`.
+    /// `Expression::NotEquals(lhs, rhs, _)` evaluates to `true` if `lhs` is not equal to `rhs`.
     /// Otherwise, it evaluates to `false`. If the types of `lhs` or `rhs` are a combination of
     /// integer and float, both values are first converted to floats and then compared. For example,
     /// the following expression evaluates to `false`:
@@ -1703,7 +1703,7 @@ impl<S: Span> Expression<Identifier<S>, S> {
     /// # Example
     ///
     /// Let `formulas` be a [`FormulaManager`] with formulas `thresh = 10` and
-    /// `almost_max = threshold - 1`:
+    /// `almost = thresh - 1`:
     ///
     /// ```
     /// # use prism_model::*;

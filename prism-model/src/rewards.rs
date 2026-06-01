@@ -60,7 +60,7 @@ impl<S: Span, E, A> RewardsManager<S, E, A> {
 }
 
 impl<V, S: Span, A> RewardsManager<S, Expression<V, S>, A> {
-    /// Maps the [`Span`] of every [`Rewards`] in this `RewardsElement` according to mapping
+    /// Maps the [`Span`] of every [`Rewards`] in this `RewardsManager` according to mapping
     /// function `map`.
     ///
     /// The new spans are of type `S2`, which may be different from the original span type `S`.
@@ -136,7 +136,7 @@ impl<S: Span, E, A> Rewards<S, E, A> {
         }
     }
 
-    /// Constructs a rewards structure with given name, no entries and empty [`Span`].
+    /// Constructs a rewards structure with given name, given entries and empty [`Span`].
     ///
     /// To construct an empty rewards structure, use [`Rewards::new()`] and add entries with
     /// [`Rewards::add()`].
@@ -149,7 +149,7 @@ impl<S: Span, E, A> Rewards<S, E, A> {
         Self::with_entries_spanned(name, entries, S::empty())
     }
 
-    /// Constructs a rewards structure with given name, no entries and given [`Span`].
+    /// Constructs a rewards structure with given name, given entries and given [`Span`].
     ///
     /// To construct an empty rewards structure, use [`Rewards::new()`] and add entries with
     /// [`Rewards::add()`].
@@ -325,7 +325,8 @@ impl<S: Span, E, A> RewardsElement<S, E, A> {
         Self::with_action_spanned(condition, value, action, S::empty())
     }
 
-    /// Constructs a `RewardsElement` with given condition and value and [`Span`], targeting states.
+    /// Constructs a `RewardsElement` with given condition and value and [`Span`], targeting the
+    /// given action.
     ///
     /// This `RewardsElement` has target [`RewardsTarget::Action(action)`](RewardsTarget::Action).
     /// Use [`RewardsElement::new_spanned()`] or [`RewardsElement::with_target_spanned()`] for other

@@ -497,8 +497,8 @@ impl<S: Span, E> VariableInfo<S, E> {
     ///
     /// Refer to [`VariableInfo`] for documentation of the parameters.
     ///
-    /// There are also specialised constructor ([`VariableInfo::global_var()`],
-    /// [`VariableInfo::global_const()`] and [`VariableInfo::local_var()`] for the different
+    /// There are also specialised constructors ([`VariableInfo::global_var()`],
+    /// [`VariableInfo::global_const()`] and [`VariableInfo::local_var()`]) for the different
     /// variable kinds.
     ///
     /// To use a custom [`Span`], use [`VariableInfo::new_spanned()`].
@@ -518,8 +518,8 @@ impl<S: Span, E> VariableInfo<S, E> {
     ///
     /// Refer to [`VariableInfo`] for documentation of the parameters.
     ///
-    /// There are also specialised constructor ([`VariableInfo::global_var_spanned()`],
-    /// [`VariableInfo::global_const_spanned()`] and [`VariableInfo::local_var_spanned()`] for the
+    /// There are also specialised constructors ([`VariableInfo::global_var_spanned()`],
+    /// [`VariableInfo::global_const_spanned()`] and [`VariableInfo::local_var_spanned()`]) for the
     /// different variable kinds.
     ///
     /// To use an empty [`Span`], use [`VariableInfo::new()`].
@@ -547,8 +547,8 @@ impl<S: Span, E> VariableInfo<S, E> {
     ///
     /// Refer to [`VariableInfo`] for documentation of the parameters.
     ///
-    /// There are also specialised constructor ([`VariableInfo::global_var()`],
-    /// [`VariableInfo::global_const()`] and [`VariableInfo::local_var()`] for the different
+    /// There are also specialised constructors ([`VariableInfo::global_var()`],
+    /// [`VariableInfo::global_const()`] and [`VariableInfo::local_var()`]) for the different
     /// variable kinds. Use [`VariableInfo::initial_value()`] to add an initial value to these.
     ///
     /// To use a custom [`Span`], use [`VariableInfo::with_initial_value_spanned()`].
@@ -566,8 +566,8 @@ impl<S: Span, E> VariableInfo<S, E> {
     ///
     /// Refer to [`VariableInfo`] for documentation of the parameters.
     ///
-    /// There are also specialised constructor ([`VariableInfo::global_var()`],
-    /// [`VariableInfo::global_const()`] and [`VariableInfo::local_var()`] for the different
+    /// There are also specialised constructors ([`VariableInfo::global_var()`],
+    /// [`VariableInfo::global_const()`] and [`VariableInfo::local_var()`]) for the different
     /// variable kinds. Use [`VariableInfo::initial_value()`] to add an initial value to these.
     ///
     /// To use an empty [`Span`], use [`VariableInfo::with_initial_value()`].
@@ -662,7 +662,7 @@ pub type VariableRangeNamedVars<S: Span = FullSpan> =
 pub enum VariableRange<S: Span = FullSpan, E = Expression<VariableReference, S>> {
     /// A bounded integer, corresponding to PRISM syntax `x: [min..max];`
     ///
-    /// Both `min` and `max` are inclusive: `x: [-2, 1]` can take values `-2`, `-1`, `0` and `1`.
+    /// Both `min` and `max` are inclusive: `x: [-2..1]` can take values `-2`, `-1`, `0` and `1`.
     ///
     /// Use [`VariableRange::bounded_int()`] and [`VariableRange::bounded_int_spanned()`] to
     /// construct this variant.
@@ -1039,7 +1039,7 @@ impl<S: Span> VariableRange<S, Expression<Identifier<S>, S>> {
 ///
 /// let model: Model = model.replace_identifiers_by_variable_indices().expect("Unknown variable!");
 ///
-/// // Now the initial value of x refers to N by reference:///
+/// // Now the initial value of x refers to N by reference:
 /// assert_eq!(
 ///     model.variable_manager.get_by_str("x").unwrap().initial_value,
 ///     Some(Expression::var_or_const(n_ref))

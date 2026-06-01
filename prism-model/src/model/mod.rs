@@ -19,7 +19,7 @@ use crate::{
 };
 use std::fmt::{Display, Formatter};
 
-/// A [`Module`](crate::Module) using [`Identifier`] to refer to variables in expressions, instead of the default
+/// A [`Model`] using [`Identifier`] to refer to variables in expressions, instead of the default
 /// of [`VariableReference`].
 pub type ModelNamedVars<S: Span = FullSpan, A = Identifier<S>> =
     Model<Identifier<S>, S, Expression<Identifier<S>, S>, A>;
@@ -30,7 +30,7 @@ pub type ModelNamedVars<S: Span = FullSpan, A = Identifier<S>> =
 ///
 /// `Model` and most of its components use the following generic parameters:
 /// - `V` represents variables. The default is [`VariableReference`]. [`Identifier`] is also widely
-///   used and there are types aliases with suffix `NamedVars`(e.g. `ModelNamedVars`) to set
+///   used and there are type aliases with suffix `NamedVars`(e.g. `ModelNamedVars`) to set
 ///   `V = Identifier`. [See below](#varref_details) for a discussion of details.
 /// - `S` stores [spans](Span), which store source code locations. The default is [`FullSpan`].
 /// - `E` represents expressions. The default is [`Expression`].
@@ -148,7 +148,7 @@ pub type ModelNamedVars<S: Span = FullSpan, A = Identifier<S>> =
 /// one using [`VariableReference`]. Eponymous functions are available in most model components.
 ///
 /// When dealing with models that use [`Identifier`], one can use the type alias [`ModelNamedVars`]
-/// instead of [`Model<VariableReference>`]. Type aliases of the form `...NamedVars` are available
+/// instead of [`Model<VariableReference>`]. Type aliases of the form `...NamedVars` are available.
 #[derive(PartialEq, Clone, Debug)]
 pub struct Model<V = VariableReference, S: Span = FullSpan, E = Expression<V, S>, A = Identifier<S>>
 {
@@ -180,7 +180,7 @@ pub struct Model<V = VariableReference, S: Span = FullSpan, E = Expression<V, S>
     pub renamed_modules: Vec<RenamedModule<S>>,
 
     /// The initial states constraint. If present, all states that satisfy this constraint are
-    /// initial state.
+    /// initial states.
     ///
     /// This option is mutually exclusive with initial values for variables.
     pub init_constraint: Option<E>,
@@ -260,7 +260,8 @@ impl<V, S: Span, E> Model<V, S, E, Identifier<S>> {
     ///
     /// # Issues
     ///
-    /// If the model already contains an action of form
+    /// If the model already contains an action named `unnamed_action_i` (for a sufficiently small
+    /// `i`), this function does not preserve model semantics.
     pub fn name_unnamed_actions(&mut self) {
         // TODO: Make sure the model does not have any actions with these names
         self.name_unnamed_actions_with_custom_name(|i, _| format!("unnamed_action_{i}"))
@@ -272,7 +273,7 @@ impl<V, S: Span, E> Model<V, S, E, Identifier<S>> {
     /// `f` is called with two parameters:
     /// - `usize` is a running count of unnamed commands
     /// - `S` is the span covering the unnamed action, i.e.
-    ///   [`Command::action_span`](crate::Command::action_span)`.
+    ///   [`Command::action_span`](crate::Command::action_span).
     ///
     /// # Issues
     ///
@@ -459,12 +460,25 @@ impl<V, S: Span, A> Model<V, S, Expression<V, S>, A> {
     ///
     /// # Example
     ///
+    /// Consider the following model:
+    ///
     /// ```prism
     /// mdp
     ///
     /// module main
     ///     x: [0..10];
     ///     y: bool;
+    /// endmodule
+    /// ```
+    ///
+    /// Calling `add_missing_init_statements()` results in the following equivalent model:
+    ///
+    /// ```prism
+    /// mdp
+    ///
+    /// module main
+    ///     x: [0..10] init 0;
+    ///     y: bool init false;
     /// endmodule
     /// ```
     pub fn add_missing_init_statements(&mut self)
@@ -489,7 +503,7 @@ impl<V, S: Span, A> Model<V, S, Expression<V, S>, A> {
                             Expression::Bool(false, variable.range.span().clone())
                         }
                         VariableRange::Float { .. } => {
-                            panic!("Unbounded integers must have an initial value.")
+                            panic!("Floats must have an initial value.")
                         }
                     });
                 }
@@ -499,7 +513,6 @@ impl<V, S: Span, A> Model<V, S, Expression<V, S>, A> {
 
     /// Transforms a model without [init constraint](Model::init_constraint) into an equivalent model
     /// with init constraint. This removes the init statements of all variables.
-    ///
     ///
     /// # Panics
     ///
@@ -524,7 +537,7 @@ impl<V, S: Span, A> Model<V, S, Expression<V, S>, A> {
     /// module B
     ///     z: [-1..7];
     ///     w: bool;
-    /// endmodule B
+    /// endmodule
     /// ```
     ///
     /// Calling `init_statements_to_init_block` yields the following model:
@@ -544,7 +557,7 @@ impl<V, S: Span, A> Model<V, S, Expression<V, S>, A> {
     /// module B
     ///     z: [-1..7];
     ///     w: bool;
-    /// endmodule B
+    /// endmodule
     /// ```
     pub fn init_statements_to_init_block(&mut self)
     where

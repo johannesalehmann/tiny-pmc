@@ -25,7 +25,7 @@ use super::{Expression, Identifier};
 /// # Helpers
 ///
 /// Use sealed trait [`IdentityMapExpression`] to implement `MapExpression` when most expression
-/// elements should be mapped to themselves. For example, to double every  `Expression::Int` in an
+/// elements should be mapped to themselves. For example, to double every `Expression::Int` in an
 /// expression, only `visit_int` in `IdentityMapExpression` needs to be implemented. The remaining
 /// are covered automatically. See `FormulaSubstitutionVisitor` for an example.
 ///
