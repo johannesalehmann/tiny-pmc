@@ -29,7 +29,9 @@ where
         .ignore_then(rewards_name_parser.or_not())
         .then(rewards_element_parser().repeated().collect::<Vec<_>>())
         .then_ignore(just(Token::EndRewards))
-        .map_with(|(name, entries), e| prism_model::Rewards::with_entries(name, entries, e.span()))
+        .map_with(|(name, entries), e| {
+            prism_model::Rewards::with_entries_spanned(name, entries, e.span())
+        })
         .labelled("rewards structure")
         .as_context()
 }
@@ -59,7 +61,7 @@ where
         .then(expression_parser())
         .then_ignore(just(Token::Semicolon))
         .map_with(|((action, guard), value), e| {
-            prism_model::RewardsElement::with_target(guard, value, action, e.span())
+            prism_model::RewardsElement::with_target_spanned(guard, value, action, e.span())
         })
         .labelled("rewards structure entry")
         .as_context()

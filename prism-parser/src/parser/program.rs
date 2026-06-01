@@ -146,8 +146,8 @@ fn build_program_from_type_and_elements<'a>(
                 Some(first) => {
                     emitter.emit(
                         PrismParserValidationError::DuplicateModelType {
-                            first_occurrence: *first.get_span(),
-                            duplicate_occurrence: *t.get_span(),
+                            first_occurrence: *first.span(),
+                            duplicate_occurrence: *t.span(),
                         }
                         .into(),
                     );

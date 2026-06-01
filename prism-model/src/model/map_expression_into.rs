@@ -1,3 +1,5 @@
+#[cfg(doc)]
+use crate::Model;
 use crate::spans::Span;
 use crate::{
     Assignment, Command, Formula, FormulaManager, Label, LabelManager, Module, ModuleManager,
@@ -5,6 +7,18 @@ use crate::{
 };
 
 impl<V, S: Span, E, A> super::Model<V, S, E, A> {
+    /// Constructs a new model from `self` by applying mapping function `f` to every expression.
+    ///
+    /// `self` is consumed in this process. This has the advantage of avoiding unnecessary clones.
+    /// However, this function still performs significant allocation, as all the vectors of the
+    /// model (e.g. those in [`FormulaManager`], [`VariableManager`] and [`ModuleManager`] need to
+    /// be reconstructed.
+    ///
+    /// If you still need the original model, consider using [`Model::map_expressions_cloned()`].
+    ///
+    /// If `E2 = E`, i.e. `f` does not change the type of expression, consider using
+    /// [`Model::map_expressions()`], which modifies the existing model instead of constructing a
+    /// new model.
     pub fn map_expressions_into<E2, F: Fn(E) -> E2>(self, f: F) -> super::Model<V, S, E2, A> {
         let mut variables = Vec::new();
         for variable in self.variable_manager.variables {

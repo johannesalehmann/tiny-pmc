@@ -115,7 +115,7 @@ pub fn parse_prism<'a, 'b, P: AsRef<str>>(
                     )
                 }
 
-                if let Err(error) = output.expand_renamed_models() {
+                if let Err(error) = output.expand_renamed_modules() {
                     model_errors
                         .push(PrismParserValidationError::ModuleExpansionError { error }.into());
                     let mut empty_vec = Vec::with_capacity(properties.len());

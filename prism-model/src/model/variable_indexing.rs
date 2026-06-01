@@ -6,6 +6,17 @@ use crate::{
 };
 
 impl<S: Span> Model<Identifier<S>, S, Expression<Identifier<S>, S>, Identifier<S>> {
+    /// Transforms a model that uses [`Identifier`] to identify variables in expressions into one
+    /// that uses [`VariableReference`].
+    ///
+    /// Every occurrence of [`Expression::VarOrConst(id, _)`](Expression::VarOrConst) (where `id`
+    /// is an identifier with a variable name) is replaced by
+    /// [`Expression::VarOrConst(var_ref)`](Expression::VarOrConst), where `var_ref` is the
+    /// reference to the same variable in the model's [`VariableManager`](crate::VariableManager).
+    ///
+    /// If any identifier is encountered that does not match a variable name, an error is returned.
+    /// Note that any formulas also cause this error. Call [`Model::substitute_formulas()`] before
+    /// calling this function to avoid problems.
     pub fn replace_identifiers_by_variable_indices(
         self,
     ) -> Result<

@@ -2,6 +2,36 @@ use crate::spans::Span;
 use crate::{CyclicDependency, Expression, Identifier, IdentityMapExpression, VariableManager};
 
 impl<S: Span, A> super::Model<Identifier<S>, S, Expression<Identifier<S>, S>, A> {
+    /// Expands the formulas in every expression of the model. Afterward, the model has no formulas
+    /// and no expression references any formula.
+    ///
+    /// If there is a cyclic dependency between formulas, returns [`CyclicDependency`].
+    ///
+    /// # Example
+    ///
+    /// Consider the following model.
+    ///
+    /// ```prism
+    /// mdp
+    /// formula limit = base + 2;
+    /// formula base = 3;
+    /// label "at_limit" = x = limit;
+    /// module m
+    ///     x: [0..10] init base;
+    ///     [] x < limit -> 1.0: (x'=x+1);
+    /// endmodule
+    /// ```
+    ///
+    /// Calling `substitute_formulas()` results in the following model:
+    ///
+    /// ```prism
+    /// mdp
+    /// label "at_limit" = x = 3 + 2;
+    /// module m
+    ///     x: [0..10] init 3;
+    ///     [] x < 3 + 2 -> 1.0: (x'=x+1);
+    /// endmodule
+    /// ```
     pub fn substitute_formulas(&mut self) -> Result<(), CyclicDependency<S>> {
         let order = self.formulas.get_formula_replacement_ordering()?;
 

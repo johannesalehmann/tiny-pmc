@@ -1,7 +1,14 @@
+#[cfg(doc)]
+use crate::Model;
 use crate::VariableRange;
 use crate::spans::Span;
 
 impl<V, S: Span, E, A> super::Model<V, S, E, A> {
+    /// Applies mapping function `f` to every expression of the model.
+    ///
+    /// To map expressions to some other type, use [`Model::map_expressions_cloned()`] or
+    /// [`Model::map_expressions_into()`]. However, those functions are more expensive, as they
+    /// rebuild the entire model.
     pub fn map_expressions<F: Fn(&mut E)>(&mut self, f: F) {
         for variable in &mut self.variable_manager.variables {
             match &mut variable.range {

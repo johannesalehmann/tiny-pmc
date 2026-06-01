@@ -3,12 +3,21 @@ use crate::spans::Span;
 use crate::{Expression, Formula, FormulaManager, Identifier};
 use std::collections::HashMap;
 
+/// A formula index and its [`Span`].
+///
+/// This is returned by [`FormulaManager::spanned_formulas_in_expression()`]. The index is with
+/// respect to this formula manager.
 pub struct SpannedDependency<S> {
-    dependency: usize,
-    span: S,
+    /// The index of the formula in the [`FormulaManager`].
+    pub dependency: usize,
+
+    /// The [`Span`] of the formula within the expression given to
+    /// [`FormulaManager::spanned_formulas_in_expression()`].
+    pub span: S,
 }
 
 impl<S> SpannedDependency<S> {
+    /// Constructs a new `SpannedDependency` with the given parameters.
     pub fn new(dependency: usize, span: S) -> Self {
         Self { dependency, span }
     }
@@ -33,7 +42,11 @@ impl<'a, S: Span> DefaultMapExpression<Identifier<S>, S, ()> for FormulaCounting
 }
 
 impl<S: Span> FormulaManager<S, Expression<Identifier<S>, S>> {
-    pub fn get_spanned_formulas_in_expression(
+    /// Returns a list of the formulas occurring in the given expression.
+    ///
+    /// This is useful to determine which formulas an expression depends on, which in turn can be
+    /// used e.g. to expand formulas in the right order.
+    pub fn spanned_formulas_in_expression(
         &self,
         expression: Expression<Identifier<S>, S>,
     ) -> Vec<SpannedDependency<S>> {
@@ -53,13 +66,35 @@ impl<S: Span> FormulaManager<S, Expression<Identifier<S>, S>> {
 }
 
 impl<S: Span> FormulaManager<S, Expression<Identifier<S>, S>> {
+    /// Computes the order in which formulas can be expanded.
+    ///
+    /// Returns a vector of formula indices. Expanding formulas in this order ensures that
+    /// dependencies between formulas are resolved correctly. To this end, a dependency graph
+    /// between formulas is constructed.
+    ///
+    /// # Example
+    ///
+    /// Consider these formulas:
+    ///
+    /// ```prism
+    /// formula a = 123 / 7;
+    /// formula b = a / c;
+    /// formula c = a * 2;
+    /// ```
+    ///
+    /// A suitable expansion order is `["a", "c", "b"]`, as `c` depends on `a` and `b` depends on
+    /// `a` and `c`.
+    ///
+    ///
+    /// # Errors
+    ///
+    /// If there is a cyclic dependency, [`CyclicDependency`] is returned, which includes details
+    /// on the cycle.
     pub fn get_formula_replacement_ordering(&self) -> Result<Vec<usize>, CyclicDependency<S>> {
         let mut dependencies = self
             .formulas
             .iter()
-            .map(|f| {
-                DependencyData::new(self.get_spanned_formulas_in_expression(f.condition.clone()))
-            })
+            .map(|f| DependencyData::new(self.spanned_formulas_in_expression(f.condition.clone())))
             .collect::<Vec<_>>();
 
         let mut output = Vec::new();
@@ -132,15 +167,38 @@ impl<S: Span> FormulaManager<S, Expression<Identifier<S>, S>> {
     }
 }
 
+/// Error produced by [`FormulaManager::get_formula_replacement_ordering()`], indicating that there
+/// is a cycle in formula dependencies.
+///
+/// # Example
+///
+/// These formulas have a cyclic dependency, because `a` depends on `c`, which depends on `b`, which
+/// depends on `a`.
+///
+/// ```prism
+/// formula a = c + 5;
+/// formula b = a  / 2;
+/// formula c = b * 2;
+/// ```
 #[derive(Debug, PartialEq)]
 pub struct CyclicDependency<S: Span> {
+    /// The list of formulas that cyclically depend on each other.
+    ///
+    /// An entry with index `i + 1` depends on entry `i` and entry `0` depends on the last entry in
+    /// `entries`. Note that `entries` may contain just one entry if a formula depends on itself.
     pub entries: Vec<CyclicDependencyEntry<S>>,
 }
 
+/// An entry in [`CyclicDependency`], containing details on a single formula.
 #[derive(Debug, PartialEq)]
 pub struct CyclicDependencyEntry<S: Span> {
+    /// The name of the formula
     pub formula_name: Identifier<S>,
+
+    /// The span of the formula's definition
     pub formula_span: S,
+
+    /// The part of the formula's definition that refers to the previous entry [`CyclicDependency`].
     pub dependency_span: S,
 }
 

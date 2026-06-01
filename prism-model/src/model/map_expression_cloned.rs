@@ -1,3 +1,5 @@
+#[cfg(doc)]
+use crate::Model;
 use crate::spans::Span;
 use crate::{
     Assignment, Command, Formula, FormulaManager, Label, LabelManager, Module, ModuleManager,
@@ -5,6 +7,13 @@ use crate::{
 };
 
 impl<V: Clone, S: Span, E, A: Clone> super::Model<V, S, E, A> {
+    /// Clones the model, applying mapping function `f` to every expression of the model.
+    ///
+    /// If you no longer need the original model, consider using [`Model::map_expressions_into()`].
+    ///
+    /// If `E2 = E`, i.e. `f` does not change the type of expression, consider using
+    /// [`Model::map_expressions()`], which modifies the existing model instead of constructing a
+    /// new model.
     pub fn map_expressions_cloned<E2, F: FnMut(&E) -> E2>(
         &self,
         mut f: F,

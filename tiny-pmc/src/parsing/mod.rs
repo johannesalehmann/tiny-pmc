@@ -262,7 +262,7 @@ fn build_validation(
             builder.add_label(
                 Label::new((file_name, illegal_type.span().into_range())).with_message(format!(
                     "Type `{}` is not legal for constants",
-                    illegal_type.get_name()
+                    illegal_type.name()
                 )),
             );
             builder.add_help("The types `int`, `bool` and `double` are legal types for constants.");
@@ -339,7 +339,7 @@ fn build_validation(
                 ModuleExpansionError::DuplicateModule {
                     name,
                     original_module,
-                    renaming_rule,
+                    rename_rule: renaming_rule,
                 },
         } => {
             let mut builder =
@@ -363,7 +363,7 @@ fn build_validation(
                 ModuleExpansionError::MissingVariableRenaming {
                     variable_name,
                     original_definition,
-                    renaming_rule,
+                    rename_rule: renaming_rule,
                 },
         } => {
             let mut builder =

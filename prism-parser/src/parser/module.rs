@@ -83,7 +83,7 @@ where
         .then_ignore(just(Token::RightSqBracket))
         .then_ignore(just(Token::EndModule))
         .map_with(|((new_name, old_name), rename_rules), e| {
-            prism_model::RenamedModule::new(
+            prism_model::RenamedModule::new_spanned(
                 old_name,
                 new_name,
                 prism_model::RenameRules {

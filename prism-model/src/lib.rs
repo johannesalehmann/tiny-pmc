@@ -5,17 +5,16 @@
 
 //! A library to represent a model written in the [PRISM modelling language](https://www.prismmodelchecker.org/manual/ThePRISMLanguage/Introduction).
 //!
-//! The PRISM modelling language is used to model
-//! - Markov decision processes
-//! - Markov chains (discrete- and continuous-time)
-//! - probabilistic timed automata
-//! - partially observable Markov decision processes
-//! - partially observable probabilistic timed automata
+//! # Features
 //!
-//! This library models the subset of the PRISM modelling language for Markov decision processes and
-//! discrete-time Markov chains. The remaining model types are partially supported.
-//!
-//! A PRISM model is represented by [`Model`].
+//! - Markov decision processes (MDPs) and discrete-time Markov chains [^other_types].
+//! - [model normalisation](Model#Normalising a model) (e.g. expanding formulas or adding renamed
+//!   modules)
+//! - [model transformations](Model#Transforming a model) (e.g. mapping expressions or adding an
+//!   init constraint)
+//! - [variable references by name or by index](Model#Variables and references)
+//! - [spans](`Span`) to link model components to the corresponding source code
+//! - [generic types for variables, expressions, expressions and spans](Model#Generics)
 //!
 //! # Example
 //!
@@ -24,11 +23,10 @@
 //! let mut model: Model = Model::new(ModelType::mdp());
 //!
 //! // Create global variable `var1` with bounds `[-3..5]`
-//! let var_info = VariableInfo::global_var(
+//! let var = model.variable_manager.add_variable(VariableInfo::global_var(
 //!     Identifier::new("var1").unwrap(),
 //!     VariableRange::bounded_int(Expression::int(-3), Expression::int(5)),
-//! );
-//! let var = model.variable_manager.add_variable(var_info).unwrap();
+//! )).expect("Error adding variable:");
 //!
 //! // Create module with name `mod1`
 //! let mut module = Module::new(Identifier::new("mod1").unwrap());
@@ -36,56 +34,32 @@
 //! // Add command `[alpha] (var1<5) -> 1.0: (var1'=var1+1);` to `mod1`
 //! let action = Some(Identifier::new("alpha").unwrap());
 //! let guard = Expression::var_or_const(var).less_than(Expression::int(5));
-//! let probability = Expression::float(1.0);
-//! let assignment = Assignment::new(var, Expression::var_or_const(var).plus(Expression::int(1)));
-//! let update = Update::with_assignments(probability, vec![assignment]);
+//! let update = Update::with_assignments(
+//!     Expression::float(1.0), // <- probability of update
+//!     vec![Assignment::new(var, Expression::var_or_const(var).plus(Expression::int(1)))]);
 //! module.commands.push(Command::with_updates(action, guard, vec![update]));
 //!
-//! // Add `mod1` to the model
 //! let module_index = model.modules.add(module).unwrap();
 //! ```
-//! # Generics
 //!
-//! `prism-model` is generic over the types used to represent
-//! - actions (the default is [`Identifier`]),
-//! - expressions (the default is [`Expression`]),
-//! - variables (the default is [`VariableReference`], see also below)
-//! - and spans, which store source code locations (the default is [`FullSpan`])
+//! # Sister crates
 //!
-//! ## Variables and references
+//! These sister crates are available at <https://github.com/johannesalehmann/tiny-pmc>. Once they
+//! reach maturity, they will be published on crates.io.
 //!
-//! PRISM models contain variables of types [booleans](`VariableRange::Boolean`),
-//! [bounded](`VariableRange::BoundedInt`) and [unbounded](`VariableRange::UnboundedInt`) integers
-//! and [floats](`VariableRange::Float`). Variables can be global or defined within a module. Global
-//! variables can be marked as constants.
+//! - `prism-parser`: Parses a PRISM model and returns [`prism_model::Model`](Model).
+//! - `prism-model-builder`: Builds a state-based model from a given [`prism_model::Model`](Model).
 //!
-//! All variables are stored in [`Model::variable_manager`], even if they are defined in a module.
-//! The variable manager stores variable names, types, ranges, scope and an optional initial value.
+//! The following sister crates are still in early stages of development and should be used only
+//! experimentally.
+//! - `probabilistic-models`: Types for state-based model representations
+//! - `probabilistic-model-algorithms`: Algorithms for verifying state-based probabilistic models,
+//!   e.g. value iteration for MDPs and stochastic games.
+//! - `tiny-pmc` and `tiny-pmc-cli`: High-level interface for parsing, building and checking
+//!   PRISM models.
 //!
-//! Within expressions, variables can either be represented by an [`Identifier`] or by a
-//! [`VariableReference`]. The former uses a [`String`] internally, the latter an index.
-//! [`Model::replace_identifiers_by_variable_indices()`] transforms a model using [`Identifier`] into
-//! one using [`VariableReference`]. Eponymous functions are available in most model components.
-//!
-//! When dealing with models that use [`Identifier`], one can use the type alias [`ModelNamedVars`]
-//! instead of [`Model<VariableReference>`]. Type aliases of the form `...NamedVars` are available
-//! for most model components.
-//!
-//! # Labels and functions
-//!
-//! TODO
-//!
-//! # Maps
-//!
-//! TODO
-//!
-//! # Printing a model
-//!
-//! TODO
-//!
-//! # Future work
-//!
-//! TODO
+//! [^other_types]: Continuous-time Markov chains should work as well by treating
+//!                 [`Update::probability`] as the rate.
 
 mod command;
 pub use command::{
@@ -107,7 +81,7 @@ pub use module::{
 mod formulas;
 pub use formulas::{
     AddFormulaError, CyclicDependency, CyclicDependencyEntry, Formula, FormulaManager,
-    FormulaManagerNamedVars, FormulaNamedVars,
+    FormulaManagerNamedVars, FormulaNamedVars, SpannedDependency,
 };
 
 mod labels;
@@ -124,9 +98,9 @@ pub use rewards::{
 
 mod variables;
 pub use variables::{
-    VariableAddError, VariableInfo, VariableInfoNamedVars, VariableManager,
-    VariableManagerNamedVars, VariablePrintingStyle, VariableRange, VariableRangeNamedVars,
-    VariableReference,
+    MissingVariableRenaming, VariableAddError, VariableInfo, VariableInfoNamedVars,
+    VariableManager, VariableManagerNamedVars, VariablePrintingStyle, VariableRange,
+    VariableRangeNamedVars, VariableReference,
 };
 
 mod identifier;

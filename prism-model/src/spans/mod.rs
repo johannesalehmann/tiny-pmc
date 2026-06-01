@@ -86,8 +86,8 @@ pub trait Span: Clone {
     /// }
     /// ```
     ///
-    /// The following function is equivalent, as e.g. [`Expression::int(val)`] calls
-    /// `Expression::int_spanned(val, S::empty)`:
+    /// The following function is equivalent, as e.g. [`Expression::int(val)`](crate::Expression::int)
+    /// calls `Expression::int_spanned(val, S::empty)`:
     ///
     /// ```
     /// # use prism_model::*;

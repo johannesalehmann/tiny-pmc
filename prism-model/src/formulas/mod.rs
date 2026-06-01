@@ -44,13 +44,15 @@ pub type FormulaManagerNamedVars<S: Span = FullSpan> =
 ///
 /// # Formulas in expressions
 ///
-/// In expressions, formulas are modelled as [`Expression::VarOrConst(name)`], i.e., they are not
-/// distinguished from variables and constants. Before evaluating an expression that contains a
+/// In expressions, formulas are modelled as [`Expression::VarOrConst(name)`](Expression::VarOrConst),
+/// i.e., they are not distinguished from variables and constants. Before evaluating an expression
+/// that contains a
 /// formula, it is recommended to expand all formulas. For details, see
 /// [`Expression::substitute_formulas()`].
 ///
 /// To expand formulas in the entire model, use
 /// [`Model::substitute_formulas()`](crate::Model::substitute_formulas()).
+#[derive(PartialEq, Clone, Debug)]
 pub struct FormulaManager<S: Span = FullSpan, E = Expression<VariableReference, S>> {
     // TODO: Make this private and instead provide suitable access methods; in particular, an
     //  iterator for `FormulaManager`
@@ -248,10 +250,12 @@ pub type FormulaNamedVars<S: Span> = Formula<S, Expression<Identifier<S>, S>>;
 /// A formula, consisting of a name and a condition expression.
 ///
 /// Formulas are used to encapsulate repeatedly-used expressions in PRISM models. They are usually
-/// stored in a [`FormulaManager`] (cf. [`Model::formula_manager`]). Before evaluating an
-/// expression, formulas should be replaced by calling [`Expression::substitute_formulas`].
+/// stored in a [`FormulaManager`] (cf. [`Model::formulas`](crate::Model::formulas)). Before
+/// evaluating an expression, formulas should be replaced by calling
+/// [`Expression::substitute_formulas`].
 ///
 /// For examples, see [`FormulaManager`].
+#[derive(PartialEq, Clone, Debug)]
 pub struct Formula<S: Span, E = Expression<VariableReference, S>> {
     /// The name of the formula
     pub name: Identifier<S>,
