@@ -47,11 +47,11 @@ impl<S: Span, E, A> RewardsManager<S, E, A> {
 
     /// Adds a new reward to this `RewardsManager`.
     ///
-    /// If a reward with the same name already exists, returns [`AddRewardsError::RewardsExist`].
-    pub fn add(&mut self, rewards: Rewards<S, E, A>) -> Result<(), AddRewardsError> {
+    /// If a reward with the same name already exists, returns [`RewardsExist`].
+    pub fn add(&mut self, rewards: Rewards<S, E, A>) -> Result<(), RewardsExist> {
         for (index, other_rewards) in self.rewards.iter().enumerate() {
             if other_rewards.name == rewards.name {
-                return Err(AddRewardsError::RewardsExist { index });
+                return Err(RewardsExist { index });
             }
         }
         self.rewards.push(rewards);
@@ -76,17 +76,15 @@ impl<V, S: Span, A> RewardsManager<S, Expression<V, S>, A> {
     }
 }
 
-/// Error produced while adding a reward to a [`RewardsManager`]
+/// Error produced while adding a reward to a [`RewardsManager`], indicating that a reward with this
+/// name already exists.
 #[derive(Debug)]
-pub enum AddRewardsError {
-    /// A reward with this name already exists
-    RewardsExist {
-        /// The index of the existing reward with the same name.
-        ///
-        /// Use [`RewardsManager::get(index)`](RewardsManager::get()) to retrieve details about the
-        /// existing reward.
-        index: usize,
-    },
+pub struct RewardsExist {
+    /// The index of the existing reward with the same name.
+    ///
+    /// Use [`RewardsManager::get(index)`](RewardsManager::get()) to retrieve details about the
+    /// existing reward.
+    pub index: usize,
 }
 
 /// A [`Rewards`] using [`Identifier`] to refer to variables in expressions, instead of the default

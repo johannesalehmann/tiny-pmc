@@ -98,7 +98,7 @@ impl<S: Span, E> VariableManager<S, E> {
 
     /// Constructs a variable manager from an existing list of variables.
     ///
-    /// Returns [`VariableAddError::VariableExists`] if any two variables share the same name.
+    /// Returns [`VariableExists`] if any two variables share the same name.
     ///
     /// ```
     /// # use prism_model::*;
@@ -108,7 +108,7 @@ impl<S: Span, E> VariableManager<S, E> {
     /// ];
     /// let manager: VariableManager = VariableManager::with_variables(variables).unwrap();
     /// ```
-    pub fn with_variables(variables: Vec<VariableInfo<S, E>>) -> Result<Self, VariableAddError> {
+    pub fn with_variables(variables: Vec<VariableInfo<S, E>>) -> Result<Self, VariableExists> {
         let mut manager = Self::new();
         for variable in variables {
             manager.add_variable(variable)?;
@@ -119,7 +119,7 @@ impl<S: Span, E> VariableManager<S, E> {
     /// Adds a variable to the variable manager.
     ///
     /// If a variable with the same name already exists (regardless of scope),
-    /// [`VariableAddError::VariableExists`] is returned with information on the existing variable.
+    /// [`VariableExists`] is returned with information on the existing variable.
     ///
     /// See [`VariableManager`] for detailed examples.
     // TODO: This should verify that the variable info is a legal combination (i.e. scope matches
@@ -127,9 +127,9 @@ impl<S: Span, E> VariableManager<S, E> {
     pub fn add_variable(
         &mut self,
         variable_info: VariableInfo<S, E>,
-    ) -> Result<VariableReference, VariableAddError> {
+    ) -> Result<VariableReference, VariableExists> {
         if let Some(existing_variable) = self.get_reference(&variable_info.name) {
-            Err(VariableAddError::VariableExists {
+            Err(VariableExists {
                 reference: existing_variable,
             })
         } else {
@@ -313,13 +313,11 @@ impl<S: Span> VariableManager<S, Expression<Identifier<S>, S>> {
     }
 }
 
-/// An error produced while trying to add a variable or constant to a [`VariableManager`].
-pub enum VariableAddError {
-    /// A variable or constant with the same name already exists (in any scope).
-    VariableExists {
-        /// Reference to the existing variable with the same name
-        reference: VariableReference,
-    },
+/// An error produced while trying to add a variable or constant to a [`VariableManager`],
+/// indicating that a variable or constant with the same name already exists (in any scope).
+pub struct VariableExists {
+    /// Reference to the existing variable with the same name
+    pub reference: VariableReference,
 }
 
 /// An error produced by [`VariableManager::add_renamed()`], indicating that a variable in the
@@ -332,17 +330,13 @@ pub struct MissingVariableRenaming<S: Span> {
     pub original_definition_span: S,
 }
 
-impl std::fmt::Debug for VariableAddError {
+impl std::fmt::Debug for VariableExists {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            VariableAddError::VariableExists { reference } => {
-                write!(
-                    f,
-                    "Variable already exists in this manager (index {})",
-                    reference.index
-                )
-            }
-        }
+        write!(
+            f,
+            "Variable already exists in this manager (index {})",
+            self.reference.index
+        )
     }
 }
 

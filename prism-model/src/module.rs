@@ -109,12 +109,12 @@ impl<V, S: Span, E, A> ModuleManager<V, S, E, A> {
 
     /// Adds a new module to the module manager and returns its index.
     ///
-    /// If a module with the same name already exists, [`AddModuleError::ModuleExists`] is returned.
+    /// If a module with the same name already exists, [`ModuleExists`] is returned.
     ///
     /// # Example
     ///
     /// ```
-    /// # use prism_model::{AddModuleError, Identifier, Module, ModuleManager};
+    /// # use prism_model::{ModuleExists, Identifier, Module, ModuleManager};
     /// let mut module_manager: ModuleManager = ModuleManager::new();
     ///
     /// assert_eq!(
@@ -129,13 +129,13 @@ impl<V, S: Span, E, A> ModuleManager<V, S, E, A> {
     ///
     /// assert_eq!(
     ///     module_manager.add(Module::new(Identifier::new("module_2").unwrap())),
-    ///     Err(AddModuleError::ModuleExists {index: 1})
+    ///     Err(ModuleExists {index: 1})
     /// );
     /// ```
-    pub fn add(&mut self, module: Module<V, S, E, A>) -> Result<usize, AddModuleError> {
+    pub fn add(&mut self, module: Module<V, S, E, A>) -> Result<usize, ModuleExists> {
         for (index, other_module) in self.modules.iter().enumerate() {
             if other_module.name == module.name {
-                return Err(AddModuleError::ModuleExists { index });
+                return Err(ModuleExists { index });
             }
         }
         let index = self.modules.len();
@@ -165,15 +165,12 @@ impl<V, S: Span, A> ModuleManager<V, S, Expression<V, S>, A> {
     }
 }
 
-/// An error caused while adding a [`Module`] to a [`ModuleManager`].
-// TODO: Turn into simple struct
+/// An error caused while adding a [`Module`] to a [`ModuleManager`], indicating that a module with
+/// the same [`name`](Module::name) already exists.
 #[derive(Debug, Clone, PartialEq)]
-pub enum AddModuleError {
-    /// A module with the same [`name`](Module::name) already exists.
-    ModuleExists {
-        /// The index of the first module with the same name in the corresponding [`ModuleManager`].
-        index: usize,
-    },
+pub struct ModuleExists {
+    /// The index of the first module with the same name in the corresponding [`ModuleManager`].
+    pub index: usize,
 }
 
 /// A [`Module`] using [`Identifier`] to refer to variables in expressions, instead of the default

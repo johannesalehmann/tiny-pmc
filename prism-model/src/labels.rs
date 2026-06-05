@@ -20,7 +20,7 @@ pub type LabelManagerNamedVars<S: Span = FullSpan> = LabelManager<S, Expression<
 /// ```
 ///
 /// Labels can then be added using [`LabelManager::add_label()`], which returns
-/// [`AddLabelError`] if the label exists.
+/// [`LabelExists`] if the label exists.
 ///
 /// ```
 /// # use prism_model::*;
@@ -31,7 +31,7 @@ pub type LabelManagerNamedVars<S: Span = FullSpan> = LabelManager<S, Expression<
 ///
 /// let result_2
 ///     = labels.add_label(Label::new(Identifier::new("done").unwrap(), Expression::bool(false)));
-/// assert!(matches!(result_2, Err(AddLabelError::LabelExists { index: 0 })));
+/// assert!(matches!(result_2, Err(LabelExists { index: 0 })));
 /// ```
 ///
 /// Labels can be looked up by index using [`LabelManager::get()`], by name string using
@@ -70,7 +70,7 @@ impl<S: Span, E> LabelManager<S, E> {
     ///
     /// ```
     /// # use prism_model::*;
-    /// let labels: Result<LabelManager, AddLabelError> = LabelManager::with_labels(vec![
+    /// let labels: Result<LabelManager, LabelExists> = LabelManager::with_labels(vec![
     ///     Label::new(Identifier::new("l1").unwrap(), Expression::bool(true)),
     ///     Label::new(Identifier::new("l2").unwrap(), Expression::bool(false)),
     /// ]);
@@ -78,19 +78,19 @@ impl<S: Span, E> LabelManager<S, E> {
     /// assert_eq!(labels.unwrap().labels.len(), 2);
     /// ```
     ///
-    /// If the set of labels contains duplicates, [`AddLabelError`] is returned. `index: 1`
+    /// If the set of labels contains duplicates, [`LabelExists`] is returned. `index: 1`
     /// indicates that the first occurrence of the duplicate label was at index `1`.
     ///
     /// ```
     /// # use prism_model::*;
-    /// let labels: Result<LabelManager, AddLabelError> = LabelManager::with_labels(vec![
+    /// let labels: Result<LabelManager, LabelExists> = LabelManager::with_labels(vec![
     ///     Label::new(Identifier::new("ready").unwrap(), Expression::bool(true)),
     ///     Label::new(Identifier::new("done").unwrap(), Expression::bool(false)),
     ///     Label::new(Identifier::new("done").unwrap(), Expression::bool(true)),
     /// ]);
-    /// assert!(matches!(labels.err(), Some(AddLabelError::LabelExists { index: 1 })));
+    /// assert!(matches!(labels.err(), Some(LabelExists { index: 1 })));
     /// ```
-    pub fn with_labels(mut labels: Vec<Label<S, E>>) -> Result<Self, AddLabelError> {
+    pub fn with_labels(mut labels: Vec<Label<S, E>>) -> Result<Self, LabelExists> {
         let mut res = Self::new();
 
         for label in labels.drain(..) {
@@ -101,7 +101,7 @@ impl<S: Span, E> LabelManager<S, E> {
 
     /// Adds a label to the [`LabelManager`].
     ///
-    /// If a label with this name already exists, returns [`AddLabelError`].
+    /// If a label with this name already exists, returns [`LabelExists`].
     ///
     /// # Example
     ///
@@ -132,12 +132,12 @@ impl<S: Span, E> LabelManager<S, E> {
     /// let res = labels.add_label(
     ///     Label::new(Identifier::new("done").unwrap(), Expression::bool(false))
     /// );
-    /// assert_eq!(res, Err(AddLabelError::LabelExists { index: 0 }));
+    /// assert_eq!(res, Err(LabelExists { index: 0 }));
     /// ```
-    pub fn add_label(&mut self, label: Label<S, E>) -> Result<(), AddLabelError> {
+    pub fn add_label(&mut self, label: Label<S, E>) -> Result<(), LabelExists> {
         for (index, other_label) in self.labels.iter().enumerate() {
             if other_label.name == label.name {
-                return Err(AddLabelError::LabelExists { index });
+                return Err(LabelExists { index });
             }
         }
         self.labels.push(label);
@@ -251,23 +251,17 @@ impl<Ctx, E: Displayable<Ctx>, S: Span> Displayable<Ctx> for LabelManager<S, E> 
     }
 }
 
-/// Error caused when trying to add a [`Label`] to a [`LabelManager`].
-///
-/// The only variant is [`LabelExists`](AddLabelError::LabelExists), which indicates that the
-/// label manager already contains a label with the same name.
+/// Error caused when trying to add a [`Label`] to a [`LabelManager`], indicating that the label
+/// manager already contains a [`Label`] with the same [`name`](Label::name).
 #[derive(Debug, Clone, PartialEq)]
-pub enum AddLabelError {
-    /// Indicates that a [`Label`] with the same [`name`](Label::name) already exists in the
-    /// [`LabelManager`].
-    LabelExists {
-        /// The index of the first [`Label`] with the same name in the [`LabelManager`].
-        ///
-        /// When [`LabelManager::with_labels()`] is used, this corresponds to the first
-        /// occurrence of the duplicate label in argument `labels`. (In this case, it is not
-        /// possible to obtain the index of the second occurrence of the duplicate label. Call
-        /// [`LabelManager::add_label()`] repeatedly if this is required.)
-        index: usize,
-    },
+pub struct LabelExists {
+    /// The index of the first [`Label`] with the same name in the [`LabelManager`].
+    ///
+    /// When [`LabelManager::with_labels()`] is used, this corresponds to the first
+    /// occurrence of the duplicate label in argument `labels`. (In this case, it is not
+    /// possible to obtain the index of the second occurrence of the duplicate label. Call
+    /// [`LabelManager::add_label()`] repeatedly if this is required.)
+    pub index: usize,
 }
 
 /// A [`Label`] using [`Identifier`] to refer to variables in expressions, instead of the default of

@@ -1,6 +1,6 @@
 #[cfg(doc)]
 use crate::Model;
-use crate::module::AddModuleError;
+use crate::module::ModuleExists;
 use crate::spans::Span;
 use crate::{Expression, Identifier, Module};
 
@@ -97,7 +97,7 @@ impl<S: Span> super::Model<Identifier<S>, S, Expression<Identifier<S>, S>, Ident
 
             match self.modules.add(module) {
                 Ok(_) => Ok(()),
-                Err(AddModuleError::ModuleExists { index }) => {
+                Err(ModuleExists { index }) => {
                     Err(ModuleExpansionError::DuplicateModule {
                         name: renamed_module.new_name.clone(),
                         original_module: self.modules.get(index).unwrap().span.clone(),

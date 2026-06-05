@@ -26,7 +26,7 @@ pub type FormulaManagerNamedVars<S: Span = FullSpan> =
 /// ```
 ///
 /// Formulas can then be added using [`FormulaManager::add_formula()`], which returns
-/// [`AddFormulaError`] if the formula exists.
+/// [`FormulaExists`] if the formula exists.
 ///
 /// ```
 /// # use prism_model::*;
@@ -37,7 +37,7 @@ pub type FormulaManagerNamedVars<S: Span = FullSpan> =
 ///
 /// let result_2
 ///     = formulas.add_formula(Formula::new(Identifier::new("five").unwrap(), Expression::float(5.0)));
-/// assert_eq!(result_2, Err(AddFormulaError::FormulaExists{ index: 0}));
+/// assert_eq!(result_2, Err(FormulaExists{ index: 0}));
 /// ```
 ///
 /// For an example using nested formulas, see [`Expression::substitute_formulas()`].
@@ -90,7 +90,7 @@ impl<S: Span, E> FormulaManager<S, E> {
     ///
     /// ```
     /// # use prism_model::*;
-    /// let formulas: Result<FormulaManager, AddFormulaError> = FormulaManager::with_formulas(vec![
+    /// let formulas: Result<FormulaManager, FormulaExists> = FormulaManager::with_formulas(vec![
     ///     Formula::new(Identifier::new("f1").unwrap(), Expression::int(5)),
     ///     Formula::new(Identifier::new("f2").unwrap(), Expression::bool(false)),
     /// ]);
@@ -98,19 +98,19 @@ impl<S: Span, E> FormulaManager<S, E> {
     /// assert_eq!(formulas.unwrap().formulas.len(), 2);
     /// ```
     ///
-    /// If the set of formulas contains duplicates, [`AddFormulaError`] is returned. `index: 1`
+    /// If the set of formulas contains duplicates, [`FormulaExists`] is returned. `index: 1`
     /// indicates that the first occurrence of the duplicate formula was at index `1`.
     ///
     /// ```
     /// # use prism_model::*;
-    /// let formulas: Result<FormulaManager, AddFormulaError> = FormulaManager::with_formulas(vec![
+    /// let formulas: Result<FormulaManager, FormulaExists> = FormulaManager::with_formulas(vec![
     ///     Formula::new(Identifier::new("e").unwrap(), Expression::float(2.72)),
     ///     Formula::new(Identifier::new("circle_constant").unwrap(), Expression::float(3.14)),
     ///     Formula::new(Identifier::new("circle_constant").unwrap(), Expression::float(6.28)),
     /// ]);
-    /// assert_eq!(formulas.err(), Some(AddFormulaError::FormulaExists { index: 1 }));
+    /// assert_eq!(formulas.err(), Some(FormulaExists { index: 1 }));
     /// ```
-    pub fn with_formulas(mut formulas: Vec<Formula<S, E>>) -> Result<Self, AddFormulaError> {
+    pub fn with_formulas(mut formulas: Vec<Formula<S, E>>) -> Result<Self, FormulaExists> {
         let mut res = Self::new();
 
         for formula in formulas.drain(..) {
@@ -145,7 +145,7 @@ impl<S: Span, E> FormulaManager<S, E> {
 
     /// Adds a formula to the [`FormulaManager`].
     ///
-    /// If a formula with this name already exists, returns [`AddFormulaError`].
+    /// If a formula with this name already exists, returns [`FormulaExists`].
     ///
     /// # Example
     ///
@@ -176,12 +176,12 @@ impl<S: Span, E> FormulaManager<S, E> {
     /// let res = formulas.add_formula(
     ///     Formula::new(Identifier::new("circle_constant").unwrap(), Expression::float(6.28))
     /// );
-    /// assert_eq!(res, Err(AddFormulaError::FormulaExists {index: 0}));
+    /// assert_eq!(res, Err(FormulaExists {index: 0}));
     /// ```
-    pub fn add_formula(&mut self, formula: Formula<S, E>) -> Result<(), AddFormulaError> {
+    pub fn add_formula(&mut self, formula: Formula<S, E>) -> Result<(), FormulaExists> {
         for (index, other_formula) in self.formulas.iter().enumerate() {
             if other_formula.name == formula.name {
-                return Err(AddFormulaError::FormulaExists { index });
+                return Err(FormulaExists { index });
             }
         }
         self.formulas.push(formula);
@@ -219,25 +219,17 @@ impl<Ctx, E: Displayable<Ctx>, S: Span> Displayable<Ctx> for FormulaManager<S, E
     }
 }
 
-// TODO: Consider turning this into a simple struct `FormulaExists`. After all, it is unlikely that
-//  further error kinds will be added to this error.
-/// Error caused when trying to add a [`Formula`] to a [`FormulaManager`].
-///
-/// The only variant is [`FormulaExists`](AddFormulaError::FormulaExists), which indicates that the
-/// formula manager already contains a formula with the same name.
+/// Error caused when trying to add a [`Formula`] to a [`FormulaManager`], indicating that the
+/// formula manager already contains a [`Formula`] with the same [`name`](Formula::name).
 #[derive(Debug, PartialEq, Eq)]
-pub enum AddFormulaError {
-    /// Indicates that a [`Formula`] with the same [`name`](Formula::name) already exists in the
-    /// [`FormulaManager`].
-    FormulaExists {
-        /// The index of the first [`Formula`] with the same name in the [`FormulaManager`].
-        ///
-        /// When [`FormulaManager::with_formulas()`] is used, this corresponds to the first
-        /// occurrence of the duplicate formula in argument `formulas`. (In this case, it is not
-        /// possible to obtain the index of the second occurrence of the duplicate formula. Call
-        /// [`FormulaManager::add_formula()`] repeatedly if this is required.)
-        index: usize,
-    },
+pub struct FormulaExists {
+    /// The index of the first [`Formula`] with the same name in the [`FormulaManager`].
+    ///
+    /// When [`FormulaManager::with_formulas()`] is used, this corresponds to the first
+    /// occurrence of the duplicate formula in argument `formulas`. (In this case, it is not
+    /// possible to obtain the index of the second occurrence of the duplicate formula. Call
+    /// [`FormulaManager::add_formula()`] repeatedly if this is required.)
+    pub index: usize,
 }
 
 /// A [`Formula`] using [`Identifier`] to refer to variables in expressions, instead of the default

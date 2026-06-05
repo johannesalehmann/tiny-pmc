@@ -8,7 +8,7 @@ use chumsky::IterParser;
 use chumsky::Parser;
 use chumsky::input::ValueInput;
 use prism_model::{
-    Expression, Identifier, ModelType, ModuleManager, Span, VariableAddError, VariableInfo,
+    Expression, Identifier, ModelType, ModuleManager, Span, VariableExists, VariableInfo,
     VariableManager,
 };
 
@@ -41,16 +41,14 @@ fn add_or_emit_variable(
     let span = variable.span;
     match manager.add_variable(variable) {
         Ok(_) => {}
-        Err(err) => match err {
-            VariableAddError::VariableExists { reference } => emitter.emit(
-                PrismParserValidationError::DuplicateElement {
-                    previous_occurrence: manager.get(&reference).unwrap().span,
-                    new_definition: span,
-                    kind,
-                }
-                .into(),
-            ),
-        },
+        Err(VariableExists { reference }) => emitter.emit(
+            PrismParserValidationError::DuplicateElement {
+                previous_occurrence: manager.get(&reference).unwrap().span,
+                new_definition: span,
+                kind,
+            }
+            .into(),
+        ),
     }
 }
 
@@ -90,7 +88,7 @@ fn build_program_from_type_and_elements<'a>(
                             );
                         }
                     }
-                    Err(prism_model::AddModuleError::ModuleExists { index }) => emitter.emit(
+                    Err(prism_model::ModuleExists { index }) => emitter.emit(
                         PrismParserValidationError::DuplicateElement {
                             previous_occurrence: modules.get(index).unwrap().span,
                             new_definition: span,
@@ -111,7 +109,7 @@ fn build_program_from_type_and_elements<'a>(
                 let span = l.span;
                 match labels.add_label(l) {
                     Ok(_) => {}
-                    Err(prism_model::AddLabelError::LabelExists { index }) => {
+                    Err(prism_model::LabelExists { index }) => {
                         let previous = labels.get(index).unwrap();
                         emitter.emit(
                             PrismParserValidationError::DuplicateElement {
@@ -128,7 +126,7 @@ fn build_program_from_type_and_elements<'a>(
                 let span = f.span;
                 match formulas.add_formula(f) {
                     Ok(_) => {}
-                    Err(prism_model::AddFormulaError::FormulaExists { index }) => {
+                    Err(prism_model::FormulaExists { index }) => {
                         let previous = formulas.get(index).unwrap();
                         emitter.emit(
                             PrismParserValidationError::DuplicateElement {
@@ -171,7 +169,7 @@ fn build_program_from_type_and_elements<'a>(
                 let span = r.span;
                 match rewards.add(r) {
                     Ok(_) => {}
-                    Err(prism_model::AddRewardsError::RewardsExist { index }) => {
+                    Err(prism_model::RewardsExist { index }) => {
                         let previous = rewards.get(index).unwrap();
                         emitter.emit(
                             PrismParserValidationError::DuplicateElement {

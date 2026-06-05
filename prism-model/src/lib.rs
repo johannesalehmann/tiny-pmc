@@ -75,31 +75,31 @@ pub use expressions::{
 
 mod module;
 pub use module::{
-    AddModuleError, Module, ModuleManager, ModuleManagerNamedVars, ModuleNamedVars, RenameRule,
+    Module, ModuleExists, ModuleManager, ModuleManagerNamedVars, ModuleNamedVars, RenameRule,
     RenameRules, RenamedModule,
 };
 
 mod formulas;
 pub use formulas::{
-    AddFormulaError, CyclicDependency, CyclicDependencyEntry, Formula, FormulaManager,
+    CyclicDependency, CyclicDependencyEntry, Formula, FormulaExists, FormulaManager,
     FormulaManagerNamedVars, FormulaNamedVars, SpannedDependency,
 };
 
 mod labels;
-pub use labels::{AddLabelError, Label, LabelManager, LabelManagerNamedVars, LabelNamedVars};
+pub use labels::{Label, LabelExists, LabelManager, LabelManagerNamedVars, LabelNamedVars};
 
 mod model;
 pub use model::{Model, ModelNamedVars, ModelType, ModuleExpansionError};
 
 mod rewards;
 pub use rewards::{
-    AddRewardsError, Rewards, RewardsElement, RewardsElementNamedVars, RewardsManager,
+    Rewards, RewardsElement, RewardsElementNamedVars, RewardsExist, RewardsManager,
     RewardsManagerNamedVars, RewardsNamedVars, RewardsTarget,
 };
 
 mod variables;
 pub use variables::{
-    MissingVariableRenaming, VariableAddError, VariableInfo, VariableInfoNamedVars,
+    MissingVariableRenaming, VariableExists, VariableInfo, VariableInfoNamedVars,
     VariableManager, VariableManagerNamedVars, VariablePrintingStyle, VariableRange,
     VariableRangeNamedVars, VariableReference,
 };
