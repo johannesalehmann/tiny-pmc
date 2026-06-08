@@ -179,7 +179,28 @@ impl<S: Span> FormulaManager<S, Expression<Identifier<S>, S>> {
 /// formula b = a / 2;
 /// formula c = b * 2;
 /// ```
-// TODO: Describe how the cyclic dependency of these formulas looks
+/// The following program constructs these formulas and shows that the result is a
+/// `CyclicDependency` struct with entries `[b, c, a]` (which matches the description of the
+/// previous paragraph, except starting at `b` instead of `a`).
+///
+/// ```
+/// # use prism_model::*;
+/// let a = Identifier::new("a").unwrap();
+/// let b = Identifier::new("b").unwrap();
+/// let c = Identifier::new("c").unwrap();
+/// let formula_manager: FormulaManagerNamedVars = FormulaManager::with_formulas(vec![
+///     Formula::new(a.clone(), Expression::var_or_const(c.clone()).plus(Expression::int(5))),
+///     Formula::new(b.clone(), Expression::var_or_const(a.clone()).divide_by(Expression::int(2))),
+///     Formula::new(c.clone(), Expression::var_or_const(b.clone()).times(Expression::int(2))),
+/// ]).unwrap();
+/// let res = formula_manager.get_formula_replacement_ordering();
+/// assert!(res.is_err());
+/// let res = res.err().unwrap();
+/// assert_eq!(res.entries.len(), 3);
+/// assert_eq!(res.entries[0].formula_name.name, "b");
+/// assert_eq!(res.entries[1].formula_name.name, "c");
+/// assert_eq!(res.entries[2].formula_name.name, "a");
+/// ```
 #[derive(Debug, PartialEq)]
 pub struct CyclicDependency<S: Span> {
     /// The list of formulas that cyclically depend on each other.
@@ -198,8 +219,8 @@ pub struct CyclicDependencyEntry<S: Span> {
     /// The span of the formula's definition
     pub formula_span: S,
 
-    /// The part of the formula's definition that refers to the previous entry in
-    /// [`CyclicDependency`].
+    /// The part of the formula's [`condition`](Formula::condition) that refers to the previous
+    /// entry in [`CyclicDependency`].
     pub dependency_span: S,
 }
 
