@@ -1,3 +1,4 @@
+use std::fmt::Formatter;
 use std::ops::Range;
 
 /// Trait representing a contiguous range (a "span") of source code.
@@ -230,7 +231,7 @@ impl Span for () {
 /// let empty = FullSpan::empty();
 /// assert_eq!(empty.range(), None);
 /// ```
-#[derive(Copy, Clone, PartialEq, Eq, Debug)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub struct FullSpan {
     inner: FullSpanInner,
 }
@@ -256,6 +257,19 @@ impl FullSpan {
                 panic!("Span is empty")
             }
             FullSpanInner::Full { start, end } => start..end,
+        }
+    }
+}
+
+impl std::fmt::Debug for FullSpan {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self.inner {
+            FullSpanInner::Empty => {
+                write!(f, "FullSpan::empty()")
+            }
+            FullSpanInner::Full { start, end } => {
+                write!(f, "FullSpan::from_range({start}..{end})")
+            }
         }
     }
 }
