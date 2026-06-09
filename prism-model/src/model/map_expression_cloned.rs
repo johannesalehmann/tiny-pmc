@@ -82,6 +82,7 @@ impl<V: Clone, S: Span, E, A: Clone> super::Model<V, S, E, A> {
                     action_span: command.action_span.clone(),
                     guard: f(&command.guard),
                     updates,
+                    updates_span: command.updates_span.clone(),
                     span: command.span.clone(),
                 })
             }

@@ -79,7 +79,7 @@ pub struct Command<
     ///
     /// # Example
     ///
-    /// Here, `^` indicates characters covered by `action_span`
+    /// Here, `^` indicates characters covered by `action_span`:
     ///
     /// ```prism
     /// [alpha] (x<20) -> 1.0: (x'=10);
@@ -103,6 +103,27 @@ pub struct Command<
     /// [`Model::replace_empty_updates_with_identity_update()`](crate::Model::replace_empty_updates_with_identity_update)).
     pub updates: Vec<Update<V, S, E>>,
 
+    /// The [`Span`] of the updates of this command.
+    ///
+    /// # Example
+    ///
+    /// Here, `^` indicates characters covered by `action_span`:
+    ///
+    ///
+    /// ```prism
+    /// [alpha] (x<20) -> 0.7: (x'=10) + 0.3: (x'=11);
+    ///                   ^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    /// ```
+    ///
+    /// If the command has no updates (indicated by `true` in PRISM syntax), the span covers the
+    /// token `true`:
+    ///
+    /// ```prism
+    /// [beta] (x=20) -> true;
+    ///                  ^^^^
+    /// ```
+    pub updates_span: S,
+
     /// The [`Span`] of the command.
     ///
     /// This span covers the entire command, starting at `[` of the action name and ending at `;`.
@@ -121,7 +142,7 @@ impl<V, S: Span, E, A> Command<V, S, E, A> {
     /// To add updates to the command, use [`Command::add_update()`] or construct the command with
     /// [`Command::with_updates()`].
     pub fn new(action: Option<A>, guard: E) -> Self {
-        Self::new_spanned(action, S::empty(), guard, S::empty())
+        Self::new_spanned(action, S::empty(), guard, S::empty(), S::empty())
     }
 
     /// Constructs a new [`Command`] with empty list of updates and the given [`Span`].
@@ -135,12 +156,19 @@ impl<V, S: Span, E, A> Command<V, S, E, A> {
     ///
     /// To add updates to the command, use [`Command::add_update()`] or construct the command with
     /// [`Command::with_updates_spanned()`].
-    pub fn new_spanned(action: Option<A>, action_span: S, guard: E, span: S) -> Self {
+    pub fn new_spanned(
+        action: Option<A>,
+        action_span: S,
+        guard: E,
+        updates_span: S,
+        span: S,
+    ) -> Self {
         Self {
             action,
             action_span,
             guard,
             updates: Vec::new(),
+            updates_span,
             span,
         }
     }
@@ -156,7 +184,7 @@ impl<V, S: Span, E, A> Command<V, S, E, A> {
     /// To construct a command without updates, use [`Command::new()`] and add updates with
     /// [`Command::add_update()`].
     pub fn with_updates(action: Option<A>, guard: E, updates: Vec<Update<V, S, E>>) -> Self {
-        Self::with_updates_spanned(action, S::empty(), guard, updates, S::empty())
+        Self::with_updates_spanned(action, S::empty(), guard, updates, S::empty(), S::empty())
     }
 
     /// Constructs a new [`Command`] with the given list of updates and the given [`Span`].
@@ -165,6 +193,7 @@ impl<V, S: Span, E, A> Command<V, S, E, A> {
     /// * `action_span`: The span covering the action (see also [`Command::action_span`])
     /// * `guard`: The guard of the command
     /// * `updates`: The list of updates
+    /// * `updates_span`: The span covering the list of updates (see also [`Command::updates_span`])
     /// * `span`: The span of the entire command
     ///
     /// To construct a command with empty span, use [`Command::with_updates()`].
@@ -176,6 +205,7 @@ impl<V, S: Span, E, A> Command<V, S, E, A> {
         action_span: S,
         guard: E,
         updates: Vec<Update<V, S, E>>,
+        updates_span: S,
         span: S,
     ) -> Self {
         Self {
@@ -183,6 +213,7 @@ impl<V, S: Span, E, A> Command<V, S, E, A> {
             action_span,
             guard,
             updates,
+            updates_span,
             span,
         }
     }
@@ -211,6 +242,7 @@ impl<V, S: Span, A> Command<V, S, Expression<V, S>, A> {
             action_span: map(self.action_span),
             guard: self.guard.map_span(map),
             updates: self.updates.into_iter().map(|u| u.map_span(map)).collect(),
+            updates_span: map(self.updates_span),
             span: map(self.span),
         }
     }
@@ -294,6 +326,7 @@ impl<S: Span> Command<Identifier<S>, S, Expression<Identifier<S>, S>, Identifier
                 .iter()
                 .map(|u| u.renamed(rename_rules))
                 .collect(),
+            updates_span: self.updates_span.clone(),
             span: self.span.clone(),
         }
     }

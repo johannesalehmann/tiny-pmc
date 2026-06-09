@@ -128,6 +128,7 @@ impl<S: Span> Model<Identifier<S>, S, Expression<Identifier<S>, S>, Identifier<S
                         action_span: command.action_span,
                         guard,
                         updates,
+                        updates_span: command.updates_span.clone(),
                         span: command.span,
                     }),
                     Err(err) => errors.extend(err),

@@ -82,6 +82,7 @@ impl<V, S: Span, E, A> super::Model<V, S, E, A> {
                     action_span: command.action_span,
                     guard: f(command.guard),
                     updates,
+                    updates_span: command.updates_span,
                     span: command.span,
                 })
             }

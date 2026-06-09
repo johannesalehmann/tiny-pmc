@@ -35,6 +35,7 @@ where
 
     let updates_parser = no_updates_parser
         .or(some_updates_parser)
+        .map_with(|u, e| (u, e.span()))
         .labelled("updates")
         .as_context();
 
@@ -43,15 +44,18 @@ where
         .then_ignore(just(Token::Arrow))
         .then(updates_parser)
         .then_ignore(just(Token::Semicolon))
-        .map_with(|(((action, action_span), guard), updates), e| {
-            prism_model::Command::with_updates_spanned(
-                action,
-                action_span,
-                guard,
-                updates,
-                e.span(),
-            )
-        })
+        .map_with(
+            |(((action, action_span), guard), (updates, updates_span)), e| {
+                prism_model::Command::with_updates_spanned(
+                    action,
+                    action_span,
+                    guard,
+                    updates,
+                    updates_span,
+                    e.span(),
+                )
+            },
+        )
         .labelled("command")
         .as_context()
 }

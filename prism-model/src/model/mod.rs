@@ -444,8 +444,8 @@ impl<V, S: Span, A> Model<V, S, Expression<V, S>, A> {
                 if command.updates.len() == 0 {
                     command.updates.push(crate::Update::new_spanned(
                         Expression::Float(1.0, command.span.clone()),
-                        command.span.clone(),
-                    )); // TODO: The expression's and update's span should only cover the `true` token, but its span is currently not tracked
+                        command.updates_span.clone(),
+                    ));
                 }
             }
         }
