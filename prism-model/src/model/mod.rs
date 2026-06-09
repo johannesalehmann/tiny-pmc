@@ -267,10 +267,8 @@ impl<V, S: Span, E> Model<V, S, E, Identifier<S>> {
             for command in &module.commands {
                 if let Some(action) = &command.action {
                     if action.name.starts_with(prefix) {
-                        println!("Action starts with prefix");
                         let remainder = &action.name[prefix.len()..];
                         if let Ok(number) = remainder.parse::<usize>() {
-                            println!("Added {number} to existing");
                             existing_indices.push(number);
                         }
                     }
@@ -836,7 +834,6 @@ mod tests {
             model.modules.add(module).unwrap();
 
             model.name_unnamed_actions();
-            println!("{}", model);
             let commands = &model.modules.modules[0].commands;
 
             check_command!(commands[0], "unnamed_action_0");
@@ -862,7 +859,6 @@ mod tests {
             model.modules.add(module).unwrap();
 
             model.name_unnamed_actions();
-            println!("{}", model);
             let commands = &model.modules.modules[0].commands;
 
             check_command!(commands[0], "unnamed_action_0");
@@ -890,7 +886,6 @@ mod tests {
             model.modules.add(module).unwrap();
 
             model.name_unnamed_actions();
-            println!("{}", model);
             let commands = &model.modules.modules[0].commands;
 
             check_command!(commands[0], "unnamed_action_1");
