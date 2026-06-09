@@ -35,8 +35,8 @@ impl<V, S: Span, S2: Span, F: Fn(S) -> S2> MapExpression<V, S, Expression<V, S2>
         Expression::VarOrConst(name, (self.map)(span))
     }
 
-    fn visit_label(&mut self, name: V, span: S) -> Expression<V, S2> {
-        Expression::Label(name, (self.map)(span))
+    fn visit_label(&mut self, name: Identifier<S>, span: S) -> Expression<V, S2> {
+        Expression::Label(name.map_span(&self.map), (self.map)(span))
     }
 
     fn visit_function(

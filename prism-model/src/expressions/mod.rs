@@ -309,14 +309,7 @@ pub enum Expression<V = VariableReference, S: Span = FullSpan> {
     /// the expression's [`Span`].
     VarOrConst(V, S),
 
-    // TODO: Consider using `Identifier` instead of V to represent labels. After all, it never makes
-    //  sense to using `VariableReference` to refer to a label.
-    /// A label.
-    ///
-    /// Labels can only meaningfully be represented by [`Expression<Identifier>`], not by
-    /// [`Expression<VariableReference>`]. Before calling
-    /// [`Expression::replace_identifiers_by_variable_indices`], use
-    /// [`Expression::substitute_labels()`] to replace labels with their corresponding references.
+    /// A label. This must only be used in property specification, not in PRISM models themselves.
     ///
     /// # Construction
     ///
@@ -364,7 +357,7 @@ pub enum Expression<V = VariableReference, S: Span = FullSpan> {
     /// # assert_eq!(expr, Expression::bool(false));
     /// ```
     ///
-    /// Then calling [`Expression::substitute_labels()`] replaces every `Expression::Label` in
+    /// Now, calling [`Expression::substitute_labels()`] replaces every `Expression::Label` in
     /// `expr` by its value:
     ///
     /// ```
@@ -387,7 +380,7 @@ pub enum Expression<V = VariableReference, S: Span = FullSpan> {
     ///
     /// In `Expression::Label(name, span)`, `name` stores the label's name and `span` stores the
     /// expression's [`Span`].
-    Label(V, S),
+    Label(Identifier<S>, S),
 
     /// Function call
     ///
@@ -1282,7 +1275,7 @@ impl<V, S: Span> Expression<V, S> {
     /// For details, see [`Expression::Label`].
     ///
     /// To construct a label expression with custom [`Span`], use [`Expression::label_spanned()`].
-    pub fn label(id: V) -> Self {
+    pub fn label(id: Identifier<S>) -> Self {
         Expression::Label(id, S::empty())
     }
 
@@ -1291,7 +1284,7 @@ impl<V, S: Span> Expression<V, S> {
     /// For details, see [`Expression::Label`].
     ///
     /// To construct a label expression with empty span, use [`Expression::label()`].
-    pub fn label_spanned(id: V, span: S) -> Self {
+    pub fn label_spanned(id: Identifier<S>, span: S) -> Self {
         Expression::Label(id, span)
     }
 
@@ -1996,7 +1989,7 @@ impl<V, S: Span> Expression<V, S> {
                 write!(f, "{}", variable_to_display(name))?;
             }
             Expression::Label(name, _) => {
-                write!(f, "\"{}\"", variable_to_display(name))?;
+                write!(f, "\"{}\"", name)?;
             }
             Expression::Bool(false, _) => {
                 write!(f, "false")?;

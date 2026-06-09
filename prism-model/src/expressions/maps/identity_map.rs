@@ -51,7 +51,7 @@ pub trait IdentityMapExpression<V, S: Span>: Private {
     ///
     /// * `name`: The name of the label
     /// * `span`: The [`Span`] of the expression
-    fn visit_label(&mut self, name: V, span: S) -> Expression<V, S> {
+    fn visit_label(&mut self, name: Identifier<S>, span: S) -> Expression<V, S> {
         Expression::Label(name, span)
     }
 
@@ -344,7 +344,7 @@ impl<V, S: Span, M: IdentityMapExpression<V, S>> MapExpression<V, S, Expression<
     fn visit_var_or_const(&mut self, name: V, span: S) -> Expression<V, S> {
         self.visit_var_or_const(name, span)
     }
-    fn visit_label(&mut self, name: V, span: S) -> Expression<V, S> {
+    fn visit_label(&mut self, name: Identifier<S>, span: S) -> Expression<V, S> {
         self.visit_label(name, span)
     }
     fn visit_function(

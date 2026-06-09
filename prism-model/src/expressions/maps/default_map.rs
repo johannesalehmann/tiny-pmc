@@ -66,7 +66,7 @@ pub trait DefaultMapExpression<V, S: Span, T: Default> {
     ///
     /// * `name`: The name of the label
     /// * `span`: The [`Span`] of the expression
-    fn visit_label(&mut self, name: V, span: S) -> T {
+    fn visit_label(&mut self, name: Identifier<S>, span: S) -> T {
         let _ = (name, span);
         T::default()
     }
@@ -281,7 +281,7 @@ impl<V, S: Span, T: Default, M: DefaultMapExpression<V, S, T>> MapExpression<V, 
     fn visit_var_or_const(&mut self, name: V, span: S) -> T {
         self.visit_var_or_const(name, span)
     }
-    fn visit_label(&mut self, name: V, span: S) -> T {
+    fn visit_label(&mut self, name: Identifier<S>, span: S) -> T {
         self.visit_label(name, span)
     }
     fn visit_function(&mut self, identifier: Identifier<S>, arguments: Vec<T>, span: S) -> T {

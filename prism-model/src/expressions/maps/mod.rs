@@ -62,7 +62,7 @@ pub trait MapExpression<V, S: Span, T> {
     ///
     /// * `name`: The name of the label
     /// * `span`: The [`Span`] of the expression
-    fn visit_label(&mut self, name: V, span: S) -> T;
+    fn visit_label(&mut self, name: Identifier<S>, span: S) -> T;
 
     /// Visits [`Expression::Function`], i.e. a function call of form `identifier(arguments)`.
     ///
