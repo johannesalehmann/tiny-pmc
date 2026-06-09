@@ -254,15 +254,48 @@ impl<V, S: Span, E> Model<V, S, E, Identifier<S>> {
     /// Assigns a unique name (of the form `unnamed_action_i` for `i >= 0`) to every command with unnamed action
     /// (i.e. every command where [`Command::action`](crate::Command::action)` = None`).
     ///
+    /// If the model already contains actions of form `"unnamed_action_{i}"`, these specific actions
+    /// will be skipped.
+    ///
     /// To use a different naming scheme, use [`Model::name_unnamed_actions_with_custom_name`].
-    ///
-    /// # Issues
-    ///
-    /// If the model already contains an action named `unnamed_action_i` (for a sufficiently small
-    /// `i`), this function does not preserve model semantics.
     pub fn name_unnamed_actions(&mut self) {
-        // TODO: Make sure the model does not have any actions with these names
-        self.name_unnamed_actions_with_custom_name(|i, _| format!("unnamed_action_{i}"))
+        let prefix = "unnamed_action_";
+
+        // First, we collect the existing indices of actions with form "unnamed_action_{i}"
+        let mut existing_indices = Vec::new();
+        for module in &self.modules.modules {
+            for command in &module.commands {
+                if let Some(action) = &command.action {
+                    if action.name.starts_with(prefix) {
+                        println!("Action starts with prefix");
+                        let remainder = &action.name[prefix.len()..];
+                        if let Ok(number) = remainder.parse::<usize>() {
+                            println!("Added {number} to existing");
+                            existing_indices.push(number);
+                        }
+                    }
+                }
+            }
+        }
+
+        // We then sort these (in order to efficiently look them up in the next step)
+        existing_indices.sort_unstable();
+
+        // Now increment counter, while comparing it to existing_indices[next_existing_index],
+        //  incrementing, next_existing_index as required.
+        let mut next_existing_index = 0;
+        let mut counter = 0;
+        self.name_unnamed_actions_with_custom_name(|_| {
+            while existing_indices.len() > next_existing_index
+                && existing_indices[next_existing_index] == counter
+            {
+                next_existing_index += 1;
+                counter += 1;
+            }
+            let res = format!("{prefix}{counter}");
+            counter += 1;
+            Identifier::new(res).unwrap()
+        })
     }
 
     /// Assigns a name to every command with unnamed action using the naming function `f`. This
@@ -272,29 +305,14 @@ impl<V, S: Span, E> Model<V, S, E, Identifier<S>> {
     /// - `usize` is a running count of unnamed commands
     /// - `S` is the span covering the unnamed action, i.e.
     ///   [`Command::action_span`](crate::Command::action_span).
-    ///
-    /// # Issues
-    ///
-    /// The parameters of `f` will be changed in a future version to be more ergonomic. On the one
-    /// hand, `f` should be able to construct a custom span. Additionally, providing the index is
-    /// superfluous and `f` can simply do the counting internally.
-    pub fn name_unnamed_actions_with_custom_name<F: FnMut(usize, &S) -> String>(
+    pub fn name_unnamed_actions_with_custom_name<F: FnMut(&S) -> Identifier<S>>(
         &mut self,
         mut name_function: F,
     ) {
-        // TODO: Support custom spans
-        let mut counter = 0;
         for module in &mut self.modules.modules {
             for command in &mut module.commands {
                 if command.action.is_none() {
-                    command.action = Some(
-                        Identifier::new_potentially_reserved_spanned(
-                            name_function(counter, &command.action_span),
-                            command.action_span.clone(),
-                        )
-                        .unwrap(),
-                    );
-                    counter += 1;
+                    command.action = Some(name_function(&command.action_span));
                 }
             }
         }
@@ -777,5 +795,114 @@ impl<S: Span, A: Display> Display
 impl<S: Span, A: Display> Display for Model<Identifier<S>, S, Expression<Identifier<S>, S>, A> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.displayable(&()).fmt(f)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+
+    mod test_unnamed_actions {
+        use crate::{Command, Expression, Identifier, Model, ModelType, Module};
+
+        macro_rules! add_command {
+            ($module: expr) => {
+                $module
+                    .commands
+                    .push(Command::new(None, Expression::bool(true)));
+            };
+            ($module: expr, $name: expr) => {
+                $module.commands.push(Command::new(
+                    Some(Identifier::new($name).unwrap()),
+                    Expression::bool(true),
+                ));
+            };
+        }
+
+        macro_rules! check_command {
+            ($command: expr, $name: expr) => {
+                assert_eq!($command.action.as_ref().unwrap().name, $name);
+            };
+        }
+
+        #[test]
+        pub fn add_unnamed_actions_simple() {
+            let mut model: Model = Model::new(ModelType::mdp());
+
+            let mut module = Module::new(Identifier::new("main").unwrap());
+
+            add_command!(module);
+            add_command!(module, "alpha");
+            add_command!(module);
+            add_command!(module);
+            add_command!(module, "unnamed_action_not_an_int");
+            model.modules.add(module).unwrap();
+
+            model.name_unnamed_actions();
+            println!("{}", model);
+            let commands = &model.modules.modules[0].commands;
+
+            check_command!(commands[0], "unnamed_action_0");
+            check_command!(commands[1], "alpha");
+            check_command!(commands[2], "unnamed_action_1");
+            check_command!(commands[3], "unnamed_action_2");
+            check_command!(commands[4], "unnamed_action_not_an_int");
+        }
+
+        #[test]
+        pub fn add_unnamed_actions_non_zero_existing() {
+            let mut model: Model = Model::new(ModelType::mdp());
+
+            let mut module = Module::new(Identifier::new("main").unwrap());
+
+            add_command!(module);
+            add_command!(module, "alpha");
+            add_command!(module);
+            add_command!(module, "unnamed_action_1");
+            add_command!(module, "unnamed_action_2");
+            add_command!(module);
+            add_command!(module, "unnamed_action_4");
+            model.modules.add(module).unwrap();
+
+            model.name_unnamed_actions();
+            println!("{}", model);
+            let commands = &model.modules.modules[0].commands;
+
+            check_command!(commands[0], "unnamed_action_0");
+            check_command!(commands[1], "alpha");
+            check_command!(commands[2], "unnamed_action_3");
+            check_command!(commands[3], "unnamed_action_1");
+            check_command!(commands[4], "unnamed_action_2");
+            check_command!(commands[5], "unnamed_action_5");
+            check_command!(commands[6], "unnamed_action_4");
+        }
+        #[test]
+        pub fn add_unnamed_actions_complex() {
+            let mut model: Model = Model::new(ModelType::mdp());
+
+            let mut module = Module::new(Identifier::new("main").unwrap());
+
+            add_command!(module);
+            add_command!(module, "alpha");
+            add_command!(module);
+            add_command!(module, "unnamed_action_2");
+            add_command!(module);
+            add_command!(module, "unnamed_action_0");
+            add_command!(module);
+            add_command!(module, "unnamed_action_not_an_int");
+            model.modules.add(module).unwrap();
+
+            model.name_unnamed_actions();
+            println!("{}", model);
+            let commands = &model.modules.modules[0].commands;
+
+            check_command!(commands[0], "unnamed_action_1");
+            check_command!(commands[1], "alpha");
+            check_command!(commands[2], "unnamed_action_3");
+            check_command!(commands[3], "unnamed_action_2");
+            check_command!(commands[4], "unnamed_action_4");
+            check_command!(commands[5], "unnamed_action_0");
+            check_command!(commands[6], "unnamed_action_5");
+            check_command!(commands[7], "unnamed_action_not_an_int");
+        }
     }
 }
