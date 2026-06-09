@@ -43,7 +43,7 @@ pub struct LabelManager<S: Span = FullSpan, E = Expression<VariableReference, S>
     ///
     /// Do not add [`Label`]`s` to this directly. Instead, use [`LabelManager::add_label()`],
     /// which ensures no duplicate names are added.
-    pub labels: Vec<Label<S, E>>,
+    labels: Vec<Label<S, E>>,
 }
 
 impl<S: Span, E> LabelManager<S, E> {
@@ -56,7 +56,7 @@ impl<S: Span, E> LabelManager<S, E> {
     /// ```
     /// # use prism_model::LabelManager;
     /// let labels: LabelManager = LabelManager::new();
-    /// assert_eq!(labels.labels.len(), 0);
+    /// assert!(labels.is_empty());
     /// ```
     pub fn new() -> Self {
         Self { labels: Vec::new() }
@@ -75,7 +75,7 @@ impl<S: Span, E> LabelManager<S, E> {
     ///     Label::new(Identifier::new("l2").unwrap(), Expression::bool(false)),
     /// ]);
     /// assert!(labels.is_ok());
-    /// assert_eq!(labels.unwrap().labels.len(), 2);
+    /// assert_eq!(labels.unwrap().len(), 2);
     /// ```
     ///
     /// If the set of labels contains duplicates, [`LabelExists`] is returned. `index: 1`
@@ -97,6 +97,15 @@ impl<S: Span, E> LabelManager<S, E> {
             res.add_label(label)?;
         }
         Ok(res)
+    }
+
+    /// Constructs a [`LabelManager`] with the given set of labels, *without checking for duplicate
+    /// names*.
+    ///
+    /// This is much faster than [`LabelManager::with_labels()`], but only suitable if you know that
+    /// `labels` contains no labels with duplicate names.
+    pub fn with_labels_unchecked(labels: Vec<Label<S, E>>) -> Self {
+        Self { labels }
     }
 
     /// Adds a label to the [`LabelManager`].
@@ -218,6 +227,58 @@ impl<S: Span, E> LabelManager<S, E> {
             }
         }
         None
+    }
+
+    /// Removes all labels from this label manager.
+    pub fn clear(&mut self) {
+        self.labels.clear();
+    }
+
+    /// Returns `true` if the label manager contains no labels, otherwise false.
+    pub fn is_empty(&self) -> bool {
+        self.labels.is_empty()
+    }
+
+    /// Returns the number of labels contained in this label manager.
+    pub fn len(&self) -> usize {
+        self.labels.len()
+    }
+
+    /// Creates an iterator (by reference) over the labels in this label manager.
+    pub fn iter(&self) -> impl Iterator<Item = &Label<S, E>> {
+        self.into_iter()
+    }
+
+    /// Creates an iterator (by mutable reference) over the labels in this label manager.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Label<S, E>> {
+        self.into_iter()
+    }
+}
+
+impl<'a, S: Span, E> IntoIterator for &'a LabelManager<S, E> {
+    type Item = &'a Label<S, E>;
+    type IntoIter = std::slice::Iter<'a, Label<S, E>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.labels.iter()
+    }
+}
+
+impl<'a, S: Span, E> IntoIterator for &'a mut LabelManager<S, E> {
+    type Item = &'a mut Label<S, E>;
+    type IntoIter = std::slice::IterMut<'a, Label<S, E>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.labels.iter_mut()
+    }
+}
+
+impl<S: Span, E> IntoIterator for LabelManager<S, E> {
+    type Item = Label<S, E>;
+    type IntoIter = std::vec::IntoIter<Label<S, E>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.labels.into_iter()
     }
 }
 

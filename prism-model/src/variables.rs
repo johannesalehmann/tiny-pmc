@@ -472,7 +472,7 @@ pub type VariableInfoNamedVars<S> = VariableInfo<S, Expression<Identifier<S>, S>
 /// # use prism_model::{Identifier, ModuleManager, Module};
 /// let mut module_manager: ModuleManager = ModuleManager::with_modules(
 ///     vec![ Module::new(Identifier::new("main").unwrap()) ]
-/// );
+/// ).unwrap();
 /// ```
 ///
 /// The declaration of local variable `x: [3..12] init 5;` in module `main` corresponds to the following variable
@@ -482,7 +482,7 @@ pub type VariableInfoNamedVars<S> = VariableInfo<S, Expression<Identifier<S>, S>
 /// # use prism_model::{Expression, Identifier, VariableInfo, VariableRange, ModuleManager, Module, FullSpan, Span, VariableScope};
 /// # let mut module_manager: ModuleManager = ModuleManager::with_modules(
 /// #     vec![ Module::new(Identifier::new("main").unwrap()) ]
-/// # );
+/// # ).unwrap();
 /// let main_index = module_manager.get_index_by_str("main").unwrap();
 /// let x_name = Identifier::new("x").unwrap();
 /// let x_range = VariableRange::bounded_int(Expression::int(3), Expression::int(12));

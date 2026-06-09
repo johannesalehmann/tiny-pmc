@@ -86,7 +86,7 @@ impl<S: Span> super::Model<Identifier<S>, S, Expression<Identifier<S>, S>, Ident
             self.variable_manager
                 .add_renamed(
                     source_index,
-                    self.modules.modules.len(),
+                    self.modules.len(),
                     &renamed_module.rename_rules,
                 )
                 .map_err(|e| ModuleExpansionError::MissingVariableRenaming {

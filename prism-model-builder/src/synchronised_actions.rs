@@ -28,7 +28,7 @@ impl SynchronisedActions {
     pub fn from_prism<S: Span, E>(model: &Model<VariableReference, S, E, Identifier<S>>) -> Self {
         let mut actions: HashMap<String, SynchronisedAction> = HashMap::new();
 
-        for (module_index, module) in model.modules.modules.iter().enumerate() {
+        for (module_index, module) in model.modules.iter().enumerate() {
             let mut module_actions: HashMap<String, SynchronisedActionModule> = HashMap::new();
             for (command_index, command) in module.commands.iter().enumerate() {
                 if let Some(action) = &command.action {

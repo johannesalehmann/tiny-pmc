@@ -38,7 +38,7 @@ pub struct ModuleManager<
     ///
     /// Do not add modules directly to this `Vec`. Instead, call [`ModuleManager::add()`], which
     /// ensures there are no duplicates.
-    pub modules: Vec<Module<V, S, E, A>>,
+    modules: Vec<Module<V, S, E, A>>,
 }
 
 impl<V, S: Span, E, A> ModuleManager<V, S, E, A> {
@@ -52,10 +52,27 @@ impl<V, S: Span, E, A> ModuleManager<V, S, E, A> {
     }
     /// Creates a `ModuleManager` with the given set of modules.
     ///
+    /// If the set of modules contains duplicates, [`ModuleExists`] is returned. `index: 1`
+    /// indicates that the first occurrence of the duplicate module was at index `1`.
+    ///
     /// To construct an empty `ModuleManager`, use [`ModuleManager::new()`] and add modules with
-    /// [`ModuleManager::add()`].
-    // TODO: Check for duplicates
-    pub fn with_modules(modules: Vec<Module<V, S, E, A>>) -> Self {
+    /// [`ModuleManager::add()`]. To skip the duplicate check, use
+    /// [`ModuleManager::with_modules_unchecked()`].
+    pub fn with_modules(mut modules: Vec<Module<V, S, E, A>>) -> Result<Self, ModuleExists> {
+        let mut res = Self::new();
+
+        for module in modules.drain(..) {
+            res.add(module)?;
+        }
+        Ok(res)
+    }
+
+    /// Creates a `ModuleManager` with the given set of modules, *without checking for duplicate
+    /// names*.
+    ///
+    /// This is much faster than [`ModuleManager::with_modules()`], but only suitable if you know
+    /// that `modules` contains no modules with duplicate names.
+    pub fn with_modules_unchecked(modules: Vec<Module<V, S, E, A>>) -> Self {
         Self { modules }
     }
 
@@ -142,7 +159,60 @@ impl<V, S: Span, E, A> ModuleManager<V, S, E, A> {
         self.modules.push(module);
         Ok(index)
     }
+
+    /// Removes all modules from this module manager.
+    pub fn clear(&mut self) {
+        self.modules.clear();
+    }
+
+    /// Returns `true` if the module manager contains no modules, otherwise false.
+    pub fn is_empty(&self) -> bool {
+        self.modules.is_empty()
+    }
+
+    /// Returns the number of modules contained in this module manager.
+    pub fn len(&self) -> usize {
+        self.modules.len()
+    }
+
+    /// Creates an iterator (by reference) over the modules in this module manager.
+    pub fn iter(&self) -> impl Iterator<Item = &Module<V, S, E, A>> {
+        self.into_iter()
+    }
+
+    /// Creates an iterator (by mutable reference) over the modules in this module manager.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Module<V, S, E, A>> {
+        self.into_iter()
+    }
 }
+
+impl<'a, V, S: Span, E, A> IntoIterator for &'a ModuleManager<V, S, E, A> {
+    type Item = &'a Module<V, S, E, A>;
+    type IntoIter = std::slice::Iter<'a, Module<V, S, E, A>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.modules.iter()
+    }
+}
+
+impl<'a, V, S: Span, E, A> IntoIterator for &'a mut ModuleManager<V, S, E, A> {
+    type Item = &'a mut Module<V, S, E, A>;
+    type IntoIter = std::slice::IterMut<'a, Module<V, S, E, A>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.modules.iter_mut()
+    }
+}
+
+impl<V, S: Span, E, A> IntoIterator for ModuleManager<V, S, E, A> {
+    type Item = Module<V, S, E, A>;
+    type IntoIter = std::vec::IntoIter<Module<V, S, E, A>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.modules.into_iter()
+    }
+}
+
 impl<V, S: Span, A> ModuleManager<V, S, Expression<V, S>, A> {
     /// Maps the [`Span`]s of every [`Module`] in this `ModuleManager` according to mapping function
     /// `map`.

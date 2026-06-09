@@ -263,7 +263,7 @@ impl<V, S: Span, E> Model<V, S, E, Identifier<S>> {
 
         // First, we collect the existing indices of actions with form "unnamed_action_{i}"
         let mut existing_indices = Vec::new();
-        for module in &self.modules.modules {
+        for module in &self.modules {
             for command in &module.commands {
                 if let Some(action) = &command.action {
                     if action.name.starts_with(prefix) {
@@ -307,7 +307,7 @@ impl<V, S: Span, E> Model<V, S, E, Identifier<S>> {
         &mut self,
         mut name_function: F,
     ) {
-        for module in &mut self.modules.modules {
+        for module in &mut self.modules {
             for command in &mut module.commands {
                 if command.action.is_none() {
                     command.action = Some(name_function(&command.action_span));
@@ -326,7 +326,7 @@ impl<V, S: Span, E> Model<V, S, E, Identifier<S>> {
         use std::collections::HashSet;
         let mut seen_before = HashSet::new();
         let mut actually_synchronising = HashSet::new();
-        for module in &self.modules.modules {
+        for module in &self.modules {
             let mut module_actions = HashSet::new();
             for command in &module.commands {
                 if let Some(command) = &command.action {
@@ -437,7 +437,7 @@ impl<V, S: Span, A> Model<V, S, Expression<V, S>, A> {
     /// endmodule
     /// ```
     pub fn replace_empty_updates_with_identity_update(&mut self) {
-        for module in &mut self.modules.modules {
+        for module in &mut self.modules {
             for command in &mut module.commands {
                 if command.updates.len() == 0 {
                     command.updates.push(crate::Update::new_spanned(
@@ -762,7 +762,7 @@ impl<Ctx, A: Display, E: Displayable<Ctx>, V: Displayable<Ctx>, S: Span> Display
             writeln!(f, "    {}", init.displayable(context))?;
             writeln!(f, "endinit")?;
         }
-        for (i, module) in self.modules.modules.iter().enumerate() {
+        for (i, module) in self.modules.iter().enumerate() {
             writeln!(
                 f,
                 "{}",
@@ -772,7 +772,7 @@ impl<Ctx, A: Display, E: Displayable<Ctx>, V: Displayable<Ctx>, S: Span> Display
         for renamed_module in &self.renamed_modules {
             writeln!(f, "{}", renamed_module)?;
         }
-        for rewards in &self.rewards.rewards {
+        for rewards in &self.rewards {
             writeln!(f, "{}", rewards.displayable(context))?;
         }
 
@@ -834,7 +834,7 @@ mod tests {
             model.modules.add(module).unwrap();
 
             model.name_unnamed_actions();
-            let commands = &model.modules.modules[0].commands;
+            let commands = &model.modules.get(0).unwrap().commands;
 
             check_command!(commands[0], "unnamed_action_0");
             check_command!(commands[1], "alpha");
@@ -859,7 +859,7 @@ mod tests {
             model.modules.add(module).unwrap();
 
             model.name_unnamed_actions();
-            let commands = &model.modules.modules[0].commands;
+            let commands = &model.modules.get(0).unwrap().commands;
 
             check_command!(commands[0], "unnamed_action_0");
             check_command!(commands[1], "alpha");
@@ -886,7 +886,7 @@ mod tests {
             model.modules.add(module).unwrap();
 
             model.name_unnamed_actions();
-            let commands = &model.modules.modules[0].commands;
+            let commands = &model.modules.get(0).unwrap().commands;
 
             check_command!(commands[0], "unnamed_action_1");
             check_command!(commands[1], "alpha");

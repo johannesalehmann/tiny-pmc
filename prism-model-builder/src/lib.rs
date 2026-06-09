@@ -299,8 +299,7 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
         self.evaluate_atomic_propositions(state, atomic_propositions, expression_context);
 
         let mut action_index = 0;
-        for module_index in 0..model.modules.modules.len() {
-            let module = &model.modules.modules[module_index];
+        for module in model.modules.iter() {
             for command_index in 0..module.commands.len() {
                 let command = &module.commands[command_index];
                 if command.action.is_some() {
@@ -402,7 +401,7 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
         let mut satisfied_guards_indices = Vec::new();
         let mut all_satisfied = true;
         for action_module in &synchronised_action.participating_modules {
-            let module = &model.modules.modules[action_module.module_index];
+            let module = model.modules.get(action_module.module_index).unwrap();
             let mut module_info = Vec::new();
             for &command_index in &action_module.command_indices {
                 let command = &module.commands[command_index];
@@ -439,7 +438,11 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
                 let mut distribution = <M::Distribution as Distribution>::get_builder();
 
                 while update_indices[0]
-                    < model.modules.modules[modules[0].module_index].commands[command_indices[0]]
+                    < model
+                        .modules
+                        .get(modules[0].module_index)
+                        .unwrap()
+                        .commands[command_indices[0]]
                         .updates
                         .len()
                         .max(1)
@@ -449,7 +452,7 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
                     let val_source = self.variable_info.get_valuation_source(valuation);
                     let mut updates = Vec::new();
                     for i in 0..n {
-                        let command = &model.modules.modules[modules[i].module_index].commands
+                        let command = &model.modules.get(modules[i].module_index).unwrap().commands
                             [command_indices[i]];
                         if command.updates.len() > 0 {
                             updates.push(&command.updates[update_indices[i]]);
@@ -466,7 +469,7 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
                     let mut probability = 1.0;
 
                     for i in 0..n {
-                        let command = &model.modules.modules[modules[i].module_index].commands
+                        let command = &model.modules.get(modules[i].module_index).unwrap().commands
                             [command_indices[i]];
                         if command.updates.len() > 0 {
                             let ith_expression = &command.updates[update_indices[i]].probability;
@@ -489,7 +492,7 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
 
                     for i in (0..n).rev() {
                         if update_indices[i] + 1
-                            < model.modules.modules[modules[i].module_index].commands
+                            < model.modules.get(modules[i].module_index).unwrap().commands
                                 [command_indices[i]]
                                 .updates
                                 .len()

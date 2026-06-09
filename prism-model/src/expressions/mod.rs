@@ -1693,7 +1693,7 @@ impl<S: Span> Expression<Identifier<S>, S> {
     /// assert_eq!(expr, Expression::bool(true).and(Expression::bool(false)));
     /// ```
     pub fn substitute_labels(&mut self, labels: &LabelManager<S, Expression<Identifier<S>, S>>) {
-        for label in &labels.labels {
+        for label in labels {
             let mut visitor = LabelSubstitutionVisitor {
                 label_name: &label.name,
                 expression: &label.condition,

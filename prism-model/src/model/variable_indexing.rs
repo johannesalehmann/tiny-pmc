@@ -77,7 +77,7 @@ impl<S: Span> Model<Identifier<S>, S, Expression<Identifier<S>, S>, Identifier<S
         let formulas = crate::FormulaManager::with_formulas_unchecked(formulas);
 
         let mut modules = Vec::new();
-        for module in self.modules.modules {
+        for module in self.modules {
             let mut commands = Vec::new();
             for command in module.commands {
                 let guard = command
@@ -140,7 +140,7 @@ impl<S: Span> Model<Identifier<S>, S, Expression<Identifier<S>, S>, Identifier<S
                 span: module.span,
             })
         }
-        let modules = crate::ModuleManager { modules };
+        let modules = crate::ModuleManager::with_modules_unchecked(modules);
 
         if self.renamed_modules.len() > 0 {
             panic!("Cannot use variable indexing in models before expanding all renamed modules");
@@ -163,7 +163,7 @@ impl<S: Span> Model<Identifier<S>, S, Expression<Identifier<S>, S>, Identifier<S
         };
 
         let mut labels = Vec::new();
-        for label in self.labels.labels {
+        for label in self.labels {
             match label
                 .condition
                 .replace_identifiers_by_variable_indices(&self.variable_manager)
@@ -176,10 +176,10 @@ impl<S: Span> Model<Identifier<S>, S, Expression<Identifier<S>, S>, Identifier<S
                 Err(err) => errors.extend(err),
             }
         }
-        let labels = LabelManager { labels };
+        let labels = LabelManager::with_labels_unchecked(labels);
 
         let mut rewards = Vec::new();
-        for reward in self.rewards.rewards {
+        for reward in self.rewards {
             let mut entries = Vec::new();
             for entry in reward.entries {
                 let condition = entry
@@ -209,7 +209,7 @@ impl<S: Span> Model<Identifier<S>, S, Expression<Identifier<S>, S>, Identifier<S
                 span: reward.span,
             })
         }
-        let rewards = RewardsManager { rewards };
+        let rewards = RewardsManager::with_rewards_unchecked(rewards);
 
         if errors.is_empty() {
             Ok(Model::from_components(

@@ -25,7 +25,7 @@ impl<V, S: Span, E, A> super::Model<V, S, E, A> {
             f(&mut formula.condition);
         }
 
-        for module in &mut self.modules.modules {
+        for module in &mut self.modules {
             for command in &mut module.commands {
                 f(&mut command.guard);
                 for update in &mut command.updates {
@@ -41,11 +41,11 @@ impl<V, S: Span, E, A> super::Model<V, S, E, A> {
             f(init_constraint);
         }
 
-        for label in &mut self.labels.labels {
+        for label in &mut self.labels {
             f(&mut label.condition);
         }
 
-        for reward in &mut self.rewards.rewards {
+        for reward in &mut self.rewards {
             for entry in &mut reward.entries {
                 f(&mut entry.value);
                 f(&mut entry.condition);

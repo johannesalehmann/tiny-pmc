@@ -57,7 +57,7 @@ impl<V, S: Span, E, A> super::Model<V, S, E, A> {
 
         let mut modules = Vec::new();
 
-        for module in self.modules.modules {
+        for module in self.modules {
             let mut commands = Vec::new();
             for command in module.commands {
                 let mut updates = Vec::new();
@@ -92,14 +92,12 @@ impl<V, S: Span, E, A> super::Model<V, S, E, A> {
                 span: module.span,
             })
         }
-        let modules = ModuleManager { modules };
+        let modules = ModuleManager::with_modules_unchecked(modules);
 
         let init_constraint = self.init_constraint.map(|i| f(i));
 
-        let labels = LabelManager {
-            labels: self
-                .labels
-                .labels
+        let labels = LabelManager::with_labels_unchecked(
+            self.labels
                 .into_iter()
                 .map(|label| Label {
                     name: label.name,
@@ -107,10 +105,10 @@ impl<V, S: Span, E, A> super::Model<V, S, E, A> {
                     span: label.span,
                 })
                 .collect(),
-        };
+        );
 
         let mut rewards = Vec::new();
-        for reward in self.rewards.rewards {
+        for reward in self.rewards {
             let entries = reward
                 .entries
                 .into_iter()
@@ -127,7 +125,7 @@ impl<V, S: Span, E, A> super::Model<V, S, E, A> {
                 span: reward.span,
             });
         }
-        let rewards = RewardsManager { rewards };
+        let rewards = RewardsManager::with_rewards_unchecked(rewards);
 
         super::Model {
             model_type: self.model_type,

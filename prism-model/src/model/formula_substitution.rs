@@ -47,10 +47,10 @@ impl<S: Span, A> super::Model<Identifier<S>, S, Expression<Identifier<S>, S>, A>
                 *e = condition.visit(&mut visitor);
             };
 
-            for label in &mut self.labels.labels {
+            for label in &mut self.labels {
                 replace_expression(&mut label.condition);
             }
-            for reward in &mut self.rewards.rewards {
+            for reward in &mut self.rewards {
                 for entry in &mut reward.entries {
                     replace_expression(&mut entry.condition);
                     replace_expression(&mut entry.value);
@@ -59,7 +59,7 @@ impl<S: Span, A> super::Model<Identifier<S>, S, Expression<Identifier<S>, S>, A>
             if let Some(init_constraint) = &mut self.init_constraint {
                 replace_expression(init_constraint);
             }
-            for module in &mut self.modules.modules {
+            for module in &mut self.modules {
                 for command in &mut module.commands {
                     replace_expression(&mut command.guard);
                     for update in &mut command.updates {

@@ -18,7 +18,7 @@ pub struct RewardsManager<
     ///
     /// Instead of adding rewards to this directly, use [`RewardsManager::add()`], which ensures
     /// there are no duplicates.
-    pub rewards: Vec<Rewards<S, E, A>>,
+    rewards: Vec<Rewards<S, E, A>>,
 }
 
 impl<S: Span, E, A> RewardsManager<S, E, A> {
@@ -34,9 +34,26 @@ impl<S: Span, E, A> RewardsManager<S, E, A> {
 
     /// Creates a `RewardsManager` with the given rewards.
     ///
+    /// If the set of rewards contains duplicates, [`RewardsExist`] is returned. `index: 1`
+    /// indicates that the first occurrence of the duplicate reward was at index `1`.
+    ///
     /// To create an empty `RewardsManager`, use [`RewardsManager::new()`] and add rewards with
-    /// [`RewardsManager::add()`].
-    pub fn with_rewards(rewards: Vec<Rewards<S, E, A>>) -> Self {
+    /// [`RewardsManager::add()`]. To skip the duplicate check, use
+    /// [`RewardsManager::with_rewards_unchecked()`].
+    pub fn with_rewards(mut rewards: Vec<Rewards<S, E, A>>) -> Result<Self, RewardsExist> {
+        let mut res = Self::new();
+
+        for reward in rewards.drain(..) {
+            res.add(reward)?;
+        }
+        Ok(res)
+    }
+
+    /// Creates a `RewardsManager` with the given rewards, *without checking for duplicate names*.
+    ///
+    /// This is much faster than [`RewardsManager::with_rewards()`], but only suitable if you know
+    /// that `rewards` contains no rewards with duplicate names.
+    pub fn with_rewards_unchecked(rewards: Vec<Rewards<S, E, A>>) -> Self {
         Self { rewards }
     }
 
@@ -56,6 +73,58 @@ impl<S: Span, E, A> RewardsManager<S, E, A> {
         }
         self.rewards.push(rewards);
         Ok(())
+    }
+
+    /// Removes all rewards from this rewards manager.
+    pub fn clear(&mut self) {
+        self.rewards.clear();
+    }
+
+    /// Returns `true` if the rewards manager contains no rewards, otherwise false.
+    pub fn is_empty(&self) -> bool {
+        self.rewards.is_empty()
+    }
+
+    /// Returns the number of rewards contained in this rewards manager.
+    pub fn len(&self) -> usize {
+        self.rewards.len()
+    }
+
+    /// Creates an iterator (by reference) over the rewards in this rewards manager.
+    pub fn iter(&self) -> impl Iterator<Item = &Rewards<S, E, A>> {
+        self.into_iter()
+    }
+
+    /// Creates an iterator (by mutable reference) over the rewards in this rewards manager.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Rewards<S, E, A>> {
+        self.into_iter()
+    }
+}
+
+impl<'a, S: Span, E, A> IntoIterator for &'a RewardsManager<S, E, A> {
+    type Item = &'a Rewards<S, E, A>;
+    type IntoIter = std::slice::Iter<'a, Rewards<S, E, A>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.rewards.iter()
+    }
+}
+
+impl<'a, S: Span, E, A> IntoIterator for &'a mut RewardsManager<S, E, A> {
+    type Item = &'a mut Rewards<S, E, A>;
+    type IntoIter = std::slice::IterMut<'a, Rewards<S, E, A>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.rewards.iter_mut()
+    }
+}
+
+impl<S: Span, E, A> IntoIterator for RewardsManager<S, E, A> {
+    type Item = Rewards<S, E, A>;
+    type IntoIter = std::vec::IntoIter<Rewards<S, E, A>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.rewards.into_iter()
     }
 }
 
