@@ -21,8 +21,6 @@ pub type ExpressionNamedVars<S: Span = FullSpan> = Expression<Identifier<S>, S>;
 
 // TODO: Add link to prism-model-builder crate once it is published
 
-// TODO: Break up the big example into smaller examples
-
 /// Represents an expression, consisting of mathematical and logical operations applied to constant
 /// values and variables.
 ///
@@ -30,34 +28,59 @@ pub type ExpressionNamedVars<S: Span = FullSpan> = Expression<Identifier<S>, S>;
 ///
 /// # Example
 ///
+/// Literals can be created with [`Expression::int()`], [`Expression::float()`] and
+/// [`Expression::bool()`]:
 /// ```
 /// # use prism_model::*;
-/// // -42 + 84.0
-/// let addition: Expression = Expression::int(-42).plus(Expression::float(84.0));
+/// let five: Expression = Expression::int(5);
+/// let no: Expression = Expression::bool(false);
+/// let pi: Expression = Expression::float(3.14159);
+/// ```
 ///
-/// // false | 3 < 5
-/// let comparison: Expression = Expression::bool(false).or(Expression::int(3).less_than(Expression::int(5)));
+/// Arithmetic and logical operations can be applied as follows:
 ///
-/// // Associating expressions with a span to keep track of corresponding source code
+/// ```
+/// # use prism_model::*;
+/// # let five: Expression = Expression::int(5);
+/// # let no: Expression = Expression::bool(false);
+/// # let pi: Expression = Expression::float(3.14159);
+/// let addition: Expression = pi.negate_value().plus(five); // -(3.14159) + 5
+/// let cmp: Expression = no.or(Expression::int(3).less_than(Expression::int(5))); // false | 3 < 5
+/// ```
+///
+/// Expressions can store a [`Span`] to keep track of corresponding source code:
+/// ```
+/// # use prism_model::*;
 /// let spanned_expression: Expression = Expression::bool_spanned(true, FullSpan::from_range(12..16));
 /// assert_eq!(spanned_expression.span().end(), Some(16));
+/// ```
 ///
-/// // Expressions referring to the variable with name `"x"` and index 5, respectively
+/// Expressions can refer to variables by name or by index:
+/// ```
+/// # use prism_model::*;
 /// let named_var: ExpressionNamedVars = Expression::var_or_const(Identifier::new("x").unwrap());
 /// let indexed_var: Expression = Expression::var_or_const(VariableReference::new(5));
-/// // `Expression::replace_identifiers_by_variable_indices(...)` transforms named_var into indexed_var
+/// ```
+/// [`Expression::replace_identifiers_by_variable_indices()`] transforms `named_var` into
+/// `indexed_var`, assuming the fifth variable in the [`VariableManager`] is named `"x"`.
 ///
-/// // min(3, -5)
+/// PRISM functions are called by constructing their name as an identifier and providing a vector
+/// of arguments. As PRISM function names are reserved keywords of the PRISM language, use
+/// [`Identifier::new_potentially_reserved()`].
+///
+/// The following constructs function `min(3, -5, 1.16803)`:
+/// ```
+/// # use prism_model::*;
 /// let min: Expression = Expression::function(Identifier::new_potentially_reserved("min").unwrap(),
-///     vec![Expression::int(3), Expression::int(-5)]
+///     vec![Expression::int(3), Expression::int(-5), Expression::float(1.16803)]
 /// );
 /// ```
 ///
 /// # Constructing expressions
 ///
-/// Each expression has a helper function to construct it, e.g. [`Expression::int`] or
-/// [`Expression::equals_to`]. This creates an expression without a span. A similar helper function
-/// with suffix `_spanned`, e.g. [`Expression::int_spanned`] constructs an expression with a span
+/// Each expression has a helper function to construct it, e.g. [`Expression::int()`] or
+/// [`Expression::equals_to()`]. This creates an expression without a span. A similar helper function
+/// with suffix `_spanned`, e.g. [`Expression::int_spanned()`] constructs an expression with a span
 /// in order to link the expression to the corresponding PRISM code.
 ///
 /// # Evaluating expressions

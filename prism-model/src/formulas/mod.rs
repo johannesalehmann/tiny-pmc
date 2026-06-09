@@ -54,8 +54,6 @@ pub type FormulaManagerNamedVars<S: Span = FullSpan> =
 /// [`Model::substitute_formulas()`](crate::Model::substitute_formulas()).
 #[derive(PartialEq, Clone, Debug)]
 pub struct FormulaManager<S: Span = FullSpan, E = Expression<VariableReference, S>> {
-    // TODO: Make this private and instead provide suitable access methods; in particular, an
-    //  iterator for `FormulaManager`
     /// The collection of [`Formula`]s held by this [`FormulaManager`].
     ///
     /// Do not add [`Formula`]`s` to this directly. Instead, use [`FormulaManager::add()`],
