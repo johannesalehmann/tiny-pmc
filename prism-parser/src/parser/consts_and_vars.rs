@@ -3,7 +3,7 @@ use crate::{ParserSpan, PrismParserValidationError, Token};
 use chumsky::Parser;
 use chumsky::input::ValueInput;
 use chumsky::prelude::just;
-use prism_model::{Expression, Identifier, VariableInfo};
+use prism_model::{Expression, Identifier, VariableInfo, VariableScope};
 
 pub fn const_parser<'a, 'b, I>() -> impl Parser<
     'a,
@@ -32,8 +32,7 @@ where
                 Ok(prism_model::VariableInfo::with_optional_initial_value(
                     name,
                     const_type,
-                    true,
-                    None,
+                    VariableScope::GlobalConstant,
                     value,
                     e.span(),
                 ))
@@ -62,8 +61,7 @@ where
             prism_model::VariableInfo::with_optional_initial_value(
                 name,
                 domain,
-                false,
-                None,
+                VariableScope::GlobalVariable,
                 init,
                 e.span(),
             )
@@ -88,7 +86,14 @@ where
         .then(init_parser.or_not())
         .then_ignore(just(Token::Semicolon))
         .map_with(|((name, domain), init), e| {
-            VariableInfo::with_optional_initial_value(name, domain, false, None, init, e.span())
+            VariableInfo::with_optional_initial_value(
+                name,
+                domain,
+                // Once the module's index is known, this scope will be overwritten later on
+                VariableScope::GlobalVariable,
+                init,
+                e.span(),
+            )
             // Module must be changed from None to Some(...) later on
         })
         .labelled("variable declaration")

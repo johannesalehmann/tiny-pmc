@@ -112,7 +112,7 @@ mod variables;
 pub use variables::{
     MissingVariableRenaming, VariableExists, VariableInfo, VariableInfoNamedVars, VariableManager,
     VariableManagerNamedVars, VariablePrintingStyle, VariableRange, VariableRangeNamedVars,
-    VariableReference,
+    VariableReference, VariableScope,
 };
 
 mod identifier;

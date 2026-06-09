@@ -24,7 +24,7 @@ impl ValuationMap {
         let mut variables_count = 0;
         let mut consts_cont = 0;
         for var in &variables.variables {
-            if var.is_constant {
+            if var.is_constant() {
                 entries.push(ValuationMapEntry::Const(consts_cont));
                 consts_cont += 1;
             } else {

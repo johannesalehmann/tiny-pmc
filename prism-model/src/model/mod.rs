@@ -490,7 +490,7 @@ impl<V, S: Span, A> Model<V, S, Expression<V, S>, A> {
         }
 
         for variable in &mut self.variable_manager.variables {
-            if !variable.is_constant {
+            if !variable.is_constant() {
                 if variable.initial_value.is_none() {
                     variable.initial_value = Some(match &variable.range {
                         VariableRange::BoundedInt { min, .. } => min.clone(),
@@ -573,7 +573,7 @@ impl<V, S: Span, A> Model<V, S, Expression<V, S>, A> {
         self.add_missing_init_statements();
 
         for (variable_index, variable) in self.variable_manager.variables.iter_mut().enumerate() {
-            if !variable.is_constant {
+            if !variable.is_constant() {
                 match std::mem::replace(&mut variable.initial_value, None) {
                     Some(value) => {
                         let identifier = V::get_variable_identifier(variable, variable_index);

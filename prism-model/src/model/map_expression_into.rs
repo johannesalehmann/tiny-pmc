@@ -37,7 +37,6 @@ impl<V, S: Span, E, A> super::Model<V, S, E, A> {
             variables.push(VariableInfo::with_optional_initial_value(
                 variable.name,
                 range,
-                variable.is_constant,
                 variable.scope,
                 initial_value,
                 variable.span,

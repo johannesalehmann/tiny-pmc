@@ -9,7 +9,7 @@ use chumsky::Parser;
 use chumsky::input::ValueInput;
 use prism_model::{
     Expression, Identifier, ModelType, ModuleManager, Span, VariableExists, VariableInfo,
-    VariableManager,
+    VariableManager, VariableScope,
 };
 
 pub fn program_parser<'a, 'b, I>() -> impl Parser<
@@ -79,7 +79,7 @@ fn build_program_from_type_and_elements<'a>(
                 match modules.add(m) {
                     Ok(module_index) => {
                         for mut variable in m_vars {
-                            variable.scope = Some(module_index);
+                            variable.scope = VariableScope::LocalVariable { module_index };
                             add_or_emit_variable(
                                 &mut variables,
                                 variable,

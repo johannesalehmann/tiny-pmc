@@ -50,8 +50,7 @@ impl<S: Span> Model<Identifier<S>, S, Expression<Identifier<S>, S>, Identifier<S
             };
             if let Ok(range) = range {
                 variables.push(VariableInfo {
-                    is_constant: variable.is_constant,
-                    scope: variable.scope,
+                    scope: variable.scope.clone(),
                     range,
                     name: variable.name.clone(),
                     initial_value,

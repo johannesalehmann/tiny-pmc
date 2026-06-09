@@ -37,8 +37,7 @@ impl<V: Clone, S: Span, E, A: Clone> super::Model<V, S, E, A> {
             variables.push(VariableInfo::with_optional_initial_value(
                 variable.name.clone(),
                 range,
-                variable.is_constant,
-                variable.scope,
+                variable.scope.clone(),
                 initial_value,
                 variable.span.clone(),
             ));

@@ -26,7 +26,7 @@ impl ConstValuations {
     ) -> Self {
         let mut valuations = Vec::new();
         for var in &variables.variables {
-            if var.is_constant {
+            if var.is_constant() {
                 valuations.push(Self::compute_initial_const_value(
                     variables,
                     user_provided_consts,
@@ -172,7 +172,7 @@ impl<'a, 'b, 'c, S: Span, E, EC: ExpressionContext<E>> ValuationSource
 {
     fn get_int(&self, index: VariableReference) -> i64 {
         let var = self.variables.get(&index).unwrap();
-        if !var.is_constant {
+        if !var.is_constant() {
             panic!("Const depends on non-constant value");
         }
         if let Some(value) = self.const_values.get(&var.name.name) {
@@ -197,7 +197,7 @@ impl<'a, 'b, 'c, S: Span, E, EC: ExpressionContext<E>> ValuationSource
 
     fn get_bool(&self, index: VariableReference) -> bool {
         let var = self.variables.get(&index).unwrap();
-        if !var.is_constant {
+        if !var.is_constant() {
             panic!("Const depends on non-constant value");
         }
         if let Some(value) = self.const_values.get(&var.name.name) {
@@ -222,7 +222,7 @@ impl<'a, 'b, 'c, S: Span, E, EC: ExpressionContext<E>> ValuationSource
 
     fn get_float(&self, index: VariableReference) -> f64 {
         let var = self.variables.get(&index).unwrap();
-        if !var.is_constant {
+        if !var.is_constant() {
             panic!("Const depends on non-constant value");
         }
         if let Some(value) = self.const_values.get(&var.name.name) {

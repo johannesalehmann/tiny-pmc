@@ -46,7 +46,7 @@ pub type VariableManagerNamedVars<S: Span = FullSpan> =
 /// # let x_range = VariableRange::bounded_int(Expression::int(-5), Expression::int(12));
 /// # let x_ref = variables.add_variable(VariableInfo::global_var(x_name, x_range))
 /// #     .expect("Failed to add variable");
-/// assert_eq!(variables.get(&x_ref).unwrap().is_constant, false);
+/// assert_eq!(variables.get(&x_ref).unwrap().is_constant(), false);
 /// ```
 ///
 /// To add a local, boolean variable, we need the index of the module the variable is in. In
@@ -282,7 +282,11 @@ impl<S: Span> VariableManager<S, Expression<Identifier<S>, S>> {
         let variables = Vec::with_capacity(self.variables.len());
         for i in 0..self.variables.len() {
             let variable = &self.variables[i];
-            if variable.is_constant || variable.scope != Some(old_module_index) {
+            if variable.scope
+                != (VariableScope::LocalVariable {
+                    module_index: old_module_index,
+                })
+            {
                 continue;
             }
             match rename_rules.get_renaming(&variable.name) {
@@ -301,8 +305,9 @@ impl<S: Span> VariableManager<S, Expression<Identifier<S>, S>> {
                             .as_ref()
                             .map(|i| i.renamed(rename_rules)),
                         span: variable.span.clone(),
-                        is_constant: false,
-                        scope: Some(new_module_index),
+                        scope: VariableScope::LocalVariable {
+                            module_index: new_module_index,
+                        },
                     };
                     self.variables.push(new_var)
                 }
@@ -340,6 +345,68 @@ impl std::fmt::Debug for VariableExists {
     }
 }
 
+/// Represents the scope of a variable, which also stores whether the variable is constant or not.
+///
+/// Usually, instead of explicitly constructing the scope, you can construct a variable info with
+/// the suitable constructor, e.g. [`VariableInfo::local_var()`], [`VariableInfo::global_var()`]
+/// or [`VariableInfo::global_const`].
+///
+/// To assess properties of the scope, use [`VariableScope::is_global()`],
+/// [`VariableScope::is_local()`] and [`VariableScope::is_constant()`]. For convenience, these
+/// functions are duplicated for `VariableInfo` (e.g. [`VariableInfo::is_constant()`]).
+#[derive(PartialEq, Clone, Debug)]
+pub enum VariableScope {
+    /// A global constant. This corresponds to PRISM syntax `const int radius = 12;`
+    GlobalConstant,
+
+    /// A global variable. This corresponds to PRISM syntax `global x: [0..20] init 10;`
+    GlobalVariable,
+
+    /// A local variable. This corresponds to PRISM syntax `done: bool init 12;`
+    LocalVariable {
+        /// The index of the module that this variable is contained in
+        module_index: usize,
+    },
+}
+
+impl VariableScope {
+    /// Whether the variable is global, i.e. not contained in a module.
+    ///
+    /// This is true for global variables and global constants.
+    ///
+    /// Instead of calling `VariableInfo::range::is_global()`, consider using
+    /// [`VariableInfo::is_global()`].
+    pub fn is_global(&self) -> bool {
+        match self {
+            VariableScope::GlobalConstant => true,
+            VariableScope::GlobalVariable => true,
+            VariableScope::LocalVariable { .. } => false,
+        }
+    }
+
+    /// Whether the variable is local.
+    ///
+    /// As constants are always global, this is only true for local variables.
+    ///
+    /// Instead of calling `VariableInfo::range::is_local()`, consider using
+    /// [`VariableInfo::is_local()`].
+    pub fn is_local(&self) -> bool {
+        !self.is_global()
+    }
+
+    /// Whether a variable is constant.
+    ///
+    /// Instead of calling `VariableInfo::range::is_constant()`, consider using
+    /// [`VariableInfo::is_constant()`].
+    pub fn is_constant(&self) -> bool {
+        match self {
+            VariableScope::GlobalConstant => true,
+            VariableScope::GlobalVariable => false,
+            VariableScope::LocalVariable { .. } => false,
+        }
+    }
+}
+
 /// A [`VariableInfo`] using [`Identifier`] to refer to variables in expressions, instead of the
 /// default of [`VariableReference`].
 pub type VariableInfoNamedVars<S> = VariableInfo<S, Expression<Identifier<S>, S>>;
@@ -363,7 +430,7 @@ pub type VariableInfoNamedVars<S> = VariableInfo<S, Expression<Identifier<S>, S>
 /// info:
 ///
 /// ```
-/// # use prism_model::{Expression, Identifier, VariableInfo, VariableRange, ModuleManager, Module, FullSpan, Span};
+/// # use prism_model::{Expression, Identifier, VariableInfo, VariableRange, ModuleManager, Module, FullSpan, Span, VariableScope};
 /// # let mut module_manager: ModuleManager = ModuleManager::with_modules(
 /// #     vec![ Module::new(Identifier::new("main").unwrap()) ]
 /// # );
@@ -376,8 +443,7 @@ pub type VariableInfoNamedVars<S> = VariableInfo<S, Expression<Identifier<S>, S>
 /// assert_eq!(
 ///     info,
 ///     VariableInfo {
-///         is_constant: false,
-///         scope: Some(main_index),
+///         scope: VariableScope::LocalVariable{ module_index: main_index },
 ///         range: x_range,
 ///         name: x_name,
 ///         initial_value: Some(Expression::int(5)),
@@ -390,13 +456,8 @@ pub type VariableInfoNamedVars<S> = VariableInfo<S, Expression<Identifier<S>, S>
 /// [`VariableInfo::global_const()`].
 #[derive(PartialEq, Clone, Debug)]
 pub struct VariableInfo<S: Span = FullSpan, E = Expression<VariableReference, S>> {
-    // TODO: Merge is_constant and scope into one enum to make local constants unrepresentable
-    /// If `true`, the variable is a constant. Otherwise, it is a (global or local) variable.
-    pub is_constant: bool,
-
-    /// If `None`, the variable is global (and may be variable or constant). If this is
-    /// `Some(idx)`, the variable belongs to the module with index `idx`.
-    pub scope: Option<usize>,
+    /// The scope of the variable, either global constant, global variable or local variable.
+    pub scope: VariableScope,
 
     /// The domain of the variable, e.g. boolean, float or (bounded and unbounded) integer.
     pub range: VariableRange<S, E>,
@@ -441,7 +502,7 @@ impl<S: Span, E> VariableInfo<S, E> {
     ///
     /// To use an empty span, use [`VariableInfo::global_var()`].
     pub fn global_var_spanned(name: Identifier<S>, range: VariableRange<S, E>, span: S) -> Self {
-        Self::new_spanned(name, range, false, None, span)
+        Self::new_spanned(name, range, VariableScope::GlobalVariable, span)
     }
 
     /// Creates a global constant with given name and range, no initial value and empty [`Span`].
@@ -459,7 +520,7 @@ impl<S: Span, E> VariableInfo<S, E> {
     ///
     /// To use an empty span, use [`VariableInfo::global_const()`].
     pub fn global_const_spanned(name: Identifier<S>, range: VariableRange<S, E>, span: S) -> Self {
-        Self::new_spanned(name, range, true, None, span)
+        Self::new_spanned(name, range, VariableScope::GlobalConstant, span)
     }
 
     /// Creates a local variable in module `module` with given name and range, no initial value and
@@ -481,10 +542,15 @@ impl<S: Span, E> VariableInfo<S, E> {
     pub fn local_var_spanned(
         name: Identifier<S>,
         range: VariableRange<S, E>,
-        module: usize,
+        module_index: usize,
         span: S,
     ) -> Self {
-        Self::new_spanned(name, range, false, Some(module), span)
+        Self::new_spanned(
+            name,
+            range,
+            VariableScope::LocalVariable { module_index },
+            span,
+        )
     }
 
     /// Creates a variable with the given parameters and no initial value.
@@ -499,13 +565,8 @@ impl<S: Span, E> VariableInfo<S, E> {
     ///
     /// To add an initial value, use [`VariableInfo::with_initial_value()`] or
     /// [`VariableInfo::initial_value()`].
-    pub fn new(
-        name: Identifier<S>,
-        range: VariableRange<S, E>,
-        is_constant: bool,
-        scope: Option<usize>,
-    ) -> Self {
-        Self::new_spanned(name, range, is_constant, scope, S::empty())
+    pub fn new(name: Identifier<S>, range: VariableRange<S, E>, scope: VariableScope) -> Self {
+        Self::new_spanned(name, range, scope, S::empty())
     }
 
     /// Creates a variable with the given parameters and no initial value.
@@ -523,8 +584,7 @@ impl<S: Span, E> VariableInfo<S, E> {
     pub fn new_spanned(
         name: Identifier<S>,
         range: VariableRange<S, E>,
-        is_constant: bool,
-        scope: Option<usize>,
+        scope: VariableScope,
         span: S,
     ) -> Self {
         Self {
@@ -532,7 +592,6 @@ impl<S: Span, E> VariableInfo<S, E> {
             range,
             initial_value: None,
             span,
-            is_constant,
             scope,
         }
     }
@@ -549,11 +608,10 @@ impl<S: Span, E> VariableInfo<S, E> {
     pub fn with_initial_value(
         name: Identifier<S>,
         range: VariableRange<S, E>,
-        is_constant: bool,
-        scope: Option<usize>,
+        scope: VariableScope,
         initial_value: E,
     ) -> Self {
-        Self::with_initial_value_spanned(name, range, is_constant, scope, initial_value, S::empty())
+        Self::with_initial_value_spanned(name, range, scope, initial_value, S::empty())
     }
 
     /// Creates a variable with the given parameters and initial value.
@@ -568,8 +626,7 @@ impl<S: Span, E> VariableInfo<S, E> {
     pub fn with_initial_value_spanned(
         name: Identifier<S>,
         range: VariableRange<S, E>,
-        is_constant: bool,
-        scope: Option<usize>,
+        scope: VariableScope,
         initial_value: E,
         span: S,
     ) -> Self {
@@ -578,7 +635,6 @@ impl<S: Span, E> VariableInfo<S, E> {
             range,
             initial_value: Some(initial_value),
             span,
-            is_constant,
             scope,
         }
     }
@@ -589,8 +645,7 @@ impl<S: Span, E> VariableInfo<S, E> {
     pub fn with_optional_initial_value(
         name: Identifier<S>,
         range: VariableRange<S, E>,
-        is_constant: bool,
-        scope: Option<usize>,
+        scope: VariableScope,
         initial_value: Option<E>,
         span: S,
     ) -> Self {
@@ -599,7 +654,6 @@ impl<S: Span, E> VariableInfo<S, E> {
             range,
             initial_value,
             span,
-            is_constant,
             scope,
         }
     }
@@ -609,6 +663,25 @@ impl<S: Span, E> VariableInfo<S, E> {
     pub fn initial_value(mut self, initial_value: E) -> Self {
         self.initial_value = Some(initial_value);
         self
+    }
+
+    /// Whether the variable's [scope](VariableInfo::scope) is global, i.e. whether it is not
+    /// assigned to a specific module.
+    pub fn is_global(&self) -> bool {
+        self.scope.is_global()
+    }
+
+    /// Whether the variable's [scope](VariableInfo::scope) is local, i.e. whether it is assigned to
+    /// a specific module.
+    pub fn is_local(&self) -> bool {
+        self.scope.is_local()
+    }
+
+    /// Whether variable is constant.
+    ///
+    /// See also [VariableScope::is_constant()].
+    pub fn is_constant(&self) -> bool {
+        self.scope.is_constant()
     }
 }
 impl<V, S: Span> VariableInfo<S, Expression<V, S>> {
@@ -625,7 +698,6 @@ impl<V, S: Span> VariableInfo<S, Expression<V, S>> {
         map: &F,
     ) -> VariableInfo<S2, Expression<V, S2>> {
         VariableInfo {
-            is_constant: self.is_constant,
             scope: self.scope,
             range: self.range.map_span(map),
             name: self.name.map_span(map),
@@ -1129,10 +1201,13 @@ pub enum VariablePrintingStyle {
 impl VariablePrintingStyle {
     fn accepts<S: Span, E>(&self, variable: &VariableInfo<S, E>) -> bool {
         match self {
-            VariablePrintingStyle::Const => variable.is_constant,
-            VariablePrintingStyle::GlobalVar => !variable.is_constant && variable.scope.is_none(),
+            VariablePrintingStyle::Const => variable.is_constant(),
+            VariablePrintingStyle::GlobalVar => !variable.is_constant() && variable.is_global(),
             VariablePrintingStyle::LocalVar { module_index } => {
-                !variable.is_constant && variable.scope == Some(*module_index)
+                variable.scope
+                    == VariableScope::LocalVariable {
+                        module_index: *module_index,
+                    }
             }
         }
     }
