@@ -98,7 +98,8 @@ impl<S: Span, E> VariableManager<S, E> {
 
     /// Constructs a variable manager from an existing list of variables.
     ///
-    /// Returns [`VariableExists`] if any two variables share the same name.
+    /// Returns [`AddVariableError::VariableExists`] if any two variables share the same name, or
+    /// [`AddVariableError::InvalidRangeForScope`] if a variable's range is not legal for its scope.
     ///
     /// ```
     /// # use prism_model::*;
@@ -108,7 +109,12 @@ impl<S: Span, E> VariableManager<S, E> {
     /// ];
     /// let manager: VariableManager = VariableManager::with_variables(variables).unwrap();
     /// ```
-    pub fn with_variables(variables: Vec<VariableInfo<S, E>>) -> Result<Self, VariableExists> {
+    pub fn with_variables(
+        variables: Vec<VariableInfo<S, E>>,
+    ) -> Result<Self, AddVariableError<S, E>>
+    where
+        E: Clone,
+    {
         let mut manager = Self::new();
         for variable in variables {
             manager.add_variable(variable)?;
@@ -119,24 +125,31 @@ impl<S: Span, E> VariableManager<S, E> {
     /// Adds a variable to the variable manager.
     ///
     /// If a variable with the same name already exists (regardless of scope),
-    /// [`VariableExists`] is returned with information on the existing variable.
+    /// [`AddVariableError::VariableExists`] is returned with information on the existing variable.
+    ///
+    /// If the variable's range (i.e. type) is not legal for its scope (e.g. a constant of type
+    /// bounded int or a variable of type float), [`AddVariableError::InvalidRangeForScope`] is
+    /// returned.
     ///
     /// See [`VariableManager`] for detailed examples.
-    // TODO: This should verify that the variable info is a legal combination (i.e. scope matches
-    //  range and type is legal for variable kind
     pub fn add_variable(
         &mut self,
         variable_info: VariableInfo<S, E>,
-    ) -> Result<VariableReference, VariableExists> {
+    ) -> Result<VariableReference, AddVariableError<S, E>>
+    where
+        E: Clone,
+    {
         if let Some(existing_variable) = self.get_reference(&variable_info.name) {
-            Err(VariableExists {
+            return Err(AddVariableError::VariableExists(VariableExists {
                 reference: existing_variable,
-            })
-        } else {
-            let index = VariableReference::new(self.variables.len());
-            self.variables.push(variable_info);
-            Ok(index)
+            }));
         }
+        variable_info
+            .is_range_valid_for_scope()
+            .map_err(AddVariableError::InvalidRangeForScope)?;
+        let index = VariableReference::new(self.variables.len());
+        self.variables.push(variable_info);
+        Ok(index)
     }
 
     /// Returns a reference to the variable with the given `name` or `None` if no such variable
@@ -325,6 +338,18 @@ pub struct VariableExists {
     pub reference: VariableReference,
 }
 
+/// An error produced by [`VariableManager::add_variable()`] when a variable or constant could not be
+/// added.
+#[derive(Debug)]
+pub enum AddVariableError<S: Span = FullSpan, E = Expression<VariableReference, S>> {
+    /// A variable or constant with the same name already exists (in any scope).
+    VariableExists(VariableExists),
+
+    /// The variable's range (i.e. type) is not legal for its scope (e.g. a constant of type bounded
+    /// int or a variable of type float).
+    InvalidRangeForScope(InvalidRangeForScope<S, E>),
+}
+
 /// An error produced by [`VariableManager::add_renamed()`], indicating that a variable in the
 /// scope to be copied is not present in the renaming rules.
 pub struct MissingVariableRenaming<S: Span> {
@@ -405,6 +430,30 @@ impl VariableScope {
             VariableScope::LocalVariable { .. } => false,
         }
     }
+}
+
+/// Error caused when creating a variable because the variables range (i.e. type) is not legal for
+/// the given scope.
+///
+/// PRISM does not allow constants of type bounded int and variables of type float.
+#[derive(PartialEq, Clone, Debug)]
+pub struct InvalidRangeForScope<S: Span = FullSpan, E = Expression<VariableReference, S>> {
+    /// The scope for which [`range`](Self::range) is not valid.
+    pub scope: VariableScope,
+    /// The range which is not valid for [`scope`](Self::scope).
+    pub range: VariableRange<S, E>,
+    /// Which rule was broken (either constant with range bounded int or variable with type float).
+    pub kind: InvalidRangeForScopeKind,
+}
+
+/// The rule that was broken in a [`InvalidRangeForScope`] error.
+#[derive(PartialEq, Clone, Debug)]
+pub enum InvalidRangeForScopeKind {
+    /// Tried to construct a constant with range bounded int.
+    BoundedIntConstant,
+
+    /// Tried to construct a variable of type float.
+    FloatVariable,
 }
 
 /// A [`VariableInfo`] using [`Identifier`] to refer to variables in expressions, instead of the
@@ -663,6 +712,39 @@ impl<S: Span, E> VariableInfo<S, E> {
     pub fn initial_value(mut self, initial_value: E) -> Self {
         self.initial_value = Some(initial_value);
         self
+    }
+
+    /// Checks whether this variable's [`range`](Self::range) (i.e. type) is legal for its
+    /// [`scope`](Self::scope).
+    ///
+    /// PRISM does not allow constants of type bounded int or variables of type float. If such a
+    /// combination is detected, [`InvalidRangeForScope`] is returned describing the violation.
+    pub fn is_range_valid_for_scope(&self) -> Result<(), InvalidRangeForScope<S, E>>
+    where
+        E: Clone,
+    {
+        let kind = match &self.scope {
+            VariableScope::GlobalConstant => match &self.range {
+                VariableRange::BoundedInt { .. } => {
+                    Some(InvalidRangeForScopeKind::BoundedIntConstant)
+                }
+                _ => None,
+            },
+            VariableScope::GlobalVariable | VariableScope::LocalVariable { .. } => {
+                match &self.range {
+                    VariableRange::Float { .. } => Some(InvalidRangeForScopeKind::FloatVariable),
+                    _ => None,
+                }
+            }
+        };
+        match kind {
+            None => Ok(()),
+            Some(kind) => Err(InvalidRangeForScope {
+                scope: self.scope.clone(),
+                range: self.range.clone(),
+                kind,
+            }),
+        }
     }
 
     /// Whether the variable's [scope](VariableInfo::scope) is global, i.e. whether it is not
@@ -934,7 +1016,7 @@ impl<S: Span, E> VariableRange<S, E> {
             VariableRange::BoundedInt { .. } => "bounded int",
             VariableRange::UnboundedInt { .. } => "int",
             VariableRange::Boolean { .. } => "bool",
-            VariableRange::Float { .. } => "float",
+            VariableRange::Float { .. } => "double",
         }
     }
 

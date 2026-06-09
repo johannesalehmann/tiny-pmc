@@ -3,7 +3,7 @@ use ariadne::ReportBuilder;
 use ariadne::{Label, Report, ReportKind, Source};
 use chumsky::error::RichPattern;
 use chumsky::util::MaybeRef;
-use prism_model::{InvalidName, ModuleExpansionError};
+use prism_model::{InvalidName, InvalidRangeForScopeKind, ModuleExpansionError};
 use prism_parser::{CharacterToLineMap, ParserSpan, PrismParserError, PrismParserValidationError};
 use std::ops::Range;
 
@@ -255,17 +255,26 @@ fn build_validation(
             )));
             builder
         }
-        PrismParserValidationError::IllegalConstType { illegal_type, span } => {
+        PrismParserValidationError::InvalidRangeForScope { span, range, kind } => {
             let mut builder = Report::build(ReportKind::Error, (file_name, span.into_range()));
-            builder.set_message("Illegal const type");
+            let (message, label, help) = match kind {
+                InvalidRangeForScopeKind::BoundedIntConstant => (
+                    "Illegal constant type",
+                    format!("Type `{}` is not legal for constants", range.name()),
+                    "Constants must not be of type bounded int. Use an unbounded `int` instead.",
+                ),
+                InvalidRangeForScopeKind::FloatVariable => (
+                    "Illegal variable type",
+                    format!("Type `{}` is not legal for variables", range.name()),
+                    "Variables must not be of type `double`. Floating point values are only \
+                     allowed for constants.",
+                ),
+            };
+            builder.set_message(message);
             builder.add_label(Label::new((file_name, span.into_range())));
-            builder.add_label(
-                Label::new((file_name, illegal_type.span().into_range())).with_message(format!(
-                    "Type `{}` is not legal for constants",
-                    illegal_type.name()
-                )),
-            );
-            builder.add_help("The types `int`, `bool` and `double` are legal types for constants.");
+            builder
+                .add_label(Label::new((file_name, range.span().into_range())).with_message(label));
+            builder.add_help(help);
             builder
         }
         PrismParserValidationError::DuplicateElement {

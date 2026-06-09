@@ -110,9 +110,9 @@ pub use rewards::{
 
 mod variables;
 pub use variables::{
-    MissingVariableRenaming, VariableExists, VariableInfo, VariableInfoNamedVars, VariableManager,
-    VariableManagerNamedVars, VariablePrintingStyle, VariableRange, VariableRangeNamedVars,
-    VariableReference, VariableScope,
+    AddVariableError, InvalidRangeForScope, InvalidRangeForScopeKind, MissingVariableRenaming,
+    VariableExists, VariableInfo, VariableInfoNamedVars, VariableManager, VariableManagerNamedVars,
+    VariablePrintingStyle, VariableRange, VariableRangeNamedVars, VariableReference, VariableScope,
 };
 
 mod identifier;

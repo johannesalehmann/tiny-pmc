@@ -32,9 +32,10 @@ pub enum PrismParserValidationError<S: prism_model::Span> {
         duplicate_occurrence: S,
         duplicate_occurrence_inner: S,
     },
-    IllegalConstType {
-        illegal_type: prism_model::VariableRange<S, Expression<Identifier<S>, S>>,
+    InvalidRangeForScope {
         span: S,
+        range: prism_model::VariableRange<S, Expression<Identifier<S>, S>>,
+        kind: prism_model::InvalidRangeForScopeKind,
     },
     DuplicateElement {
         previous_occurrence: S,

@@ -470,9 +470,9 @@ impl<V, S: Span, A> Model<V, S, Expression<V, S>, A> {
     /// - If the model has an [init constraint](Model::init_constraint), because this is mutually
     ///   exclusive with init statements on variables
     /// - If an [unbounded integer](VariableRange::UnboundedInt) or [float](VariableRange::Float)
-    ///   variable has no init statement, as these have no implicit init value.
-    // TODO: Only constants may have type float, so the float case can never occur. After revamping
-    //  the VariableRange types, rewrite this part of the documentation.
+    ///   variable has no init statement, as these have no implicit init value. Note that variables
+    ///   of type float are illegal and cannot be added to a variable manager, so that case should
+    ///   not occur in practice.
     ///
     /// # Example
     ///
@@ -536,7 +536,6 @@ impl<V, S: Span, A> Model<V, S, Expression<V, S>, A> {
     ///
     /// This function calls [`Model::add_missing_init_statements()`], which panics if an unbounded
     /// integer or float variable without init statement is present in the model.
-    // TODO: See the TODO in Model::add_missing_init_statements() on float variables.
     ///
     /// # Example
     ///

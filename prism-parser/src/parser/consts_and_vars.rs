@@ -1,5 +1,5 @@
 use super::{E, expression_parser, identifier_parser};
-use crate::{ParserSpan, PrismParserValidationError, Token};
+use crate::{ParserSpan, Token};
 use chumsky::Parser;
 use chumsky::input::ValueInput;
 use chumsky::prelude::just;
@@ -21,22 +21,14 @@ where
         .then(identifier_parser())
         .then(just(Token::Equal).ignore_then(expression_parser()).or_not())
         .then_ignore(just(Token::Semicolon))
-        .try_map_with(|((const_type, name), value), e| {
-            if !const_type.is_legal_for_constant() {
-                Err(PrismParserValidationError::IllegalConstType {
-                    span: e.span(),
-                    illegal_type: const_type,
-                }
-                .into())
-            } else {
-                Ok(prism_model::VariableInfo::with_optional_initial_value(
-                    name,
-                    const_type,
-                    VariableScope::GlobalConstant,
-                    value,
-                    e.span(),
-                ))
-            }
+        .map_with(|((const_type, name), value), e| {
+            prism_model::VariableInfo::with_optional_initial_value(
+                name,
+                const_type,
+                VariableScope::GlobalConstant,
+                value,
+                e.span(),
+            )
         })
         .labelled("constant")
         .as_context()

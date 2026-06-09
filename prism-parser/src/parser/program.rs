@@ -8,8 +8,8 @@ use chumsky::IterParser;
 use chumsky::Parser;
 use chumsky::input::ValueInput;
 use prism_model::{
-    Expression, Identifier, ModelType, ModuleManager, Span, VariableExists, VariableInfo,
-    VariableManager, VariableScope,
+    AddVariableError, Expression, Identifier, ModelType, ModuleManager, Span, VariableExists,
+    VariableInfo, VariableManager, VariableScope,
 };
 
 pub fn program_parser<'a, 'b, I>() -> impl Parser<
@@ -41,11 +41,19 @@ fn add_or_emit_variable(
     let span = variable.span;
     match manager.add_variable(variable) {
         Ok(_) => {}
-        Err(VariableExists { reference }) => emitter.emit(
+        Err(AddVariableError::VariableExists(VariableExists { reference })) => emitter.emit(
             PrismParserValidationError::DuplicateElement {
                 previous_occurrence: manager.get(&reference).unwrap().span,
                 new_definition: span,
                 kind,
+            }
+            .into(),
+        ),
+        Err(AddVariableError::InvalidRangeForScope(error)) => emitter.emit(
+            PrismParserValidationError::InvalidRangeForScope {
+                span,
+                range: error.range,
+                kind: error.kind,
             }
             .into(),
         ),

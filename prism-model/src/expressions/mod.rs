@@ -250,7 +250,7 @@ pub enum Expression<V = VariableReference, S: Span = FullSpan> {
     ///
     /// ```
     /// # use prism_model::*;
-    /// # fn main() -> Result<(), VariableExists> {
+    /// # fn main() -> Result<(), AddVariableError> {
     /// # let mut vm: VariableManager = VariableManager::new();
     /// let var_ref = vm.add_variable(VariableInfo::global_var(
     ///     Identifier::new("y").unwrap(),
@@ -265,7 +265,7 @@ pub enum Expression<V = VariableReference, S: Span = FullSpan> {
     ///
     /// ```
     /// # use prism_model::*;
-    /// # fn main() -> Result<(), VariableExists> {
+    /// # fn main() -> Result<(), AddVariableError> {
     /// # let mut vm: VariableManager = VariableManager::new();
     /// # let var_ref = vm.add_variable(VariableInfo::global_var(
     /// #     Identifier::new("y").unwrap(),
@@ -281,7 +281,7 @@ pub enum Expression<V = VariableReference, S: Span = FullSpan> {
     ///
     /// ```
     /// # use prism_model::*;
-    /// # fn main() -> Result<(), VariableExists> {
+    /// # fn main() -> Result<(), AddVariableError> {
     /// # let mut vm: VariableManager = VariableManager::new();
     /// # let var_ref = vm.add_variable(VariableInfo::global_var(
     /// #     Identifier::new("y").unwrap(),
