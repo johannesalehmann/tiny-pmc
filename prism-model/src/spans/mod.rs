@@ -211,7 +211,6 @@ impl Span for () {
     }
 }
 
-// TODO:  Implement `Debug` in a nicer, custom way
 /// Either represents a contiguous section in the source code or the empty span.
 ///
 /// See [`Span`] for general notes on creating and accessing spans.
