@@ -87,7 +87,7 @@ impl<S: Span, A> super::Model<Identifier<S>, S, Expression<Identifier<S>, S>, A>
             replace_in_var_defs(&mut self.variable_manager);
         }
 
-        self.formulas.formulas.clear();
+        self.formulas.clear();
 
         Ok(())
     }

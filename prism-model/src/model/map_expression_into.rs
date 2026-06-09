@@ -45,10 +45,8 @@ impl<V, S: Span, E, A> super::Model<V, S, E, A> {
         }
         let variable_manager = VariableManager { variables };
 
-        let formulas = FormulaManager {
-            formulas: self
-                .formulas
-                .formulas
+        let formulas = FormulaManager::with_formulas_unchecked(
+            self.formulas
                 .into_iter()
                 .map(|formula| Formula {
                     name: formula.name,
@@ -56,7 +54,7 @@ impl<V, S: Span, E, A> super::Model<V, S, E, A> {
                     span: formula.span,
                 })
                 .collect::<Vec<_>>(),
-        };
+        );
 
         let mut modules = Vec::new();
 

@@ -21,7 +21,7 @@ impl<V, S: Span, E, A> super::Model<V, S, E, A> {
             variable.initial_value.as_mut().map(&f);
         }
 
-        for formula in &mut self.formulas.formulas {
+        for formula in &mut self.formulas {
             f(&mut formula.condition);
         }
 

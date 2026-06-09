@@ -124,7 +124,7 @@ fn build_program_from_type_and_elements<'a>(
             }
             ProgramElement::Formula(f) => {
                 let span = f.span;
-                match formulas.add_formula(f) {
+                match formulas.add(f) {
                     Ok(_) => {}
                     Err(prism_model::FormulaExists { index }) => {
                         let previous = formulas.get(index).unwrap();

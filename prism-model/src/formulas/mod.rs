@@ -25,18 +25,18 @@ pub type FormulaManagerNamedVars<S: Span = FullSpan> =
 /// let mut formulas: FormulaManagerNamedVars = FormulaManager::new();
 /// ```
 ///
-/// Formulas can then be added using [`FormulaManager::add_formula()`], which returns
+/// Formulas can then be added using [`FormulaManager::add()`], which returns
 /// [`FormulaExists`] if the formula exists.
 ///
 /// ```
 /// # use prism_model::*;
 /// # let mut formulas: FormulaManagerNamedVars  = FormulaManager::new();
 /// let result_1
-///     = formulas.add_formula(Formula::new(Identifier::new("five").unwrap(), Expression::int(5)));
+///     = formulas.add(Formula::new(Identifier::new("five").unwrap(), Expression::int(5)));
 /// assert_eq!(result_1, Ok(()));
 ///
 /// let result_2
-///     = formulas.add_formula(Formula::new(Identifier::new("five").unwrap(), Expression::float(5.0)));
+///     = formulas.add(Formula::new(Identifier::new("five").unwrap(), Expression::float(5.0)));
 /// assert_eq!(result_2, Err(FormulaExists{ index: 0}));
 /// ```
 ///
@@ -58,9 +58,9 @@ pub struct FormulaManager<S: Span = FullSpan, E = Expression<VariableReference, 
     //  iterator for `FormulaManager`
     /// The collection of [`Formula`]s held by this [`FormulaManager`].
     ///
-    /// Do not add [`Formula`]`s` to this directly. Instead, use [`FormulaManager::add_formula()`],
+    /// Do not add [`Formula`]`s` to this directly. Instead, use [`FormulaManager::add()`],
     /// which ensures no duplicate names are added.
-    pub formulas: Vec<Formula<S, E>>,
+    formulas: Vec<Formula<S, E>>,
 }
 
 impl<S: Span, E> FormulaManager<S, E> {
@@ -74,7 +74,7 @@ impl<S: Span, E> FormulaManager<S, E> {
     /// ```
     /// # use prism_model::FormulaManager;
     /// let formulas: FormulaManager = FormulaManager::new();
-    /// assert_eq!(formulas.formulas.len(), 0);
+    /// assert_eq!(formulas.len(), 0);
     /// ```
     pub fn new() -> Self {
         Self {
@@ -84,7 +84,9 @@ impl<S: Span, E> FormulaManager<S, E> {
 
     /// Constructs a [`FormulaManager`] with the given set of formulas.
     ///
-    /// To construct an empty [`FormulaManager`], use [`FormulaManager::new()`] instead.
+    /// To construct an empty [`FormulaManager`], use [`FormulaManager::new()`] instead. If you know
+    /// that `formulas` contains no duplicates, you may use
+    /// [`FormulaManager::with_formulas_unchecked()`].
     ///
     /// # Example
     ///
@@ -95,7 +97,7 @@ impl<S: Span, E> FormulaManager<S, E> {
     ///     Formula::new(Identifier::new("f2").unwrap(), Expression::bool(false)),
     /// ]);
     /// assert!(formulas.is_ok());
-    /// assert_eq!(formulas.unwrap().formulas.len(), 2);
+    /// assert_eq!(formulas.unwrap().len(), 2);
     /// ```
     ///
     /// If the set of formulas contains duplicates, [`FormulaExists`] is returned. `index: 1`
@@ -114,9 +116,18 @@ impl<S: Span, E> FormulaManager<S, E> {
         let mut res = Self::new();
 
         for formula in formulas.drain(..) {
-            res.add_formula(formula)?;
+            res.add(formula)?;
         }
         Ok(res)
+    }
+
+    /// Creates a [`FormulaManager`] with the given set of formulas, *without checking for
+    /// duplicate names*.
+    ///
+    /// This is much faster than [`FormulaManager::with_formulas()`], but only suitable if you know
+    /// that `formulas` contains no formulas with duplicate names.
+    pub fn with_formulas_unchecked(formulas: Vec<Formula<S, E>>) -> Self {
+        Self { formulas }
     }
 
     /// Returns the formula with the given `index`.
@@ -154,7 +165,7 @@ impl<S: Span, E> FormulaManager<S, E> {
     /// # use prism_model::*;
     /// let mut formulas: FormulaManager = FormulaManager::new();
     ///
-    /// let res = formulas.add_formula(
+    /// let res = formulas.add(
     ///     Formula::new(Identifier::new("circle_constant").unwrap(), Expression::float(3.14))
     /// );
     /// assert_eq!(res, Ok(()));
@@ -168,17 +179,17 @@ impl<S: Span, E> FormulaManager<S, E> {
     /// # use prism_model::*;
     /// # let mut formulas: FormulaManager = FormulaManager::new();
     /// #
-    /// # let res = formulas.add_formula(
+    /// # let res = formulas.add(
     /// #     Formula::new(Identifier::new("circle_constant").unwrap(), Expression::float(3.14))
     /// # );
     /// # assert_eq!(res, Ok(()));
     /// #
-    /// let res = formulas.add_formula(
+    /// let res = formulas.add(
     ///     Formula::new(Identifier::new("circle_constant").unwrap(), Expression::float(6.28))
     /// );
     /// assert_eq!(res, Err(FormulaExists {index: 0}));
     /// ```
-    pub fn add_formula(&mut self, formula: Formula<S, E>) -> Result<(), FormulaExists> {
+    pub fn add(&mut self, formula: Formula<S, E>) -> Result<(), FormulaExists> {
         for (index, other_formula) in self.formulas.iter().enumerate() {
             if other_formula.name == formula.name {
                 return Err(FormulaExists { index });
@@ -186,6 +197,39 @@ impl<S: Span, E> FormulaManager<S, E> {
         }
         self.formulas.push(formula);
         Ok(())
+    }
+
+    /// Adds a formula to the [`FormulaManager`], without checking for duplicate names.
+    ///
+    /// This method is much faster than [`FormulaManager::add()`], but should only be used when you
+    /// can guarantee that no existing formula with the same name exists.
+    pub fn add_unchecked(&mut self, formula: Formula<S, E>) {
+        self.formulas.push(formula);
+    }
+
+    /// Removes all formulas from this formula manager.
+    pub fn clear(&mut self) {
+        self.formulas.clear();
+    }
+
+    /// Returns `true` if the formula manager contains no formulas, otherwise false.
+    pub fn is_empty(&self) -> bool {
+        self.formulas.is_empty()
+    }
+
+    /// Returns the number of formulas contained in this formula manager.
+    pub fn len(&self) -> usize {
+        self.formulas.len()
+    }
+
+    /// Creates an iterator (by reference) over the formulas in this formula manager.
+    pub fn iter(&self) -> impl Iterator<Item = &Formula<S, E>> {
+        self.into_iter()
+    }
+
+    /// Creates an iterator (by mutable reference) over the formulas in this formula manager.
+    pub fn iter_mut(&mut self) -> impl Iterator<Item = &mut Formula<S, E>> {
+        self.into_iter()
     }
 }
 
@@ -203,6 +247,33 @@ impl<V, S: Span> FormulaManager<S, Expression<V, S>> {
         FormulaManager {
             formulas: self.formulas.into_iter().map(|f| f.map_span(map)).collect(),
         }
+    }
+}
+
+impl<'a, S: Span, E> IntoIterator for &'a FormulaManager<S, E> {
+    type Item = &'a Formula<S, E>;
+    type IntoIter = std::slice::Iter<'a, Formula<S, E>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.formulas.iter()
+    }
+}
+
+impl<'a, S: Span, E> IntoIterator for &'a mut FormulaManager<S, E> {
+    type Item = &'a mut Formula<S, E>;
+    type IntoIter = std::slice::IterMut<'a, Formula<S, E>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.formulas.iter_mut()
+    }
+}
+
+impl<S: Span, E> IntoIterator for FormulaManager<S, E> {
+    type Item = Formula<S, E>;
+    type IntoIter = std::vec::IntoIter<Formula<S, E>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.formulas.into_iter()
     }
 }
 
@@ -228,7 +299,7 @@ pub struct FormulaExists {
     /// When [`FormulaManager::with_formulas()`] is used, this corresponds to the first
     /// occurrence of the duplicate formula in argument `formulas`. (In this case, it is not
     /// possible to obtain the index of the second occurrence of the duplicate formula. Call
-    /// [`FormulaManager::add_formula()`] repeatedly if this is required.)
+    /// [`FormulaManager::add()`] repeatedly if this is required.)
     pub index: usize,
 }
 
@@ -245,7 +316,7 @@ pub type FormulaNamedVars<S: Span> = Formula<S, Expression<Identifier<S>, S>>;
 ///
 /// For examples, see [`FormulaManager`].
 #[derive(PartialEq, Clone, Debug)]
-pub struct Formula<S: Span, E = Expression<VariableReference, S>> {
+pub struct Formula<S: Span = FullSpan, E = Expression<VariableReference, S>> {
     /// The name of the formula
     pub name: Identifier<S>,
 

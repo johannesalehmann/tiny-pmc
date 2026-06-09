@@ -61,8 +61,8 @@ impl<S: Span> Model<Identifier<S>, S, Expression<Identifier<S>, S>, Identifier<S
         }
         let variables = crate::VariableManager { variables };
 
-        let mut formulas = Vec::with_capacity(self.formulas.formulas.len());
-        for formula in self.formulas.formulas {
+        let mut formulas = Vec::with_capacity(self.formulas.len());
+        for formula in self.formulas {
             let condition = formula
                 .condition
                 .replace_identifiers_by_variable_indices(&self.variable_manager);
@@ -75,7 +75,7 @@ impl<S: Span> Model<Identifier<S>, S, Expression<Identifier<S>, S>, Identifier<S
                 Err(err) => errors.extend_from_slice(&err[..]),
             }
         }
-        let formulas = crate::FormulaManager { formulas };
+        let formulas = crate::FormulaManager::with_formulas_unchecked(formulas);
 
         let mut modules = Vec::new();
         for module in self.modules.modules {

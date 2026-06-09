@@ -45,10 +45,8 @@ impl<V: Clone, S: Span, E, A: Clone> super::Model<V, S, E, A> {
         }
         let variable_manager = VariableManager { variables };
 
-        let formulas = FormulaManager {
-            formulas: self
-                .formulas
-                .formulas
+        let formulas = FormulaManager::with_formulas_unchecked(
+            self.formulas
                 .iter()
                 .map(|formula| Formula {
                     name: formula.name.clone(),
@@ -56,7 +54,7 @@ impl<V: Clone, S: Span, E, A: Clone> super::Model<V, S, E, A> {
                     span: formula.span.clone(),
                 })
                 .collect::<Vec<_>>(),
-        };
+        );
 
         let mut modules = Vec::new();
 

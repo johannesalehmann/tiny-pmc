@@ -60,7 +60,7 @@ impl<S: Span> super::Model<Identifier<S>, S, Expression<Identifier<S>, S>, Ident
     /// ```
     pub fn expand_renamed_modules(&mut self) -> Result<(), ModuleExpansionError<S>> {
         assert!(
-            self.formulas.formulas.is_empty(),
+            self.formulas.is_empty(),
             "Cannot expand renamed modules in a model that contains formulas"
         );
         let renamed_modules = std::mem::replace(&mut self.renamed_modules, Vec::new());
@@ -97,13 +97,11 @@ impl<S: Span> super::Model<Identifier<S>, S, Expression<Identifier<S>, S>, Ident
 
             match self.modules.add(module) {
                 Ok(_) => Ok(()),
-                Err(ModuleExists { index }) => {
-                    Err(ModuleExpansionError::DuplicateModule {
-                        name: renamed_module.new_name.clone(),
-                        original_module: self.modules.get(index).unwrap().span.clone(),
-                        rename_rule: renamed_module.span.clone(),
-                    })
-                }
+                Err(ModuleExists { index }) => Err(ModuleExpansionError::DuplicateModule {
+                    name: renamed_module.new_name.clone(),
+                    original_module: self.modules.get(index).unwrap().span.clone(),
+                    rename_rule: renamed_module.span.clone(),
+                }),
             }?;
         }
         Ok(())
