@@ -189,6 +189,34 @@ pub trait Span: Clone {
     fn end(&self) -> Option<usize> {
         self.range().map(|r| r.end)
     }
+
+    /// Creates a sub-slice of this span. This is done by offsetting `range` by the span's start.
+    ///
+    /// If the span is empty, the empty span is returned.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use prism_model::{FullSpan, Span};
+    /// let span = FullSpan::from_start_end(12, 18);
+    /// let slice = span.sliced(2..4);
+    /// assert_eq!(slice.range(), Some(14..16));
+    /// ```
+    ///
+    /// Note that the range may go beyond the end of the original span:
+    /// ```
+    /// # use prism_model::{FullSpan, Span};
+    /// let span = FullSpan::from_start_end(2, 5);
+    /// let slice = span.sliced(0..10);
+    /// assert_eq!(slice.range(), Some(2..12));
+    /// ```
+    fn sliced(&self, range: Range<usize>) -> Self {
+        if let Some(start) = self.start() {
+            Self::from_range(start + range.start..start + range.end)
+        } else {
+            Self::empty()
+        }
+    }
 }
 
 impl Span for () {

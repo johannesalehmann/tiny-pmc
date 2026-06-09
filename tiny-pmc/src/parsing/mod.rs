@@ -1,13 +1,14 @@
 use crate::PrismModel;
-use ariadne::ReportBuilder;
-use ariadne::{Label, Report, ReportKind, Source};
+use ariadne::Source;
 use chumsky::error::RichPattern;
 use chumsky::util::MaybeRef;
-use prism_model::{InvalidName, InvalidRangeForScopeKind, ModuleExpansionError};
+use prism_model::{InvalidName, InvalidRangeForScopeKind, ModuleExpansionError, Span};
 use prism_parser::{CharacterToLineMap, ParserSpan, PrismParserError, PrismParserValidationError};
-use std::ops::Range;
 
 mod constants;
+mod maybe_builder;
+
+use crate::parsing::maybe_builder::{MaybeLabel, MaybeReportBuilder};
 pub use constants::{ConstParsingError, parse_const_assignments};
 
 pub enum ErrorSource {
@@ -89,45 +90,44 @@ fn print_error(
         None => "input",
     };
 
-    let builder = match error {
+    let maybe_builder = match error {
         PrismParserError::ExpectedFound {
             span,
             expected,
             found,
             contexts,
             help,
-        } => build_expected_found(file_name, span, &expected, found, &contexts, &help),
+        } => build_expected_found(span, &expected, found, &contexts, &help),
 
-        PrismParserError::Validation(validation) => build_validation(file_name, validation),
+        PrismParserError::Validation(validation) => build_validation(validation),
     };
+    let builder = maybe_builder.to_ariadne_builder(file_name);
     builder
         .finish()
         .print((file_name, Source::from(source)))
         .unwrap();
 }
 
-fn build_expected_found<'a>(
-    file_name: &'a str,
+fn build_expected_found(
     span: ParserSpan,
     expected: &Vec<RichPattern<String>>,
     found: Option<MaybeRef<String>>,
     contexts: &Vec<(RichPattern<String>, ParserSpan)>,
     help: &Option<String>,
-) -> ReportBuilder<'a, (&'a str, Range<usize>)> {
-    let mut builder = Report::build(ReportKind::Error, (file_name, span.into_range()));
+) -> MaybeReportBuilder<ParserSpan> {
+    let mut builder = MaybeReportBuilder::new_error(&span);
     builder.set_message(format!(
         "Unexpected character{}",
         context_message(&contexts)
     ));
-    builder
-        .add_label(Label::new((file_name, span.into_range())).with_message(found_message(found)));
+    builder.add_label(MaybeLabel::new(&span).with_message(found_message(found)));
 
     if !expected.is_empty() {
         builder.add_note(expected_message(&expected));
     }
 
     if let Some((_, location)) = contexts.first() {
-        builder.add_label(Label::new((file_name, location.into_range())));
+        builder.add_label(MaybeLabel::new(location));
     }
 
     if let Some(help) = help {
@@ -189,24 +189,23 @@ fn pattern_to_string(pattern: &RichPattern<String>) -> String {
 }
 
 fn build_validation(
-    file_name: &str,
     error: PrismParserValidationError<ParserSpan>,
-) -> ReportBuilder<'_, (&str, Range<usize>)> {
+) -> MaybeReportBuilder<ParserSpan> {
     match error {
         PrismParserValidationError::UnsupportedModelType { model_type, span } => {
-            let mut builder = Report::build(ReportKind::Error, (file_name, span.into_range()));
+            let mut builder = MaybeReportBuilder::new_error(&span);
             builder.set_message("Unsupported model type");
             builder.add_label(
-                Label::new((file_name, span.into_range()))
+                MaybeLabel::new(&span)
                     .with_message(format!("Model type {} is not supported", model_type)),
             );
             builder.add_help("Supported model types are `dtmc`, `mdp` and `ctmc`.");
             builder
         }
         PrismParserValidationError::MissingModelType => {
-            let mut builder = Report::build(ReportKind::Error, (file_name, 0..1));
+            let mut builder = MaybeReportBuilder::new_error(&ParserSpan::empty());
             builder.set_message("Missing model type");
-            builder.add_label(Label::new((file_name, 0..1)));
+            builder.add_label(MaybeLabel::new(&ParserSpan::from_range(0..1)));
             builder.add_help("Add a line with `dtmc`, `mdp` or `ctmc` to your model.");
             builder
         }
@@ -214,17 +213,13 @@ fn build_validation(
             first_occurrence,
             duplicate_occurrence,
         } => {
-            let mut builder = Report::build(
-                ReportKind::Error,
-                (file_name, duplicate_occurrence.into_range()),
-            );
+            let mut builder = MaybeReportBuilder::new_error(&duplicate_occurrence);
             builder.set_message("Duplicate model type");
             builder.add_label(
-                Label::new((file_name, first_occurrence.into_range()))
-                    .with_message("Model type is first set here"),
+                MaybeLabel::new(&first_occurrence).with_message("Model type is first set here"),
             );
             builder.add_label(
-                Label::new((file_name, duplicate_occurrence.into_range()))
+                MaybeLabel::new(&duplicate_occurrence)
                     .with_message("Model type is defined again here"),
             );
             builder
@@ -235,28 +230,22 @@ fn build_validation(
             duplicate_occurrence,
             duplicate_occurrence_inner,
         } => {
-            let mut builder = Report::build(
-                ReportKind::Error,
-                (file_name, duplicate_occurrence.into_range()),
-            );
+            let mut builder = MaybeReportBuilder::new_error(&duplicate_occurrence);
             builder.set_message("Duplicate init constraint");
             builder.add_label(
-                Label::new((file_name, first_occurrence.into_range()))
+                MaybeLabel::new(&first_occurrence)
                     .with_message("The init constraint is first set here"),
             );
-            builder.add_label(Label::new((file_name, first_occurrence_inner.into_range())));
+            builder.add_label(MaybeLabel::new(&first_occurrence_inner));
             builder.add_label(
-                Label::new((file_name, duplicate_occurrence.into_range()))
+                MaybeLabel::new(&duplicate_occurrence)
                     .with_message("The duplicate init construct is set here"),
             );
-            builder.add_label(Label::new((
-                file_name,
-                duplicate_occurrence_inner.into_range(),
-            )));
+            builder.add_label(MaybeLabel::new(&duplicate_occurrence_inner));
             builder
         }
         PrismParserValidationError::InvalidRangeForScope { span, range, kind } => {
-            let mut builder = Report::build(ReportKind::Error, (file_name, span.into_range()));
+            let mut builder = MaybeReportBuilder::new_error(&span);
             let (message, label, help) = match kind {
                 InvalidRangeForScopeKind::BoundedIntConstant => (
                     "Illegal constant type",
@@ -271,9 +260,8 @@ fn build_validation(
                 ),
             };
             builder.set_message(message);
-            builder.add_label(Label::new((file_name, span.into_range())));
-            builder
-                .add_label(Label::new((file_name, range.span().into_range())).with_message(label));
+            builder.add_label(MaybeLabel::new(&span));
+            builder.add_label(MaybeLabel::new(range.span()).with_message(label));
             builder.add_help(help);
             builder
         }
@@ -282,38 +270,33 @@ fn build_validation(
             new_definition,
             ..
         } => {
-            let mut builder =
-                Report::build(ReportKind::Error, (file_name, new_definition.into_range()));
+            let mut builder = MaybeReportBuilder::new_error(&new_definition);
             builder.set_message("Duplicate name");
             builder.add_label(
-                Label::new((file_name, previous_occurrence.into_range()))
-                    .with_message("First defined here"),
+                MaybeLabel::new(&previous_occurrence).with_message("First defined here"),
             );
-            builder.add_label(
-                Label::new((file_name, new_definition.into_range()))
-                    .with_message("Defined again here"),
-            );
+            builder.add_label(MaybeLabel::new(&new_definition).with_message("Defined again here"));
 
             builder
         }
         PrismParserValidationError::InvalidIdentifierName { span, reason } => {
-            let mut builder = Report::build(ReportKind::Error, (file_name, span.into_range()));
+            let mut builder = MaybeReportBuilder::new_error(&span);
             builder.set_message("Invalid name");
-            let (message, span, help) = match reason {
-                InvalidName::Empty => ("Identifier must not be empty", span.into_range(), None),
+            let (message, label_span, help) = match reason {
+                InvalidName::Empty => ("Identifier must not be empty", span.clone(), None),
                 InvalidName::StartsWithNumber { .. } => (
                     "Identifier must not start with number",
-                    span.into_range().start..span.into_range().start + 1,
+                    span.sliced(0..1),
                     None,
                 ),
                 InvalidName::InvalidCharacter { location, .. } => (
                     "Invalid character",
-                    span.into_range().start + location..span.into_range().start + location + 1,
+                    span.sliced(location..location + 1),
                     Some("Valid characters are `A`..`Z`, `a`..`z`, `0`..`9` and `_`."),
                 ),
-                InvalidName::Reserved { .. } => ("Is a reserved keyword", span.into_range(), None),
+                InvalidName::Reserved { .. } => ("Is a reserved keyword", span.clone(), None),
             };
-            builder.add_label(Label::new((file_name, span)).with_message(message));
+            builder.add_label(MaybeLabel::new(&label_span).with_message(message));
             if let Some(help) = help {
                 builder.add_help(help);
             }
@@ -321,8 +304,7 @@ fn build_validation(
         }
 
         PrismParserValidationError::CyclicFormulaDependency { cycle } => {
-            let primary = cycle.entries[0].formula_span.into_range();
-            let mut builder = Report::build(ReportKind::Error, (file_name, primary));
+            let mut builder = MaybeReportBuilder::new_error(&cycle.entries[0].formula_span);
             builder.set_message("Cyclic dependency between formulas");
 
             for i in 0..cycle.entries.len() {
@@ -333,11 +315,12 @@ fn build_validation(
                 let depends_on = cycle.entries[depends_on_index].formula_name.name.clone();
                 let entry = &cycle.entries[i];
                 builder.add_label(
-                    Label::new((file_name, entry.dependency_span.into_range())).with_message(
-                        format!("{} depends on {} here", entry.formula_name.name, depends_on),
-                    ),
+                    MaybeLabel::new(&entry.dependency_span).with_message(format!(
+                        "{} depends on {} here",
+                        entry.formula_name.name, depends_on
+                    )),
                 );
-                builder.add_label(Label::new((file_name, entry.formula_span.into_range())));
+                builder.add_label(MaybeLabel::new(&entry.formula_span));
             }
 
             builder
@@ -351,17 +334,14 @@ fn build_validation(
                     rename_rule: renaming_rule,
                 },
         } => {
-            let mut builder =
-                Report::build(ReportKind::Error, (file_name, renaming_rule.into_range()));
+            let mut builder = MaybeReportBuilder::new_error(&renaming_rule);
             builder.set_message("Duplicate module during renaming");
+            builder.add_label(MaybeLabel::new(&renaming_rule).with_message(format!(
+                "This renaming rule creates a module with name {}",
+                name
+            )));
             builder.add_label(
-                Label::new((file_name, renaming_rule.into_range())).with_message(format!(
-                    "This renaming rule creates a module with name {}",
-                    name
-                )),
-            );
-            builder.add_label(
-                Label::new((file_name, original_module.into_range()))
+                MaybeLabel::new(&original_module)
                     .with_message(format!("A module with name {} is first defined here", name)),
             );
 
@@ -375,18 +355,15 @@ fn build_validation(
                     rename_rule: renaming_rule,
                 },
         } => {
-            let mut builder =
-                Report::build(ReportKind::Error, (file_name, renaming_rule.into_range()));
+            let mut builder = MaybeReportBuilder::new_error(&renaming_rule);
             builder.set_message("Missing variable renaming during module renaming");
 
+            builder.add_label(MaybeLabel::new(&renaming_rule).with_message(format!(
+                "This renaming rule does not rename variable {}",
+                variable_name
+            )));
             builder.add_label(
-                Label::new((file_name, renaming_rule.into_range())).with_message(format!(
-                    "This renaming rule does not rename variable {}",
-                    variable_name
-                )),
-            );
-            builder.add_label(
-                Label::new((file_name, original_definition.into_range()))
+                MaybeLabel::new(&original_definition)
                     .with_message(format!("{} is defined here", variable_name)),
             );
 
@@ -403,12 +380,11 @@ fn build_validation(
                     ..
                 },
         } => {
-            let mut builder =
-                Report::build(ReportKind::Error, (file_name, renaming_rule.into_range()));
+            let mut builder = MaybeReportBuilder::new_error(&renaming_rule);
             builder.set_message("Renamed module does not exist");
 
             builder.add_label(
-                Label::new((file_name, old_name.span.into_range()))
+                MaybeLabel::new(&old_name.span)
                     .with_message(format!("Cannot find module with name {}", old_name.name)),
             );
 
@@ -416,16 +392,13 @@ fn build_validation(
         }
 
         PrismParserValidationError::UnknownVariable { identifier } => {
-            let mut builder =
-                Report::build(ReportKind::Error, (file_name, identifier.span.into_range()));
+            let mut builder = MaybeReportBuilder::new_error(&identifier.span);
             builder.set_message("Unknown variable or constant");
 
-            builder.add_label(
-                Label::new((file_name, identifier.span.into_range())).with_message(format!(
-                    "Cannot find variable or constant {}",
-                    identifier.name
-                )),
-            );
+            builder.add_label(MaybeLabel::new(&identifier.span).with_message(format!(
+                "Cannot find variable or constant {}",
+                identifier.name
+            )));
 
             builder
         }
