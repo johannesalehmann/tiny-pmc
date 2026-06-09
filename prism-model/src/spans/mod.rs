@@ -263,31 +263,6 @@ pub struct FullSpan {
     inner: FullSpanInner,
 }
 
-impl FullSpan {
-    // TODO: This function only exists to reduce migration burden. In the future, error formatting
-    //  should gracefully handle models without spans by not adding syntax highlighting for the
-    //  relevant parts of the model.
-    /// Returns the range stored by the `FullSpan`.
-    ///
-    /// This function should not be used. Instead, call [`Span::range()`]. It only serves to reduce
-    /// the migration burden of the existing PRISM parser. Once this is updated, the function will
-    /// be removed.
-    ///
-    /// # Panics
-    ///
-    /// If the `FullSpan` represents the empty span, this function panics. Use [`Span::range()`] to
-    /// gracefully handle this case.
-    #[deprecated(note = "Use `Span::range()` instead.")]
-    pub fn into_range(self) -> Range<usize> {
-        match self.inner {
-            FullSpanInner::Empty => {
-                panic!("Span is empty")
-            }
-            FullSpanInner::Full { start, end } => start..end,
-        }
-    }
-}
-
 impl std::fmt::Debug for FullSpan {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self.inner {

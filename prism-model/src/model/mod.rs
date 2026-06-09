@@ -349,9 +349,6 @@ impl<V, S: Span, E> Model<V, S, E, Identifier<S>> {
     }
 }
 
-// TODO: This trait is only used to enable init_statements_to_init_block to work both when `V` is
-//  `Identifier` and when `V` is `VariableReference`. Perhaps we can use some more general mechanism
-//  or expose this trait more broadly?
 pub trait VariableIdentifierProvider<S: Span, E> {
     fn get_variable_identifier(info: &VariableInfo<S, E>, index: usize) -> Self;
 }
@@ -576,7 +573,6 @@ impl<V, S: Span, A> Model<V, S, Expression<V, S>, A> {
     where
         V: Clone + VariableIdentifierProvider<S, Expression<V, S>>,
     {
-        // TODO: Fix how new spans are created
         if self.init_constraint.is_some() {
             panic!(
                 "Cannot transform init statements to init block because the model already uses an init block"
