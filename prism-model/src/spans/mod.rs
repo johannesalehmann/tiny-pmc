@@ -327,7 +327,7 @@ impl Span for FullSpan {
     }
 }
 
-// TODO: Hide this behind a feature flag
+#[cfg(feature = "chumsky")]
 impl chumsky::span::Span for FullSpan {
     type Context = ();
     type Offset = usize;

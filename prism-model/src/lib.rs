@@ -59,6 +59,17 @@
 //! - `tiny-pmc` and `tiny-pmc-cli`: High-level interface for parsing, building and checking
 //!   PRISM models.
 //!
+//! # Chumsky integration
+//!
+//! To use [`FullSpan`] as a span in the [`chumsky`](https://crates.io/crates/chumsky) parser
+//! library, enable the features `"chumsky"` as follows:
+//! ```cargo
+//! prism-model = { version = "0.1", features = ["chumsky"] }
+//! ```
+//!
+//! This implements [`chumsky::span::Span`](https://docs.rs/chumsky/0.13.0/chumsky/span/trait.Span.html) for
+//! [`FullSpan`]
+//!
 //! [^other_types]: Continuous-time Markov chains should work as well by treating
 //!                 [`Update::probability`] as the rate.
 
@@ -99,9 +110,9 @@ pub use rewards::{
 
 mod variables;
 pub use variables::{
-    MissingVariableRenaming, VariableExists, VariableInfo, VariableInfoNamedVars,
-    VariableManager, VariableManagerNamedVars, VariablePrintingStyle, VariableRange,
-    VariableRangeNamedVars, VariableReference,
+    MissingVariableRenaming, VariableExists, VariableInfo, VariableInfoNamedVars, VariableManager,
+    VariableManagerNamedVars, VariablePrintingStyle, VariableRange, VariableRangeNamedVars,
+    VariableReference,
 };
 
 mod identifier;

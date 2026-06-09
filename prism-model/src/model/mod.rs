@@ -155,8 +155,6 @@ pub struct Model<V = VariableReference, S: Span = FullSpan, E = Expression<V, S>
     /// The type of model.
     ///
     /// Currently, this is mandatory (unlike in PRISM itself, where the model type can be omitted)
-    // TODO: Make model type optional or devise some other way of handling models with missing model
-    //  type.
     pub model_type: ModelType<S>,
 
     /// The variables and constants of the model, including local variables.
