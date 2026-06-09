@@ -443,7 +443,7 @@ impl<V, S: Span, A> Model<V, S, Expression<V, S>, A> {
             for command in &mut module.commands {
                 if command.updates.len() == 0 {
                     command.updates.push(crate::Update::new_spanned(
-                        Expression::Float(1.0, command.span.clone()),
+                        Expression::Float(1.0, Span::empty()),
                         command.updates_span.clone(),
                     ));
                 }
@@ -597,14 +597,13 @@ impl<V, S: Span, A> Model<V, S, Expression<V, S>, A> {
                         let variable_constraint = Expression::Equals(
                             Box::new(Expression::VarOrConst(identifier, self.span.clone())),
                             Box::new(value),
-                            self.span.clone(),
+                            Span::empty(),
                         );
                         if let Some(prev_init) = init_constraint.take() {
-                            let span = prev_init.span().clone();
                             init_constraint = Some(Expression::Conjunction(
                                 Box::new(prev_init),
                                 Box::new(variable_constraint),
-                                span,
+                                Span::empty(),
                             ));
                         } else {
                             init_constraint = Some(variable_constraint);
