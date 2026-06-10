@@ -1,229 +1,172 @@
 mod character_to_line;
 mod error;
 mod lexer;
+mod outputs;
 mod parser;
 mod substitutable_query;
 
+pub use outputs::*;
+
+use crate::parser::E;
+use crate::substitutable_query::SubstitutableQuery;
 pub use character_to_line::CharacterToLineMap;
+use chumsky::input::MappedInput;
 use chumsky::prelude::*;
-pub use error::{PrismParserError, PrismParserValidationError};
+pub use error::{ParserError, ValidationError};
 pub use lexer::{ParserSpan, Token};
-use prism_model::{FullSpan, Span, VariableReference};
+use prism_model::{FullSpan, Span};
 use std::borrow::Cow;
 
-pub struct ParseResult<'a, O> {
-    pub output: Option<O>,
-    pub character_to_lines: Option<CharacterToLineMap>,
-    pub errors: Vec<PrismParserError<'a, ParserSpan, String>>,
+fn lex(
+    source: &str,
+    errors: &mut Vec<ParserError<ParserSpan, String>>,
+) -> Option<Vec<lexer::Spanned<Token>>> {
+    let (lexer_output, lexer_errors) = lexer::raw_lex(source).into_output_errors();
+    if !lexer_errors.is_empty() {
+        for error in lexer_errors {
+            errors.push(error.map_token(|c| c.to_string()).into_owned())
+        }
+        None
+    } else {
+        lexer_output
+    }
 }
 
-pub struct ParseResults<'a, 'b> {
-    pub model: ParseResult<
-        'a,
-        prism_model::Model<
-            VariableReference,
-            ParserSpan,
-            prism_model::Expression<prism_model::VariableReference, ParserSpan>,
-            prism_model::Identifier<ParserSpan>,
-        >,
-    >,
-    pub properties: Vec<
-        ParseResult<
-            'b,
-            probabilistic_properties::Query<
-                prism_model::Expression<prism_model::VariableReference, ParserSpan>,
-                prism_model::Expression<prism_model::VariableReference, ParserSpan>,
-                prism_model::Expression<prism_model::VariableReference, ParserSpan>,
-            >,
-        >,
-    >,
-}
+type LexedInput<'a> = MappedInput<
+    Token,
+    FullSpan,
+    &'a [(Token, FullSpan)],
+    fn(&'a (Token, FullSpan)) -> (&'a Token, &'a FullSpan),
+>;
 
-pub fn parse_prism<'a, 'b, P: AsRef<str>>(
-    source: &'a str,
-    properties: &[P],
-) -> ParseResults<'b, 'b> {
-    let source_character_to_line = CharacterToLineMap::from_str(source);
-    let properties_source_to_character = properties.iter().map(|s| CharacterToLineMap::from_str(s));
-
+fn parse_and_lex<'b, O>(
+    source: &'b str,
+    make_parser: impl for<'a> Fn(&'a [(Token, FullSpan)]) -> Boxed<'a, 'a, LexedInput<'a>, O, E<'a>>,
+) -> Result<O, Vec<ParserError<'b, ParserSpan, String>>> {
     let mut model_errors = Vec::new();
-    let mut property_errors = (0..properties.len())
-        .map(|_| Vec::new())
-        .collect::<Vec<_>>();
     if let Some(lexer_output) = lex(source, &mut model_errors) {
-        let (output, parse_errors) = parser::program_parser()
+        let tokens = lexer_output.as_slice();
+        let mapper: fn(&(Token, FullSpan)) -> (&Token, &FullSpan) = |(t, s)| (t, s);
+        let (output, parse_errors) = make_parser(tokens)
             .map_with(|ast, e| (ast, e.span()))
-            .parse(lexer_output.as_slice().map(
+            .parse(tokens.map(
                 ParserSpan::from_start_end(source.len(), source.len()),
-                |(t, s)| (t, s),
+                mapper,
             ))
             .into_output_errors();
         process_parser_errors(&mut model_errors, parse_errors);
         let output = output.map(|(o, _)| o);
-
-        let lexed_properties = properties
-            .iter()
-            .zip(property_errors.iter_mut())
-            .map(|(p, errs)| lex(p.as_ref(), errs))
-            .collect::<Vec<_>>();
-        let mut parsed_properties = lexed_properties
-            .into_iter()
-            .zip(properties)
-            .zip(property_errors.iter_mut())
-            .map(|((lexer_output, source), errs)| {
-                let source = source.as_ref();
-                lexer_output.map_or(None, |lexer_output| {
-                    let (output, parse_errors) = parser::query_parser()
-                        .map_with(|ast, e| (ast, e.span()))
-                        .parse(lexer_output.as_slice().map(
-                            FullSpan::from_start_end(source.len(), source.len()).into(),
-                            |(t, s)| (t, s),
-                        ))
-                        .into_output_errors();
-
-                    process_parser_errors(errs, parse_errors);
-                    output.map(|(o, _)| o)
-                })
-            })
-            .collect::<Vec<_>>();
-
-        let (output, properties) = match output {
-            Some(mut output) => {
-                parsed_properties
-                    .iter_mut()
-                    .zip(property_errors.iter_mut())
-                    .for_each(|(p_option, errs)| {
-                        if let Some(p) = p_option {
-                            use substitutable_query::SubstitutableQuery;
-                            p.substitute_labels(&output.labels);
-                            let substitution = p.substitute_formulas(&output.formulas);
-                            if let Err(err) = substitution {
-                                errs.push(
-                                    PrismParserValidationError::CyclicFormulaDependency {
-                                        cycle: err,
-                                    }
-                                    .into(),
-                                );
-                                *p_option = None
-                            }
-                        }
-                    });
-
-                if let Err(err) = output.substitute_formulas() {
-                    model_errors.push(
-                        PrismParserValidationError::CyclicFormulaDependency { cycle: err }.into(),
-                    )
-                }
-
-                if let Err(error) = output.expand_renamed_modules() {
-                    model_errors
-                        .push(PrismParserValidationError::ModuleExpansionError { error }.into());
-                    let mut empty_vec = Vec::with_capacity(properties.len());
-                    for _ in 0..properties.len() {
-                        empty_vec.push(None);
-                    }
-                    (None, empty_vec)
-                } else {
-                    let properties = parsed_properties
-                        .into_iter()
-                        .zip(property_errors.iter_mut())
-                        .map(|(p, errs)| {
-                            p.map_or(None, |p| {
-                                use substitutable_query::SubstitutableQuery;
-                                match p.replace_identifiers_by_variable_indices(
-                                    &output.variable_manager,
-                                ) {
-                                    Ok(p) => Some(p),
-                                    Err(e) => {
-                                        for err in e {
-                                            errs.push(
-                                                PrismParserValidationError::UnknownVariable {
-                                                    identifier: err.identifier,
-                                                }
-                                                .into(),
-                                            );
-                                        }
-                                        None
-                                    }
-                                }
-                            })
-                        })
-                        .collect::<Vec<_>>();
-
-                    (
-                        match output.replace_identifiers_by_variable_indices() {
-                            Ok(output) => Some(output),
-                            Err(errs) => {
-                                for err in errs {
-                                    model_errors.push(
-                                        PrismParserValidationError::UnknownVariable {
-                                            identifier: err.identifier,
-                                        }
-                                        .into(),
-                                    )
-                                }
-                                None
-                            }
-                        },
-                        properties,
-                    )
-                }
-            }
-            None => {
-                let mut empty_vec = Vec::with_capacity(properties.len());
-                for _ in 0..properties.len() {
-                    empty_vec.push(None);
-                }
-                (None, empty_vec)
-            }
-        };
-
-        let properties = properties
-            .into_iter()
-            .zip(property_errors.into_iter())
-            .zip(properties_source_to_character.into_iter())
-            .map(|((p, e), c)| ParseResult {
-                output: p,
-                character_to_lines: Some(c),
-                errors: e,
-            })
-            .collect::<Vec<_>>();
-
-        ParseResults {
-            model: ParseResult {
-                output,
-                character_to_lines: Some(source_character_to_line),
-                errors: model_errors,
-            },
-            properties,
+        if let Some(output) = output
+            && model_errors.is_empty()
+        {
+            Ok(output)
+        } else {
+            Err(model_errors)
         }
     } else {
-        let properties = property_errors
-            .into_iter()
-            .map(|e| ParseResult {
-                output: None,
-                character_to_lines: None,
-                errors: e,
-            })
-            .collect::<Vec<_>>();
+        Err(model_errors)
+    }
+}
 
-        ParseResults {
-            model: ParseResult {
-                output: None,
-                character_to_lines: None,
-                errors: model_errors,
-            },
-            properties,
+pub fn parse_unprocessed_model_and_props<'a>(
+    source: &'a str,
+    properties: &'a [&'a str],
+) -> UnprocessedModelAndPropsResult<'a> {
+    let model = parse_and_lex(source, |_| parser::program_parser().boxed());
+    let properties = properties
+        .iter()
+        .map(|p| parse_and_lex(p.as_ref(), |_| parser::query_parser().boxed()))
+        .collect::<Vec<_>>();
+    UnprocessedModelAndPropsResult { model, properties }
+}
+
+pub fn parse_unprocessed_model_and_prop<'a>(
+    source: &'a str,
+    property: &'a str,
+) -> UnprocessedModelAndPropResult<'a> {
+    let model = parse_and_lex(source, |_| parser::program_parser().boxed());
+    let property = parse_and_lex(property, |_| parser::query_parser().boxed());
+    UnprocessedModelAndPropResult { model, property }
+}
+
+pub fn parse_unprocessed_model<'a>(source: &'a str) -> Result<UnprocessedModel, Vec<Error<'a>>> {
+    parse_and_lex(source, |_| parser::program_parser().boxed())
+}
+
+pub fn parse_model_and_props<'a>(
+    source: &'a str,
+    properties: &'a [&'a str],
+) -> ModelAndPropsResult<'a> {
+    let unprocessed = parse_unprocessed_model_and_props(source, properties);
+    let properties = unprocessed
+        .properties
+        .into_iter()
+        .map(|p| process_property(&unprocessed.model, p))
+        .collect();
+    let model = process_model(unprocessed.model);
+    ModelAndPropsResult { model, properties }
+}
+
+pub fn parse_model_and_prop<'a>(source: &'a str, property: &'a str) -> ModelAndPropResult<'a> {
+    let unprocessed = parse_unprocessed_model_and_prop(source, property);
+    let property = process_property(&unprocessed.model, unprocessed.property);
+    let model = process_model(unprocessed.model);
+    ModelAndPropResult { model, property }
+}
+
+pub fn parse_model<'a>(source: &'a str) -> Result<Model, Vec<Error<'a>>> {
+    let unprocessed = parse_unprocessed_model(source);
+    process_model(unprocessed)
+}
+
+fn process_model(model: Result<UnprocessedModel, Vec<Error>>) -> Result<Model, Vec<Error>> {
+    match model {
+        Err(err) => Err(err),
+        Ok(mut model) => {
+            match model.substitute_formulas() {
+                Ok(_) => (),
+                Err(err) => return Err(vec![err.into()]),
+            };
+            match model.expand_renamed_modules() {
+                Ok(_) => (),
+                Err(err) => return Err(vec![err.into()]),
+            };
+            match model.replace_identifiers_by_variable_indices() {
+                Ok(model) => Ok(model),
+                Err(err) => Err(err.into_iter().map(|e| e.into()).collect()),
+            }
         }
     }
 }
 
+fn process_property<'a>(
+    model: &Result<UnprocessedModel, Vec<Error<'a>>>,
+    property: Result<UnprocessedQuery, Vec<Error<'a>>>,
+) -> Result<Query, Vec<Error<'a>>> {
+    let (model, mut property) = match (model, property) {
+        (Ok(model), Ok(property)) => (model, property),
+        (_, Err(errs)) => return Err(errs),
+        (Err(_), _) => return Err(Vec::new()),
+    };
+
+    property.substitute_labels(&model.labels);
+    match property.substitute_formulas(&model.formulas) {
+        Ok(_) => (),
+        Err(err) => return Err(vec![err.into()]),
+    }
+
+    match property.replace_identifiers_by_variable_indices(&model.variable_manager) {
+        Ok(property) => Ok(property),
+        Err(err) => Err(err.into_iter().map(|e| e.into()).collect()),
+    }
+}
+
 fn process_parser_errors(
-    errors: &mut Vec<PrismParserError<ParserSpan, String>>,
-    parse_errors: Vec<PrismParserError<ParserSpan, Token>>,
+    errors: &mut Vec<ParserError<ParserSpan, String>>,
+    parse_errors: Vec<ParserError<ParserSpan, Token>>,
 ) {
     for mut error in parse_errors {
-        if let PrismParserError::ExpectedFound {
+        if let ParserError::ExpectedFound {
             expected,
             contexts,
             help,
@@ -248,23 +191,7 @@ fn process_parser_errors(
                     "This error is often caused by using variables with reserved names".to_string(),
                 );
             }
-        } else {
         }
         errors.push(error.map_token(|t| format!("{}", t)).into_owned())
-    }
-}
-
-pub fn lex(
-    source: &str,
-    errors: &mut Vec<PrismParserError<ParserSpan, String>>,
-) -> Option<Vec<lexer::Spanned<Token>>> {
-    let (lexer_output, lexer_errors) = lexer::raw_lex(source).into_output_errors();
-    if !lexer_errors.is_empty() {
-        for error in lexer_errors {
-            errors.push(error.map_token(|c| c.to_string()).into_owned())
-        }
-        None
-    } else {
-        lexer_output
     }
 }

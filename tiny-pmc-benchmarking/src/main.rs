@@ -701,10 +701,10 @@ fn model_building<M: ModelTypes>(
     let constants = tiny_pmc::parsing::parse_const_assignments(constants).unwrap();
 
     let parsed_model_and_objectives =
-        tiny_pmc::parsing::parse_prism_and_print_errors::<&str>(Some(path), &source, &[]);
+        tiny_pmc::parsing::parse_prism_and_print_errors(Some(path), &source, &[]);
     let (mut prism_model, properties) = match parsed_model_and_objectives {
         None => panic!("Error parsing model"),
-        Some((prism_model, properties, _)) => (prism_model, properties),
+        Some((prism_model, properties)) => (prism_model, properties),
     };
     let parsing = start.elapsed();
 

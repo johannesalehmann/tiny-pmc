@@ -3,7 +3,7 @@ use ariadne::Source;
 use chumsky::error::RichPattern;
 use chumsky::util::MaybeRef;
 use prism_model::{InvalidName, InvalidRangeForScopeKind, ModuleExpansionError, Span};
-use prism_parser::{CharacterToLineMap, ParserSpan, PrismParserError, PrismParserValidationError};
+use prism_parser::{ParserError, ParserSpan, ValidationError};
 
 mod constants;
 mod maybe_builder;
@@ -11,87 +11,44 @@ mod maybe_builder;
 use crate::parsing::maybe_builder::{MaybeLabel, MaybeReportBuilder};
 pub use constants::{ConstParsingError, parse_const_assignments};
 
-pub enum ErrorSource {
-    Model,
-    Property(usize),
-}
+// TODO: Also support single property functions here?
+// TODO: Make error printing available for any consumer of prism-parser instead of putting it in
+//  tiny-pmc
 
-pub fn parse_model_from_source<'a, P: AsRef<str>>(
-    source: &str,
-    properties: &[P],
-) -> Result<
-    (PrismModel, Vec<crate::PrismQuery>, CharacterToLineMap),
-    Vec<(ErrorSource, PrismParserError<'a, ParserSpan, String>)>,
-> {
-    let parse_results = prism_parser::parse_prism(source, properties);
-    let mut attributed_errors = Vec::new();
-
-    for error in parse_results.model.errors {
-        attributed_errors.push((ErrorSource::Model, error));
-    }
-    let mut properties = Vec::new();
-    for (i, property) in parse_results.properties.into_iter().enumerate() {
-        for error in property.errors {
-            attributed_errors.push((ErrorSource::Property(i), error));
-        }
-        if let Some(property) = property.output {
-            properties.push(property)
-        }
-    }
-    if attributed_errors.is_empty() {
-        if let Some(model) = parse_results.model.output {
-            Ok((
-                model,
-                properties,
-                parse_results.model.character_to_lines.unwrap(),
-            ))
-        } else {
-            Err(vec![])
-        }
-    } else {
-        Err(attributed_errors)
-    }
-}
-
-pub fn parse_prism_and_print_errors<P: AsRef<str>>(
-    file_name: Option<&str>,
-    source: &str,
-    properties: &[P],
-) -> Option<(PrismModel, Vec<crate::PrismQuery>, CharacterToLineMap)> {
-    let parse_result = crate::parsing::parse_model_from_source(source, properties);
-    match parse_result {
+pub fn parse_prism_and_print_errors<'a, 'b>(
+    file_name: Option<&'a str>,
+    source: &'b str,
+    properties: &'b [&'b str],
+) -> Option<(PrismModel, Vec<crate::PrismQuery>)> {
+    // TODO: Just return a ModelAndProps from this function?
+    let parse_result = prism_parser::parse_model_and_props(source, properties);
+    match parse_result.all_ok() {
         Err(errors) => {
-            for (error_source, error) in errors {
-                match error_source {
-                    ErrorSource::Model => {
-                        print_error(&file_name, source, error);
+            for error in errors {
+                match error.source {
+                    prism_parser::ErrorSource::Model => {
+                        print_error(&file_name, source, error.error);
                     }
-                    ErrorSource::Property(i) => {
-                        let name = format!("Property {}", i + 1);
-                        print_error(&Some(&name[..]), properties[i].as_ref(), error);
+                    prism_parser::ErrorSource::Property { index } => {
+                        let name = format!("Property {}", index + 1);
+                        print_error(&Some(&name[..]), properties[index].as_ref(), error.error);
                     }
                 }
             }
             None
         }
-        Ok((model, properties, character_to_line_map)) => {
-            Some((model, properties, character_to_line_map))
-        }
+        Ok(model_and_props) => Some((model_and_props.model, model_and_props.properties)),
     }
 }
 
-fn print_error(
-    file_name: &Option<&str>,
-    source: &str,
-    error: PrismParserError<ParserSpan, String>,
-) {
+fn print_error(file_name: &Option<&str>, source: &str, error: ParserError<ParserSpan, String>) {
     let file_name = match file_name {
         Some(name) => name,
         None => "input",
     };
 
     let maybe_builder = match error {
-        PrismParserError::ExpectedFound {
+        ParserError::ExpectedFound {
             span,
             expected,
             found,
@@ -99,7 +56,7 @@ fn print_error(
             help,
         } => build_expected_found(span, &expected, found, &contexts, &help),
 
-        PrismParserError::Validation(validation) => build_validation(validation),
+        ParserError::Validation(validation) => build_validation(validation),
     };
     let builder = maybe_builder.to_ariadne_builder(file_name);
     builder
@@ -188,11 +145,9 @@ fn pattern_to_string(pattern: &RichPattern<String>) -> String {
     }
 }
 
-fn build_validation(
-    error: PrismParserValidationError<ParserSpan>,
-) -> MaybeReportBuilder<ParserSpan> {
+fn build_validation(error: ValidationError<ParserSpan>) -> MaybeReportBuilder<ParserSpan> {
     match error {
-        PrismParserValidationError::UnsupportedModelType { model_type, span } => {
+        ValidationError::UnsupportedModelType { model_type, span } => {
             let mut builder = MaybeReportBuilder::new_error(&span);
             builder.set_message("Unsupported model type");
             builder.add_label(
@@ -202,14 +157,14 @@ fn build_validation(
             builder.add_help("Supported model types are `dtmc`, `mdp` and `ctmc`.");
             builder
         }
-        PrismParserValidationError::MissingModelType => {
+        ValidationError::MissingModelType => {
             let mut builder = MaybeReportBuilder::new_error(&ParserSpan::empty());
             builder.set_message("Missing model type");
             builder.add_label(MaybeLabel::new(&ParserSpan::from_range(0..1)));
             builder.add_help("Add a line with `dtmc`, `mdp` or `ctmc` to your model.");
             builder
         }
-        PrismParserValidationError::DuplicateModelType {
+        ValidationError::DuplicateModelType {
             first_occurrence,
             duplicate_occurrence,
         } => {
@@ -224,7 +179,7 @@ fn build_validation(
             );
             builder
         }
-        PrismParserValidationError::DuplicateInitConstraint {
+        ValidationError::DuplicateInitConstraint {
             first_occurrence,
             first_occurrence_inner,
             duplicate_occurrence,
@@ -244,7 +199,7 @@ fn build_validation(
             builder.add_label(MaybeLabel::new(&duplicate_occurrence_inner));
             builder
         }
-        PrismParserValidationError::InvalidRangeForScope { span, range, kind } => {
+        ValidationError::InvalidRangeForScope { span, range, kind } => {
             let mut builder = MaybeReportBuilder::new_error(&span);
             let (message, label, help) = match kind {
                 InvalidRangeForScopeKind::BoundedIntConstant => (
@@ -265,7 +220,7 @@ fn build_validation(
             builder.add_help(help);
             builder
         }
-        PrismParserValidationError::DuplicateElement {
+        ValidationError::DuplicateElement {
             previous_occurrence,
             new_definition,
             ..
@@ -279,7 +234,7 @@ fn build_validation(
 
             builder
         }
-        PrismParserValidationError::InvalidIdentifierName { span, reason } => {
+        ValidationError::InvalidIdentifierName { span, reason } => {
             let mut builder = MaybeReportBuilder::new_error(&span);
             builder.set_message("Invalid name");
             let (message, label_span, help) = match reason {
@@ -303,7 +258,7 @@ fn build_validation(
             builder
         }
 
-        PrismParserValidationError::CyclicFormulaDependency { cycle } => {
+        ValidationError::CyclicFormulaDependency { cycle } => {
             let mut builder = MaybeReportBuilder::new_error(&cycle.entries[0].formula_span);
             builder.set_message("Cyclic dependency between formulas");
 
@@ -326,7 +281,7 @@ fn build_validation(
             builder
         }
 
-        PrismParserValidationError::ModuleExpansionError {
+        ValidationError::ModuleExpansion {
             error:
                 ModuleExpansionError::DuplicateModule {
                     name,
@@ -347,7 +302,7 @@ fn build_validation(
 
             builder
         }
-        PrismParserValidationError::ModuleExpansionError {
+        ValidationError::ModuleExpansion {
             error:
                 ModuleExpansionError::MissingVariableRenaming {
                     variable_name,
@@ -372,7 +327,7 @@ fn build_validation(
             );
             builder
         }
-        PrismParserValidationError::ModuleExpansionError {
+        ValidationError::ModuleExpansion {
             error:
                 ModuleExpansionError::RenamingSourceDoesNotExist {
                     old_name,
@@ -391,7 +346,7 @@ fn build_validation(
             builder
         }
 
-        PrismParserValidationError::UnknownVariable { identifier } => {
+        ValidationError::UnknownVariable { identifier } => {
             let mut builder = MaybeReportBuilder::new_error(&identifier.span);
             builder.set_message("Unknown variable or constant");
 

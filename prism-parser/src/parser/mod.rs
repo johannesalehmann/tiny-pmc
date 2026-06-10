@@ -27,4 +27,4 @@ pub use rewards::*;
 pub use super::{ParserSpan, Token};
 use chumsky::prelude::*;
 
-pub type E<'a> = extra::Err<crate::PrismParserError<'a, ParserSpan, Token>>;
+pub type E<'a> = extra::Err<crate::ParserError<'a, ParserSpan, Token>>;

@@ -1,5 +1,5 @@
 use super::{E, command_parser, identifier_parser, variable_declaration_parser};
-use crate::{ParserSpan, PrismParserError, Token};
+use crate::{ParserError, ParserSpan, Token};
 use chumsky::IterParser;
 use chumsky::Parser;
 use chumsky::input::ValueInput;
@@ -38,7 +38,7 @@ fn create_module_from_name_and_elements(
     name: Identifier<ParserSpan>,
     module_elements: Vec<ModuleElement>,
     span: ParserSpan,
-    _emitter: &mut chumsky::input::Emitter<PrismParserError<ParserSpan, Token>>,
+    _emitter: &mut chumsky::input::Emitter<ParserError<ParserSpan, Token>>,
 ) -> (
     prism_model::Module<
         Identifier<ParserSpan>,

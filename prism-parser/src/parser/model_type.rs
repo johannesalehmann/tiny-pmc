@@ -1,5 +1,5 @@
 use super::E;
-use crate::{ParserSpan, PrismParserValidationError, Token};
+use crate::{ParserSpan, Token, ValidationError};
 use chumsky::Parser;
 use chumsky::input::ValueInput;
 use chumsky::prelude::just;
@@ -14,21 +14,21 @@ where
         .or(just(Token::Ctmc).map_with(|_, e| prism_model::ModelType::Ctmc(e.span())))
         .or(just(Token::Mdp).map_with(|_, e| prism_model::ModelType::Mdp(e.span())))
         .or(just(Token::Pta).try_map(|_, span: ParserSpan| {
-            Err(PrismParserValidationError::UnsupportedModelType {
+            Err(ValidationError::UnsupportedModelType {
                 model_type: "pta",
                 span,
             }
             .into())
         }))
         .or(just(Token::Pomdp).try_map(|_, span: ParserSpan| {
-            Err(PrismParserValidationError::UnsupportedModelType {
+            Err(ValidationError::UnsupportedModelType {
                 model_type: "pomdp",
                 span,
             }
             .into())
         }))
         .or(just(Token::Popta).try_map(|_, span: ParserSpan| {
-            Err(PrismParserValidationError::UnsupportedModelType {
+            Err(ValidationError::UnsupportedModelType {
                 model_type: "popta",
                 span,
             }

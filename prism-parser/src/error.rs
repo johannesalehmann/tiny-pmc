@@ -1,10 +1,12 @@
 use chumsky::error::{Error, LabelError, RichPattern};
 use chumsky::input::Input;
 use chumsky::util::MaybeRef;
-use prism_model::{Expression, Identifier};
+use prism_model::{
+    CyclicDependency, Expression, Identifier, ModuleExpansionError, UnknownVariableError,
+};
 
 #[derive(Debug, PartialEq)]
-pub enum PrismParserError<'a, S: prism_model::Span, T> {
+pub enum ParserError<'a, S: prism_model::Span, T> {
     ExpectedFound {
         span: S,
         expected: Vec<RichPattern<'a, T>>,
@@ -12,11 +14,11 @@ pub enum PrismParserError<'a, S: prism_model::Span, T> {
         contexts: Vec<(RichPattern<'a, T>, S)>,
         help: Option<String>,
     },
-    Validation(PrismParserValidationError<S>),
+    Validation(ValidationError<S>),
 }
 
 #[derive(Debug, PartialEq)]
-pub enum PrismParserValidationError<S: prism_model::Span> {
+pub enum ValidationError<S: prism_model::Span> {
     UnsupportedModelType {
         model_type: &'static str,
         span: S,
@@ -49,7 +51,7 @@ pub enum PrismParserValidationError<S: prism_model::Span> {
     CyclicFormulaDependency {
         cycle: prism_model::CyclicDependency<S>,
     },
-    ModuleExpansionError {
+    ModuleExpansion {
         error: prism_model::ModuleExpansionError<S>,
     },
     UnknownVariable {
@@ -68,16 +70,56 @@ pub enum ElementKind {
     Module,
 }
 
-impl<'a, S: prism_model::Span, T> Into<PrismParserError<'a, S, T>>
-    for PrismParserValidationError<S>
-{
-    fn into(self) -> PrismParserError<'a, S, T> {
-        PrismParserError::Validation(self)
+macro_rules! derive_into {
+    ($name: ident, $constructor: expr) => {
+        impl<S: prism_model::Span> Into<ValidationError<S>> for $name<S> {
+            fn into(self) -> ValidationError<S> {
+                ($constructor)(self)
+            }
+        }
+
+        impl<'a, S: prism_model::Span, T> Into<ParserError<'a, S, T>> for $name<S> {
+            fn into(self) -> ParserError<'a, S, T> {
+                Into::<ValidationError<S>>::into(self).into()
+            }
+        }
+    };
+}
+
+derive_into!(CyclicDependency, |e| {
+    ValidationError::CyclicFormulaDependency { cycle: e }
+});
+
+derive_into!(ModuleExpansionError, |e| {
+    ValidationError::ModuleExpansion { error: e }
+});
+
+derive_into!(UnknownVariableError, |e: UnknownVariableError<_>| {
+    ValidationError::UnknownVariable {
+        identifier: e.identifier,
+    }
+});
+
+// impl<'a, E: Into<ValidationError<S>>, S: prism_model::Span, T> Into<ParserError<'a, S, T>> for E {
+//     fn into(self) -> ParserError<'a, S, T> {
+//         Into::<ValidationError<E>>::into(self).into()
+//     }
+// }
+//
+// impl<S: prism_model::Span> Into<ValidationError<S>> for CyclicDependency<S> {
+//     fn into(self) -> ValidationError<S> {
+//         ValidationError::CyclicFormulaDependency { cycle: self }
+//     }
+// }
+
+impl<'a, S: prism_model::Span, T> Into<ParserError<'a, S, T>> for ValidationError<S> {
+    fn into(self) -> ParserError<'a, S, T> {
+        ParserError::Validation(self)
     }
 }
 
-impl<'a, S: prism_model::Span, T> PrismParserError<'a, S, T> {
-    pub fn into_owned<'b>(self) -> PrismParserError<'b, S, T>
+impl<'a, S: prism_model::Span, T> ParserError<'a, S, T> {
+    pub fn into_owned<'b>(self) -> ParserError<'b, S, T>
     where
         T: Clone,
     {
@@ -88,7 +130,7 @@ impl<'a, S: prism_model::Span, T> PrismParserError<'a, S, T> {
                 span,
                 contexts,
                 help,
-            } => PrismParserError::ExpectedFound {
+            } => ParserError::ExpectedFound {
                 expected: expected.into_iter().map(RichPattern::into_owned).collect(),
                 found: found.map(MaybeRef::into_owned),
                 span,
@@ -98,11 +140,11 @@ impl<'a, S: prism_model::Span, T> PrismParserError<'a, S, T> {
                     .collect(),
                 help,
             },
-            Self::Validation(validation) => PrismParserError::Validation(validation),
+            Self::Validation(validation) => ParserError::Validation(validation),
         }
     }
 
-    pub fn map_token<U, F: FnMut(T) -> U>(self, mut f: F) -> PrismParserError<'a, S, U>
+    pub fn map_token<U, F: FnMut(T) -> U>(self, mut f: F) -> ParserError<'a, S, U>
     where
         T: Clone,
     {
@@ -113,7 +155,7 @@ impl<'a, S: prism_model::Span, T> PrismParserError<'a, S, T> {
                 span,
                 contexts,
                 help,
-            } => PrismParserError::ExpectedFound {
+            } => ParserError::ExpectedFound {
                 expected: expected
                     .into_iter()
                     .map(|pat| pat.map_token(&mut f))
@@ -126,12 +168,12 @@ impl<'a, S: prism_model::Span, T> PrismParserError<'a, S, T> {
                     .collect(),
                 help,
             },
-            Self::Validation(validation) => PrismParserError::Validation(validation),
+            Self::Validation(validation) => ParserError::Validation(validation),
         }
     }
 }
 
-impl<'a, I: Input<'a>> Error<'a, I> for PrismParserError<'a, I::Span, I::Token>
+impl<'a, I: Input<'a>> Error<'a, I> for ParserError<'a, I::Span, I::Token>
 where
     I::Token: PartialEq + Clone,
     I::Span: prism_model::Span,
@@ -151,7 +193,7 @@ where
     }
 }
 
-impl<'a, I: Input<'a>, L> LabelError<'a, I, L> for PrismParserError<'a, I::Span, I::Token>
+impl<'a, I: Input<'a>, L> LabelError<'a, I, L> for ParserError<'a, I::Span, I::Token>
 where
     I::Token: PartialEq + Clone,
     I::Span: prism_model::Span,

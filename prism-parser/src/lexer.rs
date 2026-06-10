@@ -1,4 +1,4 @@
-use crate::PrismParserError;
+use crate::ParserError;
 use chumsky::prelude::*;
 use prism_model::{FullSpan, Span};
 use std::fmt::{Display, Formatter};
@@ -199,7 +199,7 @@ fn lexer<'a, F: Fn(SimpleSpan) -> FullSpan + 'static>() -> impl Parser<
     'a,
     chumsky::input::MappedSpan<FullSpan, &'a str, F>,
     Vec<Spanned<Token>>,
-    extra::Err<PrismParserError<'a, ParserSpan, char>>,
+    extra::Err<ParserError<'a, ParserSpan, char>>,
 > {
     let float = text::int(10)
         .then(just('.').then(text::digits(10)))
@@ -329,6 +329,6 @@ fn lexer<'a, F: Fn(SimpleSpan) -> FullSpan + 'static>() -> impl Parser<
 
 pub fn raw_lex(
     program: &str,
-) -> ParseResult<Vec<Spanned<Token>>, PrismParserError<'_, ParserSpan, char>> {
+) -> ParseResult<Vec<Spanned<Token>>, ParserError<'_, ParserSpan, char>> {
     lexer().parse(program.map_span(|s| FullSpan::from_range(s.into_range())))
 }

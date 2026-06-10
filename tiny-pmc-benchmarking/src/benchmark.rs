@@ -70,14 +70,16 @@ impl Benchmark {
             std::fs::read_to_string(format!("tiny-pmc-benchmarking/files/{}", self.path)).unwrap();
         let constants = tiny_pmc::parsing::parse_const_assignments(&self.constants).unwrap();
 
+        let prop_vec = self.property_vector();
+        let prop_refs = prop_vec.iter().map(|p| &**p).collect::<Vec<_>>();
         let parsed_model_and_objectives = tiny_pmc::parsing::parse_prism_and_print_errors(
             Some(&self.path),
             &source,
-            &self.property_vector(),
+            &prop_refs[..],
         );
         let (mut prism_model, properties) = match parsed_model_and_objectives {
             None => panic!("Error parsing model"),
-            Some((prism_model, properties, _)) => (prism_model, properties),
+            Some((prism_model, properties)) => (prism_model, properties),
         };
         let parsing = start.elapsed();
 

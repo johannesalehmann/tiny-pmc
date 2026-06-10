@@ -1,5 +1,5 @@
 use super::E;
-use crate::{ParserSpan, PrismParserValidationError, Token};
+use crate::{ParserSpan, Token, ValidationError};
 use chumsky::input::ValueInput;
 use chumsky::{Parser, select};
 
@@ -13,7 +13,7 @@ where
         Token::T = e => prism_model::Identifier::new_spanned::<String>("T".to_string(), e.span())
     })
         .try_map_with(|i, e|
-            i.map_err(|reason| PrismParserValidationError::InvalidIdentifierName { span: e.span(), reason }.into()))
+            i.map_err(|reason| ValidationError::InvalidIdentifierName { span: e.span(), reason }.into()))
         .labelled("identifier")
 }
 
@@ -29,6 +29,6 @@ where
         Token::T = e => prism_model::Identifier::new_potentially_reserved_spanned::<String>("T".to_string(), e.span())
     }
         .try_map_with(|i, e|
-            i.map_err(|reason| PrismParserValidationError::InvalidIdentifierName { span: e.span(), reason }.into()))
+            i.map_err(|reason| ValidationError::InvalidIdentifierName { span: e.span(), reason }.into()))
         .labelled("identifier")
 }

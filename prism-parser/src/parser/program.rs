@@ -3,7 +3,7 @@ use super::{
     label_parser, model_type_parser, module_parser, renamed_module_parser, rewards_parser,
 };
 use crate::error::ElementKind;
-use crate::{ParserSpan, PrismParserError, PrismParserValidationError, Token};
+use crate::{ParserError, ParserSpan, Token, ValidationError};
 use chumsky::IterParser;
 use chumsky::Parser;
 use chumsky::input::ValueInput;
@@ -36,13 +36,13 @@ fn add_or_emit_variable(
     manager: &mut VariableManager<ParserSpan, Expression<Identifier<ParserSpan>, ParserSpan>>,
     variable: VariableInfo<ParserSpan, Expression<Identifier<ParserSpan>, ParserSpan>>,
     kind: ElementKind,
-    emitter: &mut chumsky::input::Emitter<PrismParserError<ParserSpan, Token>>,
+    emitter: &mut chumsky::input::Emitter<ParserError<ParserSpan, Token>>,
 ) {
     let span = variable.span;
     match manager.add_variable(variable) {
         Ok(_) => {}
         Err(AddVariableError::VariableExists(VariableExists { reference })) => emitter.emit(
-            PrismParserValidationError::DuplicateElement {
+            ValidationError::DuplicateElement {
                 previous_occurrence: manager.get(&reference).unwrap().span,
                 new_definition: span,
                 kind,
@@ -50,7 +50,7 @@ fn add_or_emit_variable(
             .into(),
         ),
         Err(AddVariableError::InvalidRangeForScope(error)) => emitter.emit(
-            PrismParserValidationError::InvalidRangeForScope {
+            ValidationError::InvalidRangeForScope {
                 span,
                 range: error.range,
                 kind: error.kind,
@@ -63,7 +63,7 @@ fn add_or_emit_variable(
 fn build_program_from_type_and_elements<'a>(
     elements: Vec<ProgramElement>,
     span: ParserSpan,
-    emitter: &mut chumsky::input::Emitter<PrismParserError<ParserSpan, Token>>,
+    emitter: &mut chumsky::input::Emitter<ParserError<ParserSpan, Token>>,
 ) -> prism_model::Model<
     Identifier<ParserSpan>,
     ParserSpan,
@@ -97,7 +97,7 @@ fn build_program_from_type_and_elements<'a>(
                         }
                     }
                     Err(prism_model::ModuleExists { index }) => emitter.emit(
-                        PrismParserValidationError::DuplicateElement {
+                        ValidationError::DuplicateElement {
                             previous_occurrence: modules.get(index).unwrap().span,
                             new_definition: span,
                             kind: ElementKind::Module,
@@ -120,7 +120,7 @@ fn build_program_from_type_and_elements<'a>(
                     Err(prism_model::LabelExists { index }) => {
                         let previous = labels.get(index).unwrap();
                         emitter.emit(
-                            PrismParserValidationError::DuplicateElement {
+                            ValidationError::DuplicateElement {
                                 previous_occurrence: previous.span,
                                 new_definition: span,
                                 kind: ElementKind::Label,
@@ -137,7 +137,7 @@ fn build_program_from_type_and_elements<'a>(
                     Err(prism_model::FormulaExists { index }) => {
                         let previous = formulas.get(index).unwrap();
                         emitter.emit(
-                            PrismParserValidationError::DuplicateElement {
+                            ValidationError::DuplicateElement {
                                 previous_occurrence: previous.span,
                                 new_definition: span,
                                 kind: ElementKind::Formula,
@@ -151,7 +151,7 @@ fn build_program_from_type_and_elements<'a>(
                 None => model_type = Some(t),
                 Some(first) => {
                     emitter.emit(
-                        PrismParserValidationError::DuplicateModelType {
+                        ValidationError::DuplicateModelType {
                             first_occurrence: *first.span(),
                             duplicate_occurrence: *t.span(),
                         }
@@ -163,7 +163,7 @@ fn build_program_from_type_and_elements<'a>(
                 None => init_constraint = Some((i, span)),
                 Some((first, first_span)) => {
                     emitter.emit(
-                        PrismParserValidationError::DuplicateInitConstraint {
+                        ValidationError::DuplicateInitConstraint {
                             first_occurrence: *first_span,
                             first_occurrence_inner: *first.span(),
                             duplicate_occurrence: span,
@@ -180,7 +180,7 @@ fn build_program_from_type_and_elements<'a>(
                     Err(prism_model::RewardsExist { index }) => {
                         let previous = rewards.get(index).unwrap();
                         emitter.emit(
-                            PrismParserValidationError::DuplicateElement {
+                            ValidationError::DuplicateElement {
                                 previous_occurrence: previous.span,
                                 new_definition: span,
                                 kind: ElementKind::Reward,
@@ -195,7 +195,7 @@ fn build_program_from_type_and_elements<'a>(
 
     let model_type = match model_type {
         None => {
-            emitter.emit(PrismParserValidationError::MissingModelType.into());
+            emitter.emit(ValidationError::MissingModelType.into());
             ModelType::Mdp(ParserSpan::empty())
         }
         Some(model_type) => model_type,
