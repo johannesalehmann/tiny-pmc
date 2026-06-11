@@ -3,116 +3,188 @@ use chumsky::prelude::*;
 use prism_model::{FullSpan, Span};
 use std::fmt::{Display, Formatter};
 
+/// The span used by the parser to link PRISM components to the corresponding source code
 pub type ParserSpan = FullSpan;
 pub type Spanned<T> = (T, ParserSpan);
 
+/// A token of a PRISM file
 #[derive(Debug, Eq, PartialEq, Clone)]
 pub enum Token {
+    // ********
     // Keywords
+    // ********
+    /// The keyword `dtmc`
     Dtmc,
+    /// The keyword `ctmc`
     Ctmc,
+    /// The keyword `mdp`
     Mdp,
+    /// The keyword `pta`
     Pta,
+    /// The keyword `pomdp`
     Pomdp,
+    /// The keyword `popta`
     Popta,
 
+    /// The keyword `module`
     Module,
+    /// The keyword `endmodule`
     EndModule,
+    /// The keyword `const`
     Const,
+    /// The keyword `global`
     Global,
+    /// The keyword `label`
     Label,
+    /// The keyword `formula`
     Formula,
+    /// The keyword `init`
     Init,
+    /// The keyword `endinit`
     EndInit,
+    /// The keyword `rewards`
     Rewards,
+    /// The keyword `endrewards`
     EndRewards,
 
+    /// The type keyword `int`
     Int,
+    /// The type keyword `double`
     Double,
+    /// The type keyword `bool`
     Bool,
 
+    /// The probability operator `P`
     P,
+    /// The probability operator `Pmax` (also accepts `PMax`)
     PMax,
+    /// The probability operator `Pmin` (also accepts `PMin`)
     PMin,
 
+    /// The reward operator `R`
     R,
+    /// The reward operator `Rmax` (also accepts `RMax`)
     RMax,
+    /// The reward operator `Rmin` (also accepts `RMin`)
     RMin,
 
+    /// The function `max` (also accepts `Max`)
     Max,
+    /// The function `min` (also accepts `Min`)
     Min,
 
+    /// The time operator `T`
     T,
+    /// The time operator `Tmax` (also accepts `TMax`)
     TMax,
+    /// The time operator `Tmin` (also accepts `TMin`)
     TMin,
 
+    /// The long-run average operator `LRA`
     LRA,
+    /// The long-run average operator `LRAmax` (also accepts `LRAMax`)
     LRAMax,
+    /// The long-run average operator `LRAmin` (also accepts `LRAMin`)
     LRAMin,
 
+    /// The instantaneous reward bound `I`
     Instantaneous,
+    /// The cumulative reward bound `C`
     Cumulative,
 
+    /// The path formula operator `F` (finally)
     Finally,
+    /// The path formula operator `G` (generally)
     Generally,
+    /// The path formula operator `U` (until)
     Until,
 
+    /// An identifier with the given text
     Identifier(String),
 
+    // ****************
     // Syntax elements:
+    // ****************
+    /// A left square bracket: `[`
     LeftSqBracket,
+    /// A right square bracket: `]`
     RightSqBracket,
+    /// A left parenthesis: `(`
     LeftBracket,
+    /// A right parenthesis: `)`
     RightBracket,
+    /// A left curly bracket: `{`
     LeftCurlyBracket,
+    /// A right curly bracket: `}`
     RightCurlyBracket,
+    /// An arrow: `->`
     Arrow,
+    /// A primed assignment: `' =` (apostrophe, optional whitespace, equals sign)
     AssignedTo,
+    /// A colon: `:`
     Colon,
+    /// A double dot: `..`
     DotDot,
+    /// A semicolon: `;`
     Semicolon,
+    /// A double quote: `"`
     Quote,
+    /// A comma: `,`
     Comma,
 
+    // ************
     // Expressions:
+    // ************
+    /// An integer.
+    ///
+    /// This uses a string that is converted into a number later
     Integer(String),
+    /// A floating-point number.
+    ///
+    /// This uses a string that is converted into a number later.
+    ///
+    /// The string may use scientific notation (I'm not sure whether PRISM supports this).
     Float(String),
 
+    /// The boolean literal `true`
     True,
+    /// The boolean literal `false`
     False,
 
+    /// A minus sign: `-`
     Minus,
+    /// A multiplication sign: `*`
     Multiply,
+    /// A division sign: `/`
     Divide,
+    /// A modulo sign: `%`
     Modulo,
+    /// A plus sign: `+`
     Plus,
+    /// A less-than sign: `<`
     LessThan,
+    /// A less-than-or-equal sign: `<=`
     LessOrEqual,
+    /// A greater-than sign: `>`
     GreaterThan,
+    /// A greater-than-or-equal sign: `>=`
     GreaterOrEqual,
+    /// An equals sign: `=`
     Equal,
+    /// A not-equal sign: `!=`
     NotEqual,
+    /// A negation sign: `!`
     Negation,
+    /// A logical and sign: `&`
     And,
+    /// A logical or sign: `|`
     Or,
+    /// An if-and-only-if sign: `<=>`
     IfAndOnlyIf,
+    /// An implies sign: `=>`
     Implies,
+    /// A question mark: `?`
     Questionmark,
-}
-
-impl Token {
-    pub fn is_identifier(&self) -> bool {
-        match self {
-            Token::Identifier(_) => true,
-            _ => false,
-        }
-    }
-    pub fn get_identifier(&self) -> Option<&str> {
-        match self {
-            Token::Identifier(name) => Some(name),
-            _ => None,
-        }
-    }
 }
 
 impl Display for Token {
