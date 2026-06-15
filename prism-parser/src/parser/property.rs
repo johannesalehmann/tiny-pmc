@@ -24,7 +24,10 @@ where
     let mut state_formula_parser = Recursive::declare();
     let mut path_formula_parser = Recursive::declare();
 
-    state_formula_parser.define(define_state_formula_parser(path_formula_parser.clone()));
+    state_formula_parser.define(define_state_formula_parser(
+        state_formula_parser.clone(),
+        path_formula_parser.clone(),
+    ));
     path_formula_parser.define(define_path_formula_parser(state_formula_parser.clone()));
 
     let probability_value = probability_min_max()
@@ -244,6 +247,16 @@ pub fn define_state_formula_parser<
     'a,
     'b,
     I,
+    SF: Parser<
+            'a,
+            I,
+            StateFormula<
+                Expression<Identifier<ParserSpan>, ParserSpan>,
+                Expression<Identifier<ParserSpan>, ParserSpan>,
+                Expression<Identifier<ParserSpan>, ParserSpan>,
+            >,
+            E<'a>,
+        > + Clone,
     PF: Parser<
             'a,
             I,
@@ -255,6 +268,7 @@ pub fn define_state_formula_parser<
             E<'a>,
         > + Clone,
 >(
+    state_formula_parser: SF,
     path_formula_parser: PF,
 ) -> impl Parser<
     'a,
@@ -286,12 +300,12 @@ where
 
     let long_run_average = lra_min_max()
         .then(bound_parser())
-        .then(path_formula_parser)
+        .then(state_formula_parser)
         .map(
-            |((non_determinism, bound), path)| StateFormula::LongRunAverage {
+            |((non_determinism, bound), states)| StateFormula::LongRunAverage {
                 non_determinism,
                 bound,
-                path: Box::new(path),
+                states: Box::new(states),
             },
         );
 
