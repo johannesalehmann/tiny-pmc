@@ -62,3 +62,22 @@ pub struct Attribute {
     /// The name of the attribute.
     pub value: Option<String>,
 }
+
+impl Attribute {
+    /// Creates a flag attribute, i.e. one with the given key and without a value.
+    pub fn new_flag<S: Into<String>>(key: S) -> Self {
+        Self {
+            key: key.into(),
+            value: None,
+        }
+    }
+    /// Creates an attribute with the given key and value.
+    ///
+    /// To create an attribute without value (i.e. a flag), use [`Attribute::new_flag()`]
+    pub fn new<S1: Into<String>, S2: Into<String>>(key: S1, value: S2) -> Self {
+        Self {
+            key: key.into(),
+            value: Some(value.into()),
+        }
+    }
+}
