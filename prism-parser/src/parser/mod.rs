@@ -29,5 +29,3 @@ pub use super::{ParserSpan, Token};
 use chumsky::prelude::*;
 
 pub type E<'a> = extra::Err<crate::ParserError<'a, ParserSpan, Token>>;
-
-pub struct ParserFactory {}

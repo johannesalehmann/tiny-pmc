@@ -101,7 +101,7 @@ mod tests {
     #[test]
     fn attribute_key_leading_number() {
         let input = r#"3valued"#;
-        let error = parse_error!(
+        parse_error!(
             input,
             attribute_parser(),
             ParserError::ExpectedFound {

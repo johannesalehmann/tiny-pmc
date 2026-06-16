@@ -4,7 +4,7 @@ pub use formula_dependencies::*;
 use std::fmt::Formatter;
 
 use crate::spans::{FullSpan, Span};
-use crate::{Displayable, Expression, Identifier, VariableReference};
+use crate::{Attributes, Displayable, Expression, Identifier, VariableReference};
 
 /// A [`FormulaManager`] using [`Identifier`] to refer to variables in expressions, instead of the
 /// default of [`VariableReference`].
@@ -325,7 +325,7 @@ pub struct Formula<S: Span = FullSpan, E = Expression<VariableReference, S>> {
     pub span: S,
 
     /// The [`Attributes`] of the formula
-    pub attributes: crate::Attributes,
+    pub attributes: Attributes,
 }
 
 impl<S: Span, E> Formula<S, E> {
@@ -345,7 +345,7 @@ impl<S: Span, E> Formula<S, E> {
             name,
             condition,
             span,
-            attributes: crate::Attributes::new(),
+            attributes: Attributes::new(),
         }
     }
 }

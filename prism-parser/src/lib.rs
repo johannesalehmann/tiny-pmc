@@ -148,6 +148,7 @@ mod parser;
 mod substitutable_query;
 
 #[cfg(test)]
+#[allow(missing_docs)]
 mod tests;
 
 pub use outputs::*;
