@@ -201,7 +201,7 @@ impl<S: Span> FormulaManager<S, Expression<Identifier<S>, S>> {
 /// assert_eq!(res.entries[1].formula_name.name, "c");
 /// assert_eq!(res.entries[2].formula_name.name, "a");
 /// ```
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct CyclicDependency<S: Span> {
     /// The list of formulas that cyclically depend on each other.
     ///
@@ -211,7 +211,7 @@ pub struct CyclicDependency<S: Span> {
 }
 
 /// An entry in [`CyclicDependency`], containing details on a single formula.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct CyclicDependencyEntry<S: Span> {
     /// The name of the formula
     pub formula_name: Identifier<S>,

@@ -6,7 +6,7 @@ use prism_model::{
 };
 
 /// An error produced while parsing and processing the model.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ParserError<'a, S: prism_model::Span, T> {
     /// The given source did not fit the PRISM grammar. This manifests itself in errors of the
     /// form "Found token `found`, expected one of `expected`".
@@ -84,7 +84,7 @@ pub enum ParserError<'a, S: prism_model::Span, T> {
 
 /// A semantic rule of PRISM was violated.
 // TODO: Add examples to each variant
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ValidationError<S: prism_model::Span> {
     /// This model type is not yet supported by the parser
     UnsupportedModelType {
@@ -187,7 +187,7 @@ pub enum ValidationError<S: prism_model::Span> {
 }
 
 /// A type of component of a PRISM model (used by [`ValidationError::DuplicateElement`]).
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ElementKind {
     /// A global variable
     GlobalVar,

@@ -1,7 +1,7 @@
 use crate::spans::{FullSpan, Span};
 use crate::{
-    Command, Displayable, Expression, Identifier, VariableManager, VariablePrintingStyle,
-    VariableReference,
+    Attributes, Command, Displayable, Expression, Identifier, VariableManager,
+    VariablePrintingStyle, VariableReference,
 };
 use std::fmt::{Display, Formatter};
 
@@ -267,6 +267,9 @@ pub struct Module<
 
     /// The span of the module
     pub span: S,
+
+    /// The [`Attributes`] of the module
+    pub attributes: Attributes,
 }
 
 impl<V, S: Span, E, A> Module<V, S, E, A> {
@@ -285,6 +288,7 @@ impl<V, S: Span, E, A> Module<V, S, E, A> {
             name,
             commands: Vec::new(),
             span,
+            attributes: Attributes::new(),
         }
     }
 }
@@ -305,6 +309,7 @@ impl<V, S: Span, A> Module<V, S, Expression<V, S>, A> {
             name: self.name.map_span(map),
             commands: self.commands.into_iter().map(|c| c.map_span(map)).collect(),
             span: map(self.span),
+            attributes: self.attributes,
         }
     }
 }
@@ -367,6 +372,9 @@ pub struct RenamedModule<S: Span = FullSpan> {
 
     /// The [`Span`] covering the entire renamed module.
     pub span: S,
+
+    /// The attributes of the module
+    pub attributes: Attributes,
 }
 
 impl<S: Span> RenamedModule<S> {
@@ -397,6 +405,7 @@ impl<S: Span> RenamedModule<S> {
             new_name,
             rename_rules,
             span,
+            attributes: Attributes::new(),
         }
     }
 
@@ -421,6 +430,7 @@ impl<S: Span> RenamedModule<S> {
                     .collect(),
             },
             span: map(self.span),
+            attributes: self.attributes,
         }
     }
 }

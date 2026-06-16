@@ -51,6 +51,7 @@ impl<V: Clone, S: Span, E, A: Clone> super::Model<V, S, E, A> {
                     name: formula.name.clone(),
                     condition: f(&formula.condition),
                     span: formula.span.clone(),
+                    attributes: formula.attributes.clone(),
                 })
                 .collect::<Vec<_>>(),
         );
@@ -84,12 +85,14 @@ impl<V: Clone, S: Span, E, A: Clone> super::Model<V, S, E, A> {
                     updates,
                     updates_span: command.updates_span.clone(),
                     span: command.span.clone(),
+                    attributes: command.attributes.clone(),
                 })
             }
             modules.push(Module {
                 name: module.name.clone(),
                 commands,
                 span: module.span.clone(),
+                attributes: module.attributes.clone(),
             })
         }
         let modules = ModuleManager::with_modules_unchecked(modules);
@@ -103,6 +106,7 @@ impl<V: Clone, S: Span, E, A: Clone> super::Model<V, S, E, A> {
                     name: label.name.clone(),
                     condition: f(&label.condition),
                     span: label.span.clone(),
+                    attributes: label.attributes.clone(),
                 })
                 .collect(),
         );
@@ -123,6 +127,7 @@ impl<V: Clone, S: Span, E, A: Clone> super::Model<V, S, E, A> {
                 name: reward.name.clone(),
                 entries,
                 span: reward.span.clone(),
+                attributes: reward.attributes.clone(),
             });
         }
         let rewards = RewardsManager::with_rewards_unchecked(rewards);

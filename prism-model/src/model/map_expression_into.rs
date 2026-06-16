@@ -34,13 +34,14 @@ impl<V, S: Span, E, A> super::Model<V, S, E, A> {
                 VariableRange::Float { span } => VariableRange::Float { span },
             };
             let initial_value = variable.initial_value.map(|i| f(i));
-            variables.push(VariableInfo::with_optional_initial_value(
-                variable.name,
+            variables.push(VariableInfo {
+                scope: variable.scope,
                 range,
-                variable.scope,
+                name: variable.name,
                 initial_value,
-                variable.span,
-            ));
+                span: variable.span,
+                attributes: variable.attributes,
+            });
         }
         let variable_manager = VariableManager { variables };
 
@@ -51,6 +52,7 @@ impl<V, S: Span, E, A> super::Model<V, S, E, A> {
                     name: formula.name,
                     condition: f(formula.condition),
                     span: formula.span,
+                    attributes: formula.attributes,
                 })
                 .collect::<Vec<_>>(),
         );
@@ -84,12 +86,14 @@ impl<V, S: Span, E, A> super::Model<V, S, E, A> {
                     updates,
                     updates_span: command.updates_span,
                     span: command.span,
+                    attributes: command.attributes,
                 })
             }
             modules.push(Module {
                 name: module.name,
                 commands,
                 span: module.span,
+                attributes: module.attributes,
             })
         }
         let modules = ModuleManager::with_modules_unchecked(modules);
@@ -103,6 +107,7 @@ impl<V, S: Span, E, A> super::Model<V, S, E, A> {
                     name: label.name,
                     condition: f(label.condition),
                     span: label.span,
+                    attributes: label.attributes,
                 })
                 .collect(),
         );
@@ -123,6 +128,7 @@ impl<V, S: Span, E, A> super::Model<V, S, E, A> {
                 name: reward.name,
                 entries,
                 span: reward.span,
+                attributes: reward.attributes,
             });
         }
         let rewards = RewardsManager::with_rewards_unchecked(rewards);

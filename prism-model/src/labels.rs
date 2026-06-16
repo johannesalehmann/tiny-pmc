@@ -1,5 +1,5 @@
 use crate::spans::{FullSpan, Span};
-use crate::{Displayable, Expression, Identifier, VariableReference};
+use crate::{Attributes, Displayable, Expression, Identifier, VariableReference};
 use std::fmt::Formatter;
 
 /// A [`LabelManager`] using [`Identifier`] to refer to variables in expressions, instead of the
@@ -346,6 +346,9 @@ pub struct Label<S: Span = FullSpan, E = Expression<VariableReference, S>> {
 
     /// The [`Span`] of the label.
     pub span: S,
+
+    /// The [`Attributes`] of the label
+    pub attributes: Attributes,
 }
 
 impl<S: Span, E> Label<S, E> {
@@ -365,6 +368,7 @@ impl<S: Span, E> Label<S, E> {
             name,
             condition,
             span,
+            attributes: Attributes::new(),
         }
     }
 }
@@ -382,6 +386,7 @@ impl<V, S: Span> Label<S, Expression<V, S>> {
             name: self.name.map_span(map),
             condition: self.condition.map_span(map),
             span: map(self.span),
+            attributes: self.attributes,
         }
     }
 }

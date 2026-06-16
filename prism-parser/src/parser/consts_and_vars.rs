@@ -1,4 +1,5 @@
 use super::{E, expression_parser, identifier_parser};
+use crate::parser::attributes::attributes_parser;
 use crate::{ParserSpan, Token};
 use chumsky::Parser;
 use chumsky::input::ValueInput;
@@ -14,22 +15,24 @@ pub fn const_parser<'a, 'b, I>() -> impl Parser<
 where
     I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
-    just(Token::Const)
-        .ignore_then(variable_domain_parser().or_not().map_with(|t, e| {
+    attributes_parser()
+        .then_ignore(just(Token::Const))
+        .then(variable_domain_parser().or_not().map_with(|t, e| {
             t.unwrap_or(prism_model::VariableRange::UnboundedInt { span: e.span() })
         }))
         .then(identifier_parser())
         .then(just(Token::Equal).ignore_then(expression_parser()).or_not())
         .then_ignore(just(Token::Semicolon))
-        .map_with(|((const_type, name), value), e| {
-            prism_model::VariableInfo::with_optional_initial_value(
+        .map_with(
+            |(((attributes, const_type), name), value), e| VariableInfo {
                 name,
-                const_type,
-                VariableScope::GlobalConstant,
-                value,
-                e.span(),
-            )
-        })
+                range: const_type,
+                scope: VariableScope::GlobalConstant,
+                initial_value: value,
+                span: e.span(),
+                attributes,
+            },
+        )
         .labelled("constant")
         .as_context()
 }
@@ -43,21 +46,23 @@ where
     I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
     let init_parser = just(Token::Init).ignore_then(expression_parser());
-    just(Token::Global)
-        .ignore_then(identifier_parser())
+    attributes_parser()
+        .then_ignore(just(Token::Global))
+        .then(identifier_parser())
         .then_ignore(just(Token::Colon))
         .then(variable_domain_parser())
         .then(init_parser.or_not())
         .then_ignore(just(Token::Semicolon))
-        .map_with(|((name, domain), init), e| {
-            prism_model::VariableInfo::with_optional_initial_value(
+        .map_with(
+            |(((attributes, name), range), initial_value), e| VariableInfo {
                 name,
-                domain,
-                VariableScope::GlobalVariable,
-                init,
-                e.span(),
-            )
-        })
+                range,
+                scope: VariableScope::GlobalVariable,
+                initial_value,
+                span: e.span(),
+                attributes,
+            },
+        )
         .labelled("global variable declaration")
         .as_context()
 }
@@ -72,21 +77,22 @@ where
     I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
     let init_parser = just(Token::Init).ignore_then(expression_parser());
-    identifier_parser()
+    attributes_parser()
+        .then(identifier_parser())
         .then_ignore(just(Token::Colon))
         .then(variable_domain_parser())
         .then(init_parser.or_not())
         .then_ignore(just(Token::Semicolon))
-        .map_with(|((name, domain), init), e| {
-            VariableInfo::with_optional_initial_value(
-                name,
-                domain,
+        .map_with(|(((attributes, name), range), initial_value), e| {
+            VariableInfo {
                 // Once the module's index is known, this scope will be overwritten later on
-                VariableScope::GlobalVariable,
-                init,
-                e.span(),
-            )
-            // Module must be changed from None to Some(...) later on
+                scope: VariableScope::GlobalVariable,
+                range,
+                name,
+                initial_value,
+                span: e.span(),
+                attributes,
+            }
         })
         .labelled("variable declaration")
         .as_context()

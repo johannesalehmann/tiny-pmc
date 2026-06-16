@@ -1,10 +1,11 @@
 use super::{E, command_parser, identifier_parser, variable_declaration_parser};
+use crate::parser::attributes::attributes_parser;
 use crate::{ParserError, ParserSpan, Token};
 use chumsky::IterParser;
 use chumsky::Parser;
 use chumsky::input::ValueInput;
 use chumsky::prelude::just;
-use prism_model::{Expression, Identifier, VariableInfo};
+use prism_model::{Attributes, Expression, Identifier, VariableInfo};
 
 pub fn module_parser<'a, 'b, I>() -> impl Parser<
     'a,
@@ -23,18 +24,20 @@ pub fn module_parser<'a, 'b, I>() -> impl Parser<
 where
     I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
-    just(Token::Module)
-        .ignore_then(identifier_parser())
+    attributes_parser()
+        .then_ignore(just(Token::Module))
+        .then(identifier_parser())
         .then(module_element_parser().repeated().collect::<Vec<_>>())
         .then_ignore(just(Token::EndModule))
-        .validate(|(name, els), e, emitter| {
-            create_module_from_name_and_elements(name, els, e.span(), emitter)
+        .validate(|((attributes, name), els), e, emitter| {
+            create_module_from_name_and_elements(attributes, name, els, e.span(), emitter)
         })
         .labelled("module")
         .as_context()
 }
 
 fn create_module_from_name_and_elements(
+    attributes: Attributes,
     name: Identifier<ParserSpan>,
     module_elements: Vec<ModuleElement>,
     span: ParserSpan,
@@ -50,6 +53,8 @@ fn create_module_from_name_and_elements(
 ) {
     let mut module = prism_model::Module::new_spanned(name, span);
     let mut variables = Vec::new();
+
+    module.attributes = attributes;
 
     for element in module_elements {
         match element {
@@ -70,8 +75,9 @@ pub fn renamed_module_parser<'a, 'b, I>()
 where
     I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
-    just(Token::Module)
-        .ignore_then(identifier_parser())
+    attributes_parser()
+        .then_ignore(just(Token::Module))
+        .then(identifier_parser())
         .then_ignore(just(Token::Equal))
         .then(identifier_parser())
         .then_ignore(just(Token::LeftSqBracket))
@@ -82,15 +88,16 @@ where
         )
         .then_ignore(just(Token::RightSqBracket))
         .then_ignore(just(Token::EndModule))
-        .map_with(|((new_name, old_name), rename_rules), e| {
-            prism_model::RenamedModule::new_spanned(
+        .map_with(|(((attributes, new_name), old_name), rename_rules), e| {
+            prism_model::RenamedModule {
                 old_name,
                 new_name,
-                prism_model::RenameRules {
+                rename_rules: prism_model::RenameRules {
                     rules: rename_rules,
                 },
-                e.span(),
-            )
+                span: e.span(),
+                attributes,
+            }
         })
         .labelled("renamed module")
         .as_context()

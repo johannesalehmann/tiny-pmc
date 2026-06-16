@@ -1,3 +1,4 @@
+use crate::parser::attributes::attributes_parser;
 use crate::parser::{E, expression_parser, identifier_parser};
 use crate::{ParserSpan, Token};
 use chumsky::IterParser;
@@ -39,21 +40,23 @@ where
         .labelled("updates")
         .as_context();
 
-    action_parser
+    attributes_parser()
+        .then(action_parser)
         .then(expression_parser())
         .then_ignore(just(Token::Arrow))
         .then(updates_parser)
         .then_ignore(just(Token::Semicolon))
         .map_with(
-            |(((action, action_span), guard), (updates, updates_span)), e| {
-                prism_model::Command::with_updates_spanned(
+            |(((attributes, (action, action_span)), guard), (updates, updates_span)), e| {
+                prism_model::Command {
                     action,
                     action_span,
                     guard,
                     updates,
                     updates_span,
-                    e.span(),
-                )
+                    span: e.span(),
+                    attributes,
+                }
             },
         )
         .labelled("command")

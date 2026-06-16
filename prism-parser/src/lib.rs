@@ -147,6 +147,9 @@ mod outputs;
 mod parser;
 mod substitutable_query;
 
+#[cfg(test)]
+mod tests;
+
 pub use outputs::*;
 
 use crate::parser::E;

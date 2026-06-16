@@ -1,3 +1,4 @@
+use crate::parser::attributes::attributes_parser;
 use crate::parser::{E, expression_parser, identifier_parser};
 use crate::{ParserSpan, Token};
 use chumsky::IterParser;
@@ -25,12 +26,16 @@ where
         .labelled("reward name")
         .as_context();
 
-    just(Token::Rewards)
-        .ignore_then(rewards_name_parser.or_not())
+    attributes_parser()
+        .then_ignore(just(Token::Rewards))
+        .then(rewards_name_parser.or_not())
         .then(rewards_element_parser().repeated().collect::<Vec<_>>())
         .then_ignore(just(Token::EndRewards))
-        .map_with(|(name, entries), e| {
-            prism_model::Rewards::with_entries_spanned(name, entries, e.span())
+        .map_with(|((attributes, name), entries), e| prism_model::Rewards {
+            name,
+            entries,
+            span: e.span(),
+            attributes,
         })
         .labelled("rewards structure")
         .as_context()

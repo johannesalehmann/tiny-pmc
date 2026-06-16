@@ -82,6 +82,7 @@ impl<S: Span> super::Model<Identifier<S>, S, Expression<Identifier<S>, S>, Ident
                     .map(|c| c.renamed(&renamed_module.rename_rules))
                     .collect(),
                 span: renamed_module.span.clone(),
+                attributes: renamed_module.attributes.clone(),
             };
             self.variable_manager
                 .add_renamed(
@@ -111,7 +112,7 @@ impl<S: Span> super::Model<Identifier<S>, S, Expression<Identifier<S>, S>, Ident
 /// An error produced by [`Model::expand_renamed_modules()`], indicating that the rename rules
 /// did not adhere to the requirements outlined in
 /// [the PRISM manual](https://www.prismmodelchecker.org/manual/ThePRISMLanguage/ModuleRenaming).
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum ModuleExpansionError<S: Span> {
     /// The rename rule is trying to rename a module that does not exist.
     ///

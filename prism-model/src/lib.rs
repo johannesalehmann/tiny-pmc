@@ -72,6 +72,25 @@
 //!
 //! [^other_types]: Continuous-time Markov chains should work as well by treating
 //!                 [`Update::probability`] as the rate.
+//!
+//! # Attributes
+//!
+//! Modules, variable declarations, labels, formulas, rewards and commands have a field called
+//! `attributes`, which can be used store additional key-value information.
+//!
+//! This does not correspond to a feature in the PRISM language.
+//!
+//! Crate `prism-parser` parses attribute collections that are enclosed in curly brackets, e.g.
+//!
+//! ```prism
+//! {ignore}
+//! {depth=5}
+//! {player_1, value=10}
+//! {x=3+5+7, y=do(something), z=you can put anything here!}
+//! ```
+
+mod attributes;
+pub use attributes::*;
 
 mod command;
 pub use command::{

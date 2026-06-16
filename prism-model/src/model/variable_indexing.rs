@@ -55,6 +55,7 @@ impl<S: Span> Model<Identifier<S>, S, Expression<Identifier<S>, S>, Identifier<S
                     name: variable.name.clone(),
                     initial_value,
                     span: variable.span.clone(),
+                    attributes: variable.attributes.clone(),
                 });
             }
         }
@@ -70,6 +71,7 @@ impl<S: Span> Model<Identifier<S>, S, Expression<Identifier<S>, S>, Identifier<S
                     name: formula.name,
                     condition,
                     span: formula.span,
+                    attributes: formula.attributes,
                 }),
                 Err(err) => errors.extend_from_slice(&err[..]),
             }
@@ -130,6 +132,7 @@ impl<S: Span> Model<Identifier<S>, S, Expression<Identifier<S>, S>, Identifier<S
                         updates,
                         updates_span: command.updates_span.clone(),
                         span: command.span,
+                        attributes: command.attributes,
                     }),
                     Err(err) => errors.extend(err),
                 }
@@ -138,6 +141,7 @@ impl<S: Span> Model<Identifier<S>, S, Expression<Identifier<S>, S>, Identifier<S
                 name: module.name,
                 commands,
                 span: module.span,
+                attributes: module.attributes,
             })
         }
         let modules = crate::ModuleManager::with_modules_unchecked(modules);
@@ -172,6 +176,7 @@ impl<S: Span> Model<Identifier<S>, S, Expression<Identifier<S>, S>, Identifier<S
                     name: label.name,
                     condition,
                     span: label.span,
+                    attributes: label.attributes,
                 }),
                 Err(err) => errors.extend(err),
             }
@@ -207,6 +212,7 @@ impl<S: Span> Model<Identifier<S>, S, Expression<Identifier<S>, S>, Identifier<S
                 name: reward.name,
                 entries,
                 span: reward.span,
+                attributes: reward.attributes,
             })
         }
         let rewards = RewardsManager::with_rewards_unchecked(rewards);

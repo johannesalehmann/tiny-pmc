@@ -1,7 +1,7 @@
 use crate::expressions::UnknownVariableError;
 use crate::module::RenameRules;
 use crate::spans::{FullSpan, Span};
-use crate::{Displayable, Expression, Identifier};
+use crate::{Attributes, Displayable, Expression, Identifier};
 use std::fmt::Formatter;
 
 /// A [`VariableManager`] using [`Identifier`] to refer to variables in expressions, instead of the
@@ -321,6 +321,7 @@ impl<S: Span> VariableManager<S, Expression<Identifier<S>, S>> {
                         scope: VariableScope::LocalVariable {
                             module_index: new_module_index,
                         },
+                        attributes: variable.attributes.clone(),
                     };
                     self.variables.push(new_var)
                 }
@@ -479,7 +480,7 @@ pub type VariableInfoNamedVars<S> = VariableInfo<S, Expression<Identifier<S>, S>
 /// info:
 ///
 /// ```
-/// # use prism_model::{Expression, Identifier, VariableInfo, VariableRange, ModuleManager, Module, FullSpan, Span, VariableScope};
+/// # use prism_model::{Expression, Identifier, VariableInfo, VariableRange, ModuleManager, Module, FullSpan, Span, VariableScope, Attributes};
 /// # let mut module_manager: ModuleManager = ModuleManager::with_modules(
 /// #     vec![ Module::new(Identifier::new("main").unwrap()) ]
 /// # ).unwrap();
@@ -497,6 +498,7 @@ pub type VariableInfoNamedVars<S> = VariableInfo<S, Expression<Identifier<S>, S>
 ///         name: x_name,
 ///         initial_value: Some(Expression::int(5)),
 ///         span: FullSpan::empty(),
+///         attributes: Attributes::new()
 ///     }
 /// );
 /// ```
@@ -533,6 +535,9 @@ pub struct VariableInfo<S: Span = FullSpan, E = Expression<VariableReference, S>
 
     /// The [`Span`] of the variable declaration
     pub span: S,
+
+    /// The [`Attributes`] of the variable declaration
+    pub attributes: Attributes,
 }
 
 impl<S: Span, E> VariableInfo<S, E> {
@@ -642,6 +647,7 @@ impl<S: Span, E> VariableInfo<S, E> {
             initial_value: None,
             span,
             scope,
+            attributes: Attributes::new(),
         }
     }
 
@@ -685,6 +691,7 @@ impl<S: Span, E> VariableInfo<S, E> {
             initial_value: Some(initial_value),
             span,
             scope,
+            attributes: Attributes::new(),
         }
     }
 
@@ -704,6 +711,7 @@ impl<S: Span, E> VariableInfo<S, E> {
             initial_value,
             span,
             scope,
+            attributes: Attributes::new(),
         }
     }
 
@@ -785,6 +793,7 @@ impl<V, S: Span> VariableInfo<S, Expression<V, S>> {
             name: self.name.map_span(map),
             initial_value: self.initial_value.map(|i| i.map_span(map)),
             span: map(self.span),
+            attributes: self.attributes,
         }
     }
 }

@@ -1,5 +1,5 @@
 use crate::spans::{FullSpan, Span};
-use crate::{Displayable, Expression, Identifier, VariableReference};
+use crate::{Attributes, Displayable, Expression, Identifier, VariableReference};
 use std::fmt::{Display, Formatter};
 
 /// A [`RewardsManager`] using [`Identifier`] to refer to variables in expressions, instead of the
@@ -176,6 +176,9 @@ pub struct Rewards<S: Span = FullSpan, E = Expression<VariableReference, S>, A =
 
     /// The [`Span`] of the rewards structure.
     pub span: S,
+
+    /// The [`Attributes`] of the rewards structure
+    pub attributes: Attributes,
 }
 
 impl<S: Span, E, A> Rewards<S, E, A> {
@@ -200,6 +203,7 @@ impl<S: Span, E, A> Rewards<S, E, A> {
             name: name.into(),
             entries: Vec::new(),
             span,
+            attributes: Attributes::new(),
         }
     }
 
@@ -231,6 +235,7 @@ impl<S: Span, E, A> Rewards<S, E, A> {
             name,
             entries,
             span,
+            attributes: Attributes::new(),
         }
     }
 
@@ -254,6 +259,7 @@ impl<V, S: Span, A> Rewards<S, Expression<V, S>, A> {
             name: self.name.map(|i| i.map_span(map)),
             entries: self.entries.into_iter().map(|e| e.map_span(map)).collect(),
             span: map(self.span),
+            attributes: self.attributes,
         }
     }
 }

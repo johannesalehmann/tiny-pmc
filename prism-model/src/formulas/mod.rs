@@ -323,6 +323,9 @@ pub struct Formula<S: Span = FullSpan, E = Expression<VariableReference, S>> {
 
     /// The [`Span`] of the formula.
     pub span: S,
+
+    /// The [`Attributes`] of the formula
+    pub attributes: crate::Attributes,
 }
 
 impl<S: Span, E> Formula<S, E> {
@@ -342,6 +345,7 @@ impl<S: Span, E> Formula<S, E> {
             name,
             condition,
             span,
+            attributes: crate::Attributes::new(),
         }
     }
 }
@@ -360,6 +364,7 @@ impl<S: Span, V> Formula<S, Expression<V, S>> {
             name: self.name.map_span(map),
             condition: self.condition.map_span(&map),
             span: map(self.span),
+            attributes: self.attributes,
         }
     }
 }

@@ -1,4 +1,5 @@
 use super::{E, expression_parser, identifier_parser};
+use crate::parser::attributes::attributes_parser;
 use crate::{ParserSpan, Token};
 use chumsky::Parser;
 use chumsky::input::ValueInput;
@@ -14,13 +15,17 @@ pub fn label_parser<'a, 'b, I>() -> impl Parser<
 where
     I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
-    just(Token::Label)
-        .ignore_then(identifier_parser().delimited_by(just(Token::Quote), just(Token::Quote)))
+    attributes_parser()
+        .then_ignore(just(Token::Label))
+        .then(identifier_parser().delimited_by(just(Token::Quote), just(Token::Quote)))
         .then_ignore(just(Token::Equal))
         .then(expression_parser())
         .then_ignore(just(Token::Semicolon))
-        .map_with(|(name, expression), e| {
-            prism_model::Label::new_spanned(name, expression, e.span())
+        .map_with(|((attributes, name), condition), e| prism_model::Label {
+            name,
+            condition,
+            span: e.span(),
+            attributes,
         })
         .labelled("label")
         .as_context()

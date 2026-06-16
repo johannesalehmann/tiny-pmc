@@ -1,7 +1,7 @@
 use crate::expressions::Expression;
 use crate::module::RenameRules;
 use crate::spans::{FullSpan, Span};
-use crate::{Displayable, Identifier, VariableReference};
+use crate::{Attributes, Displayable, Identifier, VariableReference};
 use std::fmt::{Display, Formatter};
 
 /// A [`Command`] using [`Identifier`] to refer to variables in expressions, instead of the default of
@@ -128,6 +128,9 @@ pub struct Command<
     ///
     /// This span covers the entire command, starting at `[` of the action name and ending at `;`.
     pub span: S,
+
+    /// The [`Attributes`] of the command
+    pub attributes: Attributes,
 }
 
 impl<V, S: Span, E, A> Command<V, S, E, A> {
@@ -170,6 +173,7 @@ impl<V, S: Span, E, A> Command<V, S, E, A> {
             updates: Vec::new(),
             updates_span,
             span,
+            attributes: Attributes::new(),
         }
     }
 
@@ -215,6 +219,7 @@ impl<V, S: Span, E, A> Command<V, S, E, A> {
             updates,
             updates_span,
             span,
+            attributes: Attributes::new(),
         }
     }
 
@@ -244,6 +249,7 @@ impl<V, S: Span, A> Command<V, S, Expression<V, S>, A> {
             updates: self.updates.into_iter().map(|u| u.map_span(map)).collect(),
             updates_span: map(self.updates_span),
             span: map(self.span),
+            attributes: self.attributes,
         }
     }
 }
@@ -328,6 +334,7 @@ impl<S: Span> Command<Identifier<S>, S, Expression<Identifier<S>, S>, Identifier
                 .collect(),
             updates_span: self.updates_span.clone(),
             span: self.span.clone(),
+            attributes: self.attributes.clone(),
         }
     }
 }
