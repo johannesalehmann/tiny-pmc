@@ -377,6 +377,7 @@ fn lexer<'a, F: Fn(SimpleSpan) -> FullSpan + 'static>() -> impl Parser<
 
         "F" => Token::Finally,
         "G" => Token::Generally,
+        "U" => Token::Until,
 
         "true" => Token::True,
         "false" => Token::False,
