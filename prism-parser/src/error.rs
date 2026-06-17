@@ -245,7 +245,9 @@ impl<'a, S: prism_model::Span, T> Into<ParserError<'a, S, T>> for ValidationErro
 }
 
 impl<'a, S: prism_model::Span, T> ParserError<'a, S, T> {
-    pub(crate) fn into_owned<'b>(self) -> ParserError<'b, S, T>
+    /// Takes ownership of the references in the error. This enables the error
+    /// to live longer than the source code it references.
+    pub fn into_owned<'b>(self) -> ParserError<'b, S, T>
     where
         T: Clone,
     {
