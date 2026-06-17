@@ -1,9 +1,9 @@
 use crate::parser::{E, identifier_parser};
-use crate::{ParserSpan, Token};
+use crate::{ElementKind, ParserSpan, Token, ValidationError};
 use chumsky::Parser;
 use chumsky::input::ValueInput;
 use chumsky::prelude::*;
-use prism_model::{Attributes, Span};
+use prism_model::{AttributeValue, Attributes, Span};
 
 pub fn attributes_parser<'a, 'b, I>() -> impl Parser<'a, I, prism_model::Attributes, E<'a>>
 where
@@ -17,6 +17,20 @@ where
         )
         .then_ignore(just(Token::RightCurlyBracket))
         .map(|a| Attributes::with_attributes(a))
+        .validate(|attributes, _, emitter| match attributes {
+            Ok(attributes) => attributes,
+            Err(err) => {
+                emitter.emit(
+                    ValidationError::DuplicateElement {
+                        previous_occurrence: err.existing_span,
+                        new_definition: err.new_span,
+                        kind: ElementKind::Attribute,
+                    }
+                    .into(),
+                );
+                Attributes::new()
+            }
+        })
         .or_not()
         .map(|a| a.unwrap_or_else(|| Attributes::new()))
 }
@@ -25,20 +39,21 @@ pub fn attribute_parser<'a, 'b, I>() -> impl Parser<'a, I, prism_model::Attribut
 where
     I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
+    let value_parser = none_of(&[Token::Comma, Token::RightCurlyBracket])
+        .map_with(|t, e| (t, e.span()))
+        .repeated()
+        .collect::<Vec<(Token, _)>>()
+        .map(string_from_spanned_tokens)
+        .map_with(|value, e| AttributeValue {
+            value,
+            span: e.span(),
+        });
+
     identifier_parser()
-        .then(
-            just(Token::Equal)
-                .ignore_then(
-                    none_of(&[Token::Comma, Token::RightCurlyBracket])
-                        .map_with(|t, e| (t, e.span()))
-                        .repeated()
-                        .collect::<Vec<(Token, _)>>()
-                        .map(string_from_spanned_tokens),
-                )
-                .or_not(),
-        )
-        .map(|(key, value)| prism_model::Attribute {
-            key: key.name,
+        .then(just(Token::Equal).ignore_then(value_parser).or_not())
+        .map_with(|(key, value), e| prism_model::Attribute {
+            key,
+            span: e.span(),
             value,
         })
 }
@@ -69,24 +84,27 @@ mod tests {
     use crate::parser::attributes::{attribute_parser, attributes_parser};
     use crate::{ParserError, parse_error, parse_success};
     use chumsky::error::RichPattern;
-    use prism_model::{Attribute, Attributes, FullSpan, Span};
+    use prism_model::{Attribute, Attributes, FullSpan, Identifier, Span};
+    use std::ops::Range;
 
     macro_rules! test_attribute {
         ($key: expr, $range: expr) => {
             (
-                Attribute {
-                    key: $key.to_string(),
-                    value: None,
-                },
+                Attribute::flag_spanned(
+                    Identifier::new($key.to_string()).unwrap(),
+                    FullSpan::from_range($range),
+                ),
                 FullSpan::from_range($range),
             )
         };
-        ($key: expr, $value: expr, $range: expr) => {
+        ($key: expr, $value: expr, $range: expr, $value_range: expr) => {
             (
-                Attribute {
-                    key: $key.to_string(),
-                    value: Some($value.to_string()),
-                },
+                Attribute::key_value_spanned(
+                    Identifier::new($key.to_string()).unwrap(),
+                    $value.to_string(),
+                    FullSpan::from_range($range),
+                    FullSpan::from_range($value_range),
+                ),
                 FullSpan::from_range($range),
             )
         };
@@ -118,63 +136,63 @@ mod tests {
     fn attribute_key_value() {
         let input = r#"key=value"#;
         let output = parse_success!(input, attribute_parser());
-        assert_eq!(output, test_attribute!("key", "value", 0..9));
+        assert_eq!(output, test_attribute!("key", "value", 0..9, 4..9));
     }
 
     #[test]
     fn attribute_key_value_empty() {
         let input = r#"key="#;
         let output = parse_success!(input, attribute_parser());
-        assert_eq!(output, test_attribute!("key", "", 0..4));
+        assert_eq!(output, test_attribute!("key", "", 0..4, 4..4));
     }
 
     #[test]
     fn attribute_key_value_leading_whitespace() {
         let input = r#"key=   value"#;
         let output = parse_success!(input, attribute_parser());
-        assert_eq!(output, test_attribute!("key", "value", 0..12));
+        assert_eq!(output, test_attribute!("key", "value", 0..12, 7..12));
     }
 
     #[test]
     fn attribute_key_value_trailing_whitespace() {
         let input = r#"key=value   "#;
         let output = parse_success!(input, attribute_parser());
-        assert_eq!(output, test_attribute!("key", "value", 0..9));
+        assert_eq!(output, test_attribute!("key", "value", 0..9, 4..9));
     }
 
     #[test]
     fn attribute_key_value_integer() {
         let input = r#"key=3"#;
         let output = parse_success!(input, attribute_parser());
-        assert_eq!(output, test_attribute!("key", "3", 0..5));
+        assert_eq!(output, test_attribute!("key", "3", 0..5, 4..5));
     }
 
     #[test]
     fn attribute_key_value_function() {
         let input = r#"key=max(3)"#;
         let output = parse_success!(input, attribute_parser());
-        assert_eq!(output, test_attribute!("key", "max(3)", 0..10));
+        assert_eq!(output, test_attribute!("key", "max(3)", 0..10, 4..10));
     }
 
     #[test]
     fn attribute_key_value_merge_with_space() {
         let input = r#"key=asdf jkl"#;
         let output = parse_success!(input, attribute_parser());
-        assert_eq!(output, test_attribute!("key", "asdf jkl", 0..12));
+        assert_eq!(output, test_attribute!("key", "asdf jkl", 0..12, 4..12));
     }
 
     #[test]
     fn attribute_key_value_merge_without_space() {
         let input = r#"key=asdf-jkl"#;
         let output = parse_success!(input, attribute_parser());
-        assert_eq!(output, test_attribute!("key", "asdf-jkl", 0..12));
+        assert_eq!(output, test_attribute!("key", "asdf-jkl", 0..12, 4..12));
     }
 
     #[test]
     fn attribute_key_value_merge_with_double_space() {
         let input = r#"key=asdf  jkl"#;
         let output = parse_success!(input, attribute_parser());
-        assert_eq!(output, test_attribute!("key", "asdf  jkl", 0..13));
+        assert_eq!(output, test_attribute!("key", "asdf  jkl", 0..13, 4..13));
     }
 
     #[test]
@@ -186,23 +204,36 @@ mod tests {
             test_attribute!(
                 "key",
                 r#"a b+c d e "asdf" (wer e = ==    ; init mdp ?"#,
-                0..48
+                0..48,
+                4..48
             )
         );
     }
 
+    macro_rules! attr {
+        ($key: expr, $span: expr) => {{
+            let span = FullSpan::from_range($span);
+            Attribute::flag_spanned(Identifier::new_spanned($key, span.clone()).unwrap(), span)
+        }};
+        ($key: expr, $value: expr, $key_span: expr, $value_span: expr) => {{
+            let key_span: Range<usize> = $key_span;
+            let value_span: Range<usize> = $value_span;
+            let span = key_span.start..value_span.end;
+            Attribute::key_value_spanned(
+                Identifier::new_spanned($key, FullSpan::from_range(key_span)).unwrap(),
+                $value,
+                FullSpan::from_range(span),
+                FullSpan::from_range(value_span),
+            )
+        }};
+    }
+
     macro_rules! test_attributes {
-        ([$(($key: expr, $value: expr)),*], $range: expr) => {
+        ([$($attr: expr),*], $range: expr) => {
             (
                 Attributes::with_attributes(vec![
-                    $(Attribute {
-                        key: $key.to_string(),
-                        value: match $value {
-                            Some(value) => Some(str::to_string(value)),
-                            None => None
-                        }
-                    }),*
-                ]),
+                    $($attr),*
+                ]).unwrap(),
                 FullSpan::from_range($range),
             )
         };
@@ -230,13 +261,16 @@ mod tests {
     fn attributes_single_key() {
         let input = r#"{key}"#;
         let output = parse_success!(input, attributes_parser());
-        assert_eq!(output, test_attributes!([("key", None)], 0..5));
+        assert_eq!(output, test_attributes!([attr!("key", 1..4)], 0..5));
     }
     #[test]
     fn attributes_single_key_value() {
         let input = r#"{key=value}"#;
         let output = parse_success!(input, attributes_parser());
-        assert_eq!(output, test_attributes!([("key", Some("value"))], 0..11));
+        assert_eq!(
+            output,
+            test_attributes!([attr!("key", "value", 1..4, 5..10)], 0..11)
+        );
     }
     #[test]
     fn attributes_single_key_value_complex() {
@@ -244,7 +278,7 @@ mod tests {
         let output = parse_success!(input, attributes_parser());
         assert_eq!(
             output,
-            test_attributes!([("key", Some("a b  c+d e f"))], 0..18)
+            test_attributes!([attr!("key", "a b  c+d e f", 1..4, 5..17)], 0..18)
         );
     }
     #[test]
@@ -253,7 +287,7 @@ mod tests {
         let output = parse_success!(input, attributes_parser());
         assert_eq!(
             output,
-            test_attributes!([("key", Some("a b  c+d e f"))], 0..30)
+            test_attributes!([attr!("key", "a b  c+d e f", 3..6, 13..25)], 0..30)
         );
     }
     #[test]
@@ -263,7 +297,11 @@ mod tests {
         assert_eq!(
             output,
             test_attributes!(
-                [("asdf", None), ("key", Some("value")), ("jkl", None)],
+                [
+                    attr!("asdf", 1..5),
+                    attr!("key", "value", 7..10, 11..16),
+                    attr!("jkl", 18..21)
+                ],
                 0..22
             )
         );
@@ -276,12 +314,12 @@ mod tests {
             output,
             test_attributes!(
                 [
-                    ("asdf", None),
-                    ("qwe", Some("3+4  +5")),
-                    ("key", Some("value")),
-                    ("jkl", None),
-                    ("test", Some("x=y")),
-                    ("e", Some("5"))
+                    attr!("asdf", 2..6),
+                    attr!("qwe", "3+4  +5", 12..15, 16..23),
+                    attr!("key", "value", 25..28, 29..34),
+                    attr!("jkl", 36..39),
+                    attr!("test", "x=y", 41..45, 46..49),
+                    attr!("e", "5", 51..52, 55..56)
                 ],
                 0..62
             )

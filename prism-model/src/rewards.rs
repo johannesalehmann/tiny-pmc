@@ -178,7 +178,7 @@ pub struct Rewards<S: Span = FullSpan, E = Expression<VariableReference, S>, A =
     pub span: S,
 
     /// The [`Attributes`] of the rewards structure
-    pub attributes: Attributes,
+    pub attributes: Attributes<S>,
 }
 
 impl<S: Span, E, A> Rewards<S, E, A> {
@@ -259,7 +259,7 @@ impl<V, S: Span, A> Rewards<S, Expression<V, S>, A> {
             name: self.name.map(|i| i.map_span(map)),
             entries: self.entries.into_iter().map(|e| e.map_span(map)).collect(),
             span: map(self.span),
-            attributes: self.attributes,
+            attributes: self.attributes.map_span(map),
         }
     }
 }

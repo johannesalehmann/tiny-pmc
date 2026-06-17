@@ -348,7 +348,7 @@ pub struct Label<S: Span = FullSpan, E = Expression<VariableReference, S>> {
     pub span: S,
 
     /// The [`Attributes`] of the label
-    pub attributes: Attributes,
+    pub attributes: Attributes<S>,
 }
 
 impl<S: Span, E> Label<S, E> {
@@ -386,7 +386,7 @@ impl<V, S: Span> Label<S, Expression<V, S>> {
             name: self.name.map_span(map),
             condition: self.condition.map_span(map),
             span: map(self.span),
-            attributes: self.attributes,
+            attributes: self.attributes.map_span(map),
         }
     }
 }

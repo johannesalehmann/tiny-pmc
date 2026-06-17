@@ -203,6 +203,9 @@ pub enum ElementKind {
     Reward,
     /// A module
     Module,
+    /// An attribute ([see here](crate::Attributes) for more information on this extension of the
+    /// PRISM language)
+    Attribute,
 }
 
 macro_rules! derive_into {

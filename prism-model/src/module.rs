@@ -269,7 +269,7 @@ pub struct Module<
     pub span: S,
 
     /// The [`Attributes`] of the module
-    pub attributes: Attributes,
+    pub attributes: Attributes<S>,
 }
 
 impl<V, S: Span, E, A> Module<V, S, E, A> {
@@ -309,7 +309,7 @@ impl<V, S: Span, A> Module<V, S, Expression<V, S>, A> {
             name: self.name.map_span(map),
             commands: self.commands.into_iter().map(|c| c.map_span(map)).collect(),
             span: map(self.span),
-            attributes: self.attributes,
+            attributes: self.attributes.map_span(map),
         }
     }
 }
@@ -374,7 +374,7 @@ pub struct RenamedModule<S: Span = FullSpan> {
     pub span: S,
 
     /// The attributes of the module
-    pub attributes: Attributes,
+    pub attributes: Attributes<S>,
 }
 
 impl<S: Span> RenamedModule<S> {
@@ -430,7 +430,7 @@ impl<S: Span> RenamedModule<S> {
                     .collect(),
             },
             span: map(self.span),
-            attributes: self.attributes,
+            attributes: self.attributes.map_span(map),
         }
     }
 }

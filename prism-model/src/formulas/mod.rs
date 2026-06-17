@@ -325,7 +325,7 @@ pub struct Formula<S: Span = FullSpan, E = Expression<VariableReference, S>> {
     pub span: S,
 
     /// The [`Attributes`] of the formula
-    pub attributes: Attributes,
+    pub attributes: Attributes<S>,
 }
 
 impl<S: Span, E> Formula<S, E> {
@@ -362,9 +362,9 @@ impl<S: Span, V> Formula<S, Expression<V, S>> {
     pub fn map_span<S2: Span, F: Fn(S) -> S2>(self, map: &F) -> Formula<S2, Expression<V, S2>> {
         Formula {
             name: self.name.map_span(map),
-            condition: self.condition.map_span(&map),
+            condition: self.condition.map_span(map),
             span: map(self.span),
-            attributes: self.attributes,
+            attributes: self.attributes.map_span(map),
         }
     }
 }

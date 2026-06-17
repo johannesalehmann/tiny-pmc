@@ -537,7 +537,7 @@ pub struct VariableInfo<S: Span = FullSpan, E = Expression<VariableReference, S>
     pub span: S,
 
     /// The [`Attributes`] of the variable declaration
-    pub attributes: Attributes,
+    pub attributes: Attributes<S>,
 }
 
 impl<S: Span, E> VariableInfo<S, E> {
@@ -793,7 +793,7 @@ impl<V, S: Span> VariableInfo<S, Expression<V, S>> {
             name: self.name.map_span(map),
             initial_value: self.initial_value.map(|i| i.map_span(map)),
             span: map(self.span),
-            attributes: self.attributes,
+            attributes: self.attributes.map_span(map),
         }
     }
 }

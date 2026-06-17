@@ -130,7 +130,7 @@ pub struct Command<
     pub span: S,
 
     /// The [`Attributes`] of the command
-    pub attributes: Attributes,
+    pub attributes: Attributes<S>,
 }
 
 impl<V, S: Span, E, A> Command<V, S, E, A> {
@@ -249,7 +249,7 @@ impl<V, S: Span, A> Command<V, S, Expression<V, S>, A> {
             updates: self.updates.into_iter().map(|u| u.map_span(map)).collect(),
             updates_span: map(self.updates_span),
             span: map(self.span),
-            attributes: self.attributes,
+            attributes: self.attributes.map_span(map),
         }
     }
 }
