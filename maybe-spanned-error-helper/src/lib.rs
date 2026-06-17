@@ -1,3 +1,4 @@
+pub use ariadne::Source;
 use ariadne::{Label, Report, ReportBuilder, ReportKind};
 use prism_model::Span;
 use std::ops::Range;

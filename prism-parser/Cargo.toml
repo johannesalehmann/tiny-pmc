@@ -7,3 +7,8 @@ edition = "2024"
 prism-model = { path = "../prism-model", features = ["chumsky"] }
 probabilistic-properties = { path = "../probabilistic-properties" }
 chumsky = "1.0.0-alpha.8"
+maybe-spanned-error-helper = { path = "../maybe-spanned-error-helper", optional = true }
+
+[features]
+default = ["pretty-print"]
+pretty-print = ["dep:maybe-spanned-error-helper"]

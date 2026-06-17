@@ -86,6 +86,47 @@
 //! If you want a single `Result`, use `parse_model_and_props().`[`all_ok()`](ModelAndPropsResult::all_ok()),
 //! which either returns `Ok(`[`ModelAndProps`]`)` or a list of all errors with [`ErrorSource`].
 //!
+//! # Printing errors
+//!
+//! With the feature `pretty-print` (enabled by default), high-quality errors can be printed to
+//! stdout. Consider the following program:
+//!
+//! ```
+//! # use prism_parser::{parse_model};
+//! let filename = "model.prism";
+//! let source = r#"
+//! mdp
+//! const int n = 10;
+//! module main
+//!     n: [0..15] init 3;
+//! endmodule
+//! "#;
+//! println!("Parsing");
+//! match parse_model(source) {
+//!     Ok(model) => { /* do something */ }
+//!     Err(errs) => {
+//!         for err in errs {
+//!             err.print(Some(filename), source);
+//!         }
+//!     }
+//! }
+//! ```
+//!
+//! This produces the following error:
+//! ```cli
+//! Error: Duplicate name
+//!    ╭─[ model.prism:5:5 ]
+//!    │
+//!  3 │ const int n = 10;
+//!    │ ────────┬────────
+//!    │         ╰────────── First defined here
+//!    │
+//!  5 │     n: [0..15] init 3;
+//!    │     ─────────┬────────
+//!    │              ╰────────── Defined again here
+//! ───╯
+//! ```
+//!
 //! # Spans
 //!
 //! The output is *spanned*: Every component has a span that stores which section of source code

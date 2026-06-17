@@ -1,3 +1,6 @@
+#[cfg(feature = "pretty-print")]
+mod pretty_print;
+
 use chumsky::error::{Error, LabelError, RichPattern};
 use chumsky::input::Input;
 use chumsky::util::MaybeRef;
