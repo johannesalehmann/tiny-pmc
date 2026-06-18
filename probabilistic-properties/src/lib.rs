@@ -35,6 +35,8 @@
 //! [^1]: probabilistic Computation Tree Logic
 //!
 
+use std::fmt::{Display, Formatter};
+
 /// Represents a pCTL query that can be answered by a model checker.
 ///
 /// A query can either ask for a value (a probability, a reward value or a time value) or compare
@@ -342,6 +344,64 @@ impl<I, F, E> Query<I, F, E> {
     }
 }
 
+// TODO: The Display implementation does not yet properly parenthesise nested formulas.
+impl<I: Display, F: Display, E: Display> Display for Query<I, F, E> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Query::ProbabilityValue {
+                non_determinism,
+                path,
+            } => {
+                write!(f, "P{}=? [{}]", non_determinism.to_str(), path)
+            }
+            Query::StateFormula(state_formula) => {
+                write!(f, "{}", state_formula)
+            }
+            Query::RewardBound {
+                non_determinism,
+                name,
+                bound,
+                reward,
+            } => {
+                write!(
+                    f,
+                    "R{}{}{} [{}]",
+                    name.display(),
+                    non_determinism.to_str(),
+                    bound,
+                    reward
+                )
+            }
+            Query::RewardValue {
+                non_determinism,
+                name,
+                reward,
+            } => {
+                write!(
+                    f,
+                    "R{}{}=? [{}]",
+                    name.display(),
+                    non_determinism.to_str(),
+                    reward
+                )
+            }
+            Query::TimeBound {
+                non_determinism,
+                bound,
+                reward,
+            } => {
+                write!(f, "T{}{} [{}]", non_determinism.to_str(), bound, reward)
+            }
+            Query::TimeValue {
+                non_determinism,
+                reward,
+            } => {
+                write!(f, "T{}=? [{}]", non_determinism.to_str(), reward)
+            }
+        }
+    }
+}
+
 /// A state formula, describing a set of states.
 #[derive(Clone)]
 pub enum StateFormula<I, F, E> {
@@ -515,6 +575,30 @@ impl<I, F, E> StateFormula<I, F, E> {
                 states: Box::new(states.try_map_e(map)?),
             },
         })
+    }
+}
+
+impl<I: Display, F: Display, E: Display> Display for StateFormula<I, F, E> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            StateFormula::Expression(e) => {
+                write!(f, "{e}")
+            }
+            StateFormula::ProbabilityBound {
+                non_determinism,
+                bound,
+                path,
+            } => {
+                write!(f, "P{}{bound} [ {path} ]", non_determinism.to_str())
+            }
+            StateFormula::LongRunAverage {
+                non_determinism,
+                bound,
+                states,
+            } => {
+                write!(f, "LRA{}{bound} [{states}", non_determinism.to_str())
+            }
+        }
     }
 }
 
@@ -746,6 +830,32 @@ impl<I, F, E> PathFormula<I, F, E> {
     }
 }
 
+impl<I: Display, F: Display, E: Display> Display for PathFormula<I, F, E> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            PathFormula::Until { before, after } => {
+                write!(f, "{before} U {after}")
+            }
+            PathFormula::Eventually { condition } => {
+                write!(f, "F {condition}")
+            }
+            PathFormula::BoundedUntil {
+                before,
+                after,
+                bound,
+            } => {
+                write!(f, "{before} U{bound} {after}")
+            }
+            PathFormula::BoundedEventually { condition, bound } => {
+                write!(f, "F{bound} {condition}")
+            }
+            PathFormula::Generally { condition } => {
+                write!(f, "G {condition}")
+            }
+        }
+    }
+}
+
 /// A rewards formula, describing a value computed over a rewards structure of a model.
 #[derive(Clone)]
 pub enum RewardFormula<I, F, E> {
@@ -861,6 +971,17 @@ impl<I, F, E> RewardFormula<I, F, E> {
     }
 }
 
+impl<I: Display, F: Display, E: Display> Display for RewardFormula<I, F, E> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RewardFormula::Instantaneous { k } => write!(f, "I={k}"),
+            RewardFormula::Cumulative { k } => write!(f, "C<={k}"),
+            RewardFormula::Finally { states } => write!(f, "F {}", states),
+            RewardFormula::LongRunAverage => write!(f, "LRA"),
+        }
+    }
+}
+
 /// A bound over the given numeric type `V`. Corresponds to syntax `< value`, `<= value`, `> value`
 /// or `>= value`.
 #[derive(Clone)]
@@ -903,6 +1024,12 @@ impl<V> Bound<V> {
     }
 }
 
+impl<V: Display> Display for Bound<V> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}{}", self.operator, self.value)
+    }
+}
+
 /// A comparison operator, used in [`Bound`].
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum BoundOperator {
@@ -916,6 +1043,17 @@ pub enum BoundOperator {
     GreaterOrEqual,
 }
 
+impl Display for BoundOperator {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            BoundOperator::LessThan => write!(f, "<"),
+            BoundOperator::LessOrEqual => write!(f, "<="),
+            BoundOperator::GreaterThan => write!(f, ">"),
+            BoundOperator::GreaterOrEqual => write!(f, ">="),
+        }
+    }
+}
+
 /// How non-determinism should be resolved
 #[derive(Copy, Clone, PartialEq, Eq)]
 pub enum NonDeterminismKind {
@@ -923,4 +1061,31 @@ pub enum NonDeterminismKind {
     Maximise,
     /// Choose actions that minimise the value
     Minimise,
+}
+
+trait DisplayNonDeterminism {
+    fn to_str(&self) -> &'static str;
+}
+
+impl DisplayNonDeterminism for Option<NonDeterminismKind> {
+    fn to_str(&self) -> &'static str {
+        match self {
+            None => "",
+            Some(NonDeterminismKind::Minimise) => "min",
+            Some(NonDeterminismKind::Maximise) => "max",
+        }
+    }
+}
+
+trait DisplayRewardsName {
+    fn display(&self) -> String;
+}
+
+impl DisplayRewardsName for Option<String> {
+    fn display(&self) -> String {
+        match self {
+            Some(name) => format!("{{\"{name}\"}}"),
+            None => "".to_string(),
+        }
+    }
 }
