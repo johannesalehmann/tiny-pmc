@@ -84,6 +84,12 @@ impl<V, S: Span, E, A> ModuleManager<V, S, E, A> {
         self.modules.get(index)
     }
 
+    /// Returns a mutable reference to the module with the given index or `None` if the index is
+    /// out of bounds.
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut Module<V, S, E, A>> {
+        self.modules.get_mut(index)
+    }
+
     /// Returns the index of the module with the given name or `None`, if no module with the given
     /// name exists.
     ///
