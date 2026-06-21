@@ -108,6 +108,65 @@ pub enum Query<I, F, E> {
 }
 
 impl<I, F, E> Query<I, F, E> {
+    /// If the query is a boolean query (i.e. not a `...Value` query), this returns the negation
+    /// of the query by inverting the bounds. Otherwise, it returns `None`.
+    ///
+    /// The parameter `invert_expression` is a function that inverts the given expression. This is
+    /// necessary because expressions are of type `E`, which is opaque to this library. Therefore,
+    /// it cannot invert the expression itself.
+    #[must_use]
+    pub fn invert<IE: Fn(E) -> E>(self, invert_expression: IE) -> Option<Self> {
+        match self {
+            Query::ProbabilityValue { .. } => None,
+            Query::StateFormula(state_formula) => {
+                let new_state_formula = match state_formula {
+                    StateFormula::Expression(e) => StateFormula::Expression(invert_expression(e)),
+                    StateFormula::ProbabilityBound {
+                        non_determinism,
+                        bound,
+                        path,
+                    } => StateFormula::ProbabilityBound {
+                        non_determinism,
+                        bound: bound.invert(),
+                        path,
+                    },
+                    StateFormula::LongRunAverage {
+                        non_determinism,
+                        bound,
+                        states,
+                    } => StateFormula::LongRunAverage {
+                        non_determinism,
+                        bound: bound.invert(),
+                        states,
+                    },
+                };
+                Some(Query::StateFormula(new_state_formula))
+            }
+            Query::RewardBound {
+                non_determinism,
+                name,
+                bound,
+                reward,
+            } => Some(Query::RewardBound {
+                non_determinism,
+                name,
+                bound: bound.invert(),
+                reward,
+            }),
+            Query::RewardValue { .. } => None,
+            Query::TimeBound {
+                non_determinism,
+                bound,
+                reward,
+            } => Some(Query::TimeBound {
+                non_determinism,
+                bound: bound.invert(),
+                reward,
+            }),
+            Query::TimeValue { .. } => None,
+        }
+    }
+
     /// Returns a query where the integers, floats and expressions are stored as mutable references.
     pub fn as_mut(&mut self) -> Query<&mut I, &mut F, &mut E> {
         match self {
@@ -1022,6 +1081,14 @@ impl<V> Bound<V> {
             value: map(self.value)?,
         })
     }
+
+    /// Returns the bound that is the logical negation of `self`.
+    pub fn invert(self) -> Self {
+        Self {
+            operator: self.operator.invert(),
+            value: self.value,
+        }
+    }
 }
 
 impl<V: Display> Display for Bound<V> {
@@ -1041,6 +1108,20 @@ pub enum BoundOperator {
     GreaterThan,
     /// Greater-than-or-equal comparison (`>=`)
     GreaterOrEqual,
+}
+
+impl BoundOperator {
+    /// Returns the bounds operator that is the negation of the current operator.
+    ///
+    /// It transforms `<` into `>=`, `<=` into `>`, `>` into `<=` and `>=` into `<`.
+    pub fn invert(&self) -> BoundOperator {
+        match self {
+            BoundOperator::LessThan => BoundOperator::GreaterOrEqual,
+            BoundOperator::LessOrEqual => BoundOperator::GreaterThan,
+            BoundOperator::GreaterThan => BoundOperator::LessOrEqual,
+            BoundOperator::GreaterOrEqual => BoundOperator::LessThan,
+        }
+    }
 }
 
 impl Display for BoundOperator {
