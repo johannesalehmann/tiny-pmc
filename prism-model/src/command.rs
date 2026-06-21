@@ -499,13 +499,17 @@ impl<Ctx, V: Displayable<Ctx>, S: Span, E: Displayable<Ctx>> Displayable<Ctx> fo
         // }
         write!(f, "{} : ", self.probability.displayable(context))?;
 
-        let mut is_first = true;
-        for assignment in &self.assignments {
-            if !is_first {
-                write!(f, " & ")?;
+        if self.assignments.is_empty() {
+            write!(f, "()")?;
+        } else {
+            let mut is_first = true;
+            for assignment in &self.assignments {
+                if !is_first {
+                    write!(f, " & ")?;
+                }
+                is_first = false;
+                write!(f, "({})", assignment.displayable(context))?;
             }
-            is_first = false;
-            write!(f, "({})", assignment.displayable(context))?;
         }
 
         Ok(())
