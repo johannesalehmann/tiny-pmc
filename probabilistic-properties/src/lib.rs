@@ -1083,6 +1083,7 @@ impl<V> Bound<V> {
     }
 
     /// Returns the bound that is the logical negation of `self`.
+    #[must_use]
     pub fn invert(self) -> Self {
         Self {
             operator: self.operator.invert(),
@@ -1114,6 +1115,7 @@ impl BoundOperator {
     /// Returns the bounds operator that is the negation of the current operator.
     ///
     /// It transforms `<` into `>=`, `<=` into `>`, `>` into `<=` and `>=` into `<`.
+    #[must_use]
     pub fn invert(&self) -> BoundOperator {
         match self {
             BoundOperator::LessThan => BoundOperator::GreaterOrEqual,
