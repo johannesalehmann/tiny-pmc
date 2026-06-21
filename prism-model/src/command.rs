@@ -500,7 +500,7 @@ impl<Ctx, V: Displayable<Ctx>, S: Span, E: Displayable<Ctx>> Displayable<Ctx> fo
         write!(f, "{} : ", self.probability.displayable(context))?;
 
         if self.assignments.is_empty() {
-            write!(f, "()")?;
+            write!(f, "true")?;
         } else {
             let mut is_first = true;
             for assignment in &self.assignments {
