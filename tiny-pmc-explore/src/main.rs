@@ -1,6 +1,7 @@
-use iced::Element;
+use iced::widget::container::{background, bordered_box};
 use iced::widget::pane_grid::Pane;
-use iced::widget::{Row, button, column, pane_grid, row, text, text_editor};
+use iced::widget::{Container, Row, button, column, pane_grid, row, text, text_editor};
+use iced::{Element, Padding, Theme};
 
 fn main() -> iced::Result {
     iced::run(MdpGraph::update, MdpGraph::view)
@@ -93,7 +94,11 @@ impl MdpGraph {
     }
 
     fn hotbar<'a>(&'a self) -> Element<'a, Message> {
-        row![button("+"), button("-"), button("*"), button("/")].into()
+        Container::new(
+            row![button("+"), button("-"), button("*"), button("/")].padding(Padding::new(10.0)),
+        )
+        .style(|a: &Theme| background(a.palette().background))
+        .into()
     }
 
     fn project_bar<'a>(&'a self) -> Element<'a, Message> {
