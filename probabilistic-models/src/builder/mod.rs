@@ -1,3 +1,5 @@
+mod bases;
+
 use crate::index::RawIndex;
 use crate::valuations::{StandaloneValuation, Valuations};
 use crate::{BranchIndex, ChoiceIndex, Model, StateIndex};
@@ -73,10 +75,14 @@ pub trait BaseModelBuilder {
     ) -> Option<StateIndex<Self::Index>>;
     fn add_state(&mut self, valuation: StandaloneValuation<Self::Index>)
     -> StateIndex<Self::Index>;
-    fn state_valuations(&self) -> Valuations<Self::Index, StateIndex<Self::Index>>;
+    fn state_valuations(&self) -> &Valuations<Self::Index, StateIndex<Self::Index>>;
 
     fn add_choice(&mut self) -> ChoiceIndex<Self::Index>;
-    fn add_branch(&mut self) -> BranchIndex<Self::Index>;
+    fn add_branch(
+        &mut self,
+        rate_or_probability: f64,
+        target: StateIndex<I>,
+    ) -> BranchIndex<Self::Index>;
     fn finish_choice(&mut self);
     fn finish_branch(&mut self);
 }

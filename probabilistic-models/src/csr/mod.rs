@@ -43,6 +43,11 @@ impl<From: Index, To: Index> Csr<From, To> {
         self.entries.push(end_to);
     }
 
+    pub fn extend_last_entry(&mut self, new_to: To) {
+        let last_index = self.entries.len() - 1;
+        self.entries[last_index] = new_to;
+    }
+
     pub fn end_to(&self) -> To {
         if let Some(entry) = self.entries.last() {
             *entry

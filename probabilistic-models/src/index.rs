@@ -1,7 +1,7 @@
 use num_integer::Integer;
 use num_traits::{MulAdd, PrimInt};
 use std::fmt::{Debug, Display, Formatter};
-use std::ops::{Add, Div, Mul, Sub};
+use std::ops::{Add, AddAssign, Div, Mul, Sub};
 
 pub trait RawIndex: Integer + PrimInt + Copy + std::ops::Sub<Output = Self> + Display {
     fn as_usize(self) -> usize;
@@ -90,6 +90,12 @@ macro_rules! index {
 
             fn add(self, rhs: Raw) -> Self {
                 Self::from_raw(self.raw + rhs)
+            }
+        }
+
+        impl<Raw: RawIndex> AddAssign<Raw> for $name<Raw> {
+            fn add_assign(&mut self, rhs: Raw) -> Self {
+                self.raw += rhs
             }
         }
 

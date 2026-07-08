@@ -333,9 +333,9 @@ impl<'a, I: RawIndex> ValuationBitsMut<I> for ValuationEntryMut<'a, I> {
 }
 
 pub struct StandaloneValuation<'a, I: RawIndex> {
-    class_index: ValuationClassIndex<I>,
-    class: &'a ValuationClass<I>,
-    data: ValuationClassData<I>,
+    pub class_index: ValuationClassIndex<I>,
+    pub class: &'a ValuationClass<I>,
+    pub data: ValuationClassData<I>,
 }
 
 impl<'a, I: RawIndex> ValuationBits<'a, I> for StandaloneValuation<'a, I> {
@@ -366,8 +366,8 @@ impl<'a, I: RawIndex> ValuationBitsMut<I> for StandaloneValuation<'a, I> {
 }
 
 pub struct ValuationClassData<I: RawIndex> {
-    valuations: ValuationVector<I>,
-    strings: Vec<String>,
+    pub valuations: ValuationVector<I>,
+    pub strings: Vec<String>,
 }
 
 impl<I: RawIndex> ValuationClassData<I> {

@@ -20,15 +20,15 @@ pub trait BaseModel<I: RawIndex> {}
 pub struct Mdp<I: RawIndex = u32> {
     state_to_choice: StateToChoice<I>,
     choice_to_branch: ChoiceToBranch<I>,
-    branch_probabilities: To1<BranchIndex<I>, f32>,
-    branch_targets: To1<BranchIndex<I>, I>,
+    branch_probabilities: To1<BranchIndex<I>, f64>,
+    branch_targets: To1<BranchIndex<I>, StateIndex<I>>,
 }
 
 impl<I: RawIndex> BaseModel<I> for Mdp<I> {}
 
 pub struct Dtmc<I: RawIndex = u32> {
     choice_to_branch: ChoiceToBranch<I>,
-    branch_probabilities: To1<BranchIndex<I>, f32>,
+    branch_probabilities: To1<BranchIndex<I>, f64>,
     branch_targets: To1<BranchIndex<I>, I>,
 }
 impl<I: RawIndex> BaseModel<I> for Dtmc<I> {}
@@ -42,9 +42,9 @@ impl<I: RawIndex> BaseModel<I> for TransitionSystem<I> {}
 
 pub struct Ctmc<I: RawIndex = u32> {
     choice_to_branch: ChoiceToBranch<I>,
-    branch_probabilities: To1<BranchIndex<I>, f32>,
+    branch_probabilities: To1<BranchIndex<I>, f64>,
     branch_targets: To1<BranchIndex<I>, I>,
-    state_to_exit_rate: To1<StateIndex<I>, f32>,
+    state_to_exit_rate: To1<StateIndex<I>, f64>,
 }
 
 impl<I: RawIndex> BaseModel<I> for Ctmc<I> {}
@@ -52,9 +52,9 @@ impl<I: RawIndex> BaseModel<I> for Ctmc<I> {}
 pub struct Ctmdp<I: RawIndex = u32> {
     state_to_choice: StateToChoice<I>,
     choice_to_branch: ChoiceToBranch<I>,
-    branch_probabilities: To1<BranchIndex<I>, f32>,
+    branch_probabilities: To1<BranchIndex<I>, f64>,
     branch_targets: To1<BranchIndex<I>, I>,
-    state_to_exit_rate: To1<StateIndex<I>, f32>,
+    state_to_exit_rate: To1<StateIndex<I>, f64>,
 }
 
 impl<I: RawIndex> BaseModel<I> for Ctmdp<I> {}
