@@ -5,3 +5,9 @@ edition = "2024"
 
 [dependencies]
 probabilistic-properties = { path = "../probabilistic-properties" }
+num-traits = "0.2"
+num-integer = "0.1.46"
+
+
+[dev-dependencies]
+paste = "1.0.15"
