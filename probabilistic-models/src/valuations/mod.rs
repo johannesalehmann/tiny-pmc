@@ -65,6 +65,9 @@ impl<I: RawIndex, From: Index> Valuations<I, From> {
     }
 
     pub fn add_valuation(&mut self, valuation: StandaloneValuation<I>) -> ValuationIndex<I> {
+        if !valuation.data.strings.is_empty() {
+            panic!("Adding StandaloneValuations with strings is not yet supported");
+        }
         self.valuations[valuation.class_index]
             .valuations
             .add_from_standalone(valuation)

@@ -61,7 +61,7 @@ impl<I: RawIndex> BaseModel<I> for Ctmdp<I> {}
 
 pub type InitialStates<I: RawIndex = u32> = To1<StateIndex<I>, bool>;
 
-pub struct Model<I: RawIndex, M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val> {
+pub struct Model<I: RawIndex, M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals> {
     base: M,
     initial: Ini,
     choice_labels: ChLabel,
@@ -70,7 +70,7 @@ pub struct Model<I: RawIndex, M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val>
     atomic_propositions: APs,
     rewards: Rew,
     annotations: Ann,
-    valuations: Val,
+    state_valuations: StateVals, // TODO: Support other valuations
     _phantom_data: PhantomData<(I)>,
 }
 

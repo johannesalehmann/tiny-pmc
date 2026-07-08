@@ -1,45 +1,98 @@
-// use crate::index::RawIndex;
-// use crate::{ChoiceIndex, Model, StateIndex};
-//
-// pub struct ModelBuilderBuilder<I: RawIndex, Base: BaseModelBuilder<I>> {
-//     base: Base,
-//     choice_labeler: ChoiceLabeler,
-//     branch_labeler: BranchLabeler,
-//     atomic_propositions: APBuilder,
-// }
-//
-// pub struct ModelBuilder<I: RawIndex, Base: BaseModelBuilder<I>, Ini: InitialStatesBuilder<I>> {
-//     base: Base,
-//     initial_states: Ini,
-// }
-//
-// impl ModelBuilder<I: RawIndex, Base: BaseModelBuilder<I>> {}
-//
-// pub trait BaseModelBuilder<I: RawIndex> {
-//     type BaseModel;
-//
-//     fn finish_choice(choice_index: ChoiceIndex<I>);
-//     fn finish_state(state_index: StateIndex<I>);
-//     fn add_choice(); // TODO: Figure out parameters
-// }
-//
-// pub trait InitialStatesBuilder<I: RawIndex> {
-//     type InitialStates;
-//
-//     fn stores_initial_states() -> bool;
-//     fn mark_state(&mut self, state: StateIndex<I>);
-// }
-//
-// pub trait ChoiceLabeler<I: RawIndex> {
-//     type ChoiceLabels;
-//
-//     fn stores_choice_labels() -> bool;
-//     fn label_choice(&mut self, choice: ChoiceIndex<I>, label: Option<String>);
-// }
-//
-// pub trait AtomicPropositionBuilder<I: RawIndex> {
-//     type AtomicPropositions;
-//
-//     fn stores_atomic_propositions() -> bool;
-//     fn set_value(&mut self, id: String, state: StateIndex<I>, value: bool);
-// }
+use crate::index::RawIndex;
+use crate::valuations::{StandaloneValuation, Valuations};
+use crate::{BranchIndex, ChoiceIndex, Model, StateIndex};
+
+pub struct ModelBuilderBuilder<
+    Base: BaseModelBuilder,
+    Ini: InitialStatesBuilder,
+    APs: AtomicPropositionBuilder,
+> {
+    base: Base,
+    initial_states: Ini,
+    atomic_propositions: APs,
+}
+
+impl<Base: BaseModelBuilder, Ini: InitialStatesBuilder, APs: AtomicPropositionBuilder>
+    ModelBuilderBuilder<Base, Ini, APs>
+{
+    pub fn new(base: Base) -> ModelBuilderBuilder<Base, (), ()> {
+        Self {
+            base,
+            initial_states: (),
+            atomic_propositions: (),
+        }
+    }
+
+    // TODO: Functions to add and remove initial states
+
+    pub fn finish(self) -> ModelBuilder<BaseModelBuilder> {
+        ModelBuilder {
+            base: self.base,
+            initial_states: self.initial_states,
+            atomic_propositions: self.atomic_propositions,
+        }
+    }
+}
+
+pub struct ModelBuilder<
+    Base: BaseModelBuilder,
+    Ini: InitialStatesBuilder,
+    APs: AtomicPropositionBuilder,
+> {
+    base: Base,
+    initial_states: Ini,
+    atomic_propositions: APs,
+}
+
+impl<Base: BaseModelBuilder, Ini: InitialStatesBuilder, APs: AtomicPropositionBuilder>
+    ModelBuilder<Base, Ini, APs>
+{
+    pub fn finish() -> Model<
+        Base::Index,
+        Base::BaseModel,
+        Ini::InitialStates,
+        (),
+        (),
+        (),
+        APs::AtomicPropositions,
+        (),
+        (),
+        Valuations<Base::Index, StateIndex<Base::Index>>,
+    > {
+        todo!()
+    }
+}
+
+pub trait BaseModelBuilder {
+    type BaseModel;
+    type Index: RawIndex;
+
+    fn state_by_valuation(
+        &self,
+        valuation: &StandaloneValuation<Self::Index>,
+    ) -> Option<StateIndex<Self::Index>>;
+    fn add_state(&mut self, valuation: StandaloneValuation<Self::Index>)
+    -> StateIndex<Self::Index>;
+    fn state_valuations(&self) -> Valuations<Self::Index, StateIndex<Self::Index>>;
+
+    fn add_choice(&mut self) -> ChoiceIndex<Self::Index>;
+    fn add_branch(&mut self) -> BranchIndex<Self::Index>;
+    fn finish_choice(&mut self);
+    fn finish_branch(&mut self);
+}
+
+pub trait InitialStatesBuilder {
+    type InitialStates;
+    type Index: RawIndex;
+
+    fn stores_initial_states() -> bool;
+    fn mark_state(&mut self, state: StateIndex<Self::Index>);
+}
+
+pub trait AtomicPropositionBuilder {
+    type AtomicPropositions;
+    type Index: RawIndex;
+
+    fn stores_atomic_propositions() -> bool;
+    fn set_value(&mut self, id: String, state: StateIndex<Self::Index>, value: bool);
+}
