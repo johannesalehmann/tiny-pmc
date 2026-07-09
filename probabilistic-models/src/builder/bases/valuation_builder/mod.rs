@@ -1,9 +1,9 @@
 mod valuation_to_state;
 use valuation_to_state::ValuationToEntity;
 
-use crate::to1::To1;
 use crate::valuations::{StandaloneValuation, Valuations};
 use crate::{RawIndex, StateIndex, ValuationClassIndex};
+use typed_index_collections::To1;
 
 pub struct ValuationBuilder<I: RawIndex> {
     state_valuations: Valuations<I, StateIndex<I>>,

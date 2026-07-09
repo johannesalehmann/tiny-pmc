@@ -1,20 +1,22 @@
 mod annotations;
-mod builder;
+pub mod builder;
 mod choices;
-mod csr;
-mod index;
 mod initial_states;
-mod named_collection;
-mod to1;
 mod valuations;
 
 use crate::choices::{ChoiceToBranch, StateToChoice};
-use crate::to1::To1;
-pub use index::{
-    AnnotationEntryIndex, AnnotationIndex, BranchIndex, ChoiceIndex, Index, PlayerIndex, RawIndex,
-    StateIndex, ValuationClassEntryIndex, ValuationClassIndex, ValuationIndex,
-};
 use std::marker::PhantomData;
+use typed_index_collections::{RawIndex, To1, index};
+
+index!(StateIndex);
+index!(ChoiceIndex);
+index!(BranchIndex);
+index!(PlayerIndex);
+index!(AnnotationIndex);
+index!(AnnotationEntryIndex);
+index!(ValuationClassIndex);
+index!(ValuationClassEntryIndex);
+index!(ValuationIndex);
 
 pub trait BaseModel<I: RawIndex> {}
 

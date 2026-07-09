@@ -18,27 +18,22 @@ use prism_model::{
     Command, Expression, Identifier, Model, Span, Update, VariableManager, VariableRange,
     VariableReference,
 };
-use probabilistic_models::probabilistic_properties::Query;
-use probabilistic_models::{
-    Action, AtomicProposition, AtomicPropositions, Builder, Distribution, ModelTypes,
-    PredecessorsBuilder, ProbabilisticModel, Successor, Valuation, ValuationBuilder,
-};
-use probabilistic_models::{DistributionBuilder, Predecessor};
+use probabilistic_models::builder;
+use probabilistic_properties::Query;
 use std::collections::HashMap;
 
 pub fn build_model<
     S: Span,
-    M: ModelTypes,
+    Base: builder::BaseModelBuilder,
+    Ini: builder::InitialStatesBuilder,
+    APs: builder::AtomicPropositionBuilder,
+    M: Into<builder::ModelBuilder<Base, Ini, APs>>,
     I: Iterator<
-        Item = Query<
-            Expression<VariableReference, S>,
-            Expression<VariableReference, S>,
-            AtomicProposition,
-        >,
+        Item = Query<Expression<VariableReference, S>, Expression<VariableReference, S>, usize>,
     >,
 >(
     model: &mut Model<VariableReference, S, Expression<VariableReference, S>, Identifier<S>>,
-    atomic_propositions: &[Expression<VariableReference, S>],
+    atomic_propositions: &To1<> Expression<VariableReference, S>],
     properties: I,
     user_provided_consts: &HashMap<String, UserProvidedConstValue>,
 ) -> Result<ModelBuildingOutput<M>, ModelBuildingError> {
@@ -142,13 +137,22 @@ impl<'a, SE: SubExpressionProvider> ExpressionContext<usize>
     }
 }
 
-pub struct ExplicitModelBuilder<M: ModelTypes> {
-    model_in_progress: ModelInProgress<M>,
-    open_states: Vec<usize>,
+pub struct ExplicitModelBuilder<
+    Base: builder::BaseModelBuilder,
+    Ini: builder::InitialStatesBuilder,
+    APs: builder::AtomicPropositionBuilder,
+> {
+    builder: builder::ModelBuilder<Base, Ini, APs>,
+    open_states: Vec<StateIndex<Base::Index>>,
     variable_info: variables::ModelVariableInfo<M::Valuation>,
 }
 
-impl<M: ModelTypes> ExplicitModelBuilder<M> {
+impl<
+    Base: builder::BaseModelBuilder,
+    Ini: builder::InitialStatesBuilder,
+    APs: builder::AtomicPropositionBuilder,
+> ExplicitModelBuilder<Base, Ini, APs>
+{
     fn build_properties<
         S: Span,
         I: Iterator<
@@ -438,11 +442,8 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
                 let mut distribution = <M::Distribution as Distribution>::get_builder();
 
                 while update_indices[0]
-                    < model
-                        .modules
-                        .get(modules[0].module_index)
-                        .unwrap()
-                        .commands[command_indices[0]]
+                    < model.modules.get(modules[0].module_index).unwrap().commands
+                        [command_indices[0]]
                         .updates
                         .len()
                         .max(1)

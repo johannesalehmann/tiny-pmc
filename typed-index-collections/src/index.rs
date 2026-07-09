@@ -60,14 +60,15 @@ pub trait Index: Copy + Eq + Debug {
     fn raw(self) -> Self::RawType;
 }
 
+#[macro_export]
 macro_rules! index {
     ($name: ident) => {
         #[derive(Copy, Clone, PartialEq, Eq, Default)]
-        pub struct $name<Raw: RawIndex> {
+        pub struct $name<Raw: typed_index_collections::RawIndex> {
             raw: Raw,
         }
 
-        impl<Raw: RawIndex> Index for $name<Raw> {
+        impl<Raw: typed_index_collections::RawIndex> typed_index_collections::Index for $name<Raw> {
             type RawType = Raw;
 
             fn from_raw(index: Self::RawType) -> Self {
@@ -79,58 +80,52 @@ macro_rules! index {
             }
         }
 
-        impl<Raw: RawIndex> Debug for $name<Raw> {
-            fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        impl<Raw: typed_index_collections::RawIndex> std::fmt::Debug for $name<Raw> {
+            fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
                 write!(f, stringify!($name({})), self.raw)
             }
         }
 
-        impl<Raw: RawIndex> Add<Raw> for $name<Raw> {
+        impl<Raw: typed_index_collections::RawIndex> std::ops::Add<Raw> for $name<Raw> {
             type Output = Self;
 
             fn add(self, rhs: Raw) -> Self {
+                use typed_index_collections::Index;
                 Self::from_raw(self.raw + rhs)
             }
         }
 
-        impl<Raw: RawIndex> AddAssign<Raw> for $name<Raw> {
+        impl<Raw: typed_index_collections::RawIndex> std::ops::AddAssign<Raw> for $name<Raw> {
             fn add_assign(&mut self, rhs: Raw) {
                 self.raw = self.raw + rhs
             }
         }
 
-        impl<Raw: RawIndex> Sub<Raw> for $name<Raw> {
+        impl<Raw: typed_index_collections::RawIndex> std::ops::Sub<Raw> for $name<Raw> {
             type Output = Self;
 
             fn sub(self, rhs: Raw) -> Self::Output {
+                use typed_index_collections::Index;
                 Self::from_raw(self.raw - rhs)
             }
         }
 
-        impl<Raw: RawIndex> Mul<Raw> for $name<Raw> {
+        impl<Raw: typed_index_collections::RawIndex> std::ops::Mul<Raw> for $name<Raw> {
             type Output = Self;
 
             fn mul(self, rhs: Raw) -> Self::Output {
+                use typed_index_collections::Index;
                 Self::from_raw(self.raw * rhs)
             }
         }
 
-        impl<Raw: RawIndex> Div<Raw> for $name<Raw> {
+        impl<Raw: typed_index_collections::RawIndex> std::ops::Div<Raw> for $name<Raw> {
             type Output = Self;
 
             fn div(self, rhs: Raw) -> Self::Output {
+                use typed_index_collections::Index;
                 Self::from_raw(self.raw / rhs)
             }
         }
     };
 }
-
-index!(StateIndex);
-index!(ChoiceIndex);
-index!(BranchIndex);
-index!(PlayerIndex);
-index!(AnnotationIndex);
-index!(AnnotationEntryIndex);
-index!(ValuationClassIndex);
-index!(ValuationClassEntryIndex);
-index!(ValuationIndex);

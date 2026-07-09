@@ -1,7 +1,7 @@
-use crate::to1::To1;
 use crate::{RawIndex, ValuationClassEntryIndex};
 use std::collections::HashMap;
 use std::ops::Range;
+use typed_index_collections::To1;
 
 pub struct ValuationClass<I: RawIndex> {
     entries: To1<ValuationClassEntryIndex<I>, ValuationClassEntry>,

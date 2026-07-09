@@ -3,13 +3,10 @@ mod distributions;
 pub use distributions::Distribution;
 use std::collections::HashMap;
 
-use crate::Index;
 use crate::annotations::distributions::IdentityDistribution;
-use crate::index::RawIndex;
-use crate::named_collection::NamedTo1;
-use crate::to1::To1;
 use crate::{AnnotationEntryIndex, AnnotationIndex, StateIndex};
 use std::marker::PhantomData;
+use typed_index_collections::{Index, NamedTo1, RawIndex, To1};
 
 #[derive(Default)]
 pub struct TypedAnnotation<

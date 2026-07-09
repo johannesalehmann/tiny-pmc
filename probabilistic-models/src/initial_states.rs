@@ -1,6 +1,6 @@
-use crate::index::RawIndex;
 use crate::{InitialStates, Model, StateIndex};
 use std::marker::PhantomData;
+use typed_index_collections::RawIndex;
 
 pub struct SingleInitialState<I: RawIndex> {
     pub index: StateIndex<I>,

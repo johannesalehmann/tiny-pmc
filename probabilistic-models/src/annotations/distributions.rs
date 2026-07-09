@@ -1,7 +1,5 @@
-use crate::csr::{Csr, CsrRange};
-use crate::to1::To1;
-use crate::{Index, RawIndex};
 use std::marker::PhantomData;
+use typed_index_collections::{Csr, CsrRange, Index, RawIndex, To1};
 
 pub trait DeltaDistribution<From: Index, To: Index> {
     fn annotation_of_state(&self, state: From) -> To;

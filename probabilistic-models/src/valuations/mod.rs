@@ -1,10 +1,9 @@
-use crate::index::RawIndex;
-use crate::to1::To1;
 use crate::valuations::class::{Type, ValuationClass, ValuationClassEntry};
-use crate::{Index, ValuationClassEntryIndex, ValuationClassIndex, ValuationIndex};
+use crate::{ValuationClassEntryIndex, ValuationClassIndex, ValuationIndex};
 use num_traits::ToBytes;
 use std::marker::PhantomData;
 use std::ops::Range;
+use typed_index_collections::{Index, RawIndex, To1};
 
 mod bits;
 use crate::valuations::bits::SetBits;

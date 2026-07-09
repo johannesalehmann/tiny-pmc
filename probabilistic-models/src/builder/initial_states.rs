@@ -1,7 +1,7 @@
 use crate::initial_states::SingleInitialState;
-use crate::to1::To1;
 use crate::{InitialStates, RawIndex, StateIndex};
 use std::marker::PhantomData;
+use typed_index_collections::To1;
 
 pub trait InitialStatesBuilder: Default {
     type InitialStates;

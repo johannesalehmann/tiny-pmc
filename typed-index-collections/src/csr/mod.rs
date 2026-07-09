@@ -141,9 +141,12 @@ impl<'a, From: Index, To: Index> Iterator for EnumeratingCsrIterator<'a, From, T
 
 #[cfg(test)]
 mod test {
+    use crate::Index;
     use crate::csr::{Csr, CsrRange};
-    use crate::{BranchIndex, Index, StateIndex};
     use std::marker::PhantomData;
+
+    crate::index!(BranchIndex);
+    crate::index!(StateIndex);
 
     macro_rules! check_csr {
         ($test_name: ident, $($index: expr),*) => {

@@ -1,7 +1,8 @@
+use crate::ValuationIndex;
 use crate::valuations::{StandaloneValuation, ValuationVector};
-use crate::{Index, RawIndex, ValuationIndex};
 use num_traits::Zero;
 use std::collections::HashMap;
+use typed_index_collections::{Index, RawIndex};
 
 pub enum ValuationToEntity<To: Index> {
     U0,
