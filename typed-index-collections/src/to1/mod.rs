@@ -58,6 +58,20 @@ impl<From: Index, E> To1<From, E> {
             None
         }
     }
+
+    pub fn map<E2>(&self, map: impl Fn(&E) -> E2) -> To1<From, E2> {
+        To1 {
+            entries: self.entries.iter().map(map).collect::<Vec<_>>(),
+            _phantom_data: PhantomData,
+        }
+    }
+
+    pub fn change_key_type<From2: Index>(self) -> To1<From2, E> {
+        To1 {
+            entries: self.entries,
+            _phantom_data: PhantomData,
+        }
+    }
 }
 
 impl<From: Index, E> std::ops::Index<From> for To1<From, E> {
