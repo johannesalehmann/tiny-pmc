@@ -1,5 +1,5 @@
 use crate::valuations::{StandaloneValuation, ValuationVector};
-use crate::{Index, RawIndex, StateIndex, ValuationIndex};
+use crate::{Index, RawIndex, ValuationIndex};
 use num_traits::Zero;
 use std::collections::HashMap;
 

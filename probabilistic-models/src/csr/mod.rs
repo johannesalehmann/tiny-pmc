@@ -5,6 +5,7 @@ use crate::Index;
 use crate::index::RawIndex;
 use std::marker::PhantomData;
 
+#[derive(Default)]
 pub struct Csr<From: Index, To: Index> {
     entries: Vec<To>,
     phantom_data: PhantomData<From>,

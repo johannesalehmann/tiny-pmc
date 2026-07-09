@@ -4,14 +4,15 @@ mod choices;
 mod csr;
 mod index;
 mod initial_states;
+mod named_collection;
 mod to1;
 mod valuations;
 
 use crate::choices::{ChoiceToBranch, StateToChoice};
 use crate::to1::To1;
 pub use index::{
-    AnnotationIndex, BranchIndex, ChoiceIndex, Index, PlayerIndex, RawIndex, StateIndex,
-    ValuationClassEntryIndex, ValuationClassIndex, ValuationIndex,
+    AnnotationEntryIndex, AnnotationIndex, BranchIndex, ChoiceIndex, Index, PlayerIndex, RawIndex,
+    StateIndex, ValuationClassEntryIndex, ValuationClassIndex, ValuationIndex,
 };
 use std::marker::PhantomData;
 
@@ -88,7 +89,7 @@ where
             atomic_propositions: (),
             rewards: (),
             annotations: (),
-            valuations: (),
+            state_valuations: (),
             _phantom_data: PhantomData,
         }
     }

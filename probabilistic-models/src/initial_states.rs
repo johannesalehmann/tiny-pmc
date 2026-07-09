@@ -3,7 +3,7 @@ use crate::{InitialStates, Model, StateIndex};
 use std::marker::PhantomData;
 
 pub struct SingleInitialState<I: RawIndex> {
-    index: StateIndex<I>,
+    pub index: StateIndex<I>,
 }
 
 impl<I: RawIndex, M, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val>
@@ -22,7 +22,7 @@ impl<I: RawIndex, M, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val>
             atomic_propositions: self.atomic_propositions,
             rewards: self.rewards,
             annotations: self.annotations,
-            valuations: self.valuations,
+            state_valuations: self.state_valuations,
             _phantom_data: PhantomData,
         }
     }
@@ -39,7 +39,7 @@ impl<I: RawIndex, M, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val>
             atomic_propositions: self.atomic_propositions,
             rewards: self.rewards,
             annotations: self.annotations,
-            valuations: self.valuations,
+            state_valuations: self.state_valuations,
             _phantom_data: PhantomData,
         }
     }
@@ -80,7 +80,7 @@ impl<I: RawIndex, M, Init: IsInitial<I>, ChLabel, BrLabel, Obs, APs, Rew, Anno, 
             atomic_propositions: self.atomic_propositions,
             rewards: self.rewards,
             annotations: self.annotations,
-            valuations: self.valuations,
+            state_valuations: self.state_valuations,
             _phantom_data: PhantomData,
         }
     }

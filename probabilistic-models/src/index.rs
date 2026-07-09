@@ -3,7 +3,7 @@ use num_traits::{MulAdd, PrimInt};
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::{Add, AddAssign, Div, Mul, Sub};
 
-pub trait RawIndex: Integer + PrimInt + Copy + std::ops::Sub<Output = Self> + Display {
+pub trait RawIndex: Integer + PrimInt + Copy + Sub<Output = Self> + Display + Default {
     fn as_usize(self) -> usize;
     fn from_usize(val: usize) -> Self;
 }
@@ -62,7 +62,7 @@ pub trait Index: Copy + Eq + Debug {
 
 macro_rules! index {
     ($name: ident) => {
-        #[derive(Copy, Clone, PartialEq, Eq)]
+        #[derive(Copy, Clone, PartialEq, Eq, Default)]
         pub struct $name<Raw: RawIndex> {
             raw: Raw,
         }
@@ -94,8 +94,8 @@ macro_rules! index {
         }
 
         impl<Raw: RawIndex> AddAssign<Raw> for $name<Raw> {
-            fn add_assign(&mut self, rhs: Raw) -> Self {
-                self.raw += rhs
+            fn add_assign(&mut self, rhs: Raw) {
+                self.raw = self.raw + rhs
             }
         }
 
@@ -130,6 +130,7 @@ index!(ChoiceIndex);
 index!(BranchIndex);
 index!(PlayerIndex);
 index!(AnnotationIndex);
+index!(AnnotationEntryIndex);
 index!(ValuationClassIndex);
 index!(ValuationClassEntryIndex);
 index!(ValuationIndex);

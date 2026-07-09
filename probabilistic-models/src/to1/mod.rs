@@ -3,6 +3,7 @@ use crate::index::RawIndex;
 use std::marker::PhantomData;
 use std::ops::Range;
 
+#[derive(Default)]
 pub struct To1<From: Index, E> {
     entries: Vec<E>,
     _phantom_data: PhantomData<From>,
@@ -37,7 +38,13 @@ impl<From: Index, E> To1<From, E> {
         self.entries.get_mut(index.raw().as_usize())
     }
 
-    pub fn add(&mut self, element: E) -> From {
+    pub fn add(&mut self, index: From, element: E) -> From {
+        assert_eq!(index.raw().as_usize(), self.entries.len());
+        self.entries.push(element);
+        index
+    }
+
+    pub fn add_unchecked(&mut self, element: E) -> From {
         let index = From::from_raw(From::RawType::from_usize(self.entries.len()));
         self.entries.push(element);
         index

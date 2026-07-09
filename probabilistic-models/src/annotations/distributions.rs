@@ -1,6 +1,6 @@
-use crate::Index;
 use crate::csr::{Csr, CsrRange};
 use crate::to1::To1;
+use crate::{Index, RawIndex};
 use std::marker::PhantomData;
 
 pub trait DeltaDistribution<From: Index, To: Index> {
@@ -12,6 +12,7 @@ pub trait Distribution<From: Index, To: Index> {
     fn probability(&self, index: To) -> f32;
 }
 
+#[derive(Default)]
 pub struct ProbabilisticDistribution<From: Index, To: Index> {
     entity_to_annotations: Csr<From, To>,
     probabilities: To1<To, f32>,
@@ -27,8 +28,15 @@ impl<From: Index, To: Index> Distribution<From, To> for ProbabilisticDistributio
     }
 }
 
+#[derive(Default)]
 pub struct IdentityDistribution<From: Index, To: Index> {
     phantom_data: PhantomData<(From, To)>,
+}
+
+impl<From: Index, To: Index> IdentityDistribution<From, To> {
+    pub fn annotation_index(&self, from: From) -> To {
+        To::from_raw(To::RawType::from_usize(from.raw().as_usize()))
+    }
 }
 
 impl<From: Index, To: Index> Distribution<From, To> for IdentityDistribution<From, To> {

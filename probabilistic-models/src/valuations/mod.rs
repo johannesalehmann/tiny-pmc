@@ -22,8 +22,8 @@ pub struct Valuations<I: RawIndex, From: Index> {
 impl<I: RawIndex, From: Index> Valuations<I, From> {
     pub fn add_class(&mut self, class: ValuationClass<I>) -> ValuationClassIndex<I> {
         let bits = class.size_in_bits();
-        let index = self.classes.add(class);
-        self.valuations.add(ValuationClassData::new(bits));
+        let index = self.classes.add_unchecked(class);
+        self.valuations.add_unchecked(ValuationClassData::new(bits));
         index
     }
 
@@ -413,17 +413,17 @@ impl<I: RawIndex> ValuationVector<I> {
     pub fn add_empty_entry(&mut self) -> ValuationIndex<I> {
         match self {
             ValuationVector::U0 => ValuationIndex::from_raw(I::zero()),
-            ValuationVector::U8(vals) => vals.add(0),
-            ValuationVector::U16(vals) => vals.add(0),
-            ValuationVector::U32(vals) => vals.add(0),
-            ValuationVector::U64(vals) => vals.add(0),
+            ValuationVector::U8(vals) => vals.add_unchecked(0),
+            ValuationVector::U16(vals) => vals.add_unchecked(0),
+            ValuationVector::U32(vals) => vals.add_unchecked(0),
+            ValuationVector::U64(vals) => vals.add_unchecked(0),
             ValuationVector::MultiField {
                 fields,
                 fields_per_valuation,
             } => {
-                let index = fields.add(0);
+                let index = fields.add_unchecked(0);
                 for _ in 1..*fields_per_valuation {
-                    fields.add(0);
+                    fields.add_unchecked(0);
                 }
                 index / I::from_usize(*fields_per_valuation)
             }
@@ -434,16 +434,16 @@ impl<I: RawIndex> ValuationVector<I> {
         match (self, valuation.data.valuations) {
             (ValuationVector::U0, ValuationVector::U0) => ValuationIndex::from_raw(I::zero()),
             (ValuationVector::U8(vals), ValuationVector::U8(new_vals)) => {
-                vals.add(new_vals.take(ValuationIndex::from_raw(I::zero())).unwrap())
+                vals.add_unchecked(new_vals.take(ValuationIndex::from_raw(I::zero())).unwrap())
             }
             (ValuationVector::U16(vals), ValuationVector::U16(new_vals)) => {
-                vals.add(new_vals.take(ValuationIndex::from_raw(I::zero())).unwrap())
+                vals.add_unchecked(new_vals.take(ValuationIndex::from_raw(I::zero())).unwrap())
             }
             (ValuationVector::U32(vals), ValuationVector::U32(new_vals)) => {
-                vals.add(new_vals.take(ValuationIndex::from_raw(I::zero())).unwrap())
+                vals.add_unchecked(new_vals.take(ValuationIndex::from_raw(I::zero())).unwrap())
             }
             (ValuationVector::U64(vals), ValuationVector::U64(new_vals)) => {
-                vals.add(new_vals.take(ValuationIndex::from_raw(I::zero())).unwrap())
+                vals.add_unchecked(new_vals.take(ValuationIndex::from_raw(I::zero())).unwrap())
             }
             (
                 ValuationVector::MultiField {
@@ -456,9 +456,9 @@ impl<I: RawIndex> ValuationVector<I> {
                 },
             ) => {
                 let mut new_fields = new_fields.into_iter();
-                let index = fields.add(new_fields.next().unwrap());
+                let index = fields.add_unchecked(new_fields.next().unwrap());
                 for new_field in new_fields {
-                    fields.add(new_field);
+                    fields.add_unchecked(new_field);
                 }
                 index
             }
