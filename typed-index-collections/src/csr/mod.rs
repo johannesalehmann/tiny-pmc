@@ -141,6 +141,7 @@ impl<'a, From: Index, To: Index> Iterator for EnumeratingCsrIterator<'a, From, T
 
 #[cfg(test)]
 mod test {
+    use crate as typed_index_collections;
     use crate::Index;
     use crate::csr::{Csr, CsrRange};
     use std::marker::PhantomData;
