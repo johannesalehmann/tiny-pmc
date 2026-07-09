@@ -72,6 +72,21 @@ impl<From: Index, E> To1<From, E> {
             _phantom_data: PhantomData,
         }
     }
+
+    pub fn iter(&self) -> <&Self as IntoIterator>::IntoIter {
+        self.into_iter()
+    }
+    pub fn iter_mut(&mut self) -> <&mut Self as IntoIterator>::IntoIter {
+        self.into_iter()
+    }
+
+    pub fn enumerate(&self) -> EnumeratingTo1Iterator<'_, From, E> {
+        use num_traits::Zero;
+        EnumeratingTo1Iterator {
+            iterator: self.iter(),
+            index: From::RawType::zero(),
+        }
+    }
 }
 
 impl<From: Index, E> std::ops::Index<From> for To1<From, E> {
@@ -126,5 +141,23 @@ impl<From: Index, E> IntoIterator for To1<From, E> {
 
     fn into_iter(self) -> Self::IntoIter {
         self.entries.into_iter()
+    }
+}
+
+pub struct EnumeratingTo1Iterator<'a, From: Index, E> {
+    iterator: <&'a To1<From, E> as IntoIterator>::IntoIter,
+    index: From::RawType,
+}
+
+impl<'a, From: Index, E> Iterator for EnumeratingTo1Iterator<'a, From, E> {
+    type Item = (From, &'a E);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        use num_traits::One;
+        self.iterator.next().map(|val| {
+            let index = self.index;
+            self.index = self.index + From::RawType::one();
+            (From::from_raw(index), val)
+        })
     }
 }
