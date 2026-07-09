@@ -12,7 +12,9 @@ mod atomic_propositions;
 pub use atomic_propositions::AtomicPropositionBuilder;
 use atomic_propositions::{AtomicPropositionVectorsBuilder, UntrackedAtomicPropositionBuilder};
 
-use crate::valuations::Valuations;
+use crate::valuations::{
+    GetValuationClassIndex, GetValuationData, StandaloneValuation, Valuations,
+};
 use crate::{Model, StateIndex};
 
 pub struct ModelBuilderBuilder<
@@ -58,26 +60,52 @@ pub struct ModelBuilder<
     Ini: InitialStatesBuilder,
     APs: AtomicPropositionBuilder,
 > {
-    base: Base,
-    initial_states: Ini,
-    atomic_propositions: APs,
+    pub base: Base,
+    pub initial_states: Ini,
+    pub atomic_propositions: APs,
 }
 
-impl<Base: BaseModelBuilder, Ini: InitialStatesBuilder, APs: AtomicPropositionBuilder>
-    ModelBuilder<Base, Ini, APs>
+pub type ModelBuilderOutput<Base, Ini, APs> = Model<
+    <Base as BaseModelBuilder>::Index,
+    <Base as BaseModelBuilder>::BaseModel,
+    <Ini as InitialStatesBuilder>::InitialStates,
+    (),
+    (),
+    (),
+    <APs as AtomicPropositionBuilder>::AtomicPropositions,
+    (),
+    (),
+    Valuations<<Base as BaseModelBuilder>::Index, StateIndex<<Base as BaseModelBuilder>::Index>>,
+>;
+
+impl<
+    Base: BaseModelBuilder,
+    Ini: InitialStatesBuilder<Index = Base::Index>,
+    APs: AtomicPropositionBuilder<Index = Base::Index>,
+> ModelBuilder<Base, Ini, APs>
 {
-    pub fn finish() -> Model<
-        Base::Index,
-        Base::BaseModel,
-        Ini::InitialStates,
-        (),
-        (),
-        (),
-        APs::AtomicPropositions,
-        (),
-        (),
-        Valuations<Base::Index, StateIndex<Base::Index>>,
-    > {
-        todo!()
+    pub fn add_state<Val: GetValuationData<Base::Index> + GetValuationClassIndex<Base::Index>>(
+        &mut self,
+        valuation: Val,
+    ) -> StateIndex<Base::Index> {
+        let index = self.base.add_state(valuation);
+        self.initial_states.state_added(index);
+        index
+    }
+
+    pub fn finish(self) -> ModelBuilderOutput<Base, Ini, APs> {
+        let (base, state_valuations) = self.base.into_base_and_valuations();
+        Model {
+            base,
+            initial: self.initial_states.into_initial_states(),
+            choice_labels: (),
+            branch_labels: (),
+            observations: (),
+            atomic_propositions: self.atomic_propositions.into_atomic_propositions(),
+            rewards: (),
+            annotations: (),
+            state_valuations,
+            _phantom_data: Default::default(),
+        }
     }
 }

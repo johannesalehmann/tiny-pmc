@@ -7,6 +7,7 @@ edition = "2024"
 prism-model = { path = "../prism-model" }
 probabilistic-models = { path = "../probabilistic-models" }
 probabilistic-properties = { path = "../probabilistic-properties" }
+typed-index-collections = { path = "../typed-index-collections" }
 log = "0.4.29"
 rustc-hash = "2.1.1"
 

@@ -1,5 +1,5 @@
 use crate::ValuationIndex;
-use crate::valuations::{StandaloneValuation, ValuationVector};
+use crate::valuations::{GetValuationData, StandaloneValuation, ValuationVector};
 use num_traits::Zero;
 use std::collections::HashMap;
 use typed_index_collections::{Index, RawIndex};
@@ -30,9 +30,9 @@ impl<To: Index> ValuationToEntity<To> {
         }
     }
 
-    pub fn add<'a, I: RawIndex>(&mut self, valuation: &StandaloneValuation<'a, I>, to: To) {
+    pub fn add<'a, I: RawIndex, Val: GetValuationData<I>>(&mut self, valuation: &Val, to: To) {
         let zero = ValuationIndex::from_raw(I::zero());
-        match (self, &valuation.data.valuations) {
+        match (self, &valuation.valuation_class_data().valuations) {
             (ValuationToEntity::U0, ValuationVector::U0) => {
                 if to.raw() != To::RawType::zero() {
                     panic!(
@@ -70,9 +70,9 @@ impl<To: Index> ValuationToEntity<To> {
         }
     }
 
-    pub fn get<'a, I: RawIndex>(&self, valuation: &StandaloneValuation<'a, I>) -> Option<To> {
+    pub fn get<'a, I: RawIndex, V: GetValuationData<I>>(&self, valuation: &V) -> Option<To> {
         let zero = ValuationIndex::from_raw(I::zero());
-        match (self, &valuation.data.valuations) {
+        match (self, &valuation.valuation_class_data().valuations) {
             (ValuationToEntity::U0, ValuationVector::U0) => Some(To::from_raw(To::RawType::zero())),
             (ValuationToEntity::U8(map), ValuationVector::U8(vals)) => {
                 map.get(&vals[zero]).cloned()

@@ -2447,6 +2447,7 @@ dependencies = [
  "probabilistic-models",
  "probabilistic-properties",
  "rustc-hash 2.1.1",
+ "typed-index-collections",
 ]
 
 [[package]]

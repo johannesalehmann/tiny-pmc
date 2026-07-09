@@ -14,6 +14,7 @@ pub trait AtomicPropositionBuilder {
         state: StateIndex<Self::Index>,
         value: bool,
     );
+    fn into_atomic_propositions(self) -> Self::AtomicPropositions;
 }
 
 #[derive(Default)]
@@ -35,6 +36,10 @@ impl<I: RawIndex> AtomicPropositionBuilder for UntrackedAtomicPropositionBuilder
 
     fn set_value(&mut self, id: AnnotationIndex<I>, state: StateIndex<Self::Index>, value: bool) {
         panic!("Cannot store atomic propositions when using `UntrackedAtomicPropositionBuilder`")
+    }
+
+    fn into_atomic_propositions(self) -> Self::AtomicPropositions {
+        ()
     }
 }
 
@@ -58,5 +63,9 @@ impl<I: RawIndex> AtomicPropositionBuilder for AtomicPropositionVectorsBuilder<I
 
     fn set_value(&mut self, id: AnnotationIndex<I>, state: StateIndex<Self::Index>, value: bool) {
         self.atomic_propositions[id].add_value(state, value);
+    }
+
+    fn into_atomic_propositions(self) -> Self::AtomicPropositions {
+        self.atomic_propositions
     }
 }

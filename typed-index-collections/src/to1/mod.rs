@@ -59,7 +59,7 @@ impl<From: Index, E> To1<From, E> {
         }
     }
 
-    pub fn map<E2>(&self, map: impl Fn(&E) -> E2) -> To1<From, E2> {
+    pub fn map<E2>(&self, map: impl FnMut(&E) -> E2) -> To1<From, E2> {
         To1 {
             entries: self.entries.iter().map(map).collect::<Vec<_>>(),
             _phantom_data: PhantomData,

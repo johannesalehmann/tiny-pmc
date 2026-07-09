@@ -16,17 +16,19 @@ use valuation_map::*;
 use crate::variables::variable_details::VariableDetails;
 use crate::{ExpressionContext, ModelBuildingError, UserProvidedConstValue};
 use prism_model::{Identifier, Model, Span, VariableRange, VariableReference};
-use probabilistic_models::{ContextBuilder, Valuation};
+use probabilistic_models::valuations::{ValuationEntry, Valuations};
+use probabilistic_models::{StateIndex, ValuationClassEntryIndex, ValuationClassIndex};
 use std::collections::HashMap;
+use typed_index_collections::{Index, RawIndex, To1};
 
-pub struct ModelVariableInfo<V: Valuation> {
-    pub valuation_map: ValuationMap,
+pub struct ModelVariableInfo<I: RawIndex> {
+    pub valuation_map: ValuationMap<ValuationClassEntryIndex<I>>,
     const_valuations: ConstValuations,
-    pub details: VariableDetails,
-    pub valuation_context: V::ContextType,
+    pub details: VariableDetails<I>,
+    pub class_index: ValuationClassIndex<I>,
 }
 
-impl<V: Valuation> ModelVariableInfo<V> {
+impl<I: RawIndex> ModelVariableInfo<I> {
     /// Generates a valuation source for use in tests.
     ///
     /// The valuation source contains the following items.
@@ -39,16 +41,18 @@ impl<V: Valuation> ModelVariableInfo<V> {
     /// * `[5]`: Const with index 2 of type `float` with value `1.23`
     #[cfg(test)]
     pub fn with_mock_values() -> Self {
-        let mut builder = V::get_context_builder();
-        builder.register_float("float_var".to_string());
-        builder.register_bounded_int("int_var".to_string(), -10, 15);
-        builder.register_bool("bool_var".to_string());
+        // TODO: Do we need this information in any of the tests? Before restructuring, this info
+        //  was stored in ModelVariableInfo and now it has nowhere to go
+        // let mut builder = V::get_context_builder();
+        // builder.register_float("float_var".to_string());
+        // builder.register_bounded_int("int_var".to_string(), -10, 15);
+        // builder.register_bool("bool_var".to_string());
 
         ModelVariableInfo {
             valuation_map: ValuationMap::with_mock_values(),
             const_valuations: ConstValuations::with_mock_values(),
             details: VariableDetails::with_mock_values(),
-            valuation_context: builder.finish(),
+            class_index: ValuationClassIndex::from_raw(I::zero()),
         }
     }
 
@@ -56,68 +60,41 @@ impl<V: Valuation> ModelVariableInfo<V> {
         model: &Model<VariableReference, S, E, Identifier<S>>,
         user_provided_consts: &HashMap<String, UserProvidedConstValue>,
         expression_context: &mut EC,
+        valuations: &mut Valuations<I, StateIndex<I>>,
     ) -> Result<Self, ModelBuildingError> {
         let variables = &model.variable_manager;
 
-        let valuation_map = ValuationMap::new(variables);
         let const_valuations =
             ConstValuations::new(variables, user_provided_consts, expression_context);
+        let valuation_map = ValuationMap::new(variables);
         let details = VariableDetails::new(
             variables,
             &valuation_map,
             &const_valuations,
             expression_context,
         );
-        let valuation_context = Self::prepare_valuation_context(model, &valuation_map, &details);
+        let (valuation_map, class) =
+            valuation_map.assign_variable_indices(&model.variable_manager, &details);
+        let class_index = valuations.add_class(class);
 
         Ok(Self {
             valuation_map,
             const_valuations,
             details,
-            valuation_context,
+            class_index,
         })
     }
 
-    fn prepare_valuation_context<S: Span, E>(
-        model: &Model<VariableReference, S, E, Identifier<S>>,
-        valuation_map: &ValuationMap,
-        details: &VariableDetails,
-    ) -> V::ContextType {
-        let mut context_builder = V::get_context_builder();
-        for (i, var) in model.variable_manager.variables.iter().enumerate() {
-            if let ValuationMapEntry::Var(var_index) = &valuation_map[i] {
-                match &var.range {
-                    VariableRange::BoundedInt { .. } => {
-                        if let Some((min, max)) = details[*var_index].bounds {
-                            context_builder.register_bounded_int(var.name.name.clone(), min, max);
-                        } else {
-                            panic!("Variable bounds and valuation map are inconsistent");
-                        }
-                    }
-                    VariableRange::UnboundedInt { .. } => {
-                        context_builder.register_unbounded_int(var.name.name.clone())
-                    }
-                    VariableRange::Boolean { .. } => {
-                        context_builder.register_bool(var.name.name.clone())
-                    }
-                    VariableRange::Float { .. } => {
-                        context_builder.register_float(var.name.name.clone())
-                    }
-                }
-            }
-        }
-        let context = context_builder.finish();
-        context
-    }
-
-    pub fn get_const_only_valuation_source(&self) -> ConstOnlyValuationSource<'_, '_> {
+    pub fn get_const_only_valuation_source(
+        &self,
+    ) -> ConstOnlyValuationSource<'_, '_, ValuationClassEntryIndex<I>> {
         ConstOnlyValuationSource::new(&self.valuation_map, &self.const_valuations)
     }
 
-    pub fn get_valuation_source<'a, 'b, V2: Valuation>(
+    pub fn get_valuation_source<'a, 'b>(
         &'a self,
-        valuation: &'b V2,
-    ) -> ConstAndVarValuationSource<'a, 'a, 'a, 'b, V2> {
+        valuation: &'b ValuationEntry<'b, I>,
+    ) -> ConstAndVarValuationSource<'a, 'a, 'a, 'b, I> {
         ConstAndVarValuationSource::new(
             &self.valuation_map,
             &self.const_valuations,

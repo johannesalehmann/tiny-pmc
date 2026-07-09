@@ -1,5 +1,8 @@
 use crate::builder::bases::{BaseModelBuilder, ValuationBuilder};
-use crate::valuations::{StandaloneValuation, Valuations};
+use crate::valuations::{
+    BareStandaloneValuation, GetValuationClassIndex, GetValuationData, StandaloneValuation,
+    Valuations,
+};
 use crate::{BranchIndex, ChoiceIndex, Mdp, RawIndex, StateIndex};
 
 pub struct MdpBuilder<I: RawIndex> {
@@ -11,19 +14,19 @@ pub struct MdpBuilder<I: RawIndex> {
 }
 
 impl<I: RawIndex> BaseModelBuilder for MdpBuilder<I> {
-    type BaseModel = Mdp;
+    type BaseModel = Mdp<I>;
     type Index = I;
 
-    fn state_by_valuation(
+    fn state_by_valuation<V: GetValuationClassIndex<I> + GetValuationData<I>>(
         &self,
-        valuation: &StandaloneValuation<Self::Index>,
+        valuation: &V,
     ) -> Option<StateIndex<Self::Index>> {
         self.valuation.state_by_valuation(valuation)
     }
 
-    fn add_state(
+    fn add_state<Val: GetValuationData<I> + GetValuationClassIndex<I>>(
         &mut self,
-        valuation: StandaloneValuation<Self::Index>,
+        valuation: Val,
     ) -> StateIndex<Self::Index> {
         let index = self.next_state;
 
@@ -38,6 +41,10 @@ impl<I: RawIndex> BaseModelBuilder for MdpBuilder<I> {
 
     fn state_valuations(&self) -> &Valuations<Self::Index, StateIndex<Self::Index>> {
         self.valuation.state_valuations()
+    }
+
+    fn state_valuations_mut(&mut self) -> &mut Valuations<Self::Index, StateIndex<Self::Index>> {
+        self.valuation.state_valuations_mut()
     }
 
     fn add_choice(&mut self) -> ChoiceIndex<Self::Index> {
@@ -69,5 +76,14 @@ impl<I: RawIndex> BaseModelBuilder for MdpBuilder<I> {
 
     fn finish_branch(&mut self) {
         // TODO: Verify probabilities add up to one!
+    }
+
+    fn into_base_and_valuations(
+        self,
+    ) -> (
+        Self::BaseModel,
+        Valuations<Self::Index, StateIndex<Self::Index>>,
+    ) {
+        (self.mdp, self.valuation.into_state_valuations())
     }
 }

@@ -2,7 +2,7 @@ mod annotations;
 pub mod builder;
 mod choices;
 mod initial_states;
-mod valuations;
+pub mod valuations;
 
 use crate::choices::{ChoiceToBranch, StateToChoice};
 use std::marker::PhantomData;
@@ -18,7 +18,9 @@ index!(ValuationClassIndex);
 index!(ValuationClassEntryIndex);
 index!(ValuationIndex);
 
-pub trait BaseModel<I: RawIndex> {}
+pub trait BaseModel<I: RawIndex> {
+    fn count_states(&self) -> usize;
+}
 
 pub struct Mdp<I: RawIndex = u32> {
     state_to_choice: StateToChoice<I>,
@@ -27,21 +29,33 @@ pub struct Mdp<I: RawIndex = u32> {
     branch_targets: To1<BranchIndex<I>, StateIndex<I>>,
 }
 
-impl<I: RawIndex> BaseModel<I> for Mdp<I> {}
+impl<I: RawIndex> BaseModel<I> for Mdp<I> {
+    fn count_states(&self) -> usize {
+        self.state_to_choice.count_entries()
+    }
+}
 
 pub struct Dtmc<I: RawIndex = u32> {
     choice_to_branch: ChoiceToBranch<I>,
     branch_probabilities: To1<BranchIndex<I>, f64>,
     branch_targets: To1<BranchIndex<I>, I>,
 }
-impl<I: RawIndex> BaseModel<I> for Dtmc<I> {}
+impl<I: RawIndex> BaseModel<I> for Dtmc<I> {
+    fn count_states(&self) -> usize {
+        self.choice_to_branch.count_entries()
+    }
+}
 
 pub struct TransitionSystem<I: RawIndex = u32> {
     state_to_branch: ChoiceToBranch<I>,
     branch_targets: To1<BranchIndex<I>, I>,
 }
 
-impl<I: RawIndex> BaseModel<I> for TransitionSystem<I> {}
+impl<I: RawIndex> BaseModel<I> for TransitionSystem<I> {
+    fn count_states(&self) -> usize {
+        self.state_to_branch.count_entries()
+    }
+}
 
 pub struct Ctmc<I: RawIndex = u32> {
     choice_to_branch: ChoiceToBranch<I>,
@@ -50,7 +64,11 @@ pub struct Ctmc<I: RawIndex = u32> {
     state_to_exit_rate: To1<StateIndex<I>, f64>,
 }
 
-impl<I: RawIndex> BaseModel<I> for Ctmc<I> {}
+impl<I: RawIndex> BaseModel<I> for Ctmc<I> {
+    fn count_states(&self) -> usize {
+        self.choice_to_branch.count_entries()
+    }
+}
 
 pub struct Ctmdp<I: RawIndex = u32> {
     state_to_choice: StateToChoice<I>,
@@ -60,21 +78,25 @@ pub struct Ctmdp<I: RawIndex = u32> {
     state_to_exit_rate: To1<StateIndex<I>, f64>,
 }
 
-impl<I: RawIndex> BaseModel<I> for Ctmdp<I> {}
+impl<I: RawIndex> BaseModel<I> for Ctmdp<I> {
+    fn count_states(&self) -> usize {
+        self.state_to_choice.count_entries()
+    }
+}
 
-pub type InitialStates<I: RawIndex = u32> = To1<StateIndex<I>, bool>;
+pub type InitialStates<I = u32> = To1<StateIndex<I>, bool>;
 
 pub struct Model<I: RawIndex, M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals> {
-    base: M,
-    initial: Ini,
-    choice_labels: ChLabel,
-    branch_labels: BrLabel,
-    observations: Obs,
-    atomic_propositions: APs,
-    rewards: Rew,
-    annotations: Ann,
-    state_valuations: StateVals, // TODO: Support other valuations
-    _phantom_data: PhantomData<(I)>,
+    pub base: M,
+    pub initial: Ini,
+    pub choice_labels: ChLabel,
+    pub branch_labels: BrLabel,
+    pub observations: Obs,
+    pub atomic_propositions: APs,
+    pub rewards: Rew,
+    pub annotations: Ann,
+    pub state_valuations: StateVals, // TODO: Add fields for other valuations
+    _phantom_data: PhantomData<I>,
 }
 
 impl<I: RawIndex, M: BaseModel<I>> Model<I, M, (), (), (), (), (), (), (), ()>

@@ -72,6 +72,10 @@ impl<From: Index, To: Index> Csr<From, To> {
             phantom_data: PhantomData,
         })
     }
+
+    pub fn count_entries(&self) -> usize {
+        self.entries.len()
+    }
 }
 
 impl<'a, From: Index, To: Index> IntoIterator for &'a Csr<From, To> {

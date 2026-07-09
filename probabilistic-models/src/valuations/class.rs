@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use std::ops::Range;
 use typed_index_collections::To1;
 
+// TODO: Shorten names and instead rely on prefix class:: to distinguish at point of use
+
 pub struct ValuationClass<I: RawIndex> {
     entries: To1<ValuationClassEntryIndex<I>, ValuationClassEntry>,
     name_to_entry: HashMap<String, usize>,
@@ -44,11 +46,11 @@ impl<I: RawIndex> ValuationClass<I> {
 }
 
 pub struct ValuationEntryDescription {
-    name: String,
-    variable_type: Type,
-    is_optional: bool,
-    value_offset: i64,
-    size: Option<usize>,
+    pub name: String,
+    pub variable_type: Type,
+    pub is_optional: bool,
+    pub value_offset: i64,
+    pub size: Option<usize>,
 }
 
 impl ValuationEntryDescription {

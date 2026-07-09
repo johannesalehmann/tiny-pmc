@@ -1,5 +1,4 @@
 use crate::expressions::stack_based_expressions::optimisations::Optimisation;
-use probabilistic_models::Valuation;
 
 mod binary_operations_boolean;
 mod binary_operations_float;
@@ -20,8 +19,8 @@ mod push_const;
 mod subtract_zero;
 mod ternary;
 
-pub fn get_const_optimisations<V: Valuation>(
-    variable_info: &crate::variables::ModelVariableInfo<V>,
+pub fn get_const_optimisations<I: typed_index_collections::RawIndex>(
+    variable_info: &crate::variables::ModelVariableInfo<I>,
 ) -> Vec<Box<dyn Optimisation + '_>> {
     vec![
         Box::new(push_const::PushConstOptimisation { variable_info }),

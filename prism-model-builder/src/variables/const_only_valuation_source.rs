@@ -3,13 +3,13 @@ use crate::variables::const_valuations::{ConstValuation, ConstValuations};
 use crate::variables::valuation_map::{ValuationMap, ValuationMapEntry};
 use prism_model::VariableReference;
 
-pub struct ConstOnlyValuationSource<'a, 'b> {
-    valuation_map: &'a ValuationMap,
+pub struct ConstOnlyValuationSource<'a, 'b, V> {
+    valuation_map: &'a ValuationMap<V>,
     const_values: &'b ConstValuations,
 }
 
-impl<'a, 'b> ConstOnlyValuationSource<'a, 'b> {
-    pub fn new(valuation_map: &'a ValuationMap, const_values: &'b ConstValuations) -> Self {
+impl<'a, 'b, V> ConstOnlyValuationSource<'a, 'b, V> {
+    pub fn new(valuation_map: &'a ValuationMap<V>, const_values: &'b ConstValuations) -> Self {
         Self {
             valuation_map,
             const_values,
@@ -25,7 +25,7 @@ impl<'a, 'b> ConstOnlyValuationSource<'a, 'b> {
         }
     }
 }
-impl<'a, 'b> crate::ValuationSource for ConstOnlyValuationSource<'a, 'b> {
+impl<'a, 'b, V> crate::ValuationSource for ConstOnlyValuationSource<'a, 'b, V> {
     fn get_int(&self, index: VariableReference) -> i64 {
         self.get(index).as_int()
     }

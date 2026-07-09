@@ -3,20 +3,22 @@ use crate::expressions::VariableType;
 use crate::variables::const_valuations::ConstValuations;
 use crate::variables::valuation_map::{ValuationMap, ValuationMapEntry};
 use prism_model::{Span, VariableManager};
+use probabilistic_models::ValuationClassEntryIndex;
+use typed_index_collections::{RawIndex, To1};
 
 pub struct VariableDetail {
     pub bounds: Option<(i64, i64)>,
     pub variable_type: VariableType,
 }
 
-pub struct VariableDetails {
-    details: Vec<VariableDetail>,
+pub struct VariableDetails<I: RawIndex> {
+    pub details: To1<ValuationClassEntryIndex<I>, VariableDetail>,
 }
-impl VariableDetails {
+impl<I: RawIndex> VariableDetails<I> {
     #[cfg(test)]
     pub fn with_mock_values() -> Self {
         Self {
-            details: vec![
+            details: To1::with_entries(vec![
                 VariableDetail {
                     bounds: None,
                     variable_type: VariableType::Float,
@@ -29,21 +31,21 @@ impl VariableDetails {
                     bounds: None,
                     variable_type: VariableType::Bool,
                 },
-            ],
+            ]),
         }
     }
 
     pub fn new<S: Span, E, EC: ExpressionContext<E>>(
         variables: &VariableManager<S, E>,
-        valuation_map: &ValuationMap,
+        valuation_map: &ValuationMap<()>,
         const_values: &ConstValuations,
         expression_context: &mut EC,
     ) -> Self {
-        let mut details = Vec::new();
+        let mut details = To1::new();
         let const_value_source = super::ConstOnlyValuationSource::new(valuation_map, const_values);
 
         for (i, variable) in variables.variables.iter().enumerate() {
-            if let ValuationMapEntry::Var(_) = valuation_map[i] {
+            if let ValuationMapEntry::Var(index) = valuation_map[i] {
                 let bounds = match &variable.range {
                     prism_model::VariableRange::BoundedInt { min, max, .. } => {
                         let min = expression_context.evaluate_int(min, &const_value_source);
@@ -55,10 +57,14 @@ impl VariableDetails {
 
                 let variable_type = VariableType::from_range(&variable.range);
 
-                details.push(VariableDetail {
+                // TODO: Everything assumes that this add_unchecked returns the same index as the
+                //  similar call that adds the variable to the ValuationClass. In practice, this is
+                //  the case, but it should ideally be checked at runtime (or just ensured
+                //  statically, if there is a way to do this).
+                details.add_unchecked(VariableDetail {
                     bounds,
                     variable_type,
-                })
+                });
             }
         }
 
@@ -66,10 +72,10 @@ impl VariableDetails {
     }
 }
 
-impl std::ops::Index<usize> for VariableDetails {
+impl<I: RawIndex> std::ops::Index<ValuationClassEntryIndex<I>> for VariableDetails<I> {
     type Output = VariableDetail;
 
-    fn index(&self, index: usize) -> &Self::Output {
+    fn index(&self, index: ValuationClassEntryIndex<I>) -> &Self::Output {
         &self.details[index]
     }
 }

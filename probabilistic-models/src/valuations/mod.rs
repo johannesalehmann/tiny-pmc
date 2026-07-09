@@ -1,4 +1,3 @@
-use crate::valuations::class::{Type, ValuationClass, ValuationClassEntry};
 use crate::{ValuationClassEntryIndex, ValuationClassIndex, ValuationIndex};
 use num_traits::ToBytes;
 use std::marker::PhantomData;
@@ -10,6 +9,7 @@ use crate::valuations::bits::SetBits;
 use bits::GetBits;
 
 mod class;
+pub use class::{Type, ValuationClass, ValuationClassEntry, ValuationEntryDescription};
 
 pub struct Valuations<I: RawIndex, From: Index> {
     classes: To1<ValuationClassIndex<I>, ValuationClass<I>>,
@@ -26,10 +26,15 @@ impl<I: RawIndex, From: Index> Valuations<I, From> {
         index
     }
 
+    pub fn class(&self, class_index: ValuationClassIndex<I>) -> &ValuationClass<I> {
+        &self.classes[class_index]
+    }
+
     pub fn entry(&self, entity: From) -> ValuationEntry<I> {
         let class_index = self.entity_to_class[entity];
         let index = self.entity_to_index[entity];
         ValuationEntry {
+            class_index,
             class: &self.classes[class_index],
             class_data: &self.valuations[class_index],
             index,
@@ -40,6 +45,7 @@ impl<I: RawIndex, From: Index> Valuations<I, From> {
         let class_index = self.entity_to_class[entity];
         let index = self.entity_to_index[entity];
         ValuationEntryMut {
+            class_index,
             class: &self.classes[class_index],
             class_data: &mut self.valuations[class_index],
             index,
@@ -74,15 +80,35 @@ impl<I: RawIndex, From: Index> Valuations<I, From> {
 }
 
 pub struct ValuationEntry<'a, I: RawIndex> {
+    // TODO: The class index is only used when cloning the valuation into a standalone valuation.
+    //  Is there some way of avoiding the need to always drag this around?
+    class_index: ValuationClassIndex<I>,
     class: &'a ValuationClass<I>,
     class_data: &'a ValuationClassData<I>,
     index: ValuationIndex<I>,
 }
 
 pub struct ValuationEntryMut<'a, I: RawIndex> {
+    class_index: ValuationClassIndex<I>,
     class: &'a ValuationClass<I>,
     class_data: &'a mut ValuationClassData<I>,
     index: ValuationIndex<I>,
+}
+
+impl<'a, I: RawIndex> ValuationEntry<'a, I> {
+    pub fn clone_into_standalone_valuation(&self) -> StandaloneValuation<I> {
+        StandaloneValuation::from_valuation_entry(self)
+    }
+}
+impl<'a, I: RawIndex> ValuationEntryMut<'a, I> {
+    pub fn clone_into_standalone_valuation(&self) -> StandaloneValuation<I> {
+        StandaloneValuation::from_valuation_entry(&ValuationEntry {
+            class_index: self.class_index,
+            class: self.class,
+            class_data: self.class_data,
+            index: self.index,
+        })
+    }
 }
 
 fn assert_optional(variable: &ValuationClassEntry, should_be_optional: bool) {
@@ -331,10 +357,66 @@ impl<'a, I: RawIndex> ValuationBitsMut<I> for ValuationEntryMut<'a, I> {
     }
 }
 
+pub trait GetValuationClassIndex<I: RawIndex> {
+    fn valuation_class_index(&self) -> ValuationClassIndex<I>;
+}
+pub trait GetValuationData<I: RawIndex> {
+    fn valuation_class_data(&self) -> &ValuationClassData<I>;
+}
+
 pub struct StandaloneValuation<'a, I: RawIndex> {
     pub class_index: ValuationClassIndex<I>,
     pub class: &'a ValuationClass<I>,
+    // TODO: Using ValuationClassData is both unclean (we only use the element at 0) and produces
+    //  unnecessary allocations. It would be better to have a special version for this that is
+    //  similar to ValuationClassData, but only contains a single entry instead of a vector. For
+    //  all cases except for MultiFields, this would avoid allocating (and this structure is used
+    //  in the inner model building loop, so it would be good to avoid allocations).
     pub data: ValuationClassData<I>,
+}
+
+impl<'a, I: RawIndex> StandaloneValuation<'a, I> {
+    pub fn new(class_index: ValuationClassIndex<I>, class: &'a ValuationClass<I>) -> Self {
+        let mut data = ValuationClassData::new(class.size_in_bits());
+        data.valuations.add_empty_entry();
+        Self {
+            class_index,
+            class,
+            data,
+        }
+    }
+    pub fn from_valuation_entry(entry: &ValuationEntry<'a, I>) -> Self {
+        if entry.class_data.strings.len() > 0 {
+            panic!("`from_valuation_entry` cannot handle valuations that contain strings yet");
+        }
+        Self {
+            class_index: entry.class_index,
+            class: entry.class,
+            data: ValuationClassData {
+                valuations: entry
+                    .class_data
+                    .valuations
+                    .copy_into_new_vector(entry.index),
+                strings: Vec::new(), // TODO: Is there some way to avoid this allocation?
+            },
+        }
+    }
+
+    pub fn bare(self) -> BareStandaloneValuation<I> {
+        self.into()
+    }
+}
+
+impl<I: RawIndex> GetValuationClassIndex<I> for StandaloneValuation<'_, I> {
+    fn valuation_class_index(&self) -> ValuationClassIndex<I> {
+        self.class_index
+    }
+}
+
+impl<I: RawIndex> GetValuationData<I> for StandaloneValuation<'_, I> {
+    fn valuation_class_data(&self) -> &ValuationClassData<I> {
+        &self.data
+    }
 }
 
 impl<'a, I: RawIndex> ValuationBits<'a, I> for StandaloneValuation<'a, I> {
@@ -361,6 +443,35 @@ impl<'a, I: RawIndex> ValuationBitsMut<I> for StandaloneValuation<'a, I> {
             &mut self.data,
             ValuationIndex::from_raw(I::zero()),
         )
+    }
+}
+
+// A `BareStandaloneValuation` does not contain a reference to its class. This makes it much less
+// capable, as reading and writing information requires the class, but avoids storing a reference,
+// which may cause borrow-checker issues.
+pub struct BareStandaloneValuation<I: RawIndex> {
+    pub class_index: ValuationClassIndex<I>,
+    pub data: ValuationClassData<I>,
+}
+
+impl<'a, I: RawIndex> From<StandaloneValuation<'a, I>> for BareStandaloneValuation<I> {
+    fn from(value: StandaloneValuation<'a, I>) -> Self {
+        Self {
+            class_index: value.class_index,
+            data: value.data,
+        }
+    }
+}
+
+impl<I: RawIndex> GetValuationClassIndex<I> for BareStandaloneValuation<I> {
+    fn valuation_class_index(&self) -> ValuationClassIndex<I> {
+        self.class_index
+    }
+}
+
+impl<I: RawIndex> GetValuationData<I> for BareStandaloneValuation<I> {
+    fn valuation_class_data(&self) -> &ValuationClassData<I> {
+        &self.data
     }
 }
 
@@ -464,6 +575,35 @@ impl<I: RawIndex> ValuationVector<I> {
             _ => panic!(
                 "New valuation does not have the same underlying type as the vector it is added to"
             ),
+        }
+    }
+
+    pub fn copy_into_new_vector(&self, index: ValuationIndex<I>) -> Self {
+        match self {
+            ValuationVector::U0 => ValuationVector::U0,
+            ValuationVector::U8(vals) => {
+                ValuationVector::U8(To1::with_entries(vec![vals.get(index).unwrap().clone()]))
+            }
+            ValuationVector::U16(vals) => {
+                ValuationVector::U16(To1::with_entries(vec![vals.get(index).unwrap().clone()]))
+            }
+            ValuationVector::U32(vals) => {
+                ValuationVector::U32(To1::with_entries(vec![vals.get(index).unwrap().clone()]))
+            }
+            ValuationVector::U64(vals) => {
+                ValuationVector::U64(To1::with_entries(vec![vals.get(index).unwrap().clone()]))
+            }
+            ValuationVector::MultiField {
+                fields,
+                fields_per_valuation,
+            } => {
+                let field_count = I::from_usize(*fields_per_valuation);
+                let fields = &fields[index * field_count..(index + I::one()) * field_count];
+                ValuationVector::MultiField {
+                    fields: To1::with_entries(fields.into_iter().cloned().collect::<Vec<_>>()),
+                    fields_per_valuation: *fields_per_valuation,
+                }
+            }
         }
     }
 
