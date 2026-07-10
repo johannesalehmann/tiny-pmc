@@ -2,6 +2,7 @@ use crate::choices::{ChoiceToBranch, StateToChoice};
 use crate::traits::ReadStateSpace;
 use typed_index_collections::{ChainedCsrIter, Csr, CsrIterator, Index, To1};
 
+#[derive(Default)]
 pub struct Mdp<StateIdx: Index, ChoiceIdx: Index, BranchIdx: Index> {
     pub state_to_choice: StateToChoice<StateIdx, ChoiceIdx>,
     pub choice_to_branch: ChoiceToBranch<ChoiceIdx, BranchIdx>,

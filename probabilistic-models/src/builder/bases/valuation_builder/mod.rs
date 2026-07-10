@@ -3,11 +3,12 @@ use valuation_to_state::ValuationToEntity;
 
 use crate::valuations::{
     BareStandaloneValuation, GetValuationClassIndex, GetValuationData, StandaloneValuation,
-    Valuations,
+    ValuationClass, Valuations,
 };
 use crate::{RawIndex, StateIndex, ValuationClassIndex};
 use typed_index_collections::{Index, To1};
 
+#[derive(Default)]
 pub struct ValuationBuilder<
     StateIdx: Index,
     ClassIdx: Index,
@@ -21,6 +22,14 @@ pub struct ValuationBuilder<
 impl<StateIdx: Index, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index>
     ValuationBuilder<StateIdx, ClassIdx, ClassEntryIdx, ValuationIdx>
 {
+    pub fn add_class(&mut self, class: ValuationClass<ClassEntryIdx>) -> ClassIdx {
+        let width = class.size_in_bits();
+        let index = self.state_valuations.add_class(class);
+        self.valuation_to_state
+            .add_checked(index, ValuationToEntity::new(width));
+        index
+    }
+
     pub fn state_by_valuation<
         Val: GetValuationClassIndex<ClassIdx> + GetValuationData<ValuationIdx>,
     >(
@@ -38,6 +47,7 @@ impl<StateIdx: Index, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index
         state_index: StateIdx,
     ) {
         self.valuation_to_state[valuation.valuation_class_index()].add(valuation, state_index);
+        self.state_valuations.add_valuation(state_index, valuation);
     }
 
     pub fn state_valuations(&self) -> &Valuations<StateIdx, ClassIdx, ClassEntryIdx, ValuationIdx> {

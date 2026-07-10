@@ -13,7 +13,7 @@ impl<InternalIndex: Index, E> NamedTo1<InternalIndex, E> {
         if self.name_to_index.contains_key(&name) {
             panic!("Cannot add a second entry with name `{name}` to this `NamedTo1` collection.")
         }
-        let index = self.store.add_unchecked(entry);
+        let index = self.store.add(entry);
         self.name_to_index.insert(name, index);
         index
     }

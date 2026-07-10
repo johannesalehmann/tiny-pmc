@@ -8,6 +8,7 @@ use bits::GetBits;
 mod class;
 pub use class::{Type, ValuationClass, ValuationClassEntry, ValuationEntryDescription};
 
+#[derive(Default)]
 pub struct Valuations<EntityIdx: Index, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index>
 {
     classes: To1<ClassIdx, ValuationClass<ClassEntryIdx>>,
@@ -21,8 +22,8 @@ impl<EntityIdx: Index, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Inde
 {
     pub fn add_class(&mut self, class: ValuationClass<ClassEntryIdx>) -> ClassIdx {
         let bits = class.size_in_bits();
-        let index = self.classes.add_unchecked(class);
-        self.valuations.add_unchecked(ValuationClassData::new(bits));
+        let index = self.classes.add(class);
+        self.valuations.add(ValuationClassData::new(bits));
         index
     }
 
@@ -58,8 +59,11 @@ impl<EntityIdx: Index, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Inde
         }
     }
 
-    pub fn add_empty_valuation(&mut self, class: ClassIdx) -> ValuationIdx {
-        self.valuations[class].valuations.add_empty_entry()
+    pub fn add_empty_valuation(&mut self, entity: EntityIdx, class: ClassIdx) -> ValuationIdx {
+        let index = self.valuations[class].valuations.add_empty_entry();
+        self.entity_to_index.add_checked(entity, index);
+        self.entity_to_class.add_checked(entity, class);
+        index
     }
 
     pub fn create_standalone_valuation(
@@ -75,16 +79,21 @@ impl<EntityIdx: Index, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Inde
         }
     }
 
-    pub fn add_valuation(
+    pub fn add_valuation<Val: GetValuationClassIndex<ClassIdx> + GetValuationData<ValuationIdx>>(
         &mut self,
-        valuation: StandaloneValuation<ClassIdx, ClassEntryIdx, ValuationIdx>,
+        entity: EntityIdx,
+        valuation: &Val,
     ) -> ValuationIdx {
-        if !valuation.data.strings.is_empty() {
+        if !valuation.valuation_class_data().strings.is_empty() {
             panic!("Adding StandaloneValuations with strings is not yet supported");
         }
-        self.valuations[valuation.class_index]
+        let class = valuation.valuation_class_index();
+        let index = self.valuations[class]
             .valuations
-            .add_from_standalone(valuation)
+            .add_from_standalone(valuation);
+        self.entity_to_index.add_checked(entity, index);
+        self.entity_to_class.add_checked(entity, class);
+        index
     }
 }
 
@@ -132,13 +141,13 @@ fn assert_optional(variable: &ValuationClassEntry, should_be_optional: bool) {
     match should_be_optional {
         true => {
             assert!(
-                !variable.is_optional,
+                variable.is_optional,
                 "Cannot access optional variable with non-optional method"
             );
         }
         false => {
             assert!(
-                variable.is_optional,
+                !variable.is_optional,
                 "Cannot access non-optional variable with optional method"
             );
         }
@@ -575,41 +584,41 @@ impl<ValuationIdx: Index> ValuationVector<ValuationIdx> {
     pub fn add_empty_entry(&mut self) -> ValuationIdx {
         match self {
             ValuationVector::U0 => ValuationIdx::from_raw(ValuationIdx::RawType::zero()),
-            ValuationVector::U8(vals) => vals.add_unchecked(0),
-            ValuationVector::U16(vals) => vals.add_unchecked(0),
-            ValuationVector::U32(vals) => vals.add_unchecked(0),
-            ValuationVector::U64(vals) => vals.add_unchecked(0),
+            ValuationVector::U8(vals) => vals.add(0),
+            ValuationVector::U16(vals) => vals.add(0),
+            ValuationVector::U32(vals) => vals.add(0),
+            ValuationVector::U64(vals) => vals.add(0),
             ValuationVector::MultiField {
                 fields,
                 fields_per_valuation,
             } => {
-                let index = fields.add_unchecked(0);
+                let index = fields.add(0);
                 for _ in 1..*fields_per_valuation {
-                    fields.add_unchecked(0);
+                    fields.add(0);
                 }
                 index / ValuationIdx::RawType::from_usize(*fields_per_valuation)
             }
         }
     }
 
-    pub fn add_from_standalone<ClassIdx: Index, ClassEntryIdx: Index>(
+    pub fn add_from_standalone<Val: GetValuationData<ValuationIdx>>(
         &mut self,
-        valuation: StandaloneValuation<ClassIdx, ClassEntryIdx, ValuationIdx>,
+        valuation: &Val,
     ) -> ValuationIdx {
         let zero = ValuationIdx::from_raw(ValuationIdx::RawType::zero());
-        match (self, valuation.data.valuations) {
+        match (self, &valuation.valuation_class_data().valuations) {
             (ValuationVector::U0, ValuationVector::U0) => zero,
             (ValuationVector::U8(vals), ValuationVector::U8(new_vals)) => {
-                vals.add_unchecked(new_vals.take(zero).unwrap())
+                vals.add(*new_vals.get(zero).unwrap())
             }
             (ValuationVector::U16(vals), ValuationVector::U16(new_vals)) => {
-                vals.add_unchecked(new_vals.take(zero).unwrap())
+                vals.add(*new_vals.get(zero).unwrap())
             }
             (ValuationVector::U32(vals), ValuationVector::U32(new_vals)) => {
-                vals.add_unchecked(new_vals.take(zero).unwrap())
+                vals.add(*new_vals.get(zero).unwrap())
             }
             (ValuationVector::U64(vals), ValuationVector::U64(new_vals)) => {
-                vals.add_unchecked(new_vals.take(zero).unwrap())
+                vals.add(*new_vals.get(zero).unwrap())
             }
             (
                 ValuationVector::MultiField {
@@ -621,11 +630,11 @@ impl<ValuationIdx: Index> ValuationVector<ValuationIdx> {
                     fields_per_valuation: new_fields_per_valuation,
                 },
             ) => {
-                assert_eq!(*fields_per_valuation, new_fields_per_valuation);
+                assert_eq!(*fields_per_valuation, *new_fields_per_valuation);
                 let mut new_fields = new_fields.into_iter();
-                let index = fields.add_unchecked(new_fields.next().unwrap());
-                for new_field in new_fields {
-                    fields.add_unchecked(new_field);
+                let index = fields.add(*new_fields.next().unwrap());
+                for &new_field in new_fields {
+                    fields.add(new_field);
                 }
                 index
             }

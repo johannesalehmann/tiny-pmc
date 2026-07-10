@@ -20,10 +20,12 @@ use probabilistic_models::valuations::{
     BareStandaloneValuation, GetValuationClassIndex, GetValuationData, StandaloneValuation,
     ValuationBits, ValuationBitsMut, ValuationEntry,
 };
-use probabilistic_models::{AnnotationIndex, BaseModel, StateIndex, ValuationIndex, builder};
+use probabilistic_models::{AnnotationIndex, StateIndex, ValuationIndex, builder};
 use probabilistic_properties::Query;
-use std::collections::HashMap;
-use typed_index_collections::{Index, RawIndex, To1, index};
+use std::collections::{HashMap, VecDeque};
+use typed_index_collections::{Index, RawIndex, index};
+
+pub use typed_index_collections::To1;
 
 index!(AtomicPropositionIndex);
 
@@ -43,14 +45,14 @@ pub fn build_model<
     >,
 >(
     prism_model: &mut Model<VariableReference, S, Expression<VariableReference, S>, Identifier<S>>,
-    explicit_builder: builder::ModelBuilder<Base, Ini, APs>,
+    explicit_builder: M,
     atomic_propositions: &To1<AtomicPropositionIndex<Raw>, Expression<VariableReference, S>>,
     properties: I,
     user_provided_consts: &HashMap<String, UserProvidedConstValue>,
 ) -> Result<ModelBuildingOutput<Base, Ini, APs, AtomicPropositionIndex<Raw>>, ModelBuildingError> {
     ExplicitModelBuilder::<Base, Ini, APs>::build_model::<S, M, Raw, I>(
         prism_model,
-        explicit_builder,
+        explicit_builder.into(),
         atomic_propositions,
         properties,
         user_provided_consts,
@@ -160,7 +162,7 @@ pub struct ExplicitModelBuilder<
     APs: builder::AtomicPropositionBuilder<StateIdx = Base::StateIdx>,
 > {
     explicit_builder: builder::ModelBuilder<Base, Ini, APs>,
-    open_states: Vec<Base::StateIdx>,
+    open_states: VecDeque<Base::StateIdx>,
     variable_info: ModelVariableInfo<Base::ClassIdx, Base::ClassEntryIdx>,
 }
 
@@ -238,6 +240,15 @@ impl<
                 sub_expression
             })
             .change_key_type::<APs::AnnotationIdx>();
+        for (index, ap) in atomic_propositions.enumerate() {
+            // TODO: Do this in a nicer way (perhaps find some way to do the key type change
+            //  at the same time as this operation?
+            // TODO: Get proper atomic proposition names
+            let ap_index = explicit_builder
+                .atomic_propositions
+                .register_atomic_proposition(format!("ap_{}", index.raw()));
+            assert_eq!(index, ap_index);
+        }
 
         let mut sub_expression_cache = SubExpressionManagerWithCache::new(sub_expression_manager);
         let context = sub_expression_cache.create_context();
@@ -250,7 +261,7 @@ impl<
             &model,
             user_provided_consts,
             &mut expression_context,
-            explicit_builder.base.state_valuations_mut(),
+            explicit_builder.base.valuation_builder_mut(),
         )?;
 
         sub_expression_cache
@@ -272,13 +283,13 @@ impl<
 
         let mut builder = Self {
             explicit_builder,
-            open_states: Vec::new(),
+            open_states: VecDeque::new(),
             variable_info,
         };
 
         builder.create_initial_states(&model, &mut expression_context)?;
 
-        while let Some(state) = builder.open_states.pop() {
+        while let Some(state) = builder.open_states.pop_front() {
             builder.process_state(
                 state,
                 &model,
@@ -306,7 +317,7 @@ impl<
         Val: GetValuationData<Base::ValuationIdx> + GetValuationClassIndex<Base::ClassIdx>,
     >(
         explicit_builder: &mut builder::ModelBuilder<Base, Ini, APs>,
-        open_states: &mut Vec<Base::StateIdx>,
+        open_states: &mut VecDeque<Base::StateIdx>,
         valuation: Val,
     ) -> Base::StateIdx {
         let index = explicit_builder.base.state_by_valuation(&valuation);
@@ -314,7 +325,7 @@ impl<
             Some(index) => index,
             None => {
                 let index = explicit_builder.add_state(valuation);
-                open_states.push(index);
+                open_states.push_back(index);
                 index
             }
         }
@@ -365,6 +376,7 @@ impl<
         let val_source = self.variable_info.get_valuation_source(valuation);
         let guard = expression_context.evaluate_bool(&command.guard, &val_source);
         if guard {
+            self.explicit_builder.base.add_choice();
             for update_index in 0..command.updates.len() {
                 let valuation = &self.explicit_builder.base.state_valuations().entry(state);
                 let val_source = self.variable_info.get_valuation_source(valuation);

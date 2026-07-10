@@ -4,6 +4,7 @@ use crate::builder::bases::{BaseModelBuilder, ValuationBuilder};
 use crate::valuations::{GetValuationClassIndex, GetValuationData, Valuations};
 use typed_index_collections::Index;
 
+#[derive(Default)]
 pub struct MdpBuilder<
     StateIdx: Index,
     ChoiceIdx: Index,
@@ -63,23 +64,25 @@ impl<
         index
     }
 
-    fn state_valuations(&self) -> &Valuations<StateIdx, ClassIdx, ClassEntryIdx, ValuationIdx> {
-        self.valuation.state_valuations()
+    fn valuation_builder(
+        &self,
+    ) -> &ValuationBuilder<StateIdx, ClassIdx, ClassEntryIdx, ValuationIdx> {
+        &self.valuation
     }
 
-    fn state_valuations_mut(
+    fn valuation_builder_mut(
         &mut self,
-    ) -> &mut Valuations<StateIdx, ClassIdx, ClassEntryIdx, ValuationIdx> {
-        self.valuation.state_valuations_mut()
+    ) -> &mut ValuationBuilder<StateIdx, ClassIdx, ClassEntryIdx, ValuationIdx> {
+        &mut self.valuation
     }
 
     fn add_choice(&mut self) -> ChoiceIdx {
         let index = self.next_choice;
-        self.next_choice += ChoiceIdx::RawType::one();
 
         self.mdp
             .choice_to_branch
             .add_entry(self.next_choice, self.next_branch, self.next_branch);
+        self.next_choice += ChoiceIdx::RawType::one();
         self.mdp.state_to_choice.extend_last_entry(self.next_choice);
         index
     }
@@ -88,8 +91,8 @@ impl<
         let index = self.next_branch;
         self.next_branch += BranchIdx::RawType::one();
 
-        self.mdp.branch_destinations.add_unchecked(target);
-        self.mdp.branch_probabilities.add_unchecked(probability);
+        self.mdp.branch_destinations.add(target);
+        self.mdp.branch_probabilities.add(probability);
         self.mdp
             .choice_to_branch
             .extend_last_entry(self.next_branch);

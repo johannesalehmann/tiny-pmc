@@ -2,7 +2,7 @@ use prism_model::{Expression, FullSpan, Identifier, VariableReference};
 use std::fmt::Formatter;
 
 pub mod building;
-pub mod checking;
+// pub mod checking;
 pub mod parsing;
 
 pub type PrismModel = prism_model::Model<

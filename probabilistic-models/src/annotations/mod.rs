@@ -30,7 +30,7 @@ impl<EntityIdx: Index, AnnotationEntryIdx: Index, Val>
 {
     pub fn add_value(&mut self, entity: EntityIdx, value: Val) {
         let annotation_index = self.distribution.annotation_index(entity);
-        self.values.add(annotation_index, value);
+        self.values.add_checked(annotation_index, value);
     }
 }
 

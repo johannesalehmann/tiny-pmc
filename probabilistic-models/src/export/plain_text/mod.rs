@@ -11,12 +11,12 @@ impl<M: BaseModel, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals>
     Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals>
 {
     #[must_use]
-    pub fn sta_file(&self) -> TraFile<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals> {
+    pub fn tra_file(&self) -> TraFile<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals> {
         TraFile { model: self }
     }
 }
 
-struct TraFile<'a, M: BaseModel, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals> {
+pub struct TraFile<'a, M: BaseModel, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals> {
     model: &'a Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals>,
 }
 
@@ -35,10 +35,30 @@ impl<SI: Index, CI: Index, BI: Index, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.model.states().len())?;
-        write!(f, "{}", self.model.choices().len())?;
-        writeln!(f, "{}", self.model.branches().len())?;
-        for (state, choice, action) in self.model.base.state_choice_branch_triples() {
-            writeln!(f, "{} {} {}", state.raw(), choice.raw(), action.raw())?;
+        write!(f, " {}", self.model.choices().len())?;
+        writeln!(f, " {}", self.model.branches().len())?;
+        let mut prev_state = None;
+        let mut prev_choice = Some(CI::from_raw(CI::RawType::zero()));
+        let mut choice_counter = 0;
+        for (state, choice, branch) in self.model.base.state_choice_branch_triples() {
+            if prev_state != Some(state) {
+                choice_counter = 0;
+            }
+            let destination = self.model.base.branch_destinations[branch];
+            let probability = self.model.base.branch_probabilities[branch];
+            writeln!(
+                f,
+                "{} {} {} {}",
+                state.raw(),
+                choice_counter,
+                destination.raw(),
+                probability
+            )?;
+            if prev_choice != Some(choice) {
+                choice_counter += 1;
+            }
+            prev_state = Some(state);
+            prev_choice = Some(choice);
         }
         Ok(())
     }

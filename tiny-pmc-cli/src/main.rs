@@ -1,6 +1,10 @@
 use clap::Parser;
-use prism_model_builder::{ModelBuildingError, ModelBuildingOutput};
-use probabilistic_models::MdpType;
+use prism_model_builder::{ModelBuildingError, To1};
+use probabilistic_models::traits::ReadStateSpace;
+use probabilistic_models::{
+    BranchIndex, ChoiceIndex, StateIndex, ValuationClassEntryIndex, ValuationClassIndex,
+    ValuationIndex,
+};
 use tiny_pmc::CheckerError;
 use tiny_pmc::parsing::ConstParsingError;
 
@@ -35,28 +39,44 @@ fn checker() -> Result<(), ModelCheckerError> {
         Some((prism_model, properties)) => (prism_model, properties),
     };
 
-    let mut atomic_propositions = Vec::new();
+    let mut atomic_propositions = To1::new();
     let properties = tiny_pmc::building::prism_objectives_to_atomic_propositions(
         &mut atomic_propositions,
         properties,
     );
-    let builder_output: ModelBuildingOutput<MdpType> = prism_model_builder::build_model(
+    let builder_builder = probabilistic_models::builder::ModelBuilderBuilder::new(
+        probabilistic_models::builder::MdpBuilder::<
+            StateIndex<usize>,
+            ChoiceIndex<usize>,
+            BranchIndex<usize>,
+            ValuationClassIndex<u8>,
+            ValuationClassEntryIndex<u16>,
+            ValuationIndex<usize>,
+        >::default(),
+    );
+    let builder = builder_builder.finish();
+    let builder_output = prism_model_builder::build_model(
         &mut prism_model,
-        &atomic_propositions[..],
+        builder,
+        &atomic_propositions,
         properties.into_iter(),
         &constants,
     )?;
     let model = builder_output.model;
     let properties = builder_output.properties;
 
-    println!("Model has {} states", model.states.len());
+    println!("Model has {} states", model.states().len());
+
+    println!("{}", model.tra_file());
+
+    return Ok(());
 
     if properties.len() > 1 {
         panic!("Checking multiple properties is temporarily unsupported");
     }
     // for (i, property) in properties.iter().enumerate() {
     println!("Checking property {} of {}", 0 + 1, properties.len());
-    tiny_pmc::checking::check(model, properties[0].clone())?;
+    // tiny_pmc::checking::check(model, properties[0].clone())?;
     // }
 
     println!("Finished in {:?}", start_time.elapsed());

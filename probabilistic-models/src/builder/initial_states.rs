@@ -78,7 +78,7 @@ impl<StateIdx: Index> InitialStatesBuilder for MultipleInitialStatesBuilder<Stat
     type StateIdx = StateIdx;
 
     fn state_added(&mut self, index: StateIdx) {
-        self.states.add_unchecked(false);
+        self.states.add(false);
     }
 
     fn stores_initial_states() -> bool {

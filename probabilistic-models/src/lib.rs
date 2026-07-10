@@ -4,7 +4,7 @@ pub mod builder;
 mod choices;
 mod export;
 pub mod initial_states;
-mod traits;
+pub mod traits;
 pub mod valuations;
 
 pub use typed_index_collections::RawIndex;

@@ -3,9 +3,8 @@ pub use mdp::MdpBuilder;
 use typed_index_collections::Index;
 
 mod valuation_builder;
-use valuation_builder::ValuationBuilder;
+pub use valuation_builder::ValuationBuilder;
 
-use crate::RawIndex;
 use crate::valuations::{GetValuationClassIndex, GetValuationData, Valuations};
 
 pub trait BaseModelBuilder {
@@ -32,10 +31,26 @@ pub trait BaseModelBuilder {
     ) -> Self::StateIdx;
     fn state_valuations(
         &self,
-    ) -> &Valuations<Self::StateIdx, Self::ClassIdx, Self::ClassEntryIdx, Self::ValuationIdx>;
+    ) -> &Valuations<Self::StateIdx, Self::ClassIdx, Self::ClassEntryIdx, Self::ValuationIdx> {
+        self.valuation_builder().state_valuations()
+    }
     fn state_valuations_mut(
         &mut self,
-    ) -> &mut Valuations<Self::StateIdx, Self::ClassIdx, Self::ClassEntryIdx, Self::ValuationIdx>;
+    ) -> &mut Valuations<Self::StateIdx, Self::ClassIdx, Self::ClassEntryIdx, Self::ValuationIdx>
+    {
+        self.valuation_builder_mut().state_valuations_mut()
+    }
+    fn valuation_builder(
+        &self,
+    ) -> &ValuationBuilder<Self::StateIdx, Self::ClassIdx, Self::ClassEntryIdx, Self::ValuationIdx>;
+    fn valuation_builder_mut(
+        &mut self,
+    ) -> &mut ValuationBuilder<
+        Self::StateIdx,
+        Self::ClassIdx,
+        Self::ClassEntryIdx,
+        Self::ValuationIdx,
+    >;
 
     fn add_choice(&mut self) -> Self::ChoiceIdx; // TODO: Do we need this or is finish_choice sufficient?
     fn add_branch(&mut self, rate_or_probability: f64, target: Self::StateIdx) -> Self::BranchIdx;

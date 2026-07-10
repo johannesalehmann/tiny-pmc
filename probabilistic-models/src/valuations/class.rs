@@ -33,7 +33,7 @@ impl<ClassEntryIdx: Index> ValuationClass<ClassEntryIdx> {
         };
         self.next_free_index += size.stored_size;
         self.size_in_bits = self.next_free_index;
-        self.entries.add_unchecked(entry)
+        self.entries.add(entry)
     }
 
     pub fn get(&self, index: ClassEntryIdx) -> &ValuationClassEntry {

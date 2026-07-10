@@ -61,7 +61,7 @@ impl<ClassEntryIdx: Index> VariableDetails<ClassEntryIdx> {
                 //  similar call that adds the variable to the ValuationClass. In practice, this is
                 //  the case, but it should ideally be checked at runtime (or just ensured
                 //  statically, if there is a way to do this).
-                details.add_unchecked(VariableDetail {
+                details.add(VariableDetail {
                     bounds,
                     variable_type,
                 });

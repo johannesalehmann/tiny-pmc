@@ -1,6 +1,6 @@
 mod bases;
-pub use bases::BaseModelBuilder;
-use bases::MdpBuilder;
+pub use bases::MdpBuilder;
+pub use bases::{BaseModelBuilder, ValuationBuilder};
 
 mod initial_states;
 pub use initial_states::InitialStatesBuilder;
@@ -12,7 +12,7 @@ mod atomic_propositions;
 use crate::valuations::{
     GetValuationClassIndex, GetValuationData, StandaloneValuation, Valuations,
 };
-use crate::{Model, StateIndex};
+use crate::{AnnotationEntryIndex, AnnotationIndex, Model, StateIndex};
 pub use atomic_propositions::AtomicPropositionBuilder;
 use atomic_propositions::{AtomicPropositionVectorsBuilder, UntrackedAtomicPropositionBuilder};
 use typed_index_collections::Index;
@@ -27,23 +27,39 @@ pub struct ModelBuilderBuilder<
     atomic_propositions: APs,
 }
 
-impl<Base: BaseModelBuilder, Ini: InitialStatesBuilder, APs: AtomicPropositionBuilder>
-    ModelBuilderBuilder<Base, Ini, APs>
+impl<Base: BaseModelBuilder>
+    ModelBuilderBuilder<
+        Base,
+        SingleInitialStatesBuilder<Base::StateIdx>,
+        AtomicPropositionVectorsBuilder<
+            AnnotationIndex<usize>,
+            Base::StateIdx,
+            AnnotationEntryIndex<usize>,
+        >,
+    >
 {
-    pub fn new<AnnotationIdx: Index>(
+    pub fn new(
         base: Base,
     ) -> ModelBuilderBuilder<
         Base,
-        UntrackedInitialStatesBuilder<Base::StateIdx>,
-        UntrackedAtomicPropositionBuilder<AnnotationIdx, Base::StateIdx>,
+        SingleInitialStatesBuilder<Base::StateIdx>,
+        AtomicPropositionVectorsBuilder<
+            AnnotationIndex<usize>,
+            Base::StateIdx,
+            AnnotationEntryIndex<usize>,
+        >,
     > {
         ModelBuilderBuilder {
             base,
-            initial_states: UntrackedInitialStatesBuilder::default(),
-            atomic_propositions: UntrackedAtomicPropositionBuilder::default(),
+            initial_states: SingleInitialStatesBuilder::default(),
+            atomic_propositions: AtomicPropositionVectorsBuilder::default(),
         }
     }
+}
 
+impl<Base: BaseModelBuilder, Ini: InitialStatesBuilder, APs: AtomicPropositionBuilder>
+    ModelBuilderBuilder<Base, Ini, APs>
+{
     // TODO: Functions to add and remove initial states
 
     pub fn finish(self) -> ModelBuilder<Base, Ini, APs> {
