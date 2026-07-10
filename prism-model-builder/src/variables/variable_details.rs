@@ -4,17 +4,17 @@ use crate::variables::const_valuations::ConstValuations;
 use crate::variables::valuation_map::{ValuationMap, ValuationMapEntry};
 use prism_model::{Span, VariableManager};
 use probabilistic_models::ValuationClassEntryIndex;
-use typed_index_collections::{RawIndex, To1};
+use typed_index_collections::{Index, RawIndex, To1};
 
 pub struct VariableDetail {
     pub bounds: Option<(i64, i64)>,
     pub variable_type: VariableType,
 }
 
-pub struct VariableDetails<I: RawIndex> {
-    pub details: To1<ValuationClassEntryIndex<I>, VariableDetail>,
+pub struct VariableDetails<ClassEntryIdx: Index> {
+    pub details: To1<ClassEntryIdx, VariableDetail>,
 }
-impl<I: RawIndex> VariableDetails<I> {
+impl<ClassEntryIdx: Index> VariableDetails<ClassEntryIdx> {
     #[cfg(test)]
     pub fn with_mock_values() -> Self {
         Self {
@@ -72,10 +72,10 @@ impl<I: RawIndex> VariableDetails<I> {
     }
 }
 
-impl<I: RawIndex> std::ops::Index<ValuationClassEntryIndex<I>> for VariableDetails<I> {
+impl<ClassEntryIdx: Index> std::ops::Index<ClassEntryIdx> for VariableDetails<ClassEntryIdx> {
     type Output = VariableDetail;
 
-    fn index(&self, index: ValuationClassEntryIndex<I>) -> &Self::Output {
+    fn index(&self, index: ClassEntryIdx) -> &Self::Output {
         &self.details[index]
     }
 }

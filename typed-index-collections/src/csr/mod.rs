@@ -58,7 +58,6 @@ impl<From: Index, To: Index> Csr<From, To> {
     }
 
     pub fn get(&self, index: From) -> Option<CsrRange<To>> {
-        use num_traits::Zero;
         let raw_index = index.raw().as_usize();
         let start = if raw_index > 0 {
             self.entries.get(raw_index - 1)?.raw()

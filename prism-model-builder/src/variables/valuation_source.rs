@@ -5,19 +5,29 @@ use probabilistic_models::ValuationClassEntryIndex;
 use probabilistic_models::valuations::{ValuationBits, ValuationEntry};
 use typed_index_collections::{Index, RawIndex};
 
-pub struct ConstAndVarValuationSource<'a, 'b, 'c, 'd, I: RawIndex> {
-    map: &'a super::ValuationMap<ValuationClassEntryIndex<I>>,
+pub struct ConstAndVarValuationSource<
+    'a,
+    'b,
+    'c,
+    'd,
+    ClassIdx: Index,
+    ClassEntryIdx: Index,
+    ValuationIdx: Index,
+> {
+    map: &'a super::ValuationMap<ClassEntryIdx>,
     const_valuation: &'b super::ConstValuations,
-    details: &'c super::VariableDetails<I>,
-    var_valuation: &'d ValuationEntry<'d, I>,
+    details: &'c super::VariableDetails<ClassEntryIdx>,
+    var_valuation: &'d ValuationEntry<'d, ClassIdx, ClassEntryIdx, ValuationIdx>,
 }
 
-impl<'a, 'b, 'c, 'd, I: RawIndex> ConstAndVarValuationSource<'a, 'b, 'c, 'd, I> {
+impl<'a, 'b, 'c, 'd, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index>
+    ConstAndVarValuationSource<'a, 'b, 'c, 'd, ClassIdx, ClassEntryIdx, ValuationIdx>
+{
     pub fn new(
-        map: &'a super::ValuationMap<ValuationClassEntryIndex<I>>,
+        map: &'a super::ValuationMap<ClassEntryIdx>,
         const_valuation: &'b super::ConstValuations,
-        details: &'c super::VariableDetails<I>,
-        var_valuation: &'d ValuationEntry<'d, I>,
+        details: &'c super::VariableDetails<ClassEntryIdx>,
+        var_valuation: &'d ValuationEntry<'d, ClassIdx, ClassEntryIdx, ValuationIdx>,
     ) -> Self {
         Self {
             map,
@@ -28,8 +38,8 @@ impl<'a, 'b, 'c, 'd, I: RawIndex> ConstAndVarValuationSource<'a, 'b, 'c, 'd, I> 
     }
 }
 
-impl<'a, 'b, 'c, 'd, I: RawIndex> ValuationSource
-    for &ConstAndVarValuationSource<'a, 'b, 'c, 'd, I>
+impl<'a, 'b, 'c, 'd, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index> ValuationSource
+    for &ConstAndVarValuationSource<'a, 'b, 'c, 'd, ClassIdx, ClassEntryIdx, ValuationIdx>
 {
     fn get_int(&self, index: VariableReference) -> i64 {
         match self.map[index.index] {
@@ -65,8 +75,8 @@ impl<'a, 'b, 'c, 'd, I: RawIndex> ValuationSource
     }
 }
 
-impl<'a, 'b, 'c, 'd, I: RawIndex> ValuationSource
-    for ConstAndVarValuationSource<'a, 'b, 'c, 'd, I>
+impl<'a, 'b, 'c, 'd, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index> ValuationSource
+    for ConstAndVarValuationSource<'a, 'b, 'c, 'd, ClassIdx, ClassEntryIdx, ValuationIdx>
 {
     fn get_int(&self, index: VariableReference) -> i64 {
         (&self).get_int(index)

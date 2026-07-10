@@ -1,6 +1,3 @@
-use crate::{ValuationClassEntryIndex, ValuationClassIndex, ValuationIndex};
-use num_traits::{One, ToBytes, Zero};
-use std::marker::PhantomData;
 use std::ops::Range;
 use typed_index_collections::{Index, RawIndex, To1};
 

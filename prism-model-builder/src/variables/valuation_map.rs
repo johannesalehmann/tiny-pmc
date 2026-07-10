@@ -1,6 +1,6 @@
 use crate::expressions::VariableType;
 use crate::variables::variable_details::VariableDetails;
-use prism_model::{Span, VariableManager, VariableRange};
+use prism_model::{Span, VariableManager};
 use probabilistic_models::ValuationClassEntryIndex;
 use probabilistic_models::valuations::{Type, ValuationClass, ValuationEntryDescription};
 use typed_index_collections::{Index, RawIndex};
@@ -68,11 +68,11 @@ impl ValuationMap<()> {
         Self { entries }
     }
 
-    pub fn assign_variable_indices<I: RawIndex, S: Span, E>(
+    pub fn assign_variable_indices<ClassEntryIdx: Index, S: Span, E>(
         self,
         variables: &VariableManager<S, E>,
-        details: &VariableDetails<I>,
-    ) -> (ValuationMap<ValuationClassEntryIndex<I>>, ValuationClass<I>) {
+        details: &VariableDetails<ClassEntryIdx>,
+    ) -> (ValuationMap<ClassEntryIdx>, ValuationClass<ClassEntryIdx>) {
         let mut entries = Vec::new();
         let mut class = ValuationClass::new();
         for ((entry, variable), details) in self

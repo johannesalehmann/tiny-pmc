@@ -1,7 +1,6 @@
 use crate::Index;
 use crate::index::RawIndex;
 use num_integer::Integer;
-use num_traits::One;
 
 pub struct CsrRangeIterator<To: Index> {
     pub(super) from: To::RawType,

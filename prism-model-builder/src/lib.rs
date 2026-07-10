@@ -23,34 +23,32 @@ use probabilistic_models::valuations::{
 use probabilistic_models::{AnnotationIndex, BaseModel, StateIndex, ValuationIndex, builder};
 use probabilistic_properties::Query;
 use std::collections::HashMap;
-use typed_index_collections::{RawIndex, To1, index};
+use typed_index_collections::{Index, RawIndex, To1, index};
 
 index!(AtomicPropositionIndex);
 
 pub fn build_model<
     S: Span,
     Base: builder::BaseModelBuilder,
-    Ini: builder::InitialStatesBuilder<Index = Base::Index>,
-    APs: builder::AtomicPropositionBuilder<Index = Base::Index>,
+    Ini: builder::InitialStatesBuilder<StateIdx = Base::StateIdx>,
+    APs: builder::AtomicPropositionBuilder<StateIdx = Base::StateIdx>,
     M: Into<builder::ModelBuilder<Base, Ini, APs>>,
+    Raw: RawIndex,
     I: Iterator<
         Item = Query<
             Expression<VariableReference, S>,
             Expression<VariableReference, S>,
-            AtomicPropositionIndex<Base::Index>,
+            AtomicPropositionIndex<Raw>,
         >,
     >,
 >(
     prism_model: &mut Model<VariableReference, S, Expression<VariableReference, S>, Identifier<S>>,
     explicit_builder: builder::ModelBuilder<Base, Ini, APs>,
-    atomic_propositions: &To1<
-        AtomicPropositionIndex<Base::Index>,
-        Expression<VariableReference, S>,
-    >,
+    atomic_propositions: &To1<AtomicPropositionIndex<Raw>, Expression<VariableReference, S>>,
     properties: I,
     user_provided_consts: &HashMap<String, UserProvidedConstValue>,
-) -> Result<ModelBuildingOutput<Base, Ini, APs>, ModelBuildingError> {
-    ExplicitModelBuilder::<Base, Ini, APs>::build_model::<S, M, I>(
+) -> Result<ModelBuildingOutput<Base, Ini, APs, AtomicPropositionIndex<Raw>>, ModelBuildingError> {
+    ExplicitModelBuilder::<Base, Ini, APs>::build_model::<S, M, Raw, I>(
         prism_model,
         explicit_builder,
         atomic_propositions,
@@ -69,9 +67,10 @@ pub struct ModelBuildingOutput<
     Base: builder::BaseModelBuilder,
     Ini: builder::InitialStatesBuilder,
     APs: builder::AtomicPropositionBuilder,
+    APIdx: Index,
 > {
     pub model: builder::ModelBuilderOutput<Base, Ini, APs>,
-    pub properties: Vec<Query<i64, f64, AtomicPropositionIndex<Base::Index>>>,
+    pub properties: Vec<Query<i64, f64, APIdx>>,
 }
 
 pub trait ExpressionContext<E> {
@@ -157,18 +156,18 @@ impl<'a, SE: SubExpressionProvider> ExpressionContext<usize>
 
 pub struct ExplicitModelBuilder<
     Base: builder::BaseModelBuilder,
-    Ini: builder::InitialStatesBuilder<Index = Base::Index>,
-    APs: builder::AtomicPropositionBuilder<Index = Base::Index>,
+    Ini: builder::InitialStatesBuilder<StateIdx = Base::StateIdx>,
+    APs: builder::AtomicPropositionBuilder<StateIdx = Base::StateIdx>,
 > {
     explicit_builder: builder::ModelBuilder<Base, Ini, APs>,
-    open_states: Vec<StateIndex<Base::Index>>,
-    variable_info: ModelVariableInfo<Base::Index>,
+    open_states: Vec<Base::StateIdx>,
+    variable_info: ModelVariableInfo<Base::ClassIdx, Base::ClassEntryIdx>,
 }
 
 impl<
     Base: builder::BaseModelBuilder,
-    Ini: builder::InitialStatesBuilder<Index = Base::Index>,
-    APs: builder::AtomicPropositionBuilder<Index = Base::Index>,
+    Ini: builder::InitialStatesBuilder<StateIdx = Base::StateIdx>,
+    APs: builder::AtomicPropositionBuilder<StateIdx = Base::StateIdx>,
 > ExplicitModelBuilder<Base, Ini, APs>
 {
     fn build_properties<
@@ -183,7 +182,7 @@ impl<
         >,
     >(
         properties: I,
-        variable_info: &variables::ModelVariableInfo<Base::Index>,
+        variable_info: &variables::ModelVariableInfo<Base::ClassIdx, Base::ClassEntryIdx>,
     ) -> Result<Vec<Query<i64, f64, AtomicPropositionIndex<Raw>>>, ModelBuildingError> {
         let const_valuation_source = variable_info.get_const_only_valuation_source();
 
@@ -205,23 +204,22 @@ impl<
     pub fn build_model<
         S: Span,
         M: Into<builder::ModelBuilder<Base, Ini, APs>>,
+        Raw: RawIndex,
         I: Iterator<
             Item = Query<
                 Expression<VariableReference, S>,
                 Expression<VariableReference, S>,
-                AtomicPropositionIndex<Base::Index>,
+                AtomicPropositionIndex<Raw>,
             >,
         >,
     >(
         model: &mut Model<VariableReference, S, Expression<VariableReference, S>, Identifier<S>>,
         mut explicit_builder: builder::ModelBuilder<Base, Ini, APs>,
-        atomic_propositions: &To1<
-            AtomicPropositionIndex<Base::Index>,
-            Expression<VariableReference, S>,
-        >,
+        atomic_propositions: &To1<AtomicPropositionIndex<Raw>, Expression<VariableReference, S>>,
         properties: I,
         user_provided_consts: &HashMap<String, UserProvidedConstValue>,
-    ) -> Result<ModelBuildingOutput<Base, Ini, APs>, ModelBuildingError> {
+    ) -> Result<ModelBuildingOutput<Base, Ini, APs, AtomicPropositionIndex<Raw>>, ModelBuildingError>
+    {
         let start_time = std::time::Instant::now();
 
         model.replace_empty_updates_with_identity_update();
@@ -239,7 +237,7 @@ impl<
                 let sub_expression = sub_expression_manager.add_sub_expression(stack);
                 sub_expression
             })
-            .change_key_type::<AnnotationIndex<Base::Index>>();
+            .change_key_type::<APs::AnnotationIdx>();
 
         let mut sub_expression_cache = SubExpressionManagerWithCache::new(sub_expression_manager);
         let context = sub_expression_cache.create_context();
@@ -293,9 +291,9 @@ impl<
         let model = builder.explicit_builder.finish();
 
         info!(
-            "Model built in {:?} ({} states)",
+            "Model built in {:?} ({} states (number of states is TODO)",
             start_time.elapsed(),
-            model.base.count_states()
+            0 // TODO
         );
         Ok(ModelBuildingOutput { model, properties })
     }
@@ -305,12 +303,12 @@ impl<
     // checker does not know these parts are disjoint unless we pass the parts into the respective
     // functions individually.
     fn get_or_add_state<
-        Val: GetValuationData<Base::Index> + GetValuationClassIndex<Base::Index>,
+        Val: GetValuationData<Base::ValuationIdx> + GetValuationClassIndex<Base::ClassIdx>,
     >(
         explicit_builder: &mut builder::ModelBuilder<Base, Ini, APs>,
-        open_states: &mut Vec<StateIndex<Base::Index>>,
+        open_states: &mut Vec<Base::StateIdx>,
         valuation: Val,
-    ) -> StateIndex<Base::Index> {
+    ) -> Base::StateIdx {
         let index = explicit_builder.base.state_by_valuation(&valuation);
         match index {
             Some(index) => index,
@@ -324,9 +322,9 @@ impl<
 
     fn process_state<S: Span, E, EC: ExpressionContext<E>>(
         &mut self,
-        state: StateIndex<Base::Index>,
+        state: Base::StateIdx,
         model: &Model<VariableReference, S, E, Identifier<S>>,
-        atomic_propositions: &To1<AnnotationIndex<Base::Index>, E>,
+        atomic_propositions: &To1<APs::AnnotationIdx, E>,
         synchronised_actions: &SynchronisedActions,
         expression_context: &mut EC,
     ) -> Result<(), ModelBuildingError> {
@@ -358,7 +356,7 @@ impl<
 
     fn process_nonsynchronised_command<S: Span, E, EC: ExpressionContext<E>>(
         &mut self,
-        state: StateIndex<Base::Index>,
+        state: Base::StateIdx,
         model: &Model<VariableReference, S, E, Identifier<S>>,
         command: &Command<VariableReference, S, E, Identifier<S>>,
         expression_context: &mut EC,
@@ -403,7 +401,7 @@ impl<
 
     fn process_synchronising_action<S: Span, E, EC: ExpressionContext<E>>(
         &mut self,
-        state: StateIndex<Base::Index>,
+        state: Base::StateIdx,
         model: &Model<VariableReference, S, E, Identifier<S>>,
         synchronised_action: &SynchronisedAction,
         expression_context: &mut EC,
@@ -543,8 +541,8 @@ impl<
 
     fn evaluate_atomic_propositions<E, EC: ExpressionContext<E>>(
         &mut self,
-        state_index: StateIndex<Base::Index>,
-        atomic_propositions: &To1<AnnotationIndex<Base::Index>, E>,
+        state_index: Base::StateIdx,
+        atomic_propositions: &To1<APs::AnnotationIdx, E>,
         expression_context: &mut EC,
     ) {
         let valuation = self
@@ -562,13 +560,17 @@ impl<
     }
 
     fn apply_assignments<S: Span, E, EC: ExpressionContext<E>>(
-        variable_info: &ModelVariableInfo<Base::Index>,
+        variable_info: &ModelVariableInfo<Base::ClassIdx, Base::ClassEntryIdx>,
         variable_manager: &VariableManager<S, E>,
-        valuation: &ValuationEntry<'_, Base::Index>,
-        val_source: &ConstAndVarValuationSource<Base::Index>,
+        valuation: &ValuationEntry<'_, Base::ClassIdx, Base::ClassEntryIdx, Base::ValuationIdx>,
+        val_source: &ConstAndVarValuationSource<
+            Base::ClassIdx,
+            Base::ClassEntryIdx,
+            Base::ValuationIdx,
+        >,
         updates: &[&Update<VariableReference, S, E>],
         expression_context: &mut EC,
-    ) -> BareStandaloneValuation<Base::Index> {
+    ) -> BareStandaloneValuation<Base::ClassIdx, Base::ValuationIdx> {
         let mut new_valuation = valuation.clone_into_standalone_valuation();
         for update in updates {
             for assignment in &update.assignments {
@@ -695,8 +697,8 @@ impl<
 
     #[allow(unused)]
     fn print_valuation<S: Span>(
-        valuation: ValuationEntry<'_, Base::Index>,
-        variable_info: &ModelVariableInfo<Base::Index>,
+        valuation: ValuationEntry<'_, Base::ClassIdx, Base::ClassEntryIdx, Base::ValuationIdx>,
+        variable_info: &ModelVariableInfo<Base::ClassIdx, Base::ClassEntryIdx>,
         model: &Model<VariableReference, S, Expression<VariableReference, S>, Identifier<S>>,
     ) {
         print!("(");

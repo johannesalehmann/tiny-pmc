@@ -1,6 +1,4 @@
-use crate::ValuationIndex;
-use crate::valuations::{GetValuationData, StandaloneValuation, ValuationVector};
-use num_traits::Zero;
+use crate::valuations::{GetValuationData, ValuationVector};
 use std::collections::HashMap;
 use typed_index_collections::{Index, RawIndex};
 

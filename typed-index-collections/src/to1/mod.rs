@@ -81,7 +81,6 @@ impl<From: Index, E> To1<From, E> {
     }
 
     pub fn enumerate(&self) -> EnumeratingTo1Iterator<'_, From, E> {
-        use num_traits::Zero;
         EnumeratingTo1Iterator {
             iterator: self.iter(),
             index: From::RawType::zero(),
@@ -153,7 +152,6 @@ impl<'a, From: Index, E> Iterator for EnumeratingTo1Iterator<'a, From, E> {
     type Item = (From, &'a E);
 
     fn next(&mut self) -> Option<Self::Item> {
-        use num_traits::One;
         self.iterator.next().map(|val| {
             let index = self.index;
             self.index = self.index + From::RawType::one();

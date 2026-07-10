@@ -1,11 +1,17 @@
 use num_integer::Integer;
-use num_traits::{MulAdd, PrimInt};
-use std::fmt::{Debug, Display, Formatter};
+use num_traits::PrimInt;
+use std::fmt::{Debug, Display};
 use std::ops::{Add, AddAssign, Div, Mul, Sub};
 
 pub trait RawIndex: Integer + PrimInt + Copy + Sub<Output = Self> + Display + Default {
     fn as_usize(self) -> usize;
     fn from_usize(val: usize) -> Self;
+    fn zero() -> Self {
+        <Self as num_traits::Zero>::zero()
+    }
+    fn one() -> Self {
+        <Self as num_traits::One>::one()
+    }
 }
 impl RawIndex for u8 {
     fn as_usize(self) -> usize {

@@ -17,18 +17,17 @@ use crate::variables::variable_details::VariableDetails;
 use crate::{ExpressionContext, ModelBuildingError, UserProvidedConstValue};
 use prism_model::{Identifier, Model, Span, VariableRange, VariableReference};
 use probabilistic_models::valuations::{ValuationEntry, Valuations};
-use probabilistic_models::{StateIndex, ValuationClassEntryIndex, ValuationClassIndex};
 use std::collections::HashMap;
 use typed_index_collections::{Index, RawIndex, To1};
 
-pub struct ModelVariableInfo<I: RawIndex> {
-    pub valuation_map: ValuationMap<ValuationClassEntryIndex<I>>,
+pub struct ModelVariableInfo<ClassIdx: Index, ClassEntryIdx: Index> {
+    pub valuation_map: ValuationMap<ClassEntryIdx>,
     const_valuations: ConstValuations,
-    pub details: VariableDetails<I>,
-    pub class_index: ValuationClassIndex<I>,
+    pub details: VariableDetails<ClassEntryIdx>,
+    pub class_index: ClassIdx,
 }
 
-impl<I: RawIndex> ModelVariableInfo<I> {
+impl<ClassIdx: Index, ClassEntryIdx: Index> ModelVariableInfo<ClassIdx, ClassEntryIdx> {
     /// Generates a valuation source for use in tests.
     ///
     /// The valuation source contains the following items.
@@ -52,15 +51,15 @@ impl<I: RawIndex> ModelVariableInfo<I> {
             valuation_map: ValuationMap::with_mock_values(),
             const_valuations: ConstValuations::with_mock_values(),
             details: VariableDetails::with_mock_values(),
-            class_index: ValuationClassIndex::from_raw(I::zero()),
+            class_index: ClassIdx::from_raw(ClassIdx::RawType::zero()),
         }
     }
 
-    pub fn new<S: Span, E, EC: ExpressionContext<E>>(
+    pub fn new<StateIdx: Index, ValuationIdx: Index, S: Span, E, EC: ExpressionContext<E>>(
         model: &Model<VariableReference, S, E, Identifier<S>>,
         user_provided_consts: &HashMap<String, UserProvidedConstValue>,
         expression_context: &mut EC,
-        valuations: &mut Valuations<I, StateIndex<I>>,
+        valuations: &mut Valuations<StateIdx, ClassIdx, ClassEntryIdx, ValuationIdx>,
     ) -> Result<Self, ModelBuildingError> {
         let variables = &model.variable_manager;
 
@@ -87,14 +86,14 @@ impl<I: RawIndex> ModelVariableInfo<I> {
 
     pub fn get_const_only_valuation_source(
         &self,
-    ) -> ConstOnlyValuationSource<'_, '_, ValuationClassEntryIndex<I>> {
+    ) -> ConstOnlyValuationSource<'_, '_, ClassEntryIdx> {
         ConstOnlyValuationSource::new(&self.valuation_map, &self.const_valuations)
     }
 
-    pub fn get_valuation_source<'a, 'b>(
+    pub fn get_valuation_source<'a, 'b, ValuationIdx: Index>(
         &'a self,
-        valuation: &'b ValuationEntry<'b, I>,
-    ) -> ConstAndVarValuationSource<'a, 'a, 'a, 'b, I> {
+        valuation: &'b ValuationEntry<'b, ClassIdx, ClassEntryIdx, ValuationIdx>,
+    ) -> ConstAndVarValuationSource<'a, 'a, 'a, 'b, ClassIdx, ClassEntryIdx, ValuationIdx> {
         ConstAndVarValuationSource::new(
             &self.valuation_map,
             &self.const_valuations,

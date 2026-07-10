@@ -1,4 +1,5 @@
 use crate::expressions::stack_based_expressions::optimisations::Optimisation;
+use typed_index_collections::Index;
 
 mod binary_operations_boolean;
 mod binary_operations_float;
@@ -19,8 +20,8 @@ mod push_const;
 mod subtract_zero;
 mod ternary;
 
-pub fn get_const_optimisations<I: typed_index_collections::RawIndex>(
-    variable_info: &crate::variables::ModelVariableInfo<I>,
+pub fn get_const_optimisations<ClassIdx: Index, ClassEntryIdx: Index>(
+    variable_info: &crate::variables::ModelVariableInfo<ClassIdx, ClassEntryIdx>,
 ) -> Vec<Box<dyn Optimisation + '_>> {
     vec![
         Box::new(push_const::PushConstOptimisation { variable_info }),
