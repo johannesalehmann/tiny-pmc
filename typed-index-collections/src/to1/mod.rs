@@ -30,6 +30,10 @@ impl<From: Index, E> To1<From, E> {
         }
     }
 
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+
     pub fn get(&self, index: From) -> Option<&E> {
         self.entries.get(index.raw().as_usize())
     }

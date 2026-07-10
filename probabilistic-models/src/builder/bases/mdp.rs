@@ -87,7 +87,7 @@ impl<
         let index = self.next_branch;
         self.next_branch += BranchIdx::RawType::one();
 
-        self.mdp.branch_targets.add_unchecked(target);
+        self.mdp.branch_destinations.add_unchecked(target);
         self.mdp.branch_probabilities.add_unchecked(probability);
         self.mdp
             .choice_to_branch

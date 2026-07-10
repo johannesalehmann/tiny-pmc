@@ -25,7 +25,7 @@ pub struct Mdp<StateIdx: Index, ChoiceIdx: Index, BranchIdx: Index> {
     state_to_choice: StateToChoice<StateIdx, ChoiceIdx>,
     choice_to_branch: ChoiceToBranch<ChoiceIdx, BranchIdx>,
     branch_probabilities: To1<BranchIdx, f64>,
-    branch_targets: To1<BranchIdx, StateIdx>,
+    branch_destinations: To1<BranchIdx, StateIdx>,
 }
 
 pub trait BaseModel {

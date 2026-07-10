@@ -26,6 +26,14 @@ impl<To: Index> CsrRange<To> {
             phantom_data: PhantomData,
         }
     }
+
+    pub fn start(&self) -> To {
+        To::from_raw(self.start)
+    }
+
+    pub fn end(&self) -> To {
+        To::from_raw(self.end)
+    }
 }
 
 impl<To: Index> IntoIterator for CsrRange<To> {

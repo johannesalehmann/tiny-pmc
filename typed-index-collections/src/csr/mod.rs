@@ -72,6 +72,12 @@ impl<From: Index, To: Index> Csr<From, To> {
         })
     }
 
+    pub fn index(&self, index: From) -> CsrRange<To> {
+        self.get(index).unwrap()
+    }
+
+    // TODO: It might be nicer to have a .keys() function that returns the range of keys. This
+    //  function could then be replaced by .keys().len().
     pub fn count_entries(&self) -> usize {
         self.entries.len()
     }
