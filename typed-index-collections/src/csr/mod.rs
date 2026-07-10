@@ -1,8 +1,10 @@
+pub mod chain;
 mod range;
-pub use range::CsrRange;
 
-use crate::Index;
+pub use range::{CsrRangeIterator, CsrRanges, CsrRangesIterator, EnumeratingCsrRangesIterator};
+
 use crate::index::RawIndex;
+use crate::{Index, IndexRange, SemiboundedIndexRange};
 use std::marker::PhantomData;
 
 #[derive(Default)]
@@ -57,103 +59,86 @@ impl<From: Index, To: Index> Csr<From, To> {
         }
     }
 
-    pub fn get(&self, index: From) -> Option<CsrRange<To>> {
+    pub fn get(&self, index: From) -> Option<IndexRange<To>> {
         let raw_index = index.raw().as_usize();
         let start = if raw_index > 0 {
-            self.entries.get(raw_index - 1)?.raw()
+            *self.entries.get(raw_index - 1)?
         } else {
-            To::RawType::zero()
+            To::from_raw(To::RawType::zero())
         };
-        let end = self.entries.get(raw_index)?.raw();
-        Some(CsrRange {
-            start,
-            end,
-            phantom_data: PhantomData,
-        })
+        let end = *self.entries.get(raw_index)?;
+        Some(IndexRange::new(start, end))
     }
 
-    pub fn index(&self, index: From) -> CsrRange<To> {
+    pub fn index(&self, index: From) -> IndexRange<To> {
         self.get(index).unwrap()
     }
 
-    // TODO: It might be nicer to have a .keys() function that returns the range of keys. This
-    //  function could then be replaced by .keys().len().
-    pub fn count_entries(&self) -> usize {
-        self.entries.len()
+    pub fn keys(&self) -> SemiboundedIndexRange<From> {
+        SemiboundedIndexRange::new(From::from_raw(From::RawType::from_usize(
+            self.entries.len(),
+        )))
+    }
+
+    pub fn values(&self) -> SemiboundedIndexRange<To> {
+        let length = match self.entries.last() {
+            Some(last) => *last,
+            None => To::from_raw(To::RawType::zero()),
+        };
+        SemiboundedIndexRange::new(length)
+    }
+
+    pub fn ranges(&self) -> CsrRanges<'_, From, To> {
+        CsrRanges::new(self)
     }
 }
 
 impl<'a, From: Index, To: Index> IntoIterator for &'a Csr<From, To> {
-    type Item = CsrRange<To>;
+    type Item = (From, To);
     type IntoIter = CsrIterator<'a, From, To>;
 
     fn into_iter(self) -> Self::IntoIter {
         CsrIterator {
             csr: self,
-            next_index: Some(0),
+            from_index: 0,
+            to_index: To::from_raw(To::RawType::zero()),
+            end: self.values().end(),
         }
     }
 }
 
 pub struct CsrIterator<'a, From: Index, To: Index> {
     csr: &'a Csr<From, To>,
-    next_index: Option<usize>,
-}
-
-impl<'a, From: Index, To: Index> CsrIterator<'a, From, To> {
-    pub fn enumerate(self) -> EnumeratingCsrIterator<'a, From, To> {
-        EnumeratingCsrIterator { iterator: self }
-    }
+    from_index: usize,
+    to_index: To,
+    end: To,
 }
 
 impl<'a, From: Index, To: Index> Iterator for CsrIterator<'a, From, To> {
-    type Item = CsrRange<To>;
+    type Item = (From, To);
 
     fn next(&mut self) -> Option<Self::Item> {
-        match self.next_index {
-            Some(index) => {
-                let res = self
-                    .csr
-                    .get(From::from_raw(From::RawType::from_usize(index)));
-                if index + 1 < self.csr.entries.len() {
-                    self.next_index = Some(index + 1);
-                } else {
-                    self.next_index = None;
-                }
-                res
+        if self.to_index.raw() < self.end.raw() {
+            while self.csr.entries[self.from_index].raw() <= self.to_index.raw() {
+                self.from_index += 1;
             }
-            None => None,
+            let res = (
+                From::from_raw(From::RawType::from_usize(self.from_index)),
+                self.to_index,
+            );
+            self.to_index += To::RawType::one();
+            Some(res)
+        } else {
+            None
         }
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let length = self.csr.entries.len() - 1;
-        (length, Some(length))
-    }
-}
-
-impl<From: Index, To: Index> ExactSizeIterator for CsrIterator<'_, From, To> {}
-
-pub struct EnumeratingCsrIterator<'a, From: Index, To: Index> {
-    iterator: CsrIterator<'a, From, To>,
-}
-
-impl<'a, From: Index, To: Index> Iterator for EnumeratingCsrIterator<'a, From, To> {
-    type Item = (From, <CsrIterator<'a, From, To> as Iterator>::Item);
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let index = self.iterator.next_index?;
-        let from = From::from_raw(From::RawType::from_usize(index));
-        Some((from, self.iterator.next()?))
     }
 }
 
 #[cfg(test)]
 mod test {
     use crate as typed_index_collections;
-    use crate::Index;
-    use crate::csr::{Csr, CsrRange};
-    use std::marker::PhantomData;
+    use crate::csr::Csr;
+    use crate::{Index, IndexRange};
 
     crate::index!(BranchIndex);
     crate::index!(StateIndex);
@@ -165,8 +150,8 @@ mod test {
                 let csr: Csr<StateIndex<u32>, BranchIndex<u32>> = Csr::with_entries(vec![
                     $(BranchIndex::from_raw($index)),*
                 ]);
-                let mut iter = csr.into_iter();
-                let mut enum_iter = csr.into_iter().enumerate();
+                let mut iter = csr.ranges().into_iter();
+                let mut enum_iter = csr.ranges().into_iter().enumerate();
                 let indices = &[0, $($index),*];
                 for (from, (&start, &end)) in (indices.iter().zip(indices[1..].iter())).enumerate() {
                     check_iters!(iter, enum_iter, from, start, end);
@@ -197,10 +182,9 @@ mod test {
             let to_end: u32 = $to_end;
             assert_eq!(
                 $entry,
-                CsrRange {
-                    start: to_start,
-                    end: to_end,
-                    phantom_data: PhantomData
+                IndexRange {
+                    start: BranchIndex::from_raw(to_start),
+                    end: BranchIndex::from_raw(to_end),
                 }
             );
             let mut iter = $entry.into_iter();

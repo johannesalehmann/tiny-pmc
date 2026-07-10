@@ -1,6 +1,7 @@
+use crate::RawIndex;
+use crate::base_model::Mdp;
 use crate::builder::bases::{BaseModelBuilder, ValuationBuilder};
 use crate::valuations::{GetValuationClassIndex, GetValuationData, Valuations};
-use crate::{Mdp, RawIndex};
 use typed_index_collections::Index;
 
 pub struct MdpBuilder<

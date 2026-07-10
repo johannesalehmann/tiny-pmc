@@ -1,12 +1,12 @@
 use std::marker::PhantomData;
-use typed_index_collections::{Csr, CsrRange, Index, RawIndex, To1};
+use typed_index_collections::{Csr, Index, IndexRange, RawIndex, To1};
 
 pub trait DeltaDistribution<From: Index, To: Index> {
     fn annotation_of_state(&self, state: From) -> To;
 }
 
 pub trait Distribution<From: Index, To: Index> {
-    fn annotations_of_state(&self, state: From) -> CsrRange<To>;
+    fn annotations_of_state(&self, state: From) -> IndexRange<To>;
     fn probability(&self, index: To) -> f32;
 }
 
@@ -17,8 +17,8 @@ pub struct ProbabilisticDistribution<From: Index, To: Index> {
 }
 
 impl<From: Index, To: Index> Distribution<From, To> for ProbabilisticDistribution<From, To> {
-    fn annotations_of_state(&self, state: From) -> CsrRange<To> {
-        self.entity_to_annotations.get(state).unwrap()
+    fn annotations_of_state(&self, state: From) -> IndexRange<To> {
+        self.entity_to_annotations.index(state)
     }
 
     fn probability(&self, index: To) -> f32 {
@@ -38,8 +38,10 @@ impl<From: Index, To: Index> IdentityDistribution<From, To> {
 }
 
 impl<From: Index, To: Index> Distribution<From, To> for IdentityDistribution<From, To> {
-    fn annotations_of_state(&self, state: From) -> CsrRange<To> {
-        CsrRange::identity(state)
+    fn annotations_of_state(&self, state: From) -> IndexRange<To> {
+        IndexRange::with_single_index(To::from_raw(To::RawType::from_usize(
+            state.raw().as_usize(),
+        )))
     }
 
     fn probability(&self, _index: To) -> f32 {
@@ -53,7 +55,7 @@ pub enum MixedDistribution<From: Index, To: Index> {
 }
 
 impl<From: Index, To: Index> Distribution<From, To> for MixedDistribution<From, To> {
-    fn annotations_of_state(&self, state: From) -> CsrRange<To> {
+    fn annotations_of_state(&self, state: From) -> IndexRange<To> {
         match self {
             MixedDistribution::Probabilistic(dist) => dist.annotations_of_state(state),
             MixedDistribution::Identity(dist) => dist.annotations_of_state(state),

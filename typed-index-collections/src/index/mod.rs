@@ -1,9 +1,14 @@
+mod index_range;
+pub use index_range::{IndexRange, IndexRangeIterator, SemiboundedIndexRange};
+
 use num_integer::Integer;
 use num_traits::PrimInt;
 use std::fmt::{Debug, Display};
 use std::ops::{Add, AddAssign, Div, Mul, Sub};
 
-pub trait RawIndex: Integer + PrimInt + Copy + Sub<Output = Self> + Display + Default {
+pub trait RawIndex:
+    Integer + PrimInt + Copy + Sub<Output = Self> + Display + Default + Debug
+{
     fn as_usize(self) -> usize;
     fn from_usize(val: usize) -> Self;
     fn zero() -> Self {

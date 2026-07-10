@@ -1,14 +1,15 @@
 pub mod annotations;
+pub mod base_model;
 pub mod builder;
 mod choices;
+mod export;
 pub mod initial_states;
 mod traits;
 pub mod valuations;
 
 pub use typed_index_collections::RawIndex;
 
-use crate::choices::{ChoiceToBranch, StateToChoice};
-use std::marker::PhantomData;
+use crate::traits::ReadStateSpace;
 use typed_index_collections::{Index, To1, index};
 
 index!(StateIndex);
@@ -20,27 +21,6 @@ index!(AnnotationEntryIndex);
 index!(ValuationClassIndex);
 index!(ValuationClassEntryIndex);
 index!(ValuationIndex);
-
-pub struct Mdp<StateIdx: Index, ChoiceIdx: Index, BranchIdx: Index> {
-    state_to_choice: StateToChoice<StateIdx, ChoiceIdx>,
-    choice_to_branch: ChoiceToBranch<ChoiceIdx, BranchIdx>,
-    branch_probabilities: To1<BranchIdx, f64>,
-    branch_destinations: To1<BranchIdx, StateIdx>,
-}
-
-pub trait BaseModel {
-    type StateIdx: Index;
-    type ChoiceIdx: Index;
-    type BranchIdx: Index;
-}
-
-impl<StateIdx: Index, ChoiceIdx: Index, BranchIdx: Index> BaseModel
-    for Mdp<StateIdx, ChoiceIdx, BranchIdx>
-{
-    type StateIdx = StateIdx;
-    type ChoiceIdx = ChoiceIdx;
-    type BranchIdx = BranchIdx;
-}
 
 // pub struct Dtmc<I: RawIndex = u32> {
 //     choice_to_branch: ChoiceToBranch<I>,
