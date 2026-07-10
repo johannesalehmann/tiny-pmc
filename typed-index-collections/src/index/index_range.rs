@@ -17,6 +17,20 @@ impl<Idx: Index> SemiboundedIndexRange<Idx> {
     pub fn end(&self) -> Idx {
         self.end
     }
+
+    pub fn index(&self, index: usize) -> Idx {
+        if index >= self.end.raw().as_usize() {
+            panic!("Out-of-range indexing operation into `SemiboundedIndexRange`");
+        }
+        Idx::from_raw(Idx::RawType::from_usize(index))
+    }
+    pub fn get(&self, index: usize) -> Option<Idx> {
+        if index >= self.end.raw().as_usize() {
+            None
+        } else {
+            Some(Idx::from_raw(Idx::RawType::from_usize(index)))
+        }
+    }
 }
 
 impl<Idx: Index> IntoIterator for SemiboundedIndexRange<Idx> {
@@ -51,6 +65,22 @@ impl<Idx: Index> IndexRange<Idx> {
 
     pub fn len(&self) -> usize {
         (self.end.raw() - self.start.raw()).as_usize()
+    }
+
+    pub fn index(&self, index: usize) -> Idx {
+        let offset = self.start.raw().as_usize();
+        if offset + index >= self.end.raw().as_usize() {
+            panic!("Out-of-range indexing operation into `SemiboundedIndexRange`");
+        }
+        Idx::from_raw(Idx::RawType::from_usize(offset + index))
+    }
+    pub fn get(&self, index: usize) -> Option<Idx> {
+        let offset = self.start.raw().as_usize();
+        if offset + index >= self.end.raw().as_usize() {
+            None
+        } else {
+            Some(Idx::from_raw(Idx::RawType::from_usize(offset + index)))
+        }
     }
 }
 

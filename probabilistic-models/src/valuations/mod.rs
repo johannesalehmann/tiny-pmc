@@ -1,5 +1,5 @@
 use std::ops::Range;
-use typed_index_collections::{Index, RawIndex, To1};
+use typed_index_collections::{Index, RawIndex, SemiboundedIndexRange, To1};
 
 mod bits;
 use crate::valuations::bits::SetBits;
@@ -29,6 +29,10 @@ impl<EntityIdx: Index, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Inde
 
     pub fn class(&self, class_index: ClassIdx) -> &ValuationClass<ClassEntryIdx> {
         &self.classes[class_index]
+    }
+
+    pub fn classes(&self) -> SemiboundedIndexRange<ClassIdx> {
+        self.classes.keys()
     }
 
     pub fn entry(

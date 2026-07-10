@@ -67,7 +67,10 @@ fn checker() -> Result<(), ModelCheckerError> {
 
     println!("Model has {} states", model.states().len());
 
+    println!(".tra:");
     println!("{}", model.tra_file());
+    println!("\n.sta:");
+    println!("{}", model.sta_file());
 
     return Ok(());
 

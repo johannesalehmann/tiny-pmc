@@ -36,6 +36,10 @@ impl<ClassEntryIdx: Index> ValuationClass<ClassEntryIdx> {
         self.entries.add(entry)
     }
 
+    pub fn entries(&self) -> &To1<ClassEntryIdx, ValuationClassEntry> {
+        &self.entries
+    }
+
     pub fn get(&self, index: ClassEntryIdx) -> &ValuationClassEntry {
         &self.entries[index]
     }

@@ -1,5 +1,5 @@
-use crate::Index;
 use crate::index::RawIndex;
+use crate::{Index, SemiboundedIndexRange};
 use std::marker::PhantomData;
 use std::ops::Range;
 
@@ -36,6 +36,12 @@ impl<From: Index, E> To1<From, E> {
             entries: entries.into(),
             _phantom_data: PhantomData,
         }
+    }
+
+    pub fn keys(&self) -> SemiboundedIndexRange<From> {
+        SemiboundedIndexRange::new(From::from_raw(From::RawType::from_usize(
+            self.entries.len(),
+        )))
     }
 
     pub fn len(&self) -> usize {
