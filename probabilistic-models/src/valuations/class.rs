@@ -1,18 +1,18 @@
-use crate::{RawIndex, ValuationClassEntryIndex};
+use crate::ValuationClassEntryIndex;
 use std::collections::HashMap;
 use std::ops::Range;
-use typed_index_collections::To1;
+use typed_index_collections::{Index, To1};
 
 // TODO: Shorten names and instead rely on prefix class:: to distinguish at point of use
 
-pub struct ValuationClass<I: RawIndex> {
-    entries: To1<ValuationClassEntryIndex<I>, ValuationClassEntry>,
+pub struct ValuationClass<ClassEntryIdx: Index> {
+    entries: To1<ClassEntryIdx, ValuationClassEntry>,
     name_to_entry: HashMap<String, usize>,
     next_free_index: usize,
     size_in_bits: usize,
 }
 
-impl<I: RawIndex> ValuationClass<I> {
+impl<ClassEntryIdx: Index> ValuationClass<ClassEntryIdx> {
     pub fn new() -> Self {
         Self {
             entries: To1::new(),
@@ -22,7 +22,7 @@ impl<I: RawIndex> ValuationClass<I> {
         }
     }
 
-    pub fn add(&mut self, entry: ValuationEntryDescription) -> ValuationClassEntryIndex<I> {
+    pub fn add(&mut self, entry: ValuationEntryDescription) -> ClassEntryIdx {
         let size = entry.calculate_size();
         let entry = ValuationClassEntry {
             name: entry.name,
@@ -36,7 +36,7 @@ impl<I: RawIndex> ValuationClass<I> {
         self.entries.add_unchecked(entry)
     }
 
-    pub fn get(&self, index: ValuationClassEntryIndex<I>) -> &ValuationClassEntry {
+    pub fn get(&self, index: ClassEntryIdx) -> &ValuationClassEntry {
         &self.entries[index]
     }
 

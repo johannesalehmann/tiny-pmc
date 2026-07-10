@@ -1,5 +1,5 @@
 use crate::{ValuationClassEntryIndex, ValuationClassIndex, ValuationIndex};
-use num_traits::ToBytes;
+use num_traits::{One, ToBytes, Zero};
 use std::marker::PhantomData;
 use std::ops::Range;
 use typed_index_collections::{Index, RawIndex, To1};
@@ -11,26 +11,32 @@ use bits::GetBits;
 mod class;
 pub use class::{Type, ValuationClass, ValuationClassEntry, ValuationEntryDescription};
 
-pub struct Valuations<I: RawIndex, From: Index> {
-    classes: To1<ValuationClassIndex<I>, ValuationClass<I>>,
-    valuations: To1<ValuationClassIndex<I>, ValuationClassData<I>>,
-    entity_to_class: To1<From, ValuationClassIndex<I>>,
-    entity_to_index: To1<From, ValuationIndex<I>>,
+pub struct Valuations<EntityIdx: Index, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index>
+{
+    classes: To1<ClassIdx, ValuationClass<ClassEntryIdx>>,
+    valuations: To1<ClassIdx, ValuationClassData<ValuationIdx>>,
+    entity_to_class: To1<EntityIdx, ClassIdx>,
+    entity_to_index: To1<EntityIdx, ValuationIdx>,
 }
 
-impl<I: RawIndex, From: Index> Valuations<I, From> {
-    pub fn add_class(&mut self, class: ValuationClass<I>) -> ValuationClassIndex<I> {
+impl<EntityIdx: Index, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index>
+    Valuations<EntityIdx, ClassIdx, ClassEntryIdx, ValuationIdx>
+{
+    pub fn add_class(&mut self, class: ValuationClass<ClassEntryIdx>) -> ClassIdx {
         let bits = class.size_in_bits();
         let index = self.classes.add_unchecked(class);
         self.valuations.add_unchecked(ValuationClassData::new(bits));
         index
     }
 
-    pub fn class(&self, class_index: ValuationClassIndex<I>) -> &ValuationClass<I> {
+    pub fn class(&self, class_index: ClassIdx) -> &ValuationClass<ClassEntryIdx> {
         &self.classes[class_index]
     }
 
-    pub fn entry(&self, entity: From) -> ValuationEntry<I> {
+    pub fn entry(
+        &self,
+        entity: EntityIdx,
+    ) -> ValuationEntry<ClassIdx, ClassEntryIdx, ValuationIdx> {
         let class_index = self.entity_to_class[entity];
         let index = self.entity_to_index[entity];
         ValuationEntry {
@@ -41,7 +47,10 @@ impl<I: RawIndex, From: Index> Valuations<I, From> {
         }
     }
 
-    pub fn entry_mut(&mut self, entity: From) -> ValuationEntryMut<I> {
+    pub fn entry_mut(
+        &mut self,
+        entity: EntityIdx,
+    ) -> ValuationEntryMut<ClassIdx, ClassEntryIdx, ValuationIdx> {
         let class_index = self.entity_to_class[entity];
         let index = self.entity_to_index[entity];
         ValuationEntryMut {
@@ -52,14 +61,14 @@ impl<I: RawIndex, From: Index> Valuations<I, From> {
         }
     }
 
-    pub fn add_empty_valuation(&mut self, class: ValuationClassIndex<I>) -> ValuationIndex<I> {
+    pub fn add_empty_valuation(&mut self, class: ClassIdx) -> ValuationIdx {
         self.valuations[class].valuations.add_empty_entry()
     }
 
     pub fn create_standalone_valuation(
         &self,
-        class_index: ValuationClassIndex<I>,
-    ) -> StandaloneValuation<'_, I> {
+        class_index: ClassIdx,
+    ) -> StandaloneValuation<'_, ClassIdx, ClassEntryIdx, ValuationIdx> {
         let class = &self.classes[class_index];
         let data = ValuationClassData::new(class.size_in_bits());
         StandaloneValuation {
@@ -69,7 +78,10 @@ impl<I: RawIndex, From: Index> Valuations<I, From> {
         }
     }
 
-    pub fn add_valuation(&mut self, valuation: StandaloneValuation<I>) -> ValuationIndex<I> {
+    pub fn add_valuation(
+        &mut self,
+        valuation: StandaloneValuation<ClassIdx, ClassEntryIdx, ValuationIdx>,
+    ) -> ValuationIdx {
         if !valuation.data.strings.is_empty() {
             panic!("Adding StandaloneValuations with strings is not yet supported");
         }
@@ -79,29 +91,37 @@ impl<I: RawIndex, From: Index> Valuations<I, From> {
     }
 }
 
-pub struct ValuationEntry<'a, I: RawIndex> {
+pub struct ValuationEntry<'a, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index> {
     // TODO: The class index is only used when cloning the valuation into a standalone valuation.
     //  Is there some way of avoiding the need to always drag this around?
-    class_index: ValuationClassIndex<I>,
-    class: &'a ValuationClass<I>,
-    class_data: &'a ValuationClassData<I>,
-    index: ValuationIndex<I>,
+    class_index: ClassIdx,
+    class: &'a ValuationClass<ClassEntryIdx>,
+    class_data: &'a ValuationClassData<ValuationIdx>,
+    index: ValuationIdx,
 }
 
-pub struct ValuationEntryMut<'a, I: RawIndex> {
-    class_index: ValuationClassIndex<I>,
-    class: &'a ValuationClass<I>,
-    class_data: &'a mut ValuationClassData<I>,
-    index: ValuationIndex<I>,
+pub struct ValuationEntryMut<'a, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index> {
+    class_index: ClassIdx,
+    class: &'a ValuationClass<ClassEntryIdx>,
+    class_data: &'a mut ValuationClassData<ValuationIdx>,
+    index: ValuationIdx,
 }
 
-impl<'a, I: RawIndex> ValuationEntry<'a, I> {
-    pub fn clone_into_standalone_valuation(&self) -> StandaloneValuation<I> {
+impl<'a, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index>
+    ValuationEntry<'a, ClassIdx, ClassEntryIdx, ValuationIdx>
+{
+    pub fn clone_into_standalone_valuation(
+        &self,
+    ) -> StandaloneValuation<ClassIdx, ClassEntryIdx, ValuationIdx> {
         StandaloneValuation::from_valuation_entry(self)
     }
 }
-impl<'a, I: RawIndex> ValuationEntryMut<'a, I> {
-    pub fn clone_into_standalone_valuation(&self) -> StandaloneValuation<I> {
+impl<'a, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index>
+    ValuationEntryMut<'a, ClassIdx, ClassEntryIdx, ValuationIdx>
+{
+    pub fn clone_into_standalone_valuation(
+        &self,
+    ) -> StandaloneValuation<ClassIdx, ClassEntryIdx, ValuationIdx> {
         StandaloneValuation::from_valuation_entry(&ValuationEntry {
             class_index: self.class_index,
             class: self.class,
@@ -137,16 +157,16 @@ fn assert_type(variable: &ValuationClassEntry, expected_type: Type) {
     }
 }
 
-pub trait ValuationBits<'a, I: RawIndex + 'a> {
+pub trait ValuationBits<ClassEntryIdx: Index, ValuationIdx: Index> {
     fn class_and_index(
-        &'a self,
+        &self,
     ) -> (
-        &'a ValuationClass<I>,
-        &'a ValuationClassData<I>,
-        ValuationIndex<I>,
+        &ValuationClass<ClassEntryIdx>,
+        &ValuationClassData<ValuationIdx>,
+        ValuationIdx,
     );
 
-    fn evaluate_bool(&'a self, variable_index: ValuationClassEntryIndex<I>) -> bool {
+    fn evaluate_bool(&self, variable_index: ClassEntryIdx) -> bool {
         let (class, class_data, index) = self.class_and_index();
         let variable = class.get(variable_index);
         assert_optional(variable, false);
@@ -154,7 +174,7 @@ pub trait ValuationBits<'a, I: RawIndex + 'a> {
         class_data.valuations.bool(index, variable.location.clone())
     }
 
-    fn evaluate_int(&'a self, variable_index: ValuationClassEntryIndex<I>) -> i64 {
+    fn evaluate_int(&self, variable_index: ClassEntryIdx) -> i64 {
         let (class, class_data, index) = self.class_and_index();
         let variable = class.get(variable_index);
         assert_optional(variable, false);
@@ -171,7 +191,7 @@ pub trait ValuationBits<'a, I: RawIndex + 'a> {
         }
     }
 
-    fn evaluate_uint(&'a self, variable_index: ValuationClassEntryIndex<I>) -> u64 {
+    fn evaluate_uint(&self, variable_index: ClassEntryIdx) -> u64 {
         let (class, class_data, index) = self.class_and_index();
         let variable = class.get(variable_index);
         assert_optional(variable, false);
@@ -183,7 +203,7 @@ pub trait ValuationBits<'a, I: RawIndex + 'a> {
         class_data.valuations.uint(index, variable.location.clone()) + variable.value_offset as u64
     }
 
-    fn evaluate_double(&'a self, variable_index: ValuationClassEntryIndex<I>) -> f64 {
+    fn evaluate_double(&self, variable_index: ClassEntryIdx) -> f64 {
         let (class, class_data, index) = self.class_and_index();
         let variable = class.get(variable_index);
         assert_optional(variable, false);
@@ -198,7 +218,7 @@ pub trait ValuationBits<'a, I: RawIndex + 'a> {
             .double(index, variable.location.clone())
     }
 
-    fn evaluate_rational(&'a self, variable_index: ValuationClassEntryIndex<I>) -> (i64, u64) {
+    fn evaluate_rational(&self, variable_index: ClassEntryIdx) -> (i64, u64) {
         let (class, class_data, index) = self.class_and_index();
         let variable = class.get(variable_index);
         assert_optional(variable, false);
@@ -217,7 +237,11 @@ pub trait ValuationBits<'a, I: RawIndex + 'a> {
         )
     }
 
-    fn evaluate_string(&'a self, variable_index: ValuationClassEntryIndex<I>) -> &'a str {
+    fn evaluate_string<'a>(&'a self, variable_index: ClassEntryIdx) -> &'a str
+    where
+        ClassEntryIdx: 'a,
+        ValuationIdx: 'a,
+    {
         let (class, class_data, index) = self.class_and_index();
         let variable = class.get(variable_index);
         assert_optional(variable, false);
@@ -232,16 +256,16 @@ pub trait ValuationBits<'a, I: RawIndex + 'a> {
     }
 }
 
-pub trait ValuationBitsMut<I: RawIndex> {
+pub trait ValuationBitsMut<ClassEntryIdx: Index, ValuationIdx: Index> {
     fn class_and_index_mut(
         &mut self,
     ) -> (
-        &ValuationClass<I>,
-        &mut ValuationClassData<I>,
-        ValuationIndex<I>,
+        &ValuationClass<ClassEntryIdx>,
+        &mut ValuationClassData<ValuationIdx>,
+        ValuationIdx,
     );
 
-    fn set_bool(&mut self, variable_index: ValuationClassEntryIndex<I>, value: bool) {
+    fn set_bool(&mut self, variable_index: ClassEntryIdx, value: bool) {
         let (class, class_data, index) = self.class_and_index_mut();
         let variable = class.get(variable_index);
         assert_optional(variable, false);
@@ -251,7 +275,7 @@ pub trait ValuationBitsMut<I: RawIndex> {
             .set_bool(index, variable.location.clone(), value);
     }
 
-    fn set_int(&mut self, variable_index: ValuationClassEntryIndex<I>, value: i64) {
+    fn set_int(&mut self, variable_index: ClassEntryIdx, value: i64) {
         let (class, class_data, index) = self.class_and_index_mut();
         let variable = class.get(variable_index);
         assert_optional(variable, false);
@@ -281,7 +305,7 @@ pub trait ValuationBitsMut<I: RawIndex> {
         }
     }
 
-    fn set_uint(&mut self, variable_index: ValuationClassEntryIndex<I>, value: u64) {
+    fn set_uint(&mut self, variable_index: ClassEntryIdx, value: u64) {
         let (class, class_data, index) = self.class_and_index_mut();
         let variable = class.get(variable_index);
         assert_optional(variable, false);
@@ -291,7 +315,7 @@ pub trait ValuationBitsMut<I: RawIndex> {
             .set_uint(index, variable.location.clone(), value);
     }
 
-    fn set_double(&mut self, variable_index: ValuationClassEntryIndex<I>, value: f64) {
+    fn set_double(&mut self, variable_index: ClassEntryIdx, value: f64) {
         let (class, class_data, index) = self.class_and_index_mut();
         let variable = class.get(variable_index);
         assert_optional(variable, false);
@@ -303,7 +327,7 @@ pub trait ValuationBitsMut<I: RawIndex> {
 
     fn set_rational(
         &mut self,
-        variable_index: ValuationClassEntryIndex<I>,
+        variable_index: ClassEntryIdx,
         (numerator, denominator): (i64, u64),
     ) {
         let (class, class_data, index) = self.class_and_index_mut();
@@ -319,7 +343,7 @@ pub trait ValuationBitsMut<I: RawIndex> {
             .set_uint(index, denom_address, denominator);
     }
 
-    fn set_string(&mut self, variable_index: ValuationClassEntryIndex<I>, value: String) {
+    fn set_string(&mut self, variable_index: ClassEntryIdx, value: String) {
         // TODO: This might slowly fill up the string array with unused values. Perhaps reuse the
         //  values in some way or clear out old ones?
         let (class, class_data, index) = self.class_and_index_mut();
@@ -334,49 +358,57 @@ pub trait ValuationBitsMut<I: RawIndex> {
     }
 }
 
-impl<'a, I: RawIndex> ValuationBits<'a, I> for ValuationEntry<'a, I> {
+impl<'a, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index>
+    ValuationBits<ClassEntryIdx, ValuationIdx>
+    for ValuationEntry<'a, ClassIdx, ClassEntryIdx, ValuationIdx>
+{
     fn class_and_index(
         &self,
     ) -> (
-        &'a ValuationClass<I>,
-        &'a ValuationClassData<I>,
-        ValuationIndex<I>,
+        &ValuationClass<ClassEntryIdx>,
+        &ValuationClassData<ValuationIdx>,
+        ValuationIdx,
     ) {
         (self.class, self.class_data, self.index)
     }
 }
-impl<'a, I: RawIndex> ValuationBitsMut<I> for ValuationEntryMut<'a, I> {
+impl<'a, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index>
+    ValuationBitsMut<ClassEntryIdx, ValuationIdx>
+    for ValuationEntryMut<'a, ClassIdx, ClassEntryIdx, ValuationIdx>
+{
     fn class_and_index_mut(
         &mut self,
     ) -> (
-        &ValuationClass<I>,
-        &mut ValuationClassData<I>,
-        ValuationIndex<I>,
+        &ValuationClass<ClassEntryIdx>,
+        &mut ValuationClassData<ValuationIdx>,
+        ValuationIdx,
     ) {
         (self.class, self.class_data, self.index)
     }
 }
 
-pub trait GetValuationClassIndex<I: RawIndex> {
-    fn valuation_class_index(&self) -> ValuationClassIndex<I>;
+pub trait GetValuationClassIndex<ClassIdx: Index> {
+    fn valuation_class_index(&self) -> ClassIdx;
 }
-pub trait GetValuationData<I: RawIndex> {
-    fn valuation_class_data(&self) -> &ValuationClassData<I>;
+pub trait GetValuationData<ValuationIdx: Index> {
+    fn valuation_class_data(&self) -> &ValuationClassData<ValuationIdx>;
 }
 
-pub struct StandaloneValuation<'a, I: RawIndex> {
-    pub class_index: ValuationClassIndex<I>,
-    pub class: &'a ValuationClass<I>,
+pub struct StandaloneValuation<'a, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index> {
+    pub class_index: ClassIdx,
+    pub class: &'a ValuationClass<ClassEntryIdx>,
     // TODO: Using ValuationClassData is both unclean (we only use the element at 0) and produces
     //  unnecessary allocations. It would be better to have a special version for this that is
     //  similar to ValuationClassData, but only contains a single entry instead of a vector. For
     //  all cases except for MultiFields, this would avoid allocating (and this structure is used
     //  in the inner model building loop, so it would be good to avoid allocations).
-    pub data: ValuationClassData<I>,
+    pub data: ValuationClassData<ValuationIdx>,
 }
 
-impl<'a, I: RawIndex> StandaloneValuation<'a, I> {
-    pub fn new(class_index: ValuationClassIndex<I>, class: &'a ValuationClass<I>) -> Self {
+impl<'a, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index>
+    StandaloneValuation<'a, ClassIdx, ClassEntryIdx, ValuationIdx>
+{
+    pub fn new(class_index: ClassIdx, class: &'a ValuationClass<ClassEntryIdx>) -> Self {
         let mut data = ValuationClassData::new(class.size_in_bits());
         data.valuations.add_empty_entry();
         Self {
@@ -385,7 +417,9 @@ impl<'a, I: RawIndex> StandaloneValuation<'a, I> {
             data,
         }
     }
-    pub fn from_valuation_entry(entry: &ValuationEntry<'a, I>) -> Self {
+    pub fn from_valuation_entry(
+        entry: &ValuationEntry<'a, ClassIdx, ClassEntryIdx, ValuationIdx>,
+    ) -> Self {
         if entry.class_data.strings.len() > 0 {
             panic!("`from_valuation_entry` cannot handle valuations that contain strings yet");
         }
@@ -402,46 +436,60 @@ impl<'a, I: RawIndex> StandaloneValuation<'a, I> {
         }
     }
 
-    pub fn bare(self) -> BareStandaloneValuation<I> {
+    pub fn bare(self) -> BareStandaloneValuation<ClassIdx, ValuationIdx> {
         self.into()
     }
 }
 
-impl<I: RawIndex> GetValuationClassIndex<I> for StandaloneValuation<'_, I> {
-    fn valuation_class_index(&self) -> ValuationClassIndex<I> {
+impl<ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index> GetValuationClassIndex<ClassIdx>
+    for StandaloneValuation<'_, ClassIdx, ClassEntryIdx, ValuationIdx>
+{
+    fn valuation_class_index(&self) -> ClassIdx {
         self.class_index
     }
 }
 
-impl<I: RawIndex> GetValuationData<I> for StandaloneValuation<'_, I> {
-    fn valuation_class_data(&self) -> &ValuationClassData<I> {
+impl<ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index> GetValuationData<ValuationIdx>
+    for StandaloneValuation<'_, ClassIdx, ClassEntryIdx, ValuationIdx>
+{
+    fn valuation_class_data(&self) -> &ValuationClassData<ValuationIdx> {
         &self.data
     }
 }
 
-impl<'a, I: RawIndex> ValuationBits<'a, I> for StandaloneValuation<'a, I> {
+impl<'a, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index>
+    ValuationBits<ClassEntryIdx, ValuationIdx>
+    for StandaloneValuation<'a, ClassIdx, ClassEntryIdx, ValuationIdx>
+{
     fn class_and_index(
-        &'a self,
+        &self,
     ) -> (
-        &'a ValuationClass<I>,
-        &'a ValuationClassData<I>,
-        ValuationIndex<I>,
+        &ValuationClass<ClassEntryIdx>,
+        &ValuationClassData<ValuationIdx>,
+        ValuationIdx,
     ) {
-        (self.class, &self.data, ValuationIndex::from_raw(I::zero()))
+        (
+            self.class,
+            &self.data,
+            ValuationIdx::from_raw(ValuationIdx::RawType::zero()),
+        )
     }
 }
-impl<'a, I: RawIndex> ValuationBitsMut<I> for StandaloneValuation<'a, I> {
+impl<'a, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index>
+    ValuationBitsMut<ClassEntryIdx, ValuationIdx>
+    for StandaloneValuation<'a, ClassIdx, ClassEntryIdx, ValuationIdx>
+{
     fn class_and_index_mut(
         &mut self,
     ) -> (
-        &ValuationClass<I>,
-        &mut ValuationClassData<I>,
-        ValuationIndex<I>,
+        &ValuationClass<ClassEntryIdx>,
+        &mut ValuationClassData<ValuationIdx>,
+        ValuationIdx,
     ) {
         (
             self.class,
             &mut self.data,
-            ValuationIndex::from_raw(I::zero()),
+            ValuationIdx::from_raw(ValuationIdx::RawType::zero()),
         )
     }
 }
@@ -449,13 +497,16 @@ impl<'a, I: RawIndex> ValuationBitsMut<I> for StandaloneValuation<'a, I> {
 // A `BareStandaloneValuation` does not contain a reference to its class. This makes it much less
 // capable, as reading and writing information requires the class, but avoids storing a reference,
 // which may cause borrow-checker issues.
-pub struct BareStandaloneValuation<I: RawIndex> {
-    pub class_index: ValuationClassIndex<I>,
-    pub data: ValuationClassData<I>,
+pub struct BareStandaloneValuation<ClassIdx: Index, ValuationIdx: Index> {
+    pub class_index: ClassIdx,
+    pub data: ValuationClassData<ValuationIdx>,
 }
 
-impl<'a, I: RawIndex> From<StandaloneValuation<'a, I>> for BareStandaloneValuation<I> {
-    fn from(value: StandaloneValuation<'a, I>) -> Self {
+impl<'a, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index>
+    From<StandaloneValuation<'a, ClassIdx, ClassEntryIdx, ValuationIdx>>
+    for BareStandaloneValuation<ClassIdx, ValuationIdx>
+{
+    fn from(value: StandaloneValuation<'a, ClassIdx, ClassEntryIdx, ValuationIdx>) -> Self {
         Self {
             class_index: value.class_index,
             data: value.data,
@@ -463,24 +514,28 @@ impl<'a, I: RawIndex> From<StandaloneValuation<'a, I>> for BareStandaloneValuati
     }
 }
 
-impl<I: RawIndex> GetValuationClassIndex<I> for BareStandaloneValuation<I> {
-    fn valuation_class_index(&self) -> ValuationClassIndex<I> {
+impl<ClassIdx: Index, ValuationIdx: Index> GetValuationClassIndex<ClassIdx>
+    for BareStandaloneValuation<ClassIdx, ValuationIdx>
+{
+    fn valuation_class_index(&self) -> ClassIdx {
         self.class_index
     }
 }
 
-impl<I: RawIndex> GetValuationData<I> for BareStandaloneValuation<I> {
-    fn valuation_class_data(&self) -> &ValuationClassData<I> {
+impl<ClassIdx: Index, ValuationIdx: Index> GetValuationData<ValuationIdx>
+    for BareStandaloneValuation<ClassIdx, ValuationIdx>
+{
+    fn valuation_class_data(&self) -> &ValuationClassData<ValuationIdx> {
         &self.data
     }
 }
 
-pub struct ValuationClassData<I: RawIndex> {
-    pub valuations: ValuationVector<I>,
+pub struct ValuationClassData<ValuationIdx: Index> {
+    pub valuations: ValuationVector<ValuationIdx>,
     pub strings: Vec<String>,
 }
 
-impl<I: RawIndex> ValuationClassData<I> {
+impl<ValuationIdx: Index> ValuationClassData<ValuationIdx> {
     pub fn new(data_size_in_bits: usize) -> Self {
         let valuations = if data_size_in_bits == 0 {
             ValuationVector::U0
@@ -507,22 +562,22 @@ impl<I: RawIndex> ValuationClassData<I> {
     }
 }
 
-pub enum ValuationVector<I: RawIndex> {
+pub enum ValuationVector<ValuationIdx: Index> {
     U0, // For valuations without any data
-    U8(To1<ValuationIndex<I>, u8>),
-    U16(To1<ValuationIndex<I>, u16>),
-    U32(To1<ValuationIndex<I>, u32>),
-    U64(To1<ValuationIndex<I>, u64>),
+    U8(To1<ValuationIdx, u8>),
+    U16(To1<ValuationIdx, u16>),
+    U32(To1<ValuationIdx, u32>),
+    U64(To1<ValuationIdx, u64>),
     MultiField {
-        fields: To1<ValuationIndex<I>, u64>,
+        fields: To1<ValuationIdx, u64>,
         fields_per_valuation: usize,
     },
 }
 
-impl<I: RawIndex> ValuationVector<I> {
-    pub fn add_empty_entry(&mut self) -> ValuationIndex<I> {
+impl<ValuationIdx: Index> ValuationVector<ValuationIdx> {
+    pub fn add_empty_entry(&mut self) -> ValuationIdx {
         match self {
-            ValuationVector::U0 => ValuationIndex::from_raw(I::zero()),
+            ValuationVector::U0 => ValuationIdx::from_raw(ValuationIdx::RawType::zero()),
             ValuationVector::U8(vals) => vals.add_unchecked(0),
             ValuationVector::U16(vals) => vals.add_unchecked(0),
             ValuationVector::U32(vals) => vals.add_unchecked(0),
@@ -535,25 +590,29 @@ impl<I: RawIndex> ValuationVector<I> {
                 for _ in 1..*fields_per_valuation {
                     fields.add_unchecked(0);
                 }
-                index / I::from_usize(*fields_per_valuation)
+                index / ValuationIdx::RawType::from_usize(*fields_per_valuation)
             }
         }
     }
 
-    pub fn add_from_standalone(&mut self, valuation: StandaloneValuation<I>) -> ValuationIndex<I> {
+    pub fn add_from_standalone<ClassIdx: Index, ClassEntryIdx: Index>(
+        &mut self,
+        valuation: StandaloneValuation<ClassIdx, ClassEntryIdx, ValuationIdx>,
+    ) -> ValuationIdx {
+        let zero = ValuationIdx::from_raw(ValuationIdx::RawType::zero());
         match (self, valuation.data.valuations) {
-            (ValuationVector::U0, ValuationVector::U0) => ValuationIndex::from_raw(I::zero()),
+            (ValuationVector::U0, ValuationVector::U0) => zero,
             (ValuationVector::U8(vals), ValuationVector::U8(new_vals)) => {
-                vals.add_unchecked(new_vals.take(ValuationIndex::from_raw(I::zero())).unwrap())
+                vals.add_unchecked(new_vals.take(zero).unwrap())
             }
             (ValuationVector::U16(vals), ValuationVector::U16(new_vals)) => {
-                vals.add_unchecked(new_vals.take(ValuationIndex::from_raw(I::zero())).unwrap())
+                vals.add_unchecked(new_vals.take(zero).unwrap())
             }
             (ValuationVector::U32(vals), ValuationVector::U32(new_vals)) => {
-                vals.add_unchecked(new_vals.take(ValuationIndex::from_raw(I::zero())).unwrap())
+                vals.add_unchecked(new_vals.take(zero).unwrap())
             }
             (ValuationVector::U64(vals), ValuationVector::U64(new_vals)) => {
-                vals.add_unchecked(new_vals.take(ValuationIndex::from_raw(I::zero())).unwrap())
+                vals.add_unchecked(new_vals.take(zero).unwrap())
             }
             (
                 ValuationVector::MultiField {
@@ -565,6 +624,7 @@ impl<I: RawIndex> ValuationVector<I> {
                     fields_per_valuation: new_fields_per_valuation,
                 },
             ) => {
+                assert_eq!(*fields_per_valuation, new_fields_per_valuation);
                 let mut new_fields = new_fields.into_iter();
                 let index = fields.add_unchecked(new_fields.next().unwrap());
                 for new_field in new_fields {
@@ -578,7 +638,7 @@ impl<I: RawIndex> ValuationVector<I> {
         }
     }
 
-    pub fn copy_into_new_vector(&self, index: ValuationIndex<I>) -> Self {
+    pub fn copy_into_new_vector(&self, index: ValuationIdx) -> Self {
         match self {
             ValuationVector::U0 => ValuationVector::U0,
             ValuationVector::U8(vals) => {
@@ -597,8 +657,9 @@ impl<I: RawIndex> ValuationVector<I> {
                 fields,
                 fields_per_valuation,
             } => {
-                let field_count = I::from_usize(*fields_per_valuation);
-                let fields = &fields[index * field_count..(index + I::one()) * field_count];
+                let field_count = ValuationIdx::RawType::from_usize(*fields_per_valuation);
+                let fields = &fields
+                    [index * field_count..(index + ValuationIdx::RawType::one()) * field_count];
                 ValuationVector::MultiField {
                     fields: To1::with_entries(fields.into_iter().cloned().collect::<Vec<_>>()),
                     fields_per_valuation: *fields_per_valuation,
@@ -607,7 +668,7 @@ impl<I: RawIndex> ValuationVector<I> {
         }
     }
 
-    fn int(&self, index: ValuationIndex<I>, range: Range<usize>) -> i64 {
+    fn int(&self, index: ValuationIdx, range: Range<usize>) -> i64 {
         let bits = self.bits(index, range.clone());
         // Convert the two's complement (of given length) into the actual representation
         if bits & (1 << range.len()) != 0 {
@@ -625,7 +686,7 @@ impl<I: RawIndex> ValuationVector<I> {
         }
     }
 
-    fn set_int(&mut self, index: ValuationIndex<I>, range: Range<usize>, value: i64) {
+    fn set_int(&mut self, index: ValuationIdx, range: Range<usize>, value: i64) {
         let bits = if value > 0 {
             value as u64
         } else {
@@ -639,32 +700,32 @@ impl<I: RawIndex> ValuationVector<I> {
         self.set_bits(index, range, bits)
     }
 
-    fn uint(&self, index: ValuationIndex<I>, range: Range<usize>) -> u64 {
+    fn uint(&self, index: ValuationIdx, range: Range<usize>) -> u64 {
         self.bits(index, range)
     }
-    fn set_uint(&mut self, index: ValuationIndex<I>, range: Range<usize>, value: u64) {
+    fn set_uint(&mut self, index: ValuationIdx, range: Range<usize>, value: u64) {
         self.set_bits(index, range, value)
     }
 
-    fn double(&self, index: ValuationIndex<I>, range: Range<usize>) -> f64 {
+    fn double(&self, index: ValuationIdx, range: Range<usize>) -> f64 {
         f64::from_le_bytes(self.bits(index, range).to_le_bytes())
     }
-    fn set_double(&mut self, index: ValuationIndex<I>, range: Range<usize>, value: f64) {
+    fn set_double(&mut self, index: ValuationIdx, range: Range<usize>, value: f64) {
         let bits = u64::from_le_bytes(value.to_le_bytes());
         self.set_bits(index, range, bits)
     }
 
-    fn bool(&self, index: ValuationIndex<I>, range: Range<usize>) -> bool {
+    fn bool(&self, index: ValuationIdx, range: Range<usize>) -> bool {
         let bits = self.bits(index, range);
         bits != 0
     }
 
-    fn set_bool(&mut self, index: ValuationIndex<I>, range: Range<usize>, value: bool) {
+    fn set_bool(&mut self, index: ValuationIdx, range: Range<usize>, value: bool) {
         let bits = if value { 1 } else { 0 };
         self.set_bits(index, range, bits)
     }
 
-    fn bits(&self, index: ValuationIndex<I>, range: Range<usize>) -> u64 {
+    fn bits(&self, index: ValuationIdx, range: Range<usize>) -> u64 {
         match self {
             ValuationVector::U0 => {
                 panic!("Cannot access data in a valuation whose fields have length 0")
@@ -677,7 +738,7 @@ impl<I: RawIndex> ValuationVector<I> {
                 fields,
                 fields_per_valuation,
             } => {
-                let fields_per_valuation = I::from_usize(*fields_per_valuation);
+                let fields_per_valuation = ValuationIdx::RawType::from_usize(*fields_per_valuation);
                 let start_index = index * fields_per_valuation;
                 let end_index = start_index + fields_per_valuation;
                 let fields = &fields[start_index..end_index];
@@ -686,7 +747,7 @@ impl<I: RawIndex> ValuationVector<I> {
         }
     }
 
-    fn bit(&self, index: ValuationIndex<I>, offset: usize) -> bool {
+    fn bit(&self, index: ValuationIdx, offset: usize) -> bool {
         match self {
             ValuationVector::U0 => {
                 panic!("Cannot access data in a valuation whose fields have length 0")
@@ -699,7 +760,7 @@ impl<I: RawIndex> ValuationVector<I> {
                 fields,
                 fields_per_valuation,
             } => {
-                let fields_per_valuation = I::from_usize(*fields_per_valuation);
+                let fields_per_valuation = ValuationIdx::RawType::from_usize(*fields_per_valuation);
                 let start_index = index * fields_per_valuation;
                 let end_index = start_index + fields_per_valuation;
                 let fields = &fields[start_index..end_index];
@@ -708,7 +769,7 @@ impl<I: RawIndex> ValuationVector<I> {
         }
     }
 
-    fn set_bits(&mut self, index: ValuationIndex<I>, range: Range<usize>, bits: u64) {
+    fn set_bits(&mut self, index: ValuationIdx, range: Range<usize>, bits: u64) {
         match self {
             ValuationVector::U0 => {
                 panic!("Cannot modify data in a valuation whose fields have length 0")
@@ -721,7 +782,7 @@ impl<I: RawIndex> ValuationVector<I> {
                 fields,
                 fields_per_valuation,
             } => {
-                let fields_per_valuation = I::from_usize(*fields_per_valuation);
+                let fields_per_valuation = ValuationIdx::RawType::from_usize(*fields_per_valuation);
                 let start_index = index * fields_per_valuation;
                 let end_index = start_index + fields_per_valuation;
                 let mut fields = &mut fields[start_index..end_index];
@@ -730,7 +791,7 @@ impl<I: RawIndex> ValuationVector<I> {
         }
     }
 
-    fn set_bit(&mut self, index: ValuationIndex<I>, offset: usize, value: bool) {
+    fn set_bit(&mut self, index: ValuationIdx, offset: usize, value: bool) {
         match self {
             ValuationVector::U0 => {
                 panic!("Cannot modify data in a valuation whose fields have length 0")
@@ -743,7 +804,7 @@ impl<I: RawIndex> ValuationVector<I> {
                 fields,
                 fields_per_valuation,
             } => {
-                let fields_per_valuation = I::from_usize(*fields_per_valuation);
+                let fields_per_valuation = ValuationIdx::RawType::from_usize(*fields_per_valuation);
                 let start_index = index * fields_per_valuation;
                 let end_index = start_index + fields_per_valuation;
                 let mut fields = &mut fields[start_index..end_index];

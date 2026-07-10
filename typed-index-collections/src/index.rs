@@ -53,7 +53,17 @@ impl RawIndex for usize {
     }
 }
 
-pub trait Index: Copy + Eq + Debug {
+pub trait Index:
+    Copy
+    + Eq
+    + Debug
+    + Default
+    + Add<Self::RawType, Output = Self>
+    + Sub<Self::RawType, Output = Self>
+    + Mul<Self::RawType, Output = Self>
+    + Div<Self::RawType, Output = Self>
+    + AddAssign<Self::RawType>
+{
     type RawType: RawIndex;
 
     fn from_raw(index: Self::RawType) -> Self;

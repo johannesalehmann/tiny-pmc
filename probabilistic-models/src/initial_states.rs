@@ -1,18 +1,18 @@
-use crate::{InitialStates, Model, StateIndex};
+use crate::{BaseModel, InitialStates, Model, StateIndex};
 use std::marker::PhantomData;
-use typed_index_collections::RawIndex;
+use typed_index_collections::{Index, RawIndex};
 
-pub struct SingleInitialState<I: RawIndex> {
-    pub index: StateIndex<I>,
+pub struct SingleInitialState<StateIdx: Index> {
+    pub index: StateIdx,
 }
 
-impl<I: RawIndex, M, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val>
-    Model<I, M, (), ChLabel, BrLabel, Obs, APs, Rew, Ann, Val>
+impl<M: BaseModel, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val>
+    Model<M, (), ChLabel, BrLabel, Obs, APs, Rew, Ann, Val>
 {
     pub fn with_initial_state(
         self,
-        initial: StateIndex<I>,
-    ) -> Model<I, M, SingleInitialState<I>, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val> {
+        initial: M::StateIdx,
+    ) -> Model<M, SingleInitialState<M::StateIdx>, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val> {
         Model {
             base: self.base,
             initial: SingleInitialState { index: initial },
@@ -23,13 +23,12 @@ impl<I: RawIndex, M, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val>
             rewards: self.rewards,
             annotations: self.annotations,
             state_valuations: self.state_valuations,
-            _phantom_data: PhantomData,
         }
     }
     pub fn with_initial_states(
         self,
-        initial: InitialStates,
-    ) -> Model<I, M, InitialStates, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val> {
+        initial: InitialStates<M::StateIdx>,
+    ) -> Model<M, InitialStates<M::StateIdx>, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val> {
         Model {
             base: self.base,
             initial,
@@ -40,37 +39,36 @@ impl<I: RawIndex, M, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val>
             rewards: self.rewards,
             annotations: self.annotations,
             state_valuations: self.state_valuations,
-            _phantom_data: PhantomData,
         }
     }
 }
 
-pub trait IsInitial<I: RawIndex> {
-    fn is_initial(&self, index: StateIndex<I>) -> bool;
+pub trait IsInitial<StateIdx: Index> {
+    fn is_initial(&self, index: StateIdx) -> bool;
 }
 
-impl<I: RawIndex> IsInitial<I> for SingleInitialState<I> {
-    fn is_initial(&self, index: StateIndex<I>) -> bool {
+impl<StateIdx: Index> IsInitial<StateIdx> for SingleInitialState<StateIdx> {
+    fn is_initial(&self, index: StateIdx) -> bool {
         self.index == index
     }
 }
 
-impl<I: RawIndex> IsInitial<I> for InitialStates<I> {
-    fn is_initial(&self, index: StateIndex<I>) -> bool {
+impl<StateIdx: Index> IsInitial<StateIdx> for InitialStates<StateIdx> {
+    fn is_initial(&self, index: StateIdx) -> bool {
         self[index]
     }
 }
 
-impl<I: RawIndex, M, Init: IsInitial<I>, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val>
-    Model<I, M, Init, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val>
+impl<M: BaseModel, Init: IsInitial<M::StateIdx>, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val>
+    Model<M, Init, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val>
 {
-    pub fn is_initial(&self, state: StateIndex<I>) -> bool {
+    pub fn is_initial(&self, state: M::StateIdx) -> bool {
         self.initial.is_initial(state)
     }
 
     pub fn without_initial_states(
         self,
-    ) -> Model<I, M, (), ChLabel, BrLabel, Obs, APs, Rew, Anno, Val> {
+    ) -> Model<M, (), ChLabel, BrLabel, Obs, APs, Rew, Anno, Val> {
         Model {
             base: self.base,
             initial: (),
@@ -81,7 +79,6 @@ impl<I: RawIndex, M, Init: IsInitial<I>, ChLabel, BrLabel, Obs, APs, Rew, Anno, 
             rewards: self.rewards,
             annotations: self.annotations,
             state_valuations: self.state_valuations,
-            _phantom_data: PhantomData,
         }
     }
 }

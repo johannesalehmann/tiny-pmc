@@ -9,13 +9,13 @@ use initial_states::{
 };
 
 mod atomic_propositions;
-pub use atomic_propositions::AtomicPropositionBuilder;
-use atomic_propositions::{AtomicPropositionVectorsBuilder, UntrackedAtomicPropositionBuilder};
-
 use crate::valuations::{
     GetValuationClassIndex, GetValuationData, StandaloneValuation, Valuations,
 };
 use crate::{Model, StateIndex};
+pub use atomic_propositions::AtomicPropositionBuilder;
+use atomic_propositions::{AtomicPropositionVectorsBuilder, UntrackedAtomicPropositionBuilder};
+use typed_index_collections::Index;
 
 pub struct ModelBuilderBuilder<
     Base: BaseModelBuilder,
@@ -30,12 +30,12 @@ pub struct ModelBuilderBuilder<
 impl<Base: BaseModelBuilder, Ini: InitialStatesBuilder, APs: AtomicPropositionBuilder>
     ModelBuilderBuilder<Base, Ini, APs>
 {
-    pub fn new(
+    pub fn new<AnnotationIdx: Index>(
         base: Base,
     ) -> ModelBuilderBuilder<
         Base,
-        UntrackedInitialStatesBuilder<Base::Index>,
-        UntrackedAtomicPropositionBuilder<Base::Index>,
+        UntrackedInitialStatesBuilder<Base::StateIdx>,
+        UntrackedAtomicPropositionBuilder<AnnotationIdx, Base::StateIdx>,
     > {
         ModelBuilderBuilder {
             base,
@@ -66,7 +66,6 @@ pub struct ModelBuilder<
 }
 
 pub type ModelBuilderOutput<Base, Ini, APs> = Model<
-    <Base as BaseModelBuilder>::Index,
     <Base as BaseModelBuilder>::BaseModel,
     <Ini as InitialStatesBuilder>::InitialStates,
     (),
@@ -75,19 +74,21 @@ pub type ModelBuilderOutput<Base, Ini, APs> = Model<
     <APs as AtomicPropositionBuilder>::AtomicPropositions,
     (),
     (),
-    Valuations<<Base as BaseModelBuilder>::Index, StateIndex<<Base as BaseModelBuilder>::Index>>,
+    <Base as BaseModelBuilder>::Valuation,
 >;
 
 impl<
     Base: BaseModelBuilder,
-    Ini: InitialStatesBuilder<Index = Base::Index>,
-    APs: AtomicPropositionBuilder<Index = Base::Index>,
+    Ini: InitialStatesBuilder<StateIdx = Base::StateIdx>,
+    APs: AtomicPropositionBuilder<StateIdx = Base::StateIdx>,
 > ModelBuilder<Base, Ini, APs>
 {
-    pub fn add_state<Val: GetValuationData<Base::Index> + GetValuationClassIndex<Base::Index>>(
+    pub fn add_state<
+        Val: GetValuationData<Base::ValuationIdx> + GetValuationClassIndex<Base::ClassIdx>,
+    >(
         &mut self,
         valuation: Val,
-    ) -> StateIndex<Base::Index> {
+    ) -> Base::StateIdx {
         let index = self.base.add_state(valuation);
         self.initial_states.state_added(index);
         index
@@ -105,7 +106,6 @@ impl<
             rewards: (),
             annotations: (),
             state_valuations,
-            _phantom_data: Default::default(),
         }
     }
 }

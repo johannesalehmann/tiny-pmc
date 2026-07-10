@@ -1,33 +1,33 @@
 use crate::initial_states::SingleInitialState;
 use crate::{InitialStates, RawIndex, StateIndex};
 use std::marker::PhantomData;
-use typed_index_collections::To1;
+use typed_index_collections::{Index, To1};
 
 pub trait InitialStatesBuilder: Default {
     type InitialStates;
-    type Index: RawIndex;
+    type StateIdx: Index;
 
     // A new state was added (not necessarily initial). Can be used for internal bookkeeping.
-    fn state_added(&mut self, index: StateIndex<Self::Index>) {}
+    fn state_added(&mut self, index: Self::StateIdx) {}
     fn stores_initial_states() -> bool;
-    fn mark_state(&mut self, state: StateIndex<Self::Index>);
+    fn mark_state(&mut self, state: Self::StateIdx);
     fn into_initial_states(self) -> Self::InitialStates;
 }
 
 #[derive(Default)]
-pub struct UntrackedInitialStatesBuilder<I: RawIndex> {
-    _phantom_data: PhantomData<I>,
+pub struct UntrackedInitialStatesBuilder<StateIdx: Index> {
+    _phantom_data: PhantomData<StateIdx>,
 }
 
-impl<I: RawIndex> InitialStatesBuilder for UntrackedInitialStatesBuilder<I> {
+impl<StateIdx: Index> InitialStatesBuilder for UntrackedInitialStatesBuilder<StateIdx> {
     type InitialStates = ();
-    type Index = I;
+    type StateIdx = StateIdx;
 
     fn stores_initial_states() -> bool {
         false
     }
 
-    fn mark_state(&mut self, state: StateIndex<Self::Index>) {
+    fn mark_state(&mut self, state: StateIdx) {
         panic!("Cannot mark state as initial when using `UntrackedInitialStatesBuilder`.")
     }
 
@@ -37,19 +37,19 @@ impl<I: RawIndex> InitialStatesBuilder for UntrackedInitialStatesBuilder<I> {
 }
 
 #[derive(Default)]
-pub struct SingleInitialStatesBuilder<I: RawIndex> {
-    state: Option<StateIndex<I>>,
+pub struct SingleInitialStatesBuilder<StateIdx: Index> {
+    state: Option<StateIdx>,
 }
 
-impl<I: RawIndex> InitialStatesBuilder for SingleInitialStatesBuilder<I> {
-    type InitialStates = SingleInitialState<I>;
-    type Index = I;
+impl<StateIdx: Index> InitialStatesBuilder for SingleInitialStatesBuilder<StateIdx> {
+    type InitialStates = SingleInitialState<StateIdx>;
+    type StateIdx = StateIdx;
 
     fn stores_initial_states() -> bool {
         true
     }
 
-    fn mark_state(&mut self, state: StateIndex<Self::Index>) {
+    fn mark_state(&mut self, state: StateIdx) {
         if self.state.is_some() {
             panic!("Cannot mark a second state as initial when using `SingleInitialStatesBuilder`.")
         }
@@ -68,21 +68,16 @@ impl<I: RawIndex> InitialStatesBuilder for SingleInitialStatesBuilder<I> {
     }
 }
 
-pub struct MultipleInitialStatesBuilder<I: RawIndex> {
-    states: To1<StateIndex<I>, bool>,
+#[derive(Default)]
+pub struct MultipleInitialStatesBuilder<StateIdx: Index> {
+    states: To1<StateIdx, bool>,
 }
 
-impl<I: RawIndex> Default for MultipleInitialStatesBuilder<I> {
-    fn default() -> Self {
-        Self { states: To1::new() }
-    }
-}
+impl<StateIdx: Index> InitialStatesBuilder for MultipleInitialStatesBuilder<StateIdx> {
+    type InitialStates = InitialStates<StateIdx>;
+    type StateIdx = StateIdx;
 
-impl<I: RawIndex> InitialStatesBuilder for MultipleInitialStatesBuilder<I> {
-    type InitialStates = InitialStates<I>;
-    type Index = I;
-
-    fn state_added(&mut self, index: StateIndex<Self::Index>) {
+    fn state_added(&mut self, index: StateIdx) {
         self.states.add_unchecked(false);
     }
 
@@ -90,7 +85,7 @@ impl<I: RawIndex> InitialStatesBuilder for MultipleInitialStatesBuilder<I> {
         true
     }
 
-    fn mark_state(&mut self, state: StateIndex<Self::Index>) {
+    fn mark_state(&mut self, state: StateIdx) {
         self.states[state] = true;
     }
 

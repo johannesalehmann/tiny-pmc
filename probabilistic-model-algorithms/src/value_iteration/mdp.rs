@@ -1,34 +1,40 @@
 use super::{Maximiser, Minimiser, StateData, ValueComparator, value_iteration_internal};
 use crate::mecs;
 use crate::sccs::{Scc, SccList, SccWithDependencies};
-use probabilistic_models::{
-    ActionCollection, ActionVector, AtomicPropositions, Distribution, DistributionVector,
-    ProbabilisticModel, SinglePlayer, VectorPredecessors,
-};
+use probabilistic_models::valuations::Valuations;
+use probabilistic_models::{Mdp, Model, RawIndex, StateIndex, annotations, initial_states};
 
-pub fn optimistic_value_iteration_maximise<
-    M: probabilistic_models::ModelTypes<
-            Predecessors = VectorPredecessors,
-            Distribution = DistributionVector,
-            ActionCollection = ActionVector<DistributionVector>,
-            Owners = SinglePlayer,
-        >,
->(
-    model: ProbabilisticModel<M>,
+pub fn optimistic_value_iteration_maximise<I: RawIndex, ChLabel, BrLabel, Rew, Ann>(
+    model: &Model<
+        I,
+        Mdp,
+        initial_states::SingleInitialState<I>,
+        ChLabel,
+        BrLabel,
+        (),
+        annotations::AtomicPropositions<I>,
+        Rew,
+        Ann,
+        Valuations<I, StateIndex<I>>,
+    >,
     objective_ap_index: usize,
     eps: f64,
 ) -> f64 {
     optimistic_value_iteration(model, objective_ap_index, eps, Maximiser {})
 }
-pub fn optimistic_value_iteration_minimise<
-    M: probabilistic_models::ModelTypes<
-            Predecessors = VectorPredecessors,
-            Distribution = DistributionVector,
-            ActionCollection = ActionVector<DistributionVector>,
-            Owners = SinglePlayer,
-        >,
->(
-    model: ProbabilisticModel<M>,
+pub fn optimistic_value_iteration_minimise<I: RawIndex, ChLabel, BrLabel, Rew, Ann>(
+    model: &Model<
+        I,
+        Mdp,
+        initial_states::SingleInitialState<I>,
+        ChLabel,
+        BrLabel,
+        (),
+        annotations::AtomicPropositions<I>,
+        Rew,
+        Ann,
+        Valuations<I, StateIndex<I>>,
+    >,
     objective_ap_index: usize,
     eps: f64,
 ) -> f64 {
@@ -36,15 +42,25 @@ pub fn optimistic_value_iteration_minimise<
 }
 
 fn optimistic_value_iteration<
-    M: probabilistic_models::ModelTypes<
-            Predecessors = VectorPredecessors,
-            Distribution = DistributionVector,
-            ActionCollection = ActionVector<DistributionVector>,
-            Owners = SinglePlayer,
-        >,
+    I: RawIndex,
+    ChLabel,
+    BrLabel,
+    Rew,
+    Ann,
     C: ValueComparator<SinglePlayer>,
 >(
-    mut model: ProbabilisticModel<M>,
+    model: &Model<
+        I,
+        Mdp,
+        initial_states::SingleInitialState<I>,
+        ChLabel,
+        BrLabel,
+        (),
+        annotations::AtomicPropositions<I>,
+        Rew,
+        Ann,
+        Valuations<I, StateIndex<I>>,
+    >,
     objective_ap_index: usize,
     mut eps: f64,
     comparator: C,
@@ -55,7 +71,7 @@ fn optimistic_value_iteration<
     let winning_mecs = winning_mecs(&mecs, objective_ap_index, &model);
     mecs.collapse_mecs(&mut model);
 
-    let mut data = vec![StateData::new(); model.states.len()];
+    let mut data = vec![StateData::new(); model..len()];
     let mut upper_bound = vec![0.0; model.states.len()];
     let excluded =
         handle_reachability_objective(&model, objective_ap_index, &mecs, &winning_mecs, &mut data);

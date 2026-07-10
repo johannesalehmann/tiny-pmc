@@ -30,8 +30,12 @@ impl<To: Index> ValuationToEntity<To> {
         }
     }
 
-    pub fn add<'a, I: RawIndex, Val: GetValuationData<I>>(&mut self, valuation: &Val, to: To) {
-        let zero = ValuationIndex::from_raw(I::zero());
+    pub fn add<'a, ValuationIdx: Index, Val: GetValuationData<ValuationIdx>>(
+        &mut self,
+        valuation: &Val,
+        to: To,
+    ) {
+        let zero = ValuationIdx::from_raw(ValuationIdx::RawType::zero());
         match (self, &valuation.valuation_class_data().valuations) {
             (ValuationToEntity::U0, ValuationVector::U0) => {
                 if to.raw() != To::RawType::zero() {
@@ -60,7 +64,9 @@ impl<To: Index> ValuationToEntity<To> {
                 },
             ) => {
                 let fields = Vec::from(
-                    &fields[zero..ValuationIndex::from_raw(I::from_usize(*fields_per_valuation))],
+                    &fields[zero..ValuationIdx::from_raw(ValuationIdx::RawType::from_usize(
+                        *fields_per_valuation,
+                    ))],
                 );
                 assert_eq!(map.insert(fields, to), None);
             }
@@ -70,8 +76,11 @@ impl<To: Index> ValuationToEntity<To> {
         }
     }
 
-    pub fn get<'a, I: RawIndex, V: GetValuationData<I>>(&self, valuation: &V) -> Option<To> {
-        let zero = ValuationIndex::from_raw(I::zero());
+    pub fn get<'a, ValuationIdx: Index, Val: GetValuationData<ValuationIdx>>(
+        &self,
+        valuation: &Val,
+    ) -> Option<To> {
+        let zero = ValuationIdx::from_raw(ValuationIdx::RawType::zero());
         match (self, &valuation.valuation_class_data().valuations) {
             (ValuationToEntity::U0, ValuationVector::U0) => Some(To::from_raw(To::RawType::zero())),
             (ValuationToEntity::U8(map), ValuationVector::U8(vals)) => {
@@ -93,8 +102,9 @@ impl<To: Index> ValuationToEntity<To> {
                     fields_per_valuation,
                 },
             ) => {
-                let fields =
-                    &fields[zero..ValuationIndex::from_raw(I::from_usize(*fields_per_valuation))];
+                let fields = &fields[zero..ValuationIdx::from_raw(
+                    ValuationIdx::RawType::from_usize(*fields_per_valuation),
+                )];
                 map.get(fields).cloned()
             }
             _ => panic!(

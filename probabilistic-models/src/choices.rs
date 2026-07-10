@@ -1,5 +1,4 @@
-use crate::{BranchIndex, ChoiceIndex, StateIndex};
-use typed_index_collections::{Csr, RawIndex};
+use typed_index_collections::{Csr, Index};
 
-pub type StateToChoice<I: RawIndex> = Csr<StateIndex<I>, ChoiceIndex<I>>;
-pub type ChoiceToBranch<I: RawIndex> = Csr<ChoiceIndex<I>, BranchIndex<I>>;
+pub type StateToChoice<StateIdx: Index, ChoiceIdx: Index> = Csr<StateIdx, ChoiceIdx>;
+pub type ChoiceToBranch<ChoiceIdx: Index, BranchIdx: Index> = Csr<ChoiceIdx, BranchIdx>;
