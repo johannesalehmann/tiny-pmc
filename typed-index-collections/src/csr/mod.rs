@@ -47,6 +47,9 @@ impl<From: Index, To: Index> Csr<From, To> {
     }
 
     pub fn extend_last_entry(&mut self, new_to: To) {
+        if self.entries.len() == 0 {
+            panic!("Cannot extend last entry of `Csr` without entries.")
+        }
         let last_index = self.entries.len() - 1;
         self.entries[last_index] = new_to;
     }

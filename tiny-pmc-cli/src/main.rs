@@ -55,6 +55,7 @@ fn checker() -> Result<(), ModelCheckerError> {
         >::default(),
     );
     let builder = builder_builder.finish();
+    let start_build = std::time::Instant::now();
     let builder_output = prism_model_builder::build_model(
         &mut prism_model,
         builder,
@@ -62,15 +63,16 @@ fn checker() -> Result<(), ModelCheckerError> {
         properties.into_iter(),
         &constants,
     )?;
+    println!("Built model in {:?}", start_build.elapsed());
     let model = builder_output.model;
     let properties = builder_output.properties;
 
     println!("Model has {} states", model.states().len());
 
-    println!(".tra:");
-    println!("{}", model.tra_file());
-    println!("\n.sta:");
-    println!("{}", model.sta_file());
+    model.tra_file().write_to_file("model.tra").unwrap();
+    model.sta_file().write_to_file("model.sta").unwrap();
+    model.lab_file().write_to_file("model.lab").unwrap();
+    println!("Wrote files to `model.tra`, `model.sta` and `model.lab`");
 
     return Ok(());
 

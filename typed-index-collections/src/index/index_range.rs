@@ -31,6 +31,14 @@ impl<Idx: Index> SemiboundedIndexRange<Idx> {
             Some(Idx::from_raw(Idx::RawType::from_usize(index)))
         }
     }
+
+    pub fn last(&self) -> Option<Idx> {
+        if self.end.raw() == Idx::RawType::zero() {
+            None
+        } else {
+            Some(self.end - Idx::RawType::one())
+        }
+    }
 }
 
 impl<Idx: Index> IntoIterator for SemiboundedIndexRange<Idx> {

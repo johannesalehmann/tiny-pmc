@@ -49,19 +49,25 @@ impl<
         self.valuation.state_by_valuation(valuation)
     }
 
-    fn add_state<Val: GetValuationClassIndex<ClassIdx> + GetValuationData<ValuationIdx>>(
+    fn add_valuation<Val: GetValuationClassIndex<ClassIdx> + GetValuationData<ValuationIdx>>(
         &mut self,
         valuation: Val,
     ) -> StateIdx {
         let index = self.next_state;
 
-        self.mdp
-            .state_to_choice
-            .add_entry(self.next_state, self.next_choice, self.next_choice);
         self.valuation
             .add_state_valuation(&valuation, self.next_state);
         self.next_state += StateIdx::RawType::one();
         index
+    }
+
+    // Before calling this, call add_valuation to get the next state index
+    fn add_state(&mut self, state_index: StateIdx) {
+        let index = self.next_state;
+
+        self.mdp
+            .state_to_choice
+            .add_entry(state_index, self.next_choice, self.next_choice);
     }
 
     fn valuation_builder(
@@ -84,6 +90,11 @@ impl<
             .add_entry(self.next_choice, self.next_branch, self.next_branch);
         self.next_choice += ChoiceIdx::RawType::one();
         self.mdp.state_to_choice.extend_last_entry(self.next_choice);
+        println!(
+            "For state {:?}, extending to {:?}",
+            self.mdp.state_to_choice.keys().last(),
+            self.next_choice
+        );
         index
     }
 

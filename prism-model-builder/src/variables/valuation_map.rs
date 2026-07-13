@@ -43,7 +43,6 @@ impl<ClassEntryIndex> ValuationMap<ClassEntryIndex> {
         }
     }
 
-    #[allow(unused)]
     pub fn map_to_constant(&self, index: usize) -> Option<usize> {
         match self.entries[index] {
             ValuationMapEntry::Const(i) => Some(i),
@@ -52,17 +51,19 @@ impl<ClassEntryIndex> ValuationMap<ClassEntryIndex> {
     }
 }
 
-impl ValuationMap<()> {
+impl ValuationMap<usize> {
     pub fn new<S: Span, E>(variables: &VariableManager<S, E>) -> Self {
         let mut entries = Vec::new();
 
-        let mut consts_cont = 0;
+        let mut consts_count = 0;
+        let mut var_count = 0;
         for var in &variables.variables {
             if var.is_constant() {
-                entries.push(ValuationMapEntry::Const(consts_cont));
-                consts_cont += 1;
+                entries.push(ValuationMapEntry::Const(consts_count));
+                consts_count += 1;
             } else {
-                entries.push(ValuationMapEntry::Var(()));
+                entries.push(ValuationMapEntry::Var(var_count));
+                var_count += 1;
             }
         }
         Self { entries }
@@ -75,15 +76,13 @@ impl ValuationMap<()> {
     ) -> (ValuationMap<ClassEntryIdx>, ValuationClass<ClassEntryIdx>) {
         let mut entries = Vec::new();
         let mut class = ValuationClass::new();
-        for ((entry, variable), details) in self
-            .entries
-            .into_iter()
-            .zip(variables.variables.iter())
-            .zip(details.details.iter())
-        {
+        for (entry_index, entry) in self.entries.into_iter().enumerate() {
             match entry {
                 ValuationMapEntry::Const(index) => entries.push(ValuationMapEntry::Const(index)),
-                ValuationMapEntry::Var(()) => {
+                ValuationMapEntry::Var(index) => {
+                    let variable = &variables.variables[entry_index];
+                    let details = &details.details
+                        [ClassEntryIdx::from_raw(ClassEntryIdx::RawType::from_usize(index))];
                     let variable_type = match details.variable_type {
                         VariableType::Int => {
                             if details.bounds.is_some() {

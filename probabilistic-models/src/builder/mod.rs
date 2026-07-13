@@ -99,14 +99,22 @@ impl<
     APs: AtomicPropositionBuilder<StateIdx = Base::StateIdx>,
 > ModelBuilder<Base, Ini, APs>
 {
-    pub fn add_state<
+    pub fn add_state(&mut self, state_index: Base::StateIdx) {
+        let index = self.base.add_state(state_index);
+        self.initial_states.state_added(state_index);
+        index
+    }
+
+    // Call this if you identify a new state (e.g. by following a transition), but are not yet ready
+    // to immediately add transitions to it. This already stores the valuation and returns a
+    // valuation, but does not yet add it to the states-to-valuations index
+    pub fn preregister_state<
         Val: GetValuationData<Base::ValuationIdx> + GetValuationClassIndex<Base::ClassIdx>,
     >(
         &mut self,
         valuation: Val,
     ) -> Base::StateIdx {
-        let index = self.base.add_state(valuation);
-        self.initial_states.state_added(index);
+        let index = self.base.add_valuation(valuation);
         index
     }
 

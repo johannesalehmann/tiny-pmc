@@ -37,7 +37,7 @@ impl<ClassEntryIdx: Index> VariableDetails<ClassEntryIdx> {
 
     pub fn new<S: Span, E, EC: ExpressionContext<E>>(
         variables: &VariableManager<S, E>,
-        valuation_map: &ValuationMap<()>,
+        valuation_map: &ValuationMap<usize>,
         const_values: &ConstValuations,
         expression_context: &mut EC,
     ) -> Self {

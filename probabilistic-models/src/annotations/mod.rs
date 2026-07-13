@@ -15,9 +15,9 @@ pub struct TypedAnnotation<
     Dist: Distribution<EntityIdx, AnnotationEntryIdx>,
     Val,
 > {
-    pub distribution: Dist,
-    pub values: To1<AnnotationEntryIdx, Val>,
-    pub phantom_data: PhantomData<EntityIdx>,
+    distribution: Dist,
+    values: To1<AnnotationEntryIdx, Val>,
+    phantom_data: PhantomData<EntityIdx>,
 }
 
 impl<EntityIdx: Index, AnnotationEntryIdx: Index, Val>
@@ -31,6 +31,46 @@ impl<EntityIdx: Index, AnnotationEntryIdx: Index, Val>
     pub fn add_value(&mut self, entity: EntityIdx, value: Val) {
         let annotation_index = self.distribution.annotation_index(entity);
         self.values.add_checked(annotation_index, value);
+    }
+
+    pub fn get(&self, entity: EntityIdx) -> Option<&Val> {
+        let annotation_index = self.distribution.annotation_index(entity);
+        self.values.get(annotation_index)
+    }
+
+    pub fn get_mut(&mut self, entity: EntityIdx) -> Option<&mut Val> {
+        let annotation_index = self.distribution.annotation_index(entity);
+        self.values.get_mut(annotation_index)
+    }
+}
+
+impl<EntityIdx: Index, AnnotationEntryIdx: Index, Val> std::ops::Index<EntityIdx>
+    for TypedAnnotation<
+        EntityIdx,
+        AnnotationEntryIdx,
+        IdentityDistribution<EntityIdx, AnnotationEntryIdx>,
+        Val,
+    >
+{
+    type Output = Val;
+
+    fn index(&self, index: EntityIdx) -> &Self::Output {
+        let annotation_index = self.distribution.annotation_index(index);
+        &self.values[annotation_index]
+    }
+}
+
+impl<EntityIdx: Index, AnnotationEntryIdx: Index, Val> std::ops::IndexMut<EntityIdx>
+    for TypedAnnotation<
+        EntityIdx,
+        AnnotationEntryIdx,
+        IdentityDistribution<EntityIdx, AnnotationEntryIdx>,
+        Val,
+    >
+{
+    fn index_mut(&mut self, index: EntityIdx) -> &mut Self::Output {
+        let annotation_index = self.distribution.annotation_index(index);
+        &mut self.values[annotation_index]
     }
 }
 

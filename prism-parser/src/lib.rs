@@ -317,12 +317,16 @@ pub fn parse_model_and_props<'a>(
     properties: &'a [&'a str],
 ) -> ModelAndPropsResult<'a> {
     let unprocessed = parse_unprocessed_model_and_props(source, properties);
-    let properties = unprocessed
+    let properties: Vec<_> = unprocessed
         .properties
         .into_iter()
-        .map(|p| process_property(&unprocessed.model, p))
+        .map(|p| substitute_labels_and_formulas_in_property(&unprocessed.model, p))
         .collect();
     let model = process_model(unprocessed.model);
+    let properties = properties
+        .into_iter()
+        .map(|p| replace_identifiers_by_variable_indices_in_property(&model, p))
+        .collect();
     ModelAndPropsResult { model, properties }
 }
 
@@ -336,8 +340,10 @@ pub fn parse_model_and_props<'a>(
 /// [`.all_ok()`](ModelAndPropResult::all_ok) to get a single result.
 pub fn parse_model_and_prop<'a>(source: &'a str, property: &'a str) -> ModelAndPropResult<'a> {
     let unprocessed = parse_unprocessed_model_and_prop(source, property);
-    let property = process_property(&unprocessed.model, unprocessed.property);
+    let property =
+        substitute_labels_and_formulas_in_property(&unprocessed.model, unprocessed.property);
     let model = process_model(unprocessed.model);
+    let property = replace_identifiers_by_variable_indices_in_property(&model, property);
     ModelAndPropResult { model, property }
 }
 
@@ -371,10 +377,10 @@ fn process_model(model: Result<UnprocessedModel, Vec<Error>>) -> Result<Model, V
     }
 }
 
-fn process_property<'a>(
+fn substitute_labels_and_formulas_in_property<'a>(
     model: &Result<UnprocessedModel, Vec<Error<'a>>>,
     property: Result<UnprocessedQuery, Vec<Error<'a>>>,
-) -> Result<Query, Vec<Error<'a>>> {
+) -> Result<UnprocessedQuery, Vec<Error<'a>>> {
     let (model, mut property) = match (model, property) {
         (Ok(model), Ok(property)) => (model, property),
         (_, Err(errs)) => return Err(errs),
@@ -383,9 +389,20 @@ fn process_property<'a>(
 
     property.substitute_labels(&model.labels);
     match property.substitute_formulas(&model.formulas) {
-        Ok(_) => (),
+        Ok(_) => Ok(property),
         Err(err) => return Err(vec![err.into()]),
     }
+}
+
+fn replace_identifiers_by_variable_indices_in_property<'a>(
+    model: &Result<Model, Vec<Error<'a>>>,
+    property: Result<UnprocessedQuery, Vec<Error<'a>>>,
+) -> Result<Query, Vec<Error<'a>>> {
+    let (model, mut property) = match (model, property) {
+        (Ok(model), Ok(property)) => (model, property),
+        (_, Err(errs)) => return Err(errs),
+        (Err(_), _) => return Err(Vec::new()),
+    };
 
     match property.replace_identifiers_by_variable_indices(&model.variable_manager) {
         Ok(property) => Ok(property),

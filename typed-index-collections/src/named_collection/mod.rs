@@ -1,10 +1,11 @@
-use crate::Index;
 use crate::to1::To1;
+use crate::{Index, RawIndex, SemiboundedIndexRange};
 use std::collections::HashMap;
 
 #[derive(Default)]
 pub struct NamedTo1<InternalIndex: Index, E> {
     store: To1<InternalIndex, E>,
+    names: To1<InternalIndex, String>,
     name_to_index: HashMap<String, InternalIndex>,
 }
 
@@ -14,7 +15,8 @@ impl<InternalIndex: Index, E> NamedTo1<InternalIndex, E> {
             panic!("Cannot add a second entry with name `{name}` to this `NamedTo1` collection.")
         }
         let index = self.store.add(entry);
-        self.name_to_index.insert(name, index);
+        self.name_to_index.insert(name.clone(), index);
+        self.names.add_checked(index, name);
         index
     }
 
@@ -38,6 +40,22 @@ impl<InternalIndex: Index, E> NamedTo1<InternalIndex, E> {
 
     pub fn index_by_name(&self, name: &str) -> Option<InternalIndex> {
         self.name_to_index.get(name).cloned()
+    }
+
+    pub fn name(&self, index: InternalIndex) -> Option<&str> {
+        self.names.get(index).map(String::as_str)
+    }
+
+    pub fn names(&self) -> &To1<InternalIndex, String> {
+        &self.names
+    }
+
+    pub fn internal_indices(&self) -> SemiboundedIndexRange<InternalIndex> {
+        self.store.keys()
+    }
+
+    pub fn len(&self) -> usize {
+        self.store.len()
     }
 }
 
@@ -74,5 +92,39 @@ impl<InternalIndex: Index, E> std::ops::IndexMut<&str> for NamedTo1<InternalInde
             .get(name)
             .expect("This `NamedTo1` collection contains no  entry with name `{name}`.");
         &mut self.store[*index]
+    }
+}
+
+impl<'a, InternalIndex: Index, E> IntoIterator for &'a NamedTo1<InternalIndex, E> {
+    type Item = (&'a str, &'a E);
+    type IntoIter = NamedTo1Iterator<'a, InternalIndex, E>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        NamedTo1Iterator {
+            named_to_1: self,
+            index: InternalIndex::from_raw(InternalIndex::RawType::zero()),
+        }
+    }
+}
+
+pub struct NamedTo1Iterator<'a, InternalIndex: Index, E> {
+    named_to_1: &'a NamedTo1<InternalIndex, E>,
+    index: InternalIndex,
+}
+
+impl<'a, InternalIndex: Index, E> Iterator for NamedTo1Iterator<'a, InternalIndex, E> {
+    type Item = (&'a str, &'a E);
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.index < self.named_to_1.store.keys().end() {
+            let res = Some((
+                self.named_to_1.name(self.index).unwrap(),
+                &self.named_to_1[self.index],
+            ));
+            self.index += InternalIndex::RawType::one();
+            res
+        } else {
+            None
+        }
     }
 }

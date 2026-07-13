@@ -324,7 +324,7 @@ impl<
         match index {
             Some(index) => index,
             None => {
-                let index = explicit_builder.add_state(valuation);
+                let index = explicit_builder.preregister_state(valuation);
                 open_states.push_back(index);
                 index
             }
@@ -340,8 +340,11 @@ impl<
         expression_context: &mut EC,
     ) -> Result<(), ModelBuildingError> {
         expression_context.reset_context();
+        self.explicit_builder.add_state(state);
 
         self.evaluate_atomic_propositions(state, atomic_propositions, expression_context);
+
+        let mut choices_added = 0;
 
         for module in model.modules.iter() {
             for command_index in 0..module.commands.len() {
@@ -349,17 +352,30 @@ impl<
                 if command.action.is_some() {
                     continue; // Synchronising actions are handled separately
                 }
-                self.process_nonsynchronised_command(state, model, &command, expression_context);
+                choices_added += self.process_nonsynchronised_command(
+                    state,
+                    model,
+                    &command,
+                    expression_context,
+                );
             }
         }
 
         for synchronised_action in synchronised_actions {
-            self.process_synchronising_action(
+            choices_added += self.process_synchronising_action(
                 state,
                 model,
                 &synchronised_action,
                 expression_context,
             );
+        }
+        println!("State {:?} has {} choices", state, choices_added);
+        if choices_added == 0 {
+            // Fix deadlocks:
+            self.explicit_builder.base.add_choice();
+            self.explicit_builder.base.add_branch(1.0, state);
+            self.explicit_builder.base.finish_branch();
+            self.explicit_builder.base.finish_choice();
         }
 
         Ok(())
@@ -371,7 +387,7 @@ impl<
         model: &Model<VariableReference, S, E, Identifier<S>>,
         command: &Command<VariableReference, S, E, Identifier<S>>,
         expression_context: &mut EC,
-    ) {
+    ) -> usize {
         let valuation = &self.explicit_builder.base.state_valuations().entry(state);
         let val_source = self.variable_info.get_valuation_source(valuation);
         let guard = expression_context.evaluate_bool(&command.guard, &val_source);
@@ -408,6 +424,9 @@ impl<
             // TODO: Add choice label
 
             self.explicit_builder.base.finish_choice();
+            1 // 1 new choice was added to the model
+        } else {
+            0 // 0 new choices were added to the model
         }
     }
 
@@ -417,7 +436,7 @@ impl<
         model: &Model<VariableReference, S, E, Identifier<S>>,
         synchronised_action: &SynchronisedAction,
         expression_context: &mut EC,
-    ) {
+    ) -> usize {
         // TODO: Determine choice label here (and use it below?)
 
         let valuation = &self.explicit_builder.base.state_valuations().entry(state);
@@ -448,6 +467,8 @@ impl<
                 "Synchronised actions with zero associated modules are not yet supported (but they should be impossible to create anyways)"
             );
         }
+
+        let mut choices_added = 0;
 
         if all_satisfied {
             let modules = &synchronised_action.participating_modules;
@@ -532,6 +553,7 @@ impl<
                     }
                 }
 
+                choices_added += 1;
                 self.explicit_builder.base.finish_choice();
 
                 for i in (0..n).rev() {
@@ -549,6 +571,8 @@ impl<
                 }
             }
         }
+
+        choices_added
     }
 
     fn evaluate_atomic_propositions<E, EC: ExpressionContext<E>>(

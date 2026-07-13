@@ -7,7 +7,7 @@ use std::fmt::{Debug, Display};
 use std::ops::{Add, AddAssign, Div, Mul, Sub};
 
 pub trait RawIndex:
-    Integer + PrimInt + Copy + Sub<Output = Self> + Display + Default + Debug
+    Integer + PrimInt + Copy + Sub<Output = Self> + Display + Default + Debug + Ord
 {
     fn as_usize(self) -> usize;
     fn from_usize(val: usize) -> Self;
@@ -74,6 +74,7 @@ pub trait Index:
     + Mul<Self::RawType, Output = Self>
     + Div<Self::RawType, Output = Self>
     + AddAssign<Self::RawType>
+    + Ord
 {
     type RawType: RawIndex;
 
@@ -84,7 +85,7 @@ pub trait Index:
 #[macro_export]
 macro_rules! index {
     ($name: ident) => {
-        #[derive(Copy, Clone, PartialEq, Eq, Default)]
+        #[derive(Copy, Clone, PartialEq, Eq, Default, Ord, PartialOrd)]
         pub struct $name<Raw: typed_index_collections::RawIndex> {
             raw: Raw,
         }

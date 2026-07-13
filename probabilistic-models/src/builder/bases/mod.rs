@@ -23,12 +23,13 @@ pub trait BaseModelBuilder {
         &self,
         valuation: &Val,
     ) -> Option<Self::StateIdx>;
-    fn add_state<
+    fn add_valuation<
         Val: GetValuationClassIndex<Self::ClassIdx> + GetValuationData<Self::ValuationIdx>,
     >(
         &mut self,
         valuation: Val,
     ) -> Self::StateIdx;
+    fn add_state(&mut self, state_index: Self::StateIdx);
     fn state_valuations(
         &self,
     ) -> &Valuations<Self::StateIdx, Self::ClassIdx, Self::ClassEntryIdx, Self::ValuationIdx> {
