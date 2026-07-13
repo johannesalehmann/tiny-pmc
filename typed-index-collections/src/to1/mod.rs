@@ -106,6 +106,62 @@ impl<From: Index, E> To1<From, E> {
     }
 }
 
+impl<From: Index> To1<From, bool> {
+    pub fn true_values(&self) -> To1BoolValues<'_, From> {
+        To1BoolValues {
+            condition: true,
+            to1: self,
+        }
+    }
+    pub fn false_values(&self) -> To1BoolValues<'_, From> {
+        To1BoolValues {
+            condition: false,
+            to1: self,
+        }
+    }
+}
+
+pub struct To1BoolValues<'a, From: Index> {
+    condition: bool,
+    to1: &'a To1<From, bool>,
+}
+
+impl<'a, From: Index> IntoIterator for &To1BoolValues<'a, From> {
+    type Item = From;
+    type IntoIter = To1BoolValuesIterator<'a, From>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        To1BoolValuesIterator {
+            condition: self.condition,
+            to1: self.to1,
+            index: From::from_raw(From::RawType::zero()),
+        }
+    }
+}
+
+pub struct To1BoolValuesIterator<'a, From: Index> {
+    condition: bool,
+    to1: &'a To1<From, bool>,
+    index: From,
+}
+
+impl<'a, From: Index> Iterator for To1BoolValuesIterator<'a, From> {
+    type Item = From;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.index < self.to1.keys().end() {
+            if self.to1[self.index] == self.condition {
+                let res = Some(self.index);
+                self.index += From::RawType::one();
+                return res;
+            } else {
+                self.index += From::RawType::one();
+            }
+        }
+        None
+    }
+}
+
 impl<From: Index, E> std::ops::Index<From> for To1<From, E> {
     type Output = E;
 
