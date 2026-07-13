@@ -1,7 +1,6 @@
 pub use probabilistic_models;
 
 pub mod expressions;
-mod model_in_progress;
 mod synchronised_actions;
 mod variables;
 
@@ -10,7 +9,6 @@ use crate::expressions::stack_based_expressions::{
     SubExpressionProvider,
 };
 use crate::expressions::{TreeWalkingEvaluator, ValuationSource, VariableType};
-use crate::model_in_progress::ModelInProgress;
 use crate::synchronised_actions::{SynchronisedAction, SynchronisedActions};
 use crate::variables::{ConstAndVarValuationSource, ModelVariableInfo};
 use log::info;
@@ -18,32 +16,43 @@ use prism_model::{
     Command, Expression, Identifier, Model, Span, Update, VariableManager, VariableRange,
     VariableReference,
 };
-use probabilistic_models::probabilistic_properties::Query;
-use probabilistic_models::{
-    Action, AtomicProposition, AtomicPropositions, Builder, Distribution, ModelTypes,
-    PredecessorsBuilder, ProbabilisticModel, Successor, Valuation, ValuationBuilder,
+use probabilistic_models::builder;
+use probabilistic_models::valuations::{
+    BareStandaloneValuation, GetValuationClassIndex, GetValuationData, StandaloneValuation,
+    ValuationBits, ValuationBitsMut, ValuationEntry,
 };
-use probabilistic_models::{DistributionBuilder, Predecessor};
-use std::collections::HashMap;
+use probabilistic_properties::Query;
+use std::collections::{HashMap, VecDeque};
+use typed_index_collections::{Index, RawIndex, index};
+
+pub use typed_index_collections::To1;
+
+index!(AtomicPropositionIndex);
 
 pub fn build_model<
     S: Span,
-    M: ModelTypes,
+    Base: builder::BaseModelBuilder,
+    Ini: builder::InitialStatesBuilder<StateIdx = Base::StateIdx>,
+    APs: builder::AtomicPropositionBuilder<StateIdx = Base::StateIdx>,
+    M: Into<builder::ModelBuilder<Base, Ini, APs>>,
+    Raw: RawIndex,
     I: Iterator<
         Item = Query<
             Expression<VariableReference, S>,
             Expression<VariableReference, S>,
-            AtomicProposition,
+            AtomicPropositionIndex<Raw>,
         >,
     >,
 >(
-    model: &mut Model<VariableReference, S, Expression<VariableReference, S>, Identifier<S>>,
-    atomic_propositions: &[Expression<VariableReference, S>],
+    prism_model: &mut Model<VariableReference, S, Expression<VariableReference, S>, Identifier<S>>,
+    explicit_builder: M,
+    atomic_propositions: &To1<AtomicPropositionIndex<Raw>, Expression<VariableReference, S>>,
     properties: I,
     user_provided_consts: &HashMap<String, UserProvidedConstValue>,
-) -> Result<ModelBuildingOutput<M>, ModelBuildingError> {
-    ExplicitModelBuilder::<M>::build_model(
-        model,
+) -> Result<ModelBuildingOutput<Base, Ini, APs, AtomicPropositionIndex<Raw>>, ModelBuildingError> {
+    ExplicitModelBuilder::<Base, Ini, APs>::build_model::<S, M, Raw, I>(
+        prism_model,
+        explicit_builder.into(),
         atomic_propositions,
         properties,
         user_provided_consts,
@@ -56,9 +65,14 @@ pub enum UserProvidedConstValue {
     Float(f64),
 }
 
-pub struct ModelBuildingOutput<M: ModelTypes> {
-    pub model: ProbabilisticModel<M>,
-    pub properties: Vec<Query<i64, f64, AtomicProposition>>,
+pub struct ModelBuildingOutput<
+    Base: builder::BaseModelBuilder,
+    Ini: builder::InitialStatesBuilder,
+    APs: builder::AtomicPropositionBuilder,
+    APIdx: Index,
+> {
+    pub model: builder::ModelBuilderOutput<Base, Ini, APs>,
+    pub properties: Vec<Query<i64, f64, APIdx>>,
 }
 
 pub trait ExpressionContext<E> {
@@ -142,26 +156,36 @@ impl<'a, SE: SubExpressionProvider> ExpressionContext<usize>
     }
 }
 
-pub struct ExplicitModelBuilder<M: ModelTypes> {
-    model_in_progress: ModelInProgress<M>,
-    open_states: Vec<usize>,
-    variable_info: variables::ModelVariableInfo<M::Valuation>,
+pub struct ExplicitModelBuilder<
+    Base: builder::BaseModelBuilder,
+    Ini: builder::InitialStatesBuilder<StateIdx = Base::StateIdx>,
+    APs: builder::AtomicPropositionBuilder<StateIdx = Base::StateIdx>,
+> {
+    explicit_builder: builder::ModelBuilder<Base, Ini, APs>,
+    open_states: VecDeque<Base::StateIdx>,
+    variable_info: ModelVariableInfo<Base::ClassIdx, Base::ClassEntryIdx>,
 }
 
-impl<M: ModelTypes> ExplicitModelBuilder<M> {
+impl<
+    Base: builder::BaseModelBuilder,
+    Ini: builder::InitialStatesBuilder<StateIdx = Base::StateIdx>,
+    APs: builder::AtomicPropositionBuilder<StateIdx = Base::StateIdx>,
+> ExplicitModelBuilder<Base, Ini, APs>
+{
     fn build_properties<
         S: Span,
+        Raw: RawIndex,
         I: Iterator<
             Item = Query<
                 Expression<VariableReference, S>,
                 Expression<VariableReference, S>,
-                AtomicProposition,
+                AtomicPropositionIndex<Raw>,
             >,
         >,
     >(
         properties: I,
-        variable_info: &variables::ModelVariableInfo<M::Valuation>,
-    ) -> Result<Vec<Query<i64, f64, AtomicProposition>>, ModelBuildingError> {
+        variable_info: &variables::ModelVariableInfo<Base::ClassIdx, Base::ClassEntryIdx>,
+    ) -> Result<Vec<Query<i64, f64, AtomicPropositionIndex<Raw>>>, ModelBuildingError> {
         let const_valuation_source = variable_info.get_const_only_valuation_source();
 
         let mut result = Vec::new();
@@ -181,19 +205,23 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
 
     pub fn build_model<
         S: Span,
+        M: Into<builder::ModelBuilder<Base, Ini, APs>>,
+        Raw: RawIndex,
         I: Iterator<
             Item = Query<
                 Expression<VariableReference, S>,
                 Expression<VariableReference, S>,
-                AtomicProposition,
+                AtomicPropositionIndex<Raw>,
             >,
         >,
     >(
         model: &mut Model<VariableReference, S, Expression<VariableReference, S>, Identifier<S>>,
-        atomic_propositions: &[Expression<VariableReference, S>],
+        mut explicit_builder: builder::ModelBuilder<Base, Ini, APs>,
+        atomic_propositions: &To1<AtomicPropositionIndex<Raw>, Expression<VariableReference, S>>,
         properties: I,
         user_provided_consts: &HashMap<String, UserProvidedConstValue>,
-    ) -> Result<ModelBuildingOutput<M>, ModelBuildingError> {
+    ) -> Result<ModelBuildingOutput<Base, Ini, APs, AtomicPropositionIndex<Raw>>, ModelBuildingError>
+    {
         let start_time = std::time::Instant::now();
 
         model.replace_empty_updates_with_identity_update();
@@ -206,13 +234,21 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
         });
 
         let atomic_propositions = atomic_propositions
-            .iter()
             .map(|ap| {
                 let stack = StackBasedExpression::from_expression(ap, &model.variable_manager);
                 let sub_expression = sub_expression_manager.add_sub_expression(stack);
                 sub_expression
             })
-            .collect::<Vec<_>>();
+            .change_key_type::<APs::AnnotationIdx>();
+        for (index, _ap) in atomic_propositions.enumerate() {
+            // TODO: Do this in a nicer way (perhaps find some way to do the key type change
+            //  at the same time as this operation?
+            // TODO: Get proper atomic proposition names
+            let ap_index = explicit_builder
+                .atomic_propositions
+                .register_atomic_proposition(format!("ap_{}", index.raw()));
+            assert_eq!(index, ap_index);
+        }
 
         let mut sub_expression_cache = SubExpressionManagerWithCache::new(sub_expression_manager);
         let context = sub_expression_cache.create_context();
@@ -225,6 +261,7 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
             &model,
             user_provided_consts,
             &mut expression_context,
+            explicit_builder.base.valuation_builder_mut(),
         )?;
 
         sub_expression_cache
@@ -232,7 +269,7 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
             .optimise_expressions(&variable_info);
 
         // TODO: Reconstructing the context here is a bit unclean, but avoiding this requires some
-        // reorganisation to satisfy the borrow-checker.
+        //  reorganisation to satisfy the borrow-checker.
 
         let context = sub_expression_cache.create_context();
         let mut expression_context = SubExpressionExpressionContext {
@@ -245,14 +282,14 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
         let synchronised_actions = SynchronisedActions::from_prism(&model);
 
         let mut builder = Self {
-            model_in_progress: ModelInProgress::new(atomic_propositions.len()),
-            open_states: Vec::new(),
+            explicit_builder,
+            open_states: VecDeque::new(),
             variable_info,
         };
 
         builder.create_initial_states(&model, &mut expression_context)?;
 
-        while let Some(state) = builder.open_states.pop() {
+        while let Some(state) = builder.open_states.pop_front() {
             builder.process_state(
                 state,
                 &model,
@@ -262,25 +299,33 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
             )?;
         }
 
-        let model = builder
-            .model_in_progress
-            .into_model(builder.variable_info.valuation_context);
+        let model = builder.explicit_builder.finish();
 
         info!(
-            "Model built in {:?} ({} states)",
+            "Model built in {:?} ({} states (number of states is TODO)",
             start_time.elapsed(),
-            model.states.len()
+            0 // TODO
         );
         Ok(ModelBuildingOutput { model, properties })
     }
 
-    fn get_or_add_state(&mut self, valuation: M::Valuation) -> usize {
-        let index = self.model_in_progress.get_state_index(&valuation);
+    // This method cannot take `self` to placate the borrow checker (we want to feed values of
+    // `apply_valuation` into this function, which use disjoint parts of `self`, but the borrow
+    // checker does not know these parts are disjoint unless we pass the parts into the respective
+    // functions individually.
+    fn get_or_add_state<
+        Val: GetValuationData<Base::ValuationIdx> + GetValuationClassIndex<Base::ClassIdx>,
+    >(
+        explicit_builder: &mut builder::ModelBuilder<Base, Ini, APs>,
+        open_states: &mut VecDeque<Base::StateIdx>,
+        valuation: Val,
+    ) -> Base::StateIdx {
+        let index = explicit_builder.base.state_by_valuation(&valuation);
         match index {
             Some(index) => index,
             None => {
-                let index = self.model_in_progress.add_state(valuation);
-                self.open_states.push(index);
+                let index = explicit_builder.preregister_state(valuation);
+                open_states.push_back(index);
                 index
             }
         }
@@ -288,27 +333,28 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
 
     fn process_state<S: Span, E, EC: ExpressionContext<E>>(
         &mut self,
-        state: usize,
+        state: Base::StateIdx,
         model: &Model<VariableReference, S, E, Identifier<S>>,
-        atomic_propositions: &[E],
+        atomic_propositions: &To1<APs::AnnotationIdx, E>,
         synchronised_actions: &SynchronisedActions,
         expression_context: &mut EC,
     ) -> Result<(), ModelBuildingError> {
         expression_context.reset_context();
+        self.explicit_builder.add_state(state);
 
         self.evaluate_atomic_propositions(state, atomic_propositions, expression_context);
 
-        let mut action_index = 0;
+        let mut choices_added = 0;
+
         for module in model.modules.iter() {
             for command_index in 0..module.commands.len() {
                 let command = &module.commands[command_index];
                 if command.action.is_some() {
                     continue; // Synchronising actions are handled separately
                 }
-                self.process_nonsynchronised_command(
+                choices_added += self.process_nonsynchronised_command(
                     state,
                     model,
-                    &mut action_index,
                     &command,
                     expression_context,
                 );
@@ -316,13 +362,19 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
         }
 
         for synchronised_action in synchronised_actions {
-            self.process_synchronising_action(
+            choices_added += self.process_synchronising_action(
                 state,
                 model,
-                &mut action_index,
                 &synchronised_action,
                 expression_context,
             );
+        }
+        if choices_added == 0 {
+            // Fix deadlocks:
+            self.explicit_builder.base.add_choice();
+            self.explicit_builder.base.add_branch(1.0, state);
+            self.explicit_builder.base.finish_branch();
+            self.explicit_builder.base.finish_choice();
         }
 
         Ok(())
@@ -330,26 +382,25 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
 
     fn process_nonsynchronised_command<S: Span, E, EC: ExpressionContext<E>>(
         &mut self,
-        state: usize,
+        state: Base::StateIdx,
         model: &Model<VariableReference, S, E, Identifier<S>>,
-        action_index: &mut usize,
         command: &Command<VariableReference, S, E, Identifier<S>>,
         expression_context: &mut EC,
-    ) {
-        let valuation = &self.model_in_progress.get_state(state).valuation;
+    ) -> usize {
+        let valuation = &self.explicit_builder.base.state_valuations().entry(state);
         let val_source = self.variable_info.get_valuation_source(valuation);
         let guard = expression_context.evaluate_bool(&command.guard, &val_source);
         if guard {
-            let mut distribution = <M::Distribution as Distribution>::get_builder();
-
+            self.explicit_builder.base.add_choice();
             for update_index in 0..command.updates.len() {
-                let valuation = &self.model_in_progress.get_state(state).valuation;
+                let valuation = &self.explicit_builder.base.state_valuations().entry(state);
                 let val_source = self.variable_info.get_valuation_source(valuation);
 
                 let update = &command.updates[update_index];
                 let probability =
                     expression_context.evaluate_float(&update.probability, &val_source);
-                let new_valuation = self.apply_assignments(
+                let new_valuation = Self::apply_assignments(
+                    &self.variable_info,
                     &model.variable_manager,
                     valuation,
                     &val_source,
@@ -357,45 +408,37 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
                     expression_context,
                 );
 
-                let index = self.get_or_add_state(new_valuation);
-                distribution.add_successor(Successor { probability, index });
+                let index = Self::get_or_add_state(
+                    &mut self.explicit_builder,
+                    &mut self.open_states,
+                    new_valuation,
+                );
+                self.explicit_builder.base.add_branch(probability, index);
 
-                self.model_in_progress
-                    .get_state_mut(index)
-                    .predecessors
-                    .add(Predecessor {
-                        from: state,
-                        action_index: *action_index,
-                        probability,
-                    });
+                // TODO: Add predecessors to model here?
+
+                self.explicit_builder.base.finish_branch();
             }
 
-            let action_name_index = self.model_in_progress.get_unnamed_action_name_index();
-            let successors = distribution.finish();
-            self.model_in_progress
-                .get_state_mut(state)
-                .actions
-                .add_action(Action {
-                    successors,
-                    action_name_index,
-                });
-            *action_index += 1;
+            // TODO: Add choice label
+
+            self.explicit_builder.base.finish_choice();
+            1 // 1 new choice was added to the model
+        } else {
+            0 // 0 new choices were added to the model
         }
     }
 
     fn process_synchronising_action<S: Span, E, EC: ExpressionContext<E>>(
         &mut self,
-        state: usize,
+        state: Base::StateIdx,
         model: &Model<VariableReference, S, E, Identifier<S>>,
-        action_index: &mut usize,
         synchronised_action: &SynchronisedAction,
         expression_context: &mut EC,
-    ) {
-        let action_name_index = self
-            .model_in_progress
-            .get_action_name_index(&synchronised_action.name);
+    ) -> usize {
+        // TODO: Determine choice label here (and use it below?)
 
-        let valuation = &self.model_in_progress.get_state(state).valuation;
+        let valuation = &self.explicit_builder.base.state_valuations().entry(state);
         let val_source = self.variable_info.get_valuation_source(valuation);
 
         let mut satisfied_guards_indices = Vec::new();
@@ -424,10 +467,14 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
             );
         }
 
+        let mut choices_added = 0;
+
         if all_satisfied {
             let modules = &synchronised_action.participating_modules;
             let mut indices = vec![0; n];
             while indices[0] < satisfied_guards_indices[0].len() {
+                self.explicit_builder.base.add_choice();
+
                 let mut command_indices = Vec::with_capacity(n);
                 for i in 0..n {
                     command_indices.push(satisfied_guards_indices[i][indices[i]]);
@@ -435,22 +482,17 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
 
                 let mut update_indices = vec![0; n];
 
-                let mut distribution = <M::Distribution as Distribution>::get_builder();
-
                 while update_indices[0]
-                    < model
-                        .modules
-                        .get(modules[0].module_index)
-                        .unwrap()
-                        .commands[command_indices[0]]
+                    < model.modules.get(modules[0].module_index).unwrap().commands
+                        [command_indices[0]]
                         .updates
                         .len()
                         .max(1)
                 // max(1) is required because a synchronising action may have an empty update ("true")
                 {
-                    let valuation = &self.model_in_progress.get_state(state).valuation;
-                    let val_source = self.variable_info.get_valuation_source(valuation);
-                    let mut updates = Vec::new();
+                    let valuation = self.explicit_builder.base.state_valuations().entry(state);
+                    let val_source = self.variable_info.get_valuation_source(&valuation);
+                    let mut updates = Vec::new(); // TODO: Avoid allocating a vector here?
                     for i in 0..n {
                         let command = &model.modules.get(modules[i].module_index).unwrap().commands
                             [command_indices[i]];
@@ -458,9 +500,10 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
                             updates.push(&command.updates[update_indices[i]]);
                         }
                     }
-                    let new_valuation = self.apply_assignments(
+                    let new_valuation = Self::apply_assignments(
+                        &self.variable_info,
                         &model.variable_manager,
-                        valuation,
+                        &valuation,
                         &val_source,
                         &updates[..],
                         expression_context,
@@ -479,16 +522,15 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
                         }
                     }
 
-                    let index = self.get_or_add_state(new_valuation);
-                    distribution.add_successor(Successor { probability, index });
-                    self.model_in_progress
-                        .get_state_mut(index)
-                        .predecessors
-                        .add(Predecessor {
-                            from: state,
-                            action_index: *action_index,
-                            probability,
-                        });
+                    let target = Self::get_or_add_state(
+                        &mut self.explicit_builder,
+                        &mut self.open_states,
+                        new_valuation,
+                    );
+                    self.explicit_builder.base.add_branch(probability, target);
+                    self.explicit_builder.base.finish_branch();
+
+                    // TODO: Set predecessor here?
 
                     for i in (0..n).rev() {
                         if update_indices[i] + 1
@@ -510,14 +552,8 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
                     }
                 }
 
-                self.model_in_progress
-                    .get_state_mut(state)
-                    .actions
-                    .add_action(Action {
-                        successors: distribution.finish(),
-                        action_name_index,
-                    });
-                *action_index += 1;
+                choices_added += 1;
+                self.explicit_builder.base.finish_choice();
 
                 for i in (0..n).rev() {
                     if indices[i] + 1 < satisfied_guards_indices[i].len() {
@@ -534,43 +570,54 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
                 }
             }
         }
+
+        choices_added
     }
 
     fn evaluate_atomic_propositions<E, EC: ExpressionContext<E>>(
         &mut self,
-        state_index: usize,
-        atomic_propositions: &[E],
+        state_index: Base::StateIdx,
+        atomic_propositions: &To1<APs::AnnotationIdx, E>,
         expression_context: &mut EC,
     ) {
-        let state = &mut self.model_in_progress.get_state_mut(state_index);
-        let val_source = self.variable_info.get_valuation_source(&state.valuation);
-        for (i, atomic_proposition) in atomic_propositions.iter().enumerate() {
+        let valuation = self
+            .explicit_builder
+            .base
+            .state_valuations()
+            .entry(state_index);
+        let val_source = self.variable_info.get_valuation_source(&valuation);
+        for (i, atomic_proposition) in atomic_propositions.enumerate() {
             let is_true = expression_context.evaluate_bool(atomic_proposition, &val_source);
-            state.atomic_propositions.set_value(i, is_true);
+            self.explicit_builder
+                .atomic_propositions
+                .set_value(i, state_index, is_true);
         }
     }
 
     fn apply_assignments<S: Span, E, EC: ExpressionContext<E>>(
-        &self,
+        variable_info: &ModelVariableInfo<Base::ClassIdx, Base::ClassEntryIdx>,
         variable_manager: &VariableManager<S, E>,
-        valuation: &<M as ModelTypes>::Valuation,
-        val_source: &ConstAndVarValuationSource<<M as ModelTypes>::Valuation>,
+        valuation: &ValuationEntry<'_, Base::ClassIdx, Base::ClassEntryIdx, Base::ValuationIdx>,
+        val_source: &ConstAndVarValuationSource<
+            Base::ClassIdx,
+            Base::ClassEntryIdx,
+            Base::ValuationIdx,
+        >,
         updates: &[&Update<VariableReference, S, E>],
         expression_context: &mut EC,
-    ) -> <M as ModelTypes>::Valuation {
-        let mut new_valuation = valuation.clone();
+    ) -> BareStandaloneValuation<Base::ClassIdx, Base::ValuationIdx> {
+        let mut new_valuation = valuation.clone_into_standalone_valuation();
         for update in updates {
             for assignment in &update.assignments {
                 let target = variable_manager.get(&assignment.target).unwrap();
-                let target_index = self
-                    .variable_info
+                let target_index = variable_info
                     .valuation_map
                     .map_to_variable(assignment.target.index)
                     .expect("Cannot assign to constant");
                 match target.range {
                     VariableRange::BoundedInt { .. } => {
                         let value = expression_context.evaluate_int(&assignment.value, &val_source);
-                        let (min, max) = self.variable_info.details[target_index].bounds.unwrap();
+                        let (min, max) = variable_info.details[target_index].bounds.unwrap();
                         if value < min || value > max {
                             panic!(
                                 "Value for {} exceeds variable bounds, bounds are ({}, {}), value is {}",
@@ -580,12 +627,12 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
                                 value
                             );
                         } else {
-                            new_valuation.set_bounded_int(target_index, value);
+                            new_valuation.set_int(target_index, value);
                         }
                     }
                     VariableRange::UnboundedInt { .. } => {
                         let value = expression_context.evaluate_int(&assignment.value, &val_source);
-                        new_valuation.set_unbounded_int(target_index, value);
+                        new_valuation.set_int(target_index, value);
                     }
                     VariableRange::Boolean { .. } => {
                         let value =
@@ -595,12 +642,12 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
                     VariableRange::Float { .. } => {
                         let value =
                             expression_context.evaluate_float(&assignment.value, &val_source);
-                        new_valuation.set_float(target_index, value);
+                        new_valuation.set_double(target_index, value);
                     }
                 }
             }
         }
-        new_valuation
+        new_valuation.into()
     }
 
     fn create_initial_states<S: Span, E, EC: ExpressionContext<E>>(
@@ -613,8 +660,15 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
         }
         let const_value_source = self.variable_info.get_const_only_valuation_source();
 
-        let mut valuation_builder =
-            M::Valuation::get_builder(&self.variable_info.valuation_context);
+        // TODO: This call is very verbose -- perhaps there is some restructuring that makes it
+        //  simpler?
+        let mut valuation = StandaloneValuation::new(
+            self.variable_info.class_index,
+            self.explicit_builder
+                .base
+                .state_valuations()
+                .class(self.variable_info.class_index),
+        );
 
         for (i, variable) in model.variable_manager.variables.iter().enumerate() {
             if let Some(index) = &self.variable_info.valuation_map.map_to_variable(i) {
@@ -622,7 +676,7 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
                     VariableRange::BoundedInt { .. } => match &variable.initial_value {
                         None => {
                             if let Some((min, _)) = self.variable_info.details[*index].bounds {
-                                valuation_builder.add_bounded_int(min);
+                                valuation.set_int(*index, min);
                             } else {
                                 panic!("Variable bounds list is inconsistent");
                             }
@@ -630,7 +684,7 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
                         Some(initial) => {
                             let value =
                                 expression_context.evaluate_int(initial, &const_value_source);
-                            valuation_builder.add_bounded_int(value);
+                            valuation.set_int(*index, value);
                         }
                     },
                     VariableRange::UnboundedInt { .. } => match &variable.initial_value {
@@ -638,17 +692,17 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
                         Some(initial) => {
                             let value =
                                 expression_context.evaluate_int(initial, &const_value_source);
-                            valuation_builder.add_int(value);
+                            valuation.set_int(*index, value);
                         }
                     },
                     VariableRange::Boolean { .. } => match &variable.initial_value {
                         None => {
-                            valuation_builder.add_bool(false);
+                            valuation.set_bool(*index, false);
                         }
                         Some(initial) => {
                             let value =
                                 expression_context.evaluate_bool(initial, &const_value_source);
-                            valuation_builder.add_bool(value);
+                            valuation.set_bool(*index, value);
                         }
                     },
                     VariableRange::Float { .. } => match &variable.initial_value {
@@ -660,26 +714,26 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
                         Some(initial) => {
                             let value =
                                 expression_context.evaluate_float(initial, &const_value_source);
-                            valuation_builder.add_float(value);
+                            valuation.set_double(*index, value);
                         }
                     },
                 }
             }
         }
+        let valuation = valuation.bare();
 
-        let valuation = valuation_builder.finish();
+        let index =
+            Self::get_or_add_state(&mut self.explicit_builder, &mut self.open_states, valuation);
 
-        let index = self.get_or_add_state(valuation);
-
-        self.model_in_progress.add_initial_state(index);
+        self.explicit_builder.initial_states.mark_state(index);
 
         Ok(())
     }
 
     #[allow(unused)]
     fn print_valuation<S: Span>(
-        valuation: &M::Valuation,
-        variable_info: &ModelVariableInfo<M::Valuation>,
+        valuation: ValuationEntry<'_, Base::ClassIdx, Base::ClassEntryIdx, Base::ValuationIdx>,
+        variable_info: &ModelVariableInfo<Base::ClassIdx, Base::ClassEntryIdx>,
         model: &Model<VariableReference, S, Expression<VariableReference, S>, Identifier<S>>,
     ) {
         print!("(");
@@ -693,16 +747,16 @@ impl<M: ModelTypes> ExplicitModelBuilder<M> {
                 print!("{} = ", var.name);
                 match var.range {
                     VariableRange::BoundedInt { .. } => {
-                        print!("{}", valuation.evaluate_bounded_int(index))
+                        print!("{}", valuation.evaluate_int(index))
                     }
                     VariableRange::UnboundedInt { .. } => {
-                        print!("{}", valuation.evaluate_unbounded_int(index))
+                        print!("{}", valuation.evaluate_int(index))
                     }
                     VariableRange::Boolean { .. } => {
                         print!("{}", valuation.evaluate_bool(index))
                     }
                     VariableRange::Float { .. } => {
-                        print!("{}", valuation.evaluate_float(index))
+                        print!("{}", valuation.evaluate_double(index))
                     }
                 }
             }

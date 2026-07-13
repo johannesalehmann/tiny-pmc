@@ -2,13 +2,15 @@ use super::super::super::Operation;
 use super::super::{OperationView, Optimisation, OptimisationResult};
 use crate::expressions::stack_based_expressions::Operation::{PushBool, PushFloat, PushInt};
 use crate::variables::{ConstValuation, ModelVariableInfo};
-use probabilistic_models::Valuation;
 use std::iter::once;
+use typed_index_collections::Index;
 
-pub struct PushConstOptimisation<'a, V: Valuation> {
-    pub variable_info: &'a ModelVariableInfo<V>,
+pub struct PushConstOptimisation<'a, ClassIdx: Index, ClassEntryIdx: Index> {
+    pub variable_info: &'a ModelVariableInfo<ClassIdx, ClassEntryIdx>,
 }
-impl<'a, V: Valuation> Optimisation for PushConstOptimisation<'a, V> {
+impl<'a, ClassIdx: Index, ClassEntryIdx: Index> Optimisation
+    for PushConstOptimisation<'a, ClassIdx, ClassEntryIdx>
+{
     fn apply(
         &self,
         view: &mut OperationView<prism_model::VariableReference>,
@@ -40,13 +42,16 @@ mod tests {
     use crate::expressions::stack_based_expressions::Operation::*;
     use crate::variables::ModelVariableInfo;
     use prism_model::VariableReference;
-    use probabilistic_models::ValuationVector;
+    use probabilistic_models::{ValuationClassEntryIndex, ValuationClassIndex};
 
     test_optimisation!(
         integer_zero_first,
         {
             PushConstOptimisation {
-                variable_info: &ModelVariableInfo::<ValuationVector>::with_mock_values(),
+                variable_info: &ModelVariableInfo::<
+                    ValuationClassIndex<usize>,
+                    ValuationClassEntryIndex<usize>,
+                >::with_mock_values(),
             }
         },
         [

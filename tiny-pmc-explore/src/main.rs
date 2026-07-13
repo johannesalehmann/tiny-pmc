@@ -1,6 +1,6 @@
-use iced::widget::container::{background, bordered_box};
+use iced::widget::container::background;
 use iced::widget::pane_grid::Pane;
-use iced::widget::{Container, Row, button, column, pane_grid, row, text, text_editor};
+use iced::widget::{button, column, pane_grid, row, text, text_editor, Container, Row};
 use iced::{Element, Padding, Theme};
 
 fn main() -> iced::Result {

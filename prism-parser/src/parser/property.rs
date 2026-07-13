@@ -1,8 +1,8 @@
-use super::{E, expression_parser, identifier_parser};
+use super::{expression_parser, identifier_parser, E};
 use crate::{ParserSpan, Token};
-use chumsky::Parser;
 use chumsky::input::ValueInput;
-use chumsky::prelude::{Recursive, just};
+use chumsky::prelude::{just, Recursive};
+use chumsky::Parser;
 use prism_model::{Expression, Identifier};
 use probabilistic_properties::{
     Bound, BoundOperator, NonDeterminismKind, PathFormula, Query, RewardFormula, StateFormula,

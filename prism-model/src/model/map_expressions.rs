@@ -1,7 +1,7 @@
+use crate::spans::Span;
 #[cfg(doc)]
 use crate::Model;
 use crate::VariableRange;
-use crate::spans::Span;
 
 impl<V, S: Span, E, A> super::Model<V, S, E, A> {
     /// Applies mapping function `f` to every expression of the model.

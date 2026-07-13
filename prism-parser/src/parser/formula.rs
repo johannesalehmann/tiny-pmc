@@ -1,9 +1,9 @@
-use super::{E, expression_parser, identifier_parser};
+use super::{expression_parser, identifier_parser, E};
 use crate::parser::attributes::attributes_parser;
 use crate::{ParserSpan, Token};
-use chumsky::Parser;
 use chumsky::input::ValueInput;
 use chumsky::prelude::just;
+use chumsky::Parser;
 use prism_model::{Expression, Identifier};
 
 pub fn formula_parser<'a, 'b, I>() -> impl Parser<

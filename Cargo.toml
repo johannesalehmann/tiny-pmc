@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["maybe-spanned-error-helper","prism-model", "prism-model-builder", "prism-parser", "probabilistic-model-algorithms", "probabilistic-models", "probabilistic-properties", "tiny-pmc", "tiny-pmc-benchmarking", "tiny-pmc-cli", "tiny-pmc-explore"]
+members = ["maybe-spanned-error-helper","prism-model", "prism-model-builder", "prism-parser", "probabilistic-model-algorithms", "probabilistic-models", "probabilistic-properties", "tiny-pmc", "tiny-pmc-benchmarking", "tiny-pmc-cli", "tiny-pmc-explore", "typed-index-collections"]
 
 [profile.release]
 lto = "fat"

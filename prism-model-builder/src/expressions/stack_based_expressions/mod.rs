@@ -7,8 +7,8 @@ pub use sub_expression_manager::{
 
 mod optimisations;
 
-use crate::expressions::ValuationSource;
 use crate::expressions::stack_based_expressions::sub_expression_manager::EmptySubexpressionProvider;
+use crate::expressions::ValuationSource;
 use prism_model::{Expression, Span, VariableManager, VariableRange, VariableReference};
 
 #[derive(PartialEq, Debug, Copy, Clone)]

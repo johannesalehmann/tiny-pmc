@@ -108,8 +108,6 @@ impl<'a, R: StateRegion> OrderedStateRegion for InvertedStateIterator<'a, R> whe
 #[cfg(test)]
 mod tests {
     use crate::regions::MutableStateRegion;
-    // Note this useful idiom: importing names from outer (for mod tests) scope.
-    use super::*;
 
     #[test]
     fn test_iter() {

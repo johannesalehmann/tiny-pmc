@@ -1,6 +1,6 @@
+use crate::spans::Span;
 #[cfg(doc)]
 use crate::Model;
-use crate::spans::Span;
 use crate::{
     Assignment, Command, Formula, FormulaManager, Label, LabelManager, Module, ModuleManager,
     Rewards, RewardsElement, RewardsManager, Update, VariableInfo, VariableManager, VariableRange,

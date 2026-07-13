@@ -1,21 +1,32 @@
 use crate::expressions::{ValuationSource, VariableType};
 use crate::variables::valuation_map::ValuationMapEntry;
 use prism_model::VariableReference;
-use probabilistic_models::Valuation;
+use probabilistic_models::valuations::{ValuationBits, ValuationEntry};
+use typed_index_collections::Index;
 
-pub struct ConstAndVarValuationSource<'a, 'b, 'c, 'd, V: Valuation> {
-    map: &'a super::ValuationMap,
+pub struct ConstAndVarValuationSource<
+    'a,
+    'b,
+    'c,
+    'd,
+    ClassIdx: Index,
+    ClassEntryIdx: Index,
+    ValuationIdx: Index,
+> {
+    map: &'a super::ValuationMap<ClassEntryIdx>,
     const_valuation: &'b super::ConstValuations,
-    details: &'c super::VariableDetails,
-    var_valuation: &'d V,
+    details: &'c super::VariableDetails<ClassEntryIdx>,
+    var_valuation: &'d ValuationEntry<'d, ClassIdx, ClassEntryIdx, ValuationIdx>,
 }
 
-impl<'a, 'b, 'c, 'd, V: Valuation> ConstAndVarValuationSource<'a, 'b, 'c, 'd, V> {
+impl<'a, 'b, 'c, 'd, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index>
+    ConstAndVarValuationSource<'a, 'b, 'c, 'd, ClassIdx, ClassEntryIdx, ValuationIdx>
+{
     pub fn new(
-        map: &'a super::ValuationMap,
+        map: &'a super::ValuationMap<ClassEntryIdx>,
         const_valuation: &'b super::ConstValuations,
-        details: &'c super::VariableDetails,
-        var_valuation: &'d V,
+        details: &'c super::VariableDetails<ClassEntryIdx>,
+        var_valuation: &'d ValuationEntry<'d, ClassIdx, ClassEntryIdx, ValuationIdx>,
     ) -> Self {
         Self {
             map,
@@ -26,13 +37,13 @@ impl<'a, 'b, 'c, 'd, V: Valuation> ConstAndVarValuationSource<'a, 'b, 'c, 'd, V>
     }
 }
 
-impl<'a, 'b, 'c, 'd, V: Valuation> ValuationSource
-    for &ConstAndVarValuationSource<'a, 'b, 'c, 'd, V>
+impl<'a, 'b, 'c, 'd, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index> ValuationSource
+    for &ConstAndVarValuationSource<'a, 'b, 'c, 'd, ClassIdx, ClassEntryIdx, ValuationIdx>
 {
     fn get_int(&self, index: VariableReference) -> i64 {
         match self.map[index.index] {
             ValuationMapEntry::Const(i) => self.const_valuation[i].as_int(),
-            ValuationMapEntry::Var(i) => self.var_valuation.evaluate_bounded_int(i), // TODO: Also handle unbounded ints?
+            ValuationMapEntry::Var(i) => self.var_valuation.evaluate_int(i),
         }
     }
 
@@ -46,7 +57,7 @@ impl<'a, 'b, 'c, 'd, V: Valuation> ValuationSource
     fn get_float(&self, index: VariableReference) -> f64 {
         match self.map[index.index] {
             ValuationMapEntry::Const(i) => self.const_valuation[i].as_float(),
-            ValuationMapEntry::Var(i) => self.var_valuation.evaluate_float(i),
+            ValuationMapEntry::Var(i) => self.var_valuation.evaluate_double(i),
         }
     }
 
@@ -63,8 +74,8 @@ impl<'a, 'b, 'c, 'd, V: Valuation> ValuationSource
     }
 }
 
-impl<'a, 'b, 'c, 'd, V: Valuation> ValuationSource
-    for ConstAndVarValuationSource<'a, 'b, 'c, 'd, V>
+impl<'a, 'b, 'c, 'd, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index> ValuationSource
+    for ConstAndVarValuationSource<'a, 'b, 'c, 'd, ClassIdx, ClassEntryIdx, ValuationIdx>
 {
     fn get_int(&self, index: VariableReference) -> i64 {
         (&self).get_int(index)

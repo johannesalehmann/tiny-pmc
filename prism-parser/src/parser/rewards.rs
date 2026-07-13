@@ -1,10 +1,10 @@
 use crate::parser::attributes::attributes_parser;
-use crate::parser::{E, expression_parser, identifier_parser};
+use crate::parser::{expression_parser, identifier_parser, E};
 use crate::{ParserSpan, Token};
-use chumsky::IterParser;
-use chumsky::Parser;
 use chumsky::input::ValueInput;
 use chumsky::prelude::just;
+use chumsky::IterParser;
+use chumsky::Parser;
 use prism_model::{Expression, Identifier, RewardsTarget};
 
 pub fn rewards_parser<'a, 'b, I>() -> impl Parser<

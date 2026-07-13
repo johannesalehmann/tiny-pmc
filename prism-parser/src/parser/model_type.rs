@@ -1,8 +1,8 @@
 use super::E;
 use crate::{ParserSpan, Token, ValidationError};
-use chumsky::Parser;
 use chumsky::input::ValueInput;
 use chumsky::prelude::just;
+use chumsky::Parser;
 
 pub fn model_type_parser<'a, 'b, I>()
 -> impl Parser<'a, I, prism_model::ModelType<ParserSpan>, E<'a>>

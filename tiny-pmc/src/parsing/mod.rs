@@ -1,7 +1,7 @@
 use crate::PrismModel;
 
 mod constants;
-pub use constants::{ConstParsingError, parse_const_assignments};
+pub use constants::{parse_const_assignments, ConstParsingError};
 
 // TODO: Also support single property functions here?
 

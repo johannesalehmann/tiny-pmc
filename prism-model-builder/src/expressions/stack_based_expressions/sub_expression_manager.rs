@@ -1,10 +1,10 @@
-use crate::expressions::ValuationSource;
 use crate::expressions::stack_based_expressions::{
     EvaluationStack, ExpressionType, StackBasedExpression,
 };
+use crate::expressions::ValuationSource;
 use crate::variables::ModelVariableInfo;
 use prism_model::VariableReference;
-use probabilistic_models::Valuation;
+use typed_index_collections::Index;
 
 pub trait SubExpressionProvider {
     type EvaluationContext;
@@ -244,9 +244,9 @@ impl<V> SubExpressionManager<V> {
 }
 
 impl SubExpressionManager<VariableReference> {
-    pub fn optimise_expressions<Val: Valuation>(
+    pub fn optimise_expressions<ClassIdx: Index, ClassEntryIdx: Index>(
         &mut self,
-        model_variable_info: &ModelVariableInfo<Val>,
+        model_variable_info: &ModelVariableInfo<ClassIdx, ClassEntryIdx>,
     ) {
         let const_optimisations =
             super::optimisations::get_const_optimisations(model_variable_info);
