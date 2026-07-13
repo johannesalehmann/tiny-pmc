@@ -90,11 +90,6 @@ impl<
             .add_entry(self.next_choice, self.next_branch, self.next_branch);
         self.next_choice += ChoiceIdx::RawType::one();
         self.mdp.state_to_choice.extend_last_entry(self.next_choice);
-        println!(
-            "For state {:?}, extending to {:?}",
-            self.mdp.state_to_choice.keys().last(),
-            self.next_choice
-        );
         index
     }
 

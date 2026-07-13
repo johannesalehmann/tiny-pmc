@@ -369,7 +369,6 @@ impl<
                 expression_context,
             );
         }
-        println!("State {:?} has {} choices", state, choices_added);
         if choices_added == 0 {
             // Fix deadlocks:
             self.explicit_builder.base.add_choice();
