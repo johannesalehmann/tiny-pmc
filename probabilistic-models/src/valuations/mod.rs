@@ -38,7 +38,7 @@ impl<EntityIdx: Index, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Inde
     pub fn entry(
         &self,
         entity: EntityIdx,
-    ) -> ValuationEntry<ClassIdx, ClassEntryIdx, ValuationIdx> {
+    ) -> ValuationEntry<'_, ClassIdx, ClassEntryIdx, ValuationIdx> {
         let class_index = self.entity_to_class[entity];
         let index = self.entity_to_index[entity];
         ValuationEntry {
@@ -52,7 +52,7 @@ impl<EntityIdx: Index, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Inde
     pub fn entry_mut(
         &mut self,
         entity: EntityIdx,
-    ) -> ValuationEntryMut<ClassIdx, ClassEntryIdx, ValuationIdx> {
+    ) -> ValuationEntryMut<'_, ClassIdx, ClassEntryIdx, ValuationIdx> {
         let class_index = self.entity_to_class[entity];
         let index = self.entity_to_index[entity];
         ValuationEntryMut {
@@ -122,7 +122,7 @@ impl<'a, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index>
 {
     pub fn clone_into_standalone_valuation(
         &self,
-    ) -> StandaloneValuation<ClassIdx, ClassEntryIdx, ValuationIdx> {
+    ) -> StandaloneValuation<'_, ClassIdx, ClassEntryIdx, ValuationIdx> {
         StandaloneValuation::from_valuation_entry(self)
     }
 }
@@ -131,7 +131,7 @@ impl<'a, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index>
 {
     pub fn clone_into_standalone_valuation(
         &self,
-    ) -> StandaloneValuation<ClassIdx, ClassEntryIdx, ValuationIdx> {
+    ) -> StandaloneValuation<'_, ClassIdx, ClassEntryIdx, ValuationIdx> {
         StandaloneValuation::from_valuation_entry(&ValuationEntry {
             class_index: self.class_index,
             class: self.class,
@@ -757,6 +757,7 @@ impl<ValuationIdx: Index> ValuationVector<ValuationIdx> {
         }
     }
 
+    #[allow(unused)] // TODO: Remove the allow(unused) once optional values are supported.
     fn bit(&self, index: ValuationIdx, offset: usize) -> bool {
         match self {
             ValuationVector::U0 => {
@@ -801,6 +802,7 @@ impl<ValuationIdx: Index> ValuationVector<ValuationIdx> {
         }
     }
 
+    #[allow(unused)]
     fn set_bit(&mut self, index: ValuationIdx, offset: usize, value: bool) {
         match self {
             ValuationVector::U0 => {

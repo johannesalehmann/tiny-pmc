@@ -1,7 +1,6 @@
 use crate::expressions::VariableType;
 use crate::variables::variable_details::VariableDetails;
 use prism_model::{Span, VariableManager};
-use probabilistic_models::ValuationClassEntryIndex;
 use probabilistic_models::valuations::{Type, ValuationClass, ValuationEntryDescription};
 use typed_index_collections::{Index, RawIndex};
 

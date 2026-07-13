@@ -1,6 +1,6 @@
-use crate::Model;
 use crate::base_model::{BaseModel, Mdp};
 use crate::traits::ReadStateSpace;
+use crate::Model;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::io::Write;

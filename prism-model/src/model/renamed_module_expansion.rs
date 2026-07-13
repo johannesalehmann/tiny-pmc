@@ -1,7 +1,7 @@
-#[cfg(doc)]
-use crate::Model;
 use crate::module::ModuleExists;
 use crate::spans::Span;
+#[cfg(doc)]
+use crate::Model;
 use crate::{Expression, Identifier, Module};
 
 impl<S: Span> super::Model<Identifier<S>, S, Expression<Identifier<S>, S>, Identifier<S>> {

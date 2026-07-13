@@ -1,4 +1,4 @@
-use typed_index_collections::{Csr, Index};
+use typed_index_collections::Csr;
 
-pub type StateToChoice<StateIdx: Index, ChoiceIdx: Index> = Csr<StateIdx, ChoiceIdx>;
-pub type ChoiceToBranch<ChoiceIdx: Index, BranchIdx: Index> = Csr<ChoiceIdx, BranchIdx>;
+pub type StateToChoice<StateIdx, ChoiceIdx> = Csr<StateIdx, ChoiceIdx>;
+pub type ChoiceToBranch<ChoiceIdx, BranchIdx> = Csr<ChoiceIdx, BranchIdx>;

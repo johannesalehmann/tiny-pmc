@@ -15,11 +15,11 @@ use valuation_map::*;
 
 use crate::variables::variable_details::VariableDetails;
 use crate::{ExpressionContext, ModelBuildingError, UserProvidedConstValue};
-use prism_model::{Identifier, Model, Span, VariableRange, VariableReference};
+use prism_model::{Identifier, Model, Span, VariableReference};
 use probabilistic_models::builder::ValuationBuilder;
-use probabilistic_models::valuations::{ValuationEntry, Valuations};
+use probabilistic_models::valuations::ValuationEntry;
 use std::collections::HashMap;
-use typed_index_collections::{Index, RawIndex, To1};
+use typed_index_collections::{Index, RawIndex};
 
 pub struct ModelVariableInfo<ClassIdx: Index, ClassEntryIdx: Index> {
     pub valuation_map: ValuationMap<ClassEntryIdx>,

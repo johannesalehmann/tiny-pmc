@@ -74,8 +74,6 @@ fn checker() -> Result<(), ModelCheckerError> {
     model.lab_file().write_to_file("model.lab").unwrap();
     println!("Wrote files to `model.tra`, `model.sta` and `model.lab`");
 
-    return Ok(());
-
     if properties.len() > 1 {
         panic!("Checking multiple properties is temporarily unsupported");
     }

@@ -1,15 +1,12 @@
 use std::marker::PhantomData;
 use typed_index_collections::{Csr, Index, IndexRange, RawIndex, To1};
 
-pub trait DeltaDistribution<From: Index, To: Index> {
-    fn annotation_of_state(&self, state: From) -> To;
-}
-
 pub trait Distribution<From: Index, To: Index> {
     fn annotations_of_state(&self, state: From) -> IndexRange<To>;
     fn probability(&self, index: To) -> f32;
 }
 
+#[allow(unused)] // TODO: Remove once probabilistic annotations are supported
 #[derive(Default)]
 pub struct ProbabilisticDistribution<From: Index, To: Index> {
     entity_to_annotations: Csr<From, To>,
@@ -49,6 +46,7 @@ impl<From: Index, To: Index> Distribution<From, To> for IdentityDistribution<Fro
     }
 }
 
+#[allow(unused)] // TODO: Remove once probabilistic annotations are supported
 pub enum MixedDistribution<From: Index, To: Index> {
     Probabilistic(ProbabilisticDistribution<From, To>),
     Identity(IdentityDistribution<From, To>),

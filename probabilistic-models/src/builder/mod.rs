@@ -4,18 +4,13 @@ pub use bases::{BaseModelBuilder, ValuationBuilder};
 
 mod initial_states;
 pub use initial_states::InitialStatesBuilder;
-use initial_states::{
-    MultipleInitialStatesBuilder, SingleInitialStatesBuilder, UntrackedInitialStatesBuilder,
-};
+use initial_states::SingleInitialStatesBuilder;
 
 mod atomic_propositions;
-use crate::valuations::{
-    GetValuationClassIndex, GetValuationData, StandaloneValuation, Valuations,
-};
-use crate::{AnnotationEntryIndex, AnnotationIndex, Model, StateIndex};
+use crate::valuations::{GetValuationClassIndex, GetValuationData};
+use crate::{AnnotationEntryIndex, AnnotationIndex, Model};
 pub use atomic_propositions::AtomicPropositionBuilder;
-use atomic_propositions::{AtomicPropositionVectorsBuilder, UntrackedAtomicPropositionBuilder};
-use typed_index_collections::Index;
+use atomic_propositions::AtomicPropositionVectorsBuilder;
 
 pub struct ModelBuilderBuilder<
     Base: BaseModelBuilder,

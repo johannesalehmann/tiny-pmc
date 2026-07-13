@@ -1,5 +1,5 @@
+use crate::InitialStates;
 use crate::initial_states::SingleInitialState;
-use crate::{InitialStates, RawIndex, StateIndex};
 use std::marker::PhantomData;
 use typed_index_collections::{Index, To1};
 
@@ -8,12 +8,15 @@ pub trait InitialStatesBuilder: Default {
     type StateIdx: Index;
 
     // A new state was added (not necessarily initial). Can be used for internal bookkeeping.
-    fn state_added(&mut self, index: Self::StateIdx) {}
+    fn state_added(&mut self, index: Self::StateIdx) {
+        let _ = index;
+    }
     fn stores_initial_states() -> bool;
     fn mark_state(&mut self, state: Self::StateIdx);
     fn into_initial_states(self) -> Self::InitialStates;
 }
 
+#[allow(unused)] // TODO: Remove once builder construction allows omitting initial states
 #[derive(Default)]
 pub struct UntrackedInitialStatesBuilder<StateIdx: Index> {
     _phantom_data: PhantomData<StateIdx>,
@@ -27,7 +30,7 @@ impl<StateIdx: Index> InitialStatesBuilder for UntrackedInitialStatesBuilder<Sta
         false
     }
 
-    fn mark_state(&mut self, state: StateIdx) {
+    fn mark_state(&mut self, _state: StateIdx) {
         panic!("Cannot mark state as initial when using `UntrackedInitialStatesBuilder`.")
     }
 
@@ -68,6 +71,7 @@ impl<StateIdx: Index> InitialStatesBuilder for SingleInitialStatesBuilder<StateI
     }
 }
 
+#[allow(unused)] // TODO: Remove once builder construction allows building multiple states
 #[derive(Default)]
 pub struct MultipleInitialStatesBuilder<StateIdx: Index> {
     states: To1<StateIdx, bool>,
@@ -77,7 +81,7 @@ impl<StateIdx: Index> InitialStatesBuilder for MultipleInitialStatesBuilder<Stat
     type InitialStates = InitialStates<StateIdx>;
     type StateIdx = StateIdx;
 
-    fn state_added(&mut self, index: StateIdx) {
+    fn state_added(&mut self, _index: StateIdx) {
         self.states.add(false);
     }
 

@@ -1,10 +1,10 @@
-use super::{E, command_parser, identifier_parser, variable_declaration_parser};
+use super::{command_parser, identifier_parser, variable_declaration_parser, E};
 use crate::parser::attributes::attributes_parser;
 use crate::{ParserError, ParserSpan, Token};
-use chumsky::IterParser;
-use chumsky::Parser;
 use chumsky::input::ValueInput;
 use chumsky::prelude::just;
+use chumsky::IterParser;
+use chumsky::Parser;
 use prism_model::{Attributes, Expression, Identifier, VariableInfo};
 
 pub fn module_parser<'a, 'b, I>() -> impl Parser<

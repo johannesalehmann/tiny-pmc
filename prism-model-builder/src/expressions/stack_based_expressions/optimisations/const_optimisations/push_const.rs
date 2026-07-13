@@ -3,7 +3,7 @@ use super::super::{OperationView, Optimisation, OptimisationResult};
 use crate::expressions::stack_based_expressions::Operation::{PushBool, PushFloat, PushInt};
 use crate::variables::{ConstValuation, ModelVariableInfo};
 use std::iter::once;
-use typed_index_collections::{Index, RawIndex};
+use typed_index_collections::Index;
 
 pub struct PushConstOptimisation<'a, ClassIdx: Index, ClassEntryIdx: Index> {
     pub variable_info: &'a ModelVariableInfo<ClassIdx, ClassEntryIdx>,

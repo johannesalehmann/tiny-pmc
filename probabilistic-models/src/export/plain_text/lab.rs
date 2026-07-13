@@ -6,9 +6,8 @@ use crate::traits::ReadStateSpace;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::io::Write;
-use std::os::macos::raw::stat;
 use std::path::Path;
-use typed_index_collections::{Index, RawIndex, To1};
+use typed_index_collections::{Index, RawIndex};
 
 impl<
     'a,
@@ -87,7 +86,7 @@ impl<
                 satisfied[0] = true;
                 any_true = true;
             }
-            for (index) in self.model.atomic_propositions.internal_indices() {
+            for index in self.model.atomic_propositions.internal_indices() {
                 let value = self.model.atomic_propositions[index][state];
                 satisfied[index.raw().as_usize() + 1] = value;
                 if value {

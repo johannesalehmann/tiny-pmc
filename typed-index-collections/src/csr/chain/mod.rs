@@ -24,7 +24,7 @@ impl<'a, From: Copy, Via: Index, To: Index, Lhs: IntoIterator<Item = (From, Via)
     pub fn chain<To2: Index>(
         self,
         other: &'a Csr<To, To2>,
-    ) -> ChainedCsr<'a, (From, Via), To, To2, ChainedCsr<From, Via, To, Lhs>> {
+    ) -> ChainedCsr<'a, (From, Via), To, To2, ChainedCsr<'a, From, Via, To, Lhs>> {
         ChainedCsr {
             lhs: self,
             rhs: other,
@@ -99,7 +99,7 @@ impl<
 #[cfg(test)]
 mod tests {
     use crate as typed_index_collections;
-    use crate::{Csr, Index, RawIndex, index};
+    use crate::{Csr, Index, index};
 
     index!(A);
     index!(B);

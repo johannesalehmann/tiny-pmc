@@ -1,1 +1,1 @@
-mod plain_text;
+pub mod plain_text;

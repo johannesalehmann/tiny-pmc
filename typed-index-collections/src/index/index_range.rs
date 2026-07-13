@@ -1,4 +1,4 @@
-use crate::{Csr, Index, RawIndex};
+use crate::{Index, RawIndex};
 
 #[derive(Copy, Clone)]
 pub struct SemiboundedIndexRange<Idx: Index> {

@@ -1,8 +1,8 @@
+use crate::expressions::MapExpression;
+use crate::spans::Span;
 #[cfg(doc)]
 use crate::Expression;
 use crate::Identifier;
-use crate::expressions::MapExpression;
-use crate::spans::Span;
 
 /// A helper trait for implementing [`MapExpression`] when most expression nodes should produce
 /// `T::default()`.

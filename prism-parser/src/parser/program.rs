@@ -1,12 +1,12 @@
 use super::{
-    E, const_parser, formula_parser, global_variable_declaration_parser, init_constraint_parser,
-    label_parser, model_type_parser, module_parser, renamed_module_parser, rewards_parser,
+    const_parser, formula_parser, global_variable_declaration_parser, init_constraint_parser, label_parser,
+    model_type_parser, module_parser, renamed_module_parser, rewards_parser, E,
 };
 use crate::error::ElementKind;
 use crate::{ParserError, ParserSpan, Token, ValidationError};
+use chumsky::input::ValueInput;
 use chumsky::IterParser;
 use chumsky::Parser;
-use chumsky::input::ValueInput;
 use prism_model::{
     AddVariableError, Expression, Identifier, ModelType, ModuleManager, Span, VariableExists,
     VariableInfo, VariableManager, VariableScope,

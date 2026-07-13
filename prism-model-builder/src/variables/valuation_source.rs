@@ -1,9 +1,8 @@
 use crate::expressions::{ValuationSource, VariableType};
 use crate::variables::valuation_map::ValuationMapEntry;
 use prism_model::VariableReference;
-use probabilistic_models::ValuationClassEntryIndex;
 use probabilistic_models::valuations::{ValuationBits, ValuationEntry};
-use typed_index_collections::{Index, RawIndex};
+use typed_index_collections::Index;
 
 pub struct ConstAndVarValuationSource<
     'a,

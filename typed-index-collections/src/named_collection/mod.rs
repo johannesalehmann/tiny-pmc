@@ -2,14 +2,28 @@ use crate::to1::To1;
 use crate::{Index, RawIndex, SemiboundedIndexRange};
 use std::collections::HashMap;
 
-#[derive(Default)]
 pub struct NamedTo1<InternalIndex: Index, E> {
     store: To1<InternalIndex, E>,
     names: To1<InternalIndex, String>,
     name_to_index: HashMap<String, InternalIndex>,
 }
 
+// We cannot derive Default for NamedTo1, because it should implement default even if E does not.
+impl<InternalIndex: Index, E> Default for NamedTo1<InternalIndex, E> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<InternalIndex: Index, E> NamedTo1<InternalIndex, E> {
+    pub fn new() -> Self {
+        Self {
+            store: To1::new(),
+            names: To1::new(),
+            name_to_index: HashMap::new(),
+        }
+    }
+
     pub fn add_entry(&mut self, name: String, entry: E) -> InternalIndex {
         if self.name_to_index.contains_key(&name) {
             panic!("Cannot add a second entry with name `{name}` to this `NamedTo1` collection.")
@@ -56,6 +70,10 @@ impl<InternalIndex: Index, E> NamedTo1<InternalIndex, E> {
 
     pub fn len(&self) -> usize {
         self.store.len()
+    }
+
+    pub fn entries(&self) -> &To1<InternalIndex, E> {
+        &self.store
     }
 }
 

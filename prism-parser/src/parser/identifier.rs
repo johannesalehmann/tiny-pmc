@@ -1,7 +1,7 @@
 use super::E;
 use crate::{ParserSpan, Token, ValidationError};
 use chumsky::input::ValueInput;
-use chumsky::{Parser, select};
+use chumsky::{select, Parser};
 
 pub fn identifier_parser<'a, 'b, I>()
 -> impl Parser<'a, I, prism_model::Identifier<ParserSpan>, E<'a>> + Clone

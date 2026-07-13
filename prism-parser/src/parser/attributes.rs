@@ -1,8 +1,8 @@
-use crate::parser::{E, identifier_parser};
+use crate::parser::{identifier_parser, E};
 use crate::{ElementKind, ParserSpan, Token, ValidationError};
-use chumsky::Parser;
 use chumsky::input::ValueInput;
 use chumsky::prelude::*;
+use chumsky::Parser;
 use prism_model::{AttributeValue, Attributes, Span};
 
 pub fn attributes_parser<'a, 'b, I>() -> impl Parser<'a, I, prism_model::Attributes, E<'a>>
@@ -82,7 +82,7 @@ fn string_from_spanned_tokens(tokens: Vec<(Token, ParserSpan)>) -> String {
 #[cfg(test)]
 mod tests {
     use crate::parser::attributes::{attribute_parser, attributes_parser};
-    use crate::{ParserError, parse_error, parse_success};
+    use crate::{parse_error, parse_success, ParserError};
     use chumsky::error::RichPattern;
     use prism_model::{Attribute, Attributes, FullSpan, Identifier, Span};
     use std::ops::Range;

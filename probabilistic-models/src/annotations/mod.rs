@@ -1,12 +1,10 @@
 mod distributions;
 
 pub use distributions::Distribution;
-use std::collections::HashMap;
 
 use crate::annotations::distributions::IdentityDistribution;
-use crate::{AnnotationIndex, StateIndex};
 use std::marker::PhantomData;
-use typed_index_collections::{Index, NamedTo1, RawIndex, To1};
+use typed_index_collections::{Index, NamedTo1, To1};
 
 #[derive(Default)]
 pub struct TypedAnnotation<
@@ -91,29 +89,19 @@ pub enum Annotation<
     String(TypedAnnotation<From, AnnotationEntryIdx, Dist, String>),
 }
 
-pub type AnnotationGroup<
-    AnnotationIdx: Index,
-    EntityIdx: Index,
-    AnnotationEntryIdx: Index,
-    Dist: Distribution<EntityIdx, AnnotationEntryIdx>,
-> = NamedTo1<AnnotationIdx, Annotation<EntityIdx, AnnotationEntryIdx, Dist>>;
+pub type AnnotationGroup<AnnotationIdx, EntityIdx, AnnotationEntryIdx, Dist> =
+    NamedTo1<AnnotationIdx, Annotation<EntityIdx, AnnotationEntryIdx, Dist>>;
 
-pub type TypedAnnotationGroup<
-    AnnotationIdx: Index,
-    EntityIdx: Index,
-    AnnotationEntryIdx: Index,
-    Dist: Distribution<EntityIdx, AnnotationEntryIdx>,
-    Val,
-> = NamedTo1<AnnotationIdx, TypedAnnotation<EntityIdx, AnnotationEntryIdx, Dist, Val>>;
+pub type TypedAnnotationGroup<AnnotationIdx, EntityIdx, AnnotationEntryIdx, Dist, Val> =
+    NamedTo1<AnnotationIdx, TypedAnnotation<EntityIdx, AnnotationEntryIdx, Dist, Val>>;
 
-pub type AtomicPropositions<AnnotationIdx: Index, StateIdx: Index, AnnotationEntryIdx: Index> =
-    TypedAnnotationGroup<
-        AnnotationIdx,
-        StateIdx,
-        AnnotationEntryIdx,
-        IdentityDistribution<StateIdx, AnnotationEntryIdx>,
-        bool,
-    >;
+pub type AtomicPropositions<AnnotationIdx, StateIdx, AnnotationEntryIdx> = TypedAnnotationGroup<
+    AnnotationIdx,
+    StateIdx,
+    AnnotationEntryIdx,
+    IdentityDistribution<StateIdx, AnnotationEntryIdx>,
+    bool,
+>;
 
 pub struct Rewards<States, Choices, Branches> {
     pub states: States,

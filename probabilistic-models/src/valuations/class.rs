@@ -1,13 +1,12 @@
-use crate::ValuationClassEntryIndex;
-use std::collections::HashMap;
 use std::ops::Range;
-use typed_index_collections::{Index, To1};
+use typed_index_collections::{Index, NamedTo1, To1};
 
 // TODO: Shorten names and instead rely on prefix class:: to distinguish at point of use
 
 pub struct ValuationClass<ClassEntryIdx: Index> {
-    entries: To1<ClassEntryIdx, ValuationClassEntry>,
-    name_to_entry: HashMap<String, usize>,
+    // TODO: This duplicates where the names are stored (both in ValuationClassEntry and in the
+    //  list of names in NamedTo1
+    entries: NamedTo1<ClassEntryIdx, ValuationClassEntry>,
     next_free_index: usize,
     size_in_bits: usize,
 }
@@ -15,8 +14,7 @@ pub struct ValuationClass<ClassEntryIdx: Index> {
 impl<ClassEntryIdx: Index> ValuationClass<ClassEntryIdx> {
     pub fn new() -> Self {
         Self {
-            entries: To1::new(),
-            name_to_entry: HashMap::new(),
+            entries: NamedTo1::new(),
             next_free_index: 0,
             size_in_bits: 0,
         }
@@ -33,11 +31,11 @@ impl<ClassEntryIdx: Index> ValuationClass<ClassEntryIdx> {
         };
         self.next_free_index += size.stored_size;
         self.size_in_bits = self.next_free_index;
-        self.entries.add(entry)
+        self.entries.add_entry(entry.name.clone(), entry)
     }
 
     pub fn entries(&self) -> &To1<ClassEntryIdx, ValuationClassEntry> {
-        &self.entries
+        self.entries.entries()
     }
 
     pub fn get(&self, index: ClassEntryIdx) -> &ValuationClassEntry {
@@ -118,13 +116,6 @@ pub struct ValuationClassEntry {
     pub is_optional: bool,
     pub value_offset: i64,
     pub location: Range<usize>,
-}
-
-impl ValuationClassEntry {}
-
-pub struct SizedType {
-    variable_type: Type,
-    size: usize,
 }
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]

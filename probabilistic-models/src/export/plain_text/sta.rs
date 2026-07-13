@@ -26,7 +26,8 @@ impl<
     #[must_use]
     pub fn sta_file(
         &self,
-    ) -> StaFile<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, Valuations<SI, CI, CEI, VI>> {
+    ) -> StaFile<'_, M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, Valuations<SI, CI, CEI, VI>>
+    {
         StaFile { model: self }
     }
 }

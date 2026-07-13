@@ -1,5 +1,4 @@
 use crate::choices::{ChoiceToBranch, StateToChoice};
-use crate::traits::ReadStateSpace;
 use typed_index_collections::{ChainedCsrIter, Csr, CsrIterator, Index, To1};
 
 #[derive(Default)]

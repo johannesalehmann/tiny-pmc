@@ -1,11 +1,7 @@
 mod valuation_to_state;
 use valuation_to_state::ValuationToEntity;
 
-use crate::valuations::{
-    BareStandaloneValuation, GetValuationClassIndex, GetValuationData, StandaloneValuation,
-    ValuationClass, Valuations,
-};
-use crate::{RawIndex, StateIndex, ValuationClassIndex};
+use crate::valuations::{GetValuationClassIndex, GetValuationData, ValuationClass, Valuations};
 use typed_index_collections::{Index, To1};
 
 #[derive(Default)]

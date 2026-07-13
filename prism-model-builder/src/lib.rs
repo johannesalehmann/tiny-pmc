@@ -16,11 +16,11 @@ use prism_model::{
     Command, Expression, Identifier, Model, Span, Update, VariableManager, VariableRange,
     VariableReference,
 };
+use probabilistic_models::builder;
 use probabilistic_models::valuations::{
     BareStandaloneValuation, GetValuationClassIndex, GetValuationData, StandaloneValuation,
     ValuationBits, ValuationBitsMut, ValuationEntry,
 };
-use probabilistic_models::{AnnotationIndex, StateIndex, ValuationIndex, builder};
 use probabilistic_properties::Query;
 use std::collections::{HashMap, VecDeque};
 use typed_index_collections::{Index, RawIndex, index};
@@ -240,7 +240,7 @@ impl<
                 sub_expression
             })
             .change_key_type::<APs::AnnotationIdx>();
-        for (index, ap) in atomic_propositions.enumerate() {
+        for (index, _ap) in atomic_propositions.enumerate() {
             // TODO: Do this in a nicer way (perhaps find some way to do the key type change
             //  at the same time as this operation?
             // TODO: Get proper atomic proposition names

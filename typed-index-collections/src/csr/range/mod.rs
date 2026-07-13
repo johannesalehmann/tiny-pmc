@@ -3,8 +3,6 @@ pub use iterator::CsrRangeIterator;
 
 use crate::index::RawIndex;
 use crate::{Csr, Index, IndexRange};
-use num_integer::Integer;
-use std::marker::PhantomData;
 
 #[derive(Copy, Clone)]
 pub struct CsrRanges<'a, From: Index, To: Index> {

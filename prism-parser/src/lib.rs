@@ -398,7 +398,7 @@ fn replace_identifiers_by_variable_indices_in_property<'a>(
     model: &Result<Model, Vec<Error<'a>>>,
     property: Result<UnprocessedQuery, Vec<Error<'a>>>,
 ) -> Result<Query, Vec<Error<'a>>> {
-    let (model, mut property) = match (model, property) {
+    let (model, property) = match (model, property) {
         (Ok(model), Ok(property)) => (model, property),
         (_, Err(errs)) => return Err(errs),
         (Err(_), _) => return Err(Vec::new()),

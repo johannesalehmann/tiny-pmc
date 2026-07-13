@@ -3,8 +3,7 @@ use crate::expressions::VariableType;
 use crate::variables::const_valuations::ConstValuations;
 use crate::variables::valuation_map::{ValuationMap, ValuationMapEntry};
 use prism_model::{Span, VariableManager};
-use probabilistic_models::ValuationClassEntryIndex;
-use typed_index_collections::{Index, RawIndex, To1};
+use typed_index_collections::{Index, To1};
 
 pub struct VariableDetail {
     pub bounds: Option<(i64, i64)>,
@@ -45,7 +44,7 @@ impl<ClassEntryIdx: Index> VariableDetails<ClassEntryIdx> {
         let const_value_source = super::ConstOnlyValuationSource::new(valuation_map, const_values);
 
         for (i, variable) in variables.variables.iter().enumerate() {
-            if let ValuationMapEntry::Var(index) = valuation_map[i] {
+            if let ValuationMapEntry::Var(_) = valuation_map[i] {
                 let bounds = match &variable.range {
                     prism_model::VariableRange::BoundedInt { min, max, .. } => {
                         let min = expression_context.evaluate_int(min, &const_value_source);

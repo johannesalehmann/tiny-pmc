@@ -1,12 +1,17 @@
-use std::ops::{IndexMut, Range};
+use std::ops::Range;
 
 pub trait GetBits {
     fn bits(&self, range: Range<usize>) -> u64;
+
+    // TODO: Remove the allow(unused) annotation once optional values are supported (which will use
+    //  this flag). See also `set_but()`.
+    #[allow(unused)]
     fn bit(&self, offset: usize) -> bool;
 }
 
 pub trait SetBits {
     fn set_bits(&mut self, range: Range<usize>, bits: u64);
+    #[allow(unused)]
     fn set_bit(&mut self, range: usize, value: bool);
 }
 
@@ -57,7 +62,7 @@ impl<I: PrimitiveBitSource> SetBits for I {
         if value {
             *self = *self | bit
         } else {
-            *self = (*self & !bit)
+            *self = *self & !bit
         }
     }
 }
@@ -131,7 +136,7 @@ impl SetBits for &mut [u64] {
         if value {
             self[field] = self[field] | bit
         } else {
-            self[field] = (self[field] & !bit)
+            self[field] = self[field] & !bit
         }
     }
 }

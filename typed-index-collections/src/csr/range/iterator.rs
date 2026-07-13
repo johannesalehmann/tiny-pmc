@@ -3,7 +3,6 @@ use crate::index::RawIndex;
 use num_integer::Integer;
 
 pub struct CsrRangeIterator<To: Index> {
-    pub(super) from: To::RawType,
     pub(super) to: To::RawType,
     pub(super) next_entry: To::RawType,
 }

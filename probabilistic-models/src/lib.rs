@@ -2,15 +2,14 @@ pub mod annotations;
 pub mod base_model;
 pub mod builder;
 mod choices;
-mod export;
+pub mod export;
 pub mod initial_states;
 pub mod traits;
 pub mod valuations;
 
 pub use typed_index_collections::RawIndex;
 
-use crate::traits::ReadStateSpace;
-use typed_index_collections::{Index, To1, index};
+use typed_index_collections::{To1, index};
 
 index!(StateIndex);
 index!(ChoiceIndex);
@@ -71,7 +70,7 @@ index!(ValuationIndex);
 //     }
 // }
 
-pub type InitialStates<StateIdx: Index> = To1<StateIdx, bool>;
+pub type InitialStates<StateIdx> = To1<StateIdx, bool>;
 
 pub struct Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals> {
     pub base: M,

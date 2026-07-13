@@ -1,10 +1,10 @@
-use crate::expressions::ValuationSource;
 use crate::expressions::stack_based_expressions::{
     EvaluationStack, ExpressionType, StackBasedExpression,
 };
+use crate::expressions::ValuationSource;
 use crate::variables::ModelVariableInfo;
 use prism_model::VariableReference;
-use typed_index_collections::{Index, RawIndex};
+use typed_index_collections::Index;
 
 pub trait SubExpressionProvider {
     type EvaluationContext;
