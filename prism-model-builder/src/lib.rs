@@ -27,8 +27,6 @@ use typed_index_collections::{Index, index};
 
 pub use typed_index_collections::To1;
 
-index!(AtomicPropositionIndex);
-
 pub fn build_model<
     S: Span,
     Base: builder::BaseModelBuilder,

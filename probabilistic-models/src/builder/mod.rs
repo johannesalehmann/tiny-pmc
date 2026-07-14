@@ -8,7 +8,7 @@ use initial_states::SingleInitialStatesBuilder;
 
 mod atomic_propositions;
 use crate::valuations::{GetValuationClassIndex, GetValuationData};
-use crate::{AnnotationEntryIndex, AnnotationIndex, Model};
+use crate::{AnnotationEntryIndex, AnnotationIndex, AtomicPropositionIndex, Model};
 pub use atomic_propositions::AtomicPropositionBuilder;
 use atomic_propositions::AtomicPropositionVectorsBuilder;
 
@@ -27,7 +27,7 @@ impl<Base: BaseModelBuilder>
         Base,
         SingleInitialStatesBuilder<Base::StateIdx>,
         AtomicPropositionVectorsBuilder<
-            AnnotationIndex<usize>,
+            AtomicPropositionIndex<usize>,
             Base::StateIdx,
             AnnotationEntryIndex<usize>,
         >,

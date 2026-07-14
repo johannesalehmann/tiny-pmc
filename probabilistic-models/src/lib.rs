@@ -23,6 +23,7 @@ index!(ValuationClassIndex);
 index!(ValuationClassEntryIndex);
 index!(ValuationIndex);
 index!(PredecessorIndex);
+index!(AtomicPropositionIndex);
 
 // pub struct Dtmc<I: RawIndex = u32> {
 //     choice_to_branch: ChoiceToBranch<I>,
