@@ -1053,6 +1053,35 @@ pub struct Bound<V> {
 }
 
 impl<V> Bound<V> {
+    /// Constructs a bound of form `> V`.
+    pub fn greater_than(value: V) -> Self {
+        Self {
+            operator: BoundOperator::GreaterThan,
+            value,
+        }
+    }
+    /// Constructs a bound of form `>= V`.
+    pub fn greater_or_equal(value: V) -> Self {
+        Self {
+            operator: BoundOperator::GreaterOrEqual,
+            value,
+        }
+    }
+    /// Constructs a bound of form `< V`.
+    pub fn less_than(value: V) -> Self {
+        Self {
+            operator: BoundOperator::LessThan,
+            value,
+        }
+    }
+    /// Constructs a bound of form `<= V`.
+    pub fn less_or_equal(value: V) -> Self {
+        Self {
+            operator: BoundOperator::LessOrEqual,
+            value,
+        }
+    }
+
     /// Returns a bound where the value is stored as a mutable reference.
     pub fn as_mut(&mut self) -> Bound<&mut V> {
         Bound {
