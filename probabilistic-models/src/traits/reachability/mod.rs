@@ -37,21 +37,11 @@ mod tests {
     use crate::base_model::Mdp;
     use crate::builder::{BaseModelBuilder, MdpBuilder};
     use crate::traits::reachability::Reachability;
-    use crate::{
-        BranchIndex, ChoiceIndex, StateIndex, ValuationClassEntryIndex, ValuationClassIndex,
-        ValuationIndex,
-    };
+    use crate::{BranchIndex, ChoiceIndex, StateIndex};
     use typed_index_collections::{Index, To1};
 
-    fn create_mdp() -> Mdp<StateIndex<u32>, ChoiceIndex<u32>, BranchIndex<u32>> {
-        let mut builder: MdpBuilder<
-            StateIndex<u32>,
-            ChoiceIndex<u32>,
-            BranchIndex<u32>,
-            ValuationClassIndex<u32>,
-            ValuationClassEntryIndex<u32>,
-            ValuationIndex<u32>,
-        > = MdpBuilder::default();
+    fn create_mdp() -> Mdp<StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>> {
+        let mut builder = MdpBuilder::with_default_index_types();
         builder.add_state(StateIndex::from_raw(0));
         builder.add_choice_from_slice(&[
             (0.3, StateIndex::from_raw(1)),

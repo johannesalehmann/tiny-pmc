@@ -21,19 +21,20 @@ impl<
     APs,
     Rew,
     Ann,
-> Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, Valuations<SI, CI, CEI, VI>>
+    P,
+> Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, Valuations<SI, CI, CEI, VI>, P>
 {
     #[must_use]
     pub fn sta_file(
         &self,
-    ) -> StaFile<'_, M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, Valuations<SI, CI, CEI, VI>>
+    ) -> StaFile<'_, M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, Valuations<SI, CI, CEI, VI>, P>
     {
         StaFile { model: self }
     }
 }
 
-pub struct StaFile<'a, M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals> {
-    model: &'a Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals>,
+pub struct StaFile<'a, M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, P> {
+    model: &'a Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, P>,
 }
 impl<
     SI: Index,
@@ -48,7 +49,8 @@ impl<
     APs,
     Rew,
     Ann,
-> StaFile<'_, M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, Valuations<SI, CI, CEI, VI>>
+    P,
+> StaFile<'_, M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, Valuations<SI, CI, CEI, VI>, P>
 {
     pub fn write_to_file(&self, destination: impl AsRef<Path>) -> std::io::Result<()> {
         write!(File::create(destination)?, "{}", self)
@@ -68,8 +70,9 @@ impl<
     APs,
     Rew,
     Ann,
+    P,
 > Display
-    for StaFile<'_, M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, Valuations<SI, CI, CEI, VI>>
+    for StaFile<'_, M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, Valuations<SI, CI, CEI, VI>, P>
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let classes = self.model.state_valuations.classes();

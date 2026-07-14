@@ -55,6 +55,12 @@ pub trait BaseModelBuilder {
 
     fn start_choice(&mut self) -> Self::ChoiceIdx; // TODO: Do we need this or is finish_choice sufficient?
     fn add_branch(&mut self, rate_or_probability: f64, target: Self::StateIdx) -> Self::BranchIdx;
+
+    // TODO: Instead of requiring an explicit call to this, start_choice
+    //  could return a struct through which the branches are added. This struct, on being dropped,
+    //  could then perform choice-finishing operations. The same could be done for add_state. This
+    //  also more closely models that actual structure and ensures choices and branches are added
+    //  correctly.
     fn finish_choice(&mut self);
 
     fn add_choice_from_slice(&mut self, branches: &[(f64, Self::StateIdx)]) -> Self::ChoiceIdx {

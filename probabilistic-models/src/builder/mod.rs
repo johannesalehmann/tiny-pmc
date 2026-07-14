@@ -86,6 +86,7 @@ pub type ModelBuilderOutput<Base, Ini, APs> = Model<
     (),
     (),
     <Base as BaseModelBuilder>::Valuation,
+    (),
 >;
 
 impl<
@@ -125,6 +126,7 @@ impl<
             rewards: (),
             annotations: (),
             state_valuations,
+            predecessors: (),
         }
     }
 }

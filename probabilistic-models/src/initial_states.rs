@@ -6,13 +6,13 @@ pub struct SingleInitialState<StateIdx: Index> {
     pub index: StateIdx,
 }
 
-impl<M: BaseModel, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val>
-    Model<M, (), ChLabel, BrLabel, Obs, APs, Rew, Ann, Val>
+impl<M: BaseModel, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Preds>
+    Model<M, (), ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Preds>
 {
     pub fn with_initial_state(
         self,
         initial: M::StateIndex,
-    ) -> Model<M, SingleInitialState<M::StateIndex>, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val>
+    ) -> Model<M, SingleInitialState<M::StateIndex>, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Preds>
     {
         Model {
             base: self.base,
@@ -24,12 +24,14 @@ impl<M: BaseModel, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val>
             rewards: self.rewards,
             annotations: self.annotations,
             state_valuations: self.state_valuations,
+            predecessors: self.predecessors,
         }
     }
     pub fn with_initial_states(
         self,
         initial: InitialStates<M::StateIndex>,
-    ) -> Model<M, InitialStates<M::StateIndex>, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val> {
+    ) -> Model<M, InitialStates<M::StateIndex>, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Preds>
+    {
         Model {
             base: self.base,
             initial,
@@ -40,6 +42,7 @@ impl<M: BaseModel, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val>
             rewards: self.rewards,
             annotations: self.annotations,
             state_valuations: self.state_valuations,
+            predecessors: self.predecessors,
         }
     }
 }
@@ -60,8 +63,18 @@ impl<StateIdx: Index> IsInitial<StateIdx> for InitialStates<StateIdx> {
     }
 }
 
-impl<M: BaseModel, Init: IsInitial<M::StateIndex>, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val>
-    Model<M, Init, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val>
+impl<
+    M: BaseModel,
+    Init: IsInitial<M::StateIndex>,
+    ChLabel,
+    BrLabel,
+    Obs,
+    APs,
+    Rew,
+    Anno,
+    Val,
+    Preds,
+> Model<M, Init, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val, Preds>
 {
     pub fn is_initial(&self, state: M::StateIndex) -> bool {
         self.initial.is_initial(state)
@@ -69,7 +82,7 @@ impl<M: BaseModel, Init: IsInitial<M::StateIndex>, ChLabel, BrLabel, Obs, APs, R
 
     pub fn without_initial_states(
         self,
-    ) -> Model<M, (), ChLabel, BrLabel, Obs, APs, Rew, Anno, Val> {
+    ) -> Model<M, (), ChLabel, BrLabel, Obs, APs, Rew, Anno, Val, Preds> {
         Model {
             base: self.base,
             initial: (),
@@ -80,6 +93,7 @@ impl<M: BaseModel, Init: IsInitial<M::StateIndex>, ChLabel, BrLabel, Obs, APs, R
             rewards: self.rewards,
             annotations: self.annotations,
             state_valuations: self.state_valuations,
+            predecessors: self.predecessors,
         }
     }
 }

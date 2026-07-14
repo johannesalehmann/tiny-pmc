@@ -4,6 +4,7 @@ pub mod builder;
 mod choices;
 pub mod export;
 pub mod initial_states;
+mod predecessors;
 pub mod traits;
 pub mod valuations;
 
@@ -20,6 +21,7 @@ index!(AnnotationEntryIndex);
 index!(ValuationClassIndex);
 index!(ValuationClassEntryIndex);
 index!(ValuationIndex);
+index!(PredecessorIndex);
 
 // pub struct Dtmc<I: RawIndex = u32> {
 //     choice_to_branch: ChoiceToBranch<I>,
@@ -72,7 +74,7 @@ index!(ValuationIndex);
 
 pub type InitialStates<StateIdx> = To1<StateIdx, bool>;
 
-pub struct Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals> {
+pub struct Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds> {
     pub base: M,
     pub initial: Ini,
     pub choice_labels: ChLabel,
@@ -82,9 +84,10 @@ pub struct Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals> {
     pub rewards: Rew,
     pub annotations: Ann,
     pub state_valuations: StateVals, // TODO: Add fields for other valuations
+    pub predecessors: Preds,
 }
 
-impl<M> Model<M, (), (), (), (), (), (), (), ()> {
+impl<M> Model<M, (), (), (), (), (), (), (), (), ()> {
     pub fn new(base: M) -> Self {
         Self {
             base,
@@ -96,6 +99,7 @@ impl<M> Model<M, (), (), (), (), (), (), (), ()> {
             rewards: (),
             annotations: (),
             state_valuations: (),
+            predecessors: (),
         }
     }
 }

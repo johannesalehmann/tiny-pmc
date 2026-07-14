@@ -1,35 +1,38 @@
+use crate::Model;
 use crate::base_model::{BaseModel, Mdp};
 use crate::traits::ReadStateSpace;
-use crate::Model;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
 use typed_index_collections::{Index, RawIndex};
 
-impl<M: BaseModel, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals>
-    Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals>
+impl<M: BaseModel, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, P>
+    Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, P>
 {
     #[must_use]
-    pub fn tra_file(&self) -> TraFile<'_, M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals> {
+    pub fn tra_file(
+        &self,
+    ) -> TraFile<'_, M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, P> {
         TraFile { model: self }
     }
 }
 
-pub struct TraFile<'a, M: BaseModel, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals> {
-    model: &'a Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals>,
+pub struct TraFile<'a, M: BaseModel, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, P> {
+    model: &'a Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, P>,
 }
 
-impl<SI: Index, CI: Index, BI: Index, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals>
-    TraFile<'_, Mdp<SI, CI, BI>, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals>
+impl<SI: Index, CI: Index, BI: Index, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, P>
+    TraFile<'_, Mdp<SI, CI, BI>, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, P>
 {
     pub fn write_to_file(&self, destination: impl AsRef<Path>) -> std::io::Result<()> {
         write!(File::create(destination)?, "{}", self)
     }
 }
 
-impl<SI: Index, CI: Index, BI: Index, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals> Display
-    for TraFile<'_, Mdp<SI, CI, BI>, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals>
+impl<SI: Index, CI: Index, BI: Index, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, P>
+    Display
+    for TraFile<'_, Mdp<SI, CI, BI>, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, P>
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.model.states().len())?;

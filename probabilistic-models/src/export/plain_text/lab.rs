@@ -22,17 +22,18 @@ impl<
     R,
     A,
     SV,
-> Model<M, Ini, C, B, O, AtomicPropositions<AI, SI, AEI>, R, A, SV>
+    P,
+> Model<M, Ini, C, B, O, AtomicPropositions<AI, SI, AEI>, R, A, SV, P>
 {
     pub fn lab_file(
         &self,
-    ) -> LabFile<'_, M, Ini, C, B, O, AtomicPropositions<AI, SI, AEI>, R, A, SV> {
+    ) -> LabFile<'_, M, Ini, C, B, O, AtomicPropositions<AI, SI, AEI>, R, A, SV, P> {
         LabFile { model: self }
     }
 }
 
-pub struct LabFile<'a, M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals> {
-    model: &'a Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals>,
+pub struct LabFile<'a, M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, P> {
+    model: &'a Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, P>,
 }
 
 impl<
@@ -48,7 +49,8 @@ impl<
     R,
     A,
     SV,
-> LabFile<'a, M, Ini, C, B, O, AtomicPropositions<AI, SI, AEI>, R, A, SV>
+    P,
+> LabFile<'a, M, Ini, C, B, O, AtomicPropositions<AI, SI, AEI>, R, A, SV, P>
 {
     pub fn write_to_file(&self, destination: impl AsRef<Path>) -> std::io::Result<()> {
         write!(File::create(destination)?, "{}", self)
@@ -68,7 +70,8 @@ impl<
     R,
     A,
     SV,
-> Display for LabFile<'a, M, Ini, C, B, O, AtomicPropositions<AI, SI, AEI>, R, A, SV>
+    P,
+> Display for LabFile<'a, M, Ini, C, B, O, AtomicPropositions<AI, SI, AEI>, R, A, SV, P>
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "0=\"init\"")?;
