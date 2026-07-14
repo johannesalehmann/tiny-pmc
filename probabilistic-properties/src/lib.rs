@@ -41,7 +41,7 @@ use std::fmt::{Display, Formatter};
 ///
 /// A query can either ask for a value (a probability, a reward value or a time value) or compare
 /// a value to a bound.
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum Query<I, F, E> {
     /// A query for a probability value, expressed as `P=? [path]`, `Pmin=? [path]` or
     /// `Pmax=? [path]`.
@@ -462,7 +462,7 @@ impl<I: Display, F: Display, E: Display> Display for Query<I, F, E> {
 }
 
 /// A state formula, describing a set of states.
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum StateFormula<I, F, E> {
     /// A boolean expression over the models. A state is included if the expression evaluates to
     /// `true` in it.
@@ -662,7 +662,7 @@ impl<I: Display, F: Display, E: Display> Display for StateFormula<I, F, E> {
 }
 
 /// A path formula describes a set of paths.
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum PathFormula<I, F, E> {
     /// Until formula, corresponding to syntax `before U after`.
     ///
@@ -916,7 +916,7 @@ impl<I: Display, F: Display, E: Display> Display for PathFormula<I, F, E> {
 }
 
 /// A rewards formula, describing a value computed over a rewards structure of a model.
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub enum RewardFormula<I, F, E> {
     /// An instantaneous reward, equal to the syntax `I=k`.
     ///
@@ -1043,7 +1043,7 @@ impl<I: Display, F: Display, E: Display> Display for RewardFormula<I, F, E> {
 
 /// A bound over the given numeric type `V`. Corresponds to syntax `< value`, `<= value`, `> value`
 /// or `>= value`.
-#[derive(Clone)]
+#[derive(Clone, PartialEq, Eq)]
 pub struct Bound<V> {
     /// The comparison operator of the bound
     pub operator: BoundOperator,
