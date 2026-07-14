@@ -168,7 +168,7 @@ mod test {
     macro_rules! check_iters {
         ($iter: ident, $enum_iter: ident, $from: expr, $to_start: expr, $to_end: expr) => {{
             let mut entry = $iter.next().unwrap();
-            let (index, mut enum_entry) = $enum_iter.next().unwrap();
+            let (index, enum_entry) = $enum_iter.next().unwrap();
             assert_eq!(
                 index,
                 StateIndex::from_raw($from as u32),
