@@ -1,7 +1,10 @@
 mod base_implementation;
 
 mod reachability;
-pub use reachability::Reachability;
+pub use reachability::{BackwardReachability, Reachability};
+
+mod predecessors;
+pub use predecessors::ReadPredecessors;
 
 mod state_specifier;
 pub use state_specifier::StateSet;

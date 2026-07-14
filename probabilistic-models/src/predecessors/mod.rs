@@ -1,6 +1,5 @@
 use crate::Model;
 use crate::base_model::BaseModel;
-use crate::initial_states::SingleInitialState;
 use crate::traits::ReadStateSpace;
 use typed_index_collections::{Csr, Index, RawIndex, To1};
 
