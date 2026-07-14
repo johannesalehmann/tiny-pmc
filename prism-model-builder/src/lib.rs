@@ -23,7 +23,7 @@ use probabilistic_models::valuations::{
 };
 use probabilistic_properties::Query;
 use std::collections::{HashMap, VecDeque};
-use typed_index_collections::{Index, RawIndex, index};
+use typed_index_collections::{Index, index};
 
 pub use typed_index_collections::To1;
 
@@ -33,24 +33,20 @@ pub fn build_model<
     S: Span,
     Base: builder::BaseModelBuilder,
     Ini: builder::InitialStatesBuilder<StateIdx = Base::StateIdx>,
-    APs: builder::AtomicPropositionBuilder<StateIdx = Base::StateIdx>,
+    APs: builder::AtomicPropositionBuilder<StateIdx = Base::StateIdx, AnnotationIdx = APIdx>,
+    APIdx: Index,
     M: Into<builder::ModelBuilder<Base, Ini, APs>>,
-    Raw: RawIndex,
     I: Iterator<
-        Item = Query<
-            Expression<VariableReference, S>,
-            Expression<VariableReference, S>,
-            AtomicPropositionIndex<Raw>,
-        >,
+        Item = Query<Expression<VariableReference, S>, Expression<VariableReference, S>, APIdx>,
     >,
 >(
     prism_model: &mut Model<VariableReference, S, Expression<VariableReference, S>, Identifier<S>>,
     explicit_builder: M,
-    atomic_propositions: &To1<AtomicPropositionIndex<Raw>, Expression<VariableReference, S>>,
+    atomic_propositions: &To1<APIdx, Expression<VariableReference, S>>,
     properties: I,
     user_provided_consts: &HashMap<String, UserProvidedConstValue>,
-) -> Result<ModelBuildingOutput<Base, Ini, APs, AtomicPropositionIndex<Raw>>, ModelBuildingError> {
-    ExplicitModelBuilder::<Base, Ini, APs>::build_model::<S, M, Raw, I>(
+) -> Result<ModelBuildingOutput<Base, Ini, APs, APIdx>, ModelBuildingError> {
+    ExplicitModelBuilder::<Base, Ini, APs, APIdx>::build_model::<S, M, I>(
         prism_model,
         explicit_builder.into(),
         atomic_propositions,
@@ -68,7 +64,7 @@ pub enum UserProvidedConstValue {
 pub struct ModelBuildingOutput<
     Base: builder::BaseModelBuilder,
     Ini: builder::InitialStatesBuilder,
-    APs: builder::AtomicPropositionBuilder,
+    APs: builder::AtomicPropositionBuilder<AnnotationIdx = APIdx>,
     APIdx: Index,
 > {
     pub model: builder::ModelBuilderOutput<Base, Ini, APs>,
@@ -159,7 +155,8 @@ impl<'a, SE: SubExpressionProvider> ExpressionContext<usize>
 pub struct ExplicitModelBuilder<
     Base: builder::BaseModelBuilder,
     Ini: builder::InitialStatesBuilder<StateIdx = Base::StateIdx>,
-    APs: builder::AtomicPropositionBuilder<StateIdx = Base::StateIdx>,
+    APs: builder::AtomicPropositionBuilder<StateIdx = Base::StateIdx, AnnotationIdx = APIdx>,
+    APIdx: Index,
 > {
     explicit_builder: builder::ModelBuilder<Base, Ini, APs>,
     open_states: VecDeque<Base::StateIdx>,
@@ -169,23 +166,19 @@ pub struct ExplicitModelBuilder<
 impl<
     Base: builder::BaseModelBuilder,
     Ini: builder::InitialStatesBuilder<StateIdx = Base::StateIdx>,
-    APs: builder::AtomicPropositionBuilder<StateIdx = Base::StateIdx>,
-> ExplicitModelBuilder<Base, Ini, APs>
+    APs: builder::AtomicPropositionBuilder<StateIdx = Base::StateIdx, AnnotationIdx = APIdx>,
+    APIdx: Index,
+> ExplicitModelBuilder<Base, Ini, APs, APIdx>
 {
     fn build_properties<
         S: Span,
-        Raw: RawIndex,
         I: Iterator<
-            Item = Query<
-                Expression<VariableReference, S>,
-                Expression<VariableReference, S>,
-                AtomicPropositionIndex<Raw>,
-            >,
+            Item = Query<Expression<VariableReference, S>, Expression<VariableReference, S>, APIdx>,
         >,
     >(
         properties: I,
         variable_info: &variables::ModelVariableInfo<Base::ClassIdx, Base::ClassEntryIdx>,
-    ) -> Result<Vec<Query<i64, f64, AtomicPropositionIndex<Raw>>>, ModelBuildingError> {
+    ) -> Result<Vec<Query<i64, f64, APIdx>>, ModelBuildingError> {
         let const_valuation_source = variable_info.get_const_only_valuation_source();
 
         let mut result = Vec::new();
@@ -206,22 +199,16 @@ impl<
     pub fn build_model<
         S: Span,
         M: Into<builder::ModelBuilder<Base, Ini, APs>>,
-        Raw: RawIndex,
         I: Iterator<
-            Item = Query<
-                Expression<VariableReference, S>,
-                Expression<VariableReference, S>,
-                AtomicPropositionIndex<Raw>,
-            >,
+            Item = Query<Expression<VariableReference, S>, Expression<VariableReference, S>, APIdx>,
         >,
     >(
         model: &mut Model<VariableReference, S, Expression<VariableReference, S>, Identifier<S>>,
         mut explicit_builder: builder::ModelBuilder<Base, Ini, APs>,
-        atomic_propositions: &To1<AtomicPropositionIndex<Raw>, Expression<VariableReference, S>>,
+        atomic_propositions: &To1<APIdx, Expression<VariableReference, S>>,
         properties: I,
         user_provided_consts: &HashMap<String, UserProvidedConstValue>,
-    ) -> Result<ModelBuildingOutput<Base, Ini, APs, AtomicPropositionIndex<Raw>>, ModelBuildingError>
-    {
+    ) -> Result<ModelBuildingOutput<Base, Ini, APs, APIdx>, ModelBuildingError> {
         let start_time = std::time::Instant::now();
 
         model.replace_empty_updates_with_identity_update();
@@ -233,13 +220,11 @@ impl<
             sub_expression_index
         });
 
-        let atomic_propositions = atomic_propositions
-            .map(|ap| {
-                let stack = StackBasedExpression::from_expression(ap, &model.variable_manager);
-                let sub_expression = sub_expression_manager.add_sub_expression(stack);
-                sub_expression
-            })
-            .change_key_type::<APs::AnnotationIdx>();
+        let atomic_propositions = atomic_propositions.map(|ap| {
+            let stack = StackBasedExpression::from_expression(ap, &model.variable_manager);
+            let sub_expression = sub_expression_manager.add_sub_expression(stack);
+            sub_expression
+        });
         for (index, _ap) in atomic_propositions.enumerate() {
             // TODO: Do this in a nicer way (perhaps find some way to do the key type change
             //  at the same time as this operation?
