@@ -40,6 +40,10 @@ impl<EntityIdx: Index, AnnotationEntryIdx: Index, Val>
         let annotation_index = self.distribution.annotation_index(entity);
         self.values.get_mut(annotation_index)
     }
+
+    pub fn values(&self) -> MappedIndices<'_, AnnotationEntryIdx, EntityIdx, Val> {
+        self.values.with_key_type()
+    }
 }
 impl<EntityIdx: Index, AnnotationEntryIdx: Index>
     TypedAnnotation<
