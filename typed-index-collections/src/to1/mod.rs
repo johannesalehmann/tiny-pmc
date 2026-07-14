@@ -121,12 +121,13 @@ impl<From: Index> To1<From, bool> {
     }
 }
 
+#[derive(Copy, Clone)]
 pub struct To1BoolValues<'a, From: Index> {
     condition: bool,
     to1: &'a To1<From, bool>,
 }
 
-impl<'a, From: Index> IntoIterator for &To1BoolValues<'a, From> {
+impl<'a, From: Index> IntoIterator for To1BoolValues<'a, From> {
     type Item = From;
     type IntoIter = To1BoolValuesIterator<'a, From>;
 
