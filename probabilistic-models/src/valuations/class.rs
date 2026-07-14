@@ -42,6 +42,10 @@ impl<ClassEntryIdx: Index> ValuationClass<ClassEntryIdx> {
         &self.entries[index]
     }
 
+    pub fn get_by_name(&self, name: &str) -> &ValuationClassEntry {
+        self.entries.entry_by_name(name).unwrap()
+    }
+
     pub fn size_in_bits(&self) -> usize {
         self.size_in_bits
     }

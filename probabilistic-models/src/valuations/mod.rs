@@ -176,6 +176,12 @@ pub trait ValuationBits<ClassEntryIdx: Index, ValuationIdx: Index> {
         ValuationIdx,
     );
 
+    fn class(&self) -> &ValuationClass<ClassEntryIdx>;
+
+    fn variables(&self) -> &To1<ClassEntryIdx, ValuationClassEntry> {
+        self.class().entries()
+    }
+
     fn evaluate_bool(&self, variable_index: ClassEntryIdx) -> bool {
         let (class, class_data, index) = self.class_and_index();
         let variable = class.get(variable_index);
@@ -381,6 +387,10 @@ impl<'a, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index>
     ) {
         (self.class, self.class_data, self.index)
     }
+
+    fn class(&self) -> &ValuationClass<ClassEntryIdx> {
+        self.class
+    }
 }
 impl<'a, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index>
     ValuationBitsMut<ClassEntryIdx, ValuationIdx>
@@ -483,6 +493,10 @@ impl<'a, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index>
             &self.data,
             ValuationIdx::from_raw(ValuationIdx::RawType::zero()),
         )
+    }
+
+    fn class(&self) -> &ValuationClass<ClassEntryIdx> {
+        self.class
     }
 }
 impl<'a, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index>
