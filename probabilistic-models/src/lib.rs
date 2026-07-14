@@ -8,7 +8,8 @@ mod predecessors;
 pub mod traits;
 pub mod valuations;
 
-pub use typed_index_collections::RawIndex;
+pub use typed_index_collections;
+pub use typed_index_collections::{Index, RawIndex};
 
 use typed_index_collections::{To1, index};
 
