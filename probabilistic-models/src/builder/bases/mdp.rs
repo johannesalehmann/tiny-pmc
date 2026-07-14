@@ -80,7 +80,7 @@ impl<
         &mut self.valuation
     }
 
-    fn add_choice(&mut self) -> ChoiceIdx {
+    fn start_choice(&mut self) -> ChoiceIdx {
         let index = self.next_choice;
 
         self.mdp
@@ -104,10 +104,6 @@ impl<
     }
 
     fn finish_choice(&mut self) {
-        // Nothing to do, MDPs can have any number of choices
-    }
-
-    fn finish_branch(&mut self) {
         // TODO: Verify probabilities add up to one!
     }
 

@@ -371,9 +371,8 @@ impl<
         }
         if choices_added == 0 {
             // Fix deadlocks:
-            self.explicit_builder.base.add_choice();
+            self.explicit_builder.base.start_choice();
             self.explicit_builder.base.add_branch(1.0, state);
-            self.explicit_builder.base.finish_branch();
             self.explicit_builder.base.finish_choice();
         }
 
@@ -391,7 +390,7 @@ impl<
         let val_source = self.variable_info.get_valuation_source(valuation);
         let guard = expression_context.evaluate_bool(&command.guard, &val_source);
         if guard {
-            self.explicit_builder.base.add_choice();
+            self.explicit_builder.base.start_choice();
             for update_index in 0..command.updates.len() {
                 let valuation = &self.explicit_builder.base.state_valuations().entry(state);
                 let val_source = self.variable_info.get_valuation_source(valuation);
@@ -416,8 +415,6 @@ impl<
                 self.explicit_builder.base.add_branch(probability, index);
 
                 // TODO: Add predecessors to model here?
-
-                self.explicit_builder.base.finish_branch();
             }
 
             // TODO: Add choice label
@@ -473,7 +470,7 @@ impl<
             let modules = &synchronised_action.participating_modules;
             let mut indices = vec![0; n];
             while indices[0] < satisfied_guards_indices[0].len() {
-                self.explicit_builder.base.add_choice();
+                self.explicit_builder.base.start_choice();
 
                 let mut command_indices = Vec::with_capacity(n);
                 for i in 0..n {
@@ -528,7 +525,6 @@ impl<
                         new_valuation,
                     );
                     self.explicit_builder.base.add_branch(probability, target);
-                    self.explicit_builder.base.finish_branch();
 
                     // TODO: Set predecessor here?
 

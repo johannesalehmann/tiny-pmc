@@ -53,10 +53,18 @@ pub trait BaseModelBuilder {
         Self::ValuationIdx,
     >;
 
-    fn add_choice(&mut self) -> Self::ChoiceIdx; // TODO: Do we need this or is finish_choice sufficient?
+    fn start_choice(&mut self) -> Self::ChoiceIdx; // TODO: Do we need this or is finish_choice sufficient?
     fn add_branch(&mut self, rate_or_probability: f64, target: Self::StateIdx) -> Self::BranchIdx;
     fn finish_choice(&mut self);
-    fn finish_branch(&mut self); // TODO: I don't think this method is ever useful, as branches are atomically created, i.e. every check performed here could be performed in add_branch itself
+
+    fn add_choice_from_slice(&mut self, branches: &[(f64, Self::StateIdx)]) -> Self::ChoiceIdx {
+        let index = self.start_choice();
+        for &(rate_or_probability, target) in branches {
+            self.add_branch(rate_or_probability, target);
+        }
+        self.finish_choice();
+        index
+    }
 
     fn into_base_and_valuations(self) -> (Self::BaseModel, Self::Valuation);
 }

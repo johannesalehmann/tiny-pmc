@@ -1,5 +1,11 @@
 mod base_implementation;
 
+mod reachability;
+pub use reachability::Reachability;
+
+mod state_specifier;
+pub use state_specifier::StateSet;
+
 use crate::valuations::ValuationEntry;
 use typed_index_collections::{Index, IndexRange, SemiboundedIndexRange};
 
