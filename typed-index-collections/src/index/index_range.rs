@@ -39,6 +39,12 @@ impl<Idx: Index> SemiboundedIndexRange<Idx> {
             Some(self.end - Idx::RawType::one())
         }
     }
+
+    pub fn change_index_type<Idx2: Index>(&self) -> SemiboundedIndexRange<Idx2> {
+        SemiboundedIndexRange {
+            end: Idx2::from_raw(Idx2::RawType::from_usize(self.end.raw().as_usize())),
+        }
+    }
 }
 
 impl<Idx: Index> IntoIterator for SemiboundedIndexRange<Idx> {

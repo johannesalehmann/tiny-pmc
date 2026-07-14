@@ -1,6 +1,6 @@
 use crate::Model;
 use crate::predecessors::Predecessors;
-use typed_index_collections::{Index, IndexRange, SemiboundedIndexRange};
+use typed_index_collections::{Index, IndexRange, SemiboundedIndexRange, ValuePerIndexSource};
 
 pub trait ReadPredecessors {
     type StateIdx: Index;

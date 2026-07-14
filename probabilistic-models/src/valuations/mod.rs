@@ -1,5 +1,5 @@
 use std::ops::Range;
-use typed_index_collections::{Index, RawIndex, SemiboundedIndexRange, To1};
+use typed_index_collections::{Index, RawIndex, SemiboundedIndexRange, To1, ValuePerIndexSource};
 
 mod bits;
 use crate::valuations::bits::SetBits;

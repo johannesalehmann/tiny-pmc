@@ -30,7 +30,7 @@ impl<StateIdx: Index> StateSet<StateIdx> for StateIdx {
 }
 
 impl<'a, StateIdx: Index> StateSet<StateIdx> for &'a To1<StateIdx, bool> {
-    type IntoIterator = To1BoolValuesIterator<'a, StateIdx>;
+    type IntoIterator = To1BoolValuesIterator<StateIdx, &'a To1<StateIdx, bool>>;
 
     fn is_in_set(self, index: StateIdx) -> bool {
         self[index]

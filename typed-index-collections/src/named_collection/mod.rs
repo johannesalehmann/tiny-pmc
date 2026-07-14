@@ -1,5 +1,5 @@
 use crate::to1::To1;
-use crate::{Index, RawIndex, SemiboundedIndexRange};
+use crate::{Index, RawIndex, SemiboundedIndexRange, ValuePerIndexSource};
 use std::collections::HashMap;
 
 pub struct NamedTo1<InternalIndex: Index, E> {
@@ -65,7 +65,7 @@ impl<InternalIndex: Index, E> NamedTo1<InternalIndex, E> {
     }
 
     pub fn internal_indices(&self) -> SemiboundedIndexRange<InternalIndex> {
-        self.store.keys()
+        self.store.keys().change_index_type()
     }
 
     pub fn len(&self) -> usize {

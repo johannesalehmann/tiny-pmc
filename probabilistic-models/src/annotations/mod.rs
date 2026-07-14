@@ -4,7 +4,7 @@ pub use distributions::Distribution;
 
 use crate::annotations::distributions::IdentityDistribution;
 use std::marker::PhantomData;
-use typed_index_collections::{Index, NamedTo1, To1};
+use typed_index_collections::{Index, MappedIndices, NamedTo1, To1, To1BoolValues};
 
 #[derive(Default)]
 pub struct TypedAnnotation<
@@ -39,6 +39,20 @@ impl<EntityIdx: Index, AnnotationEntryIdx: Index, Val>
     pub fn get_mut(&mut self, entity: EntityIdx) -> Option<&mut Val> {
         let annotation_index = self.distribution.annotation_index(entity);
         self.values.get_mut(annotation_index)
+    }
+}
+impl<EntityIdx: Index, AnnotationEntryIdx: Index>
+    TypedAnnotation<
+        EntityIdx,
+        AnnotationEntryIdx,
+        IdentityDistribution<EntityIdx, AnnotationEntryIdx>,
+        bool,
+    >
+{
+    pub fn true_values(
+        &self,
+    ) -> To1BoolValues<EntityIdx, MappedIndices<'_, AnnotationEntryIdx, EntityIdx, bool>> {
+        self.values.with_key_type().true_values()
     }
 }
 

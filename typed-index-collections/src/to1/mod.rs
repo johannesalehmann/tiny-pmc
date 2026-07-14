@@ -38,12 +38,6 @@ impl<From: Index, E> To1<From, E> {
         }
     }
 
-    pub fn keys(&self) -> SemiboundedIndexRange<From> {
-        SemiboundedIndexRange::new(From::from_raw(From::RawType::from_usize(
-            self.entries.len(),
-        )))
-    }
-
     pub fn len(&self) -> usize {
         self.entries.len()
     }
@@ -84,6 +78,13 @@ impl<From: Index, E> To1<From, E> {
         }
     }
 
+    pub fn with_key_type<From2: Index>(&self) -> MappedIndices<'_, From, From2, E> {
+        MappedIndices {
+            to1: self,
+            phantom_data: Default::default(),
+        }
+    }
+
     pub fn change_key_type<From2: Index>(self) -> To1<From2, E> {
         To1 {
             entries: self.entries,
@@ -107,13 +108,72 @@ impl<From: Index, E> To1<From, E> {
 }
 
 impl<From: Index> To1<From, bool> {
-    pub fn true_values(&self) -> To1BoolValues<'_, From> {
+    pub fn true_values(&self) -> To1BoolValues<From, &Self> {
+        To1BoolValues {
+            condition: true,
+            to1: &self,
+        }
+    }
+    pub fn false_values(&self) -> To1BoolValues<From, &Self> {
+        To1BoolValues {
+            condition: false,
+            to1: &self,
+        }
+    }
+}
+
+// TODO: This trait is written in a rather ad-hoc matter. Its use should be expanded, so that most
+//  functions use To1Trait instead of To1.
+pub trait ValuePerIndexSource {
+    type From: Index;
+    type E;
+    fn get(&self, index: Self::From) -> &Self::E;
+    fn keys(&self) -> SemiboundedIndexRange<Self::From>;
+}
+
+impl<From: Index, E> ValuePerIndexSource for To1<From, E> {
+    type From = From;
+    type E = E;
+
+    fn get(&self, index: From) -> &E {
+        &self[index]
+    }
+
+    fn keys(&self) -> SemiboundedIndexRange<From> {
+        SemiboundedIndexRange::new(From::from_raw(From::RawType::from_usize(
+            self.entries.len(),
+        )))
+    }
+}
+
+impl<From: Index, E> ValuePerIndexSource for &'_ To1<From, E> {
+    type From = From;
+    type E = E;
+
+    fn get(&self, index: From) -> &E {
+        &self[index]
+    }
+
+    fn keys(&self) -> SemiboundedIndexRange<From> {
+        SemiboundedIndexRange::new(From::from_raw(From::RawType::from_usize(
+            self.entries.len(),
+        )))
+    }
+}
+
+pub struct MappedIndices<'a, From: Index, From2: Index, E> {
+    to1: &'a To1<From, E>,
+    phantom_data: PhantomData<From2>,
+}
+
+impl<'a, From: Index, From2: Index> MappedIndices<'a, From, From2, bool> {
+    pub fn true_values(self) -> To1BoolValues<From2, Self> {
         To1BoolValues {
             condition: true,
             to1: self,
         }
     }
-    pub fn false_values(&self) -> To1BoolValues<'_, From> {
+    pub fn false_values(self) -> To1BoolValues<From2, Self> {
         To1BoolValues {
             condition: false,
             to1: self,
@@ -121,15 +181,31 @@ impl<From: Index> To1<From, bool> {
     }
 }
 
-#[derive(Copy, Clone)]
-pub struct To1BoolValues<'a, From: Index> {
-    condition: bool,
-    to1: &'a To1<From, bool>,
+impl<'a, From: Index, From2: Index, E> ValuePerIndexSource for MappedIndices<'a, From, From2, E> {
+    type From = From2;
+    type E = E;
+
+    fn get(&self, index: From2) -> &E {
+        let index = From::from_raw(From::RawType::from_usize(index.raw().as_usize()));
+        &self.to1[index]
+    }
+
+    fn keys(&self) -> SemiboundedIndexRange<Self::From> {
+        self.to1.keys().change_index_type()
+    }
 }
 
-impl<'a, From: Index> IntoIterator for To1BoolValues<'a, From> {
+#[derive(Copy, Clone)]
+pub struct To1BoolValues<From: Index, Vals: ValuePerIndexSource<From = From, E = bool>> {
+    condition: bool,
+    to1: Vals,
+}
+
+impl<From: Index, Vals: ValuePerIndexSource<From = From, E = bool>> IntoIterator
+    for To1BoolValues<From, Vals>
+{
     type Item = From;
-    type IntoIter = To1BoolValuesIterator<'a, From>;
+    type IntoIter = To1BoolValuesIterator<From, Vals>;
 
     fn into_iter(self) -> Self::IntoIter {
         To1BoolValuesIterator {
@@ -140,18 +216,20 @@ impl<'a, From: Index> IntoIterator for To1BoolValues<'a, From> {
     }
 }
 
-pub struct To1BoolValuesIterator<'a, From: Index> {
+pub struct To1BoolValuesIterator<From: Index, Vals: ValuePerIndexSource<From = From, E = bool>> {
     condition: bool,
-    to1: &'a To1<From, bool>,
+    to1: Vals,
     index: From,
 }
 
-impl<'a, From: Index> Iterator for To1BoolValuesIterator<'a, From> {
+impl<From: Index, Vals: ValuePerIndexSource<From = From, E = bool>> Iterator
+    for To1BoolValuesIterator<From, Vals>
+{
     type Item = From;
 
     fn next(&mut self) -> Option<Self::Item> {
         while self.index < self.to1.keys().end() {
-            if self.to1[self.index] == self.condition {
+            if *self.to1.get(self.index) == self.condition {
                 let res = Some(self.index);
                 self.index += From::RawType::one();
                 return res;
