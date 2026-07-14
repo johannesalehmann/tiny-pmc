@@ -4,7 +4,7 @@ pub mod builder;
 mod choices;
 pub mod export;
 pub mod initial_states;
-mod predecessors;
+pub mod predecessors;
 pub mod traits;
 pub mod valuations;
 
