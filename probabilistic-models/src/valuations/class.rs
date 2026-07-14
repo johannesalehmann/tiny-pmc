@@ -42,6 +42,10 @@ impl<ClassEntryIdx: Index> ValuationClass<ClassEntryIdx> {
         &self.entries[index]
     }
 
+    pub fn index_by_name(&self, name: &str) -> Option<ClassEntryIdx> {
+        self.entries.index_by_name(name)
+    }
+
     pub fn get_by_name(&self, name: &str) -> &ValuationClassEntry {
         self.entries.entry_by_name(name).unwrap()
     }
