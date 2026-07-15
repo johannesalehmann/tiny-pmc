@@ -4,6 +4,7 @@ pub mod builder;
 mod choices;
 pub mod export;
 pub mod initial_states;
+mod labels;
 pub mod predecessors;
 pub mod traits;
 pub mod valuations;
@@ -24,6 +25,8 @@ index!(ValuationClassEntryIndex);
 index!(ValuationIndex);
 index!(PredecessorIndex);
 index!(AtomicPropositionIndex);
+index!(ChoiceLabelIndex);
+index!(BranchLabelIndex);
 
 // pub struct Dtmc<I: RawIndex = u32> {
 //     choice_to_branch: ChoiceToBranch<I>,

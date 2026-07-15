@@ -6,7 +6,10 @@ pub use reachability::{BackwardReachability, Reachability};
 mod predecessors;
 pub use predecessors::ReadPredecessors;
 
+mod branch_labels;
+mod choice_labels;
 mod state_specifier;
+
 pub use state_specifier::StateSet;
 
 use crate::valuations::ValuationEntry;
