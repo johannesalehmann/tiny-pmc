@@ -1,11 +1,7 @@
-use crate::base_model::Mdp;
-use crate::builder::bases::{BaseModelBuilder, ValuationBuilder};
-use crate::valuations::{GetValuationClassIndex, GetValuationData, Valuations};
-use crate::{
-    BranchIndex, ChoiceIndex, RawIndex, StateIndex, ValuationClassEntryIndex, ValuationClassIndex,
-    ValuationIndex,
-};
-use typed_index_collections::Index;
+use crate::configuration::bases::{BaseModelBuilder, ValuationBuilder};
+use probabilistic_models::base_model::Mdp;
+use probabilistic_models::valuations::{GetValuationClassIndex, GetValuationData, Valuations};
+use typed_index_collections::{Index, RawIndex};
 
 #[derive(Default)]
 pub struct MdpBuilder<
@@ -21,21 +17,6 @@ pub struct MdpBuilder<
     next_choice: ChoiceIdx,
     next_branch: BranchIdx,
     valuation: ValuationBuilder<StateIdx, ClassIdx, ClassEntryIdx, ValuationIdx>,
-}
-
-impl
-    MdpBuilder<
-        StateIndex<usize>,
-        ChoiceIndex<usize>,
-        BranchIndex<usize>,
-        ValuationClassIndex<usize>,
-        ValuationClassEntryIndex<usize>,
-        ValuationIndex<usize>,
-    >
-{
-    pub fn with_default_index_types() -> Self {
-        Self::default()
-    }
 }
 
 impl<

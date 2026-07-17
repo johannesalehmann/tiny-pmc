@@ -1,4 +1,4 @@
-use crate::valuations::{GetValuationData, ValuationVector};
+use probabilistic_models::valuations::{GetValuationData, ValuationVector};
 use std::collections::HashMap;
 use typed_index_collections::{Index, RawIndex};
 

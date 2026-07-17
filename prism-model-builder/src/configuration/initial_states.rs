@@ -1,5 +1,5 @@
-use crate::InitialStates;
-use crate::initial_states::SingleInitialState;
+use probabilistic_models::InitialStates;
+use probabilistic_models::initial_states::SingleInitialState;
 use std::marker::PhantomData;
 use typed_index_collections::{Index, To1};
 

@@ -2473,6 +2473,7 @@ dependencies = [
  "num-integer",
  "num-traits",
  "paste",
+ "prism-model-builder",
  "typed-index-collections",
 ]
 

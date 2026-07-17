@@ -1,5 +1,6 @@
 pub use probabilistic_models;
 
+mod configuration;
 pub mod expressions;
 mod synchronised_actions;
 mod variables;
@@ -27,6 +28,18 @@ use typed_index_collections::{Index, index};
 
 pub use typed_index_collections::To1;
 
+impl<
+    Base: configuration::bases::BaseModelBuilder,
+    Ini: configuration::initial_states::InitialStatesBuilder,
+    APs: configuration::atomic_propositions::AtomicPropositionBuilder,
+
+    Props: configuration::properties::QueryCollection,> configuration::ModelBuilder<Base, Ini, APs, Props> {
+    pub fn build(&self) -> Props::OutputType<probabilistic_models::Model<Base::BaseModel, Ini::InitialStates, ()  (), (), APs::AtomicPropositions, (), (), Base::Valuation, ()>> {
+        
+        todo!()
+    }
+
+}
 pub fn build_model<
     S: Span,
     Base: builder::BaseModelBuilder,

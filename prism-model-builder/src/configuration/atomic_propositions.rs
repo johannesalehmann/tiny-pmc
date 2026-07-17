@@ -1,4 +1,4 @@
-use crate::annotations::{AtomicPropositions, TypedAnnotation};
+use probabilistic_models::annotations::{AtomicPropositions, TypedAnnotation};
 use std::marker::PhantomData;
 use typed_index_collections::Index;
 

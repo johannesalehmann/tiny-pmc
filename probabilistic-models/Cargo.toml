@@ -8,3 +8,6 @@ num-traits = "0.2"
 num-integer = "0.1.46"
 typed-index-collections = { path = "../typed-index-collections" }
 paste = "1.0.15"
+
+[dev-dependencies]
+prism-model-builder = { path = "../prism-model-builder" }

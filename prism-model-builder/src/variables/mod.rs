@@ -16,7 +16,6 @@ use valuation_map::*;
 use crate::variables::variable_details::VariableDetails;
 use crate::{ExpressionContext, ModelBuildingError, UserProvidedConstValue};
 use prism_model::{Identifier, Model, Span, VariableReference};
-use probabilistic_models::builder::ValuationBuilder;
 use probabilistic_models::valuations::ValuationEntry;
 use std::collections::HashMap;
 use typed_index_collections::{Index, RawIndex};
@@ -60,7 +59,12 @@ impl<ClassIdx: Index, ClassEntryIdx: Index> ModelVariableInfo<ClassIdx, ClassEnt
         model: &Model<VariableReference, S, E, Identifier<S>>,
         user_provided_consts: &HashMap<String, UserProvidedConstValue>,
         expression_context: &mut EC,
-        valuation_builder: &mut ValuationBuilder<StateIdx, ClassIdx, ClassEntryIdx, ValuationIdx>,
+        valuation_builder: &mut crate::configuration::ValuationBuilder<
+            StateIdx,
+            ClassIdx,
+            ClassEntryIdx,
+            ValuationIdx,
+        >,
     ) -> Result<Self, ModelBuildingError> {
         let variables = &model.variable_manager;
 

@@ -5,7 +5,7 @@ use typed_index_collections::Index;
 mod valuation_builder;
 pub use valuation_builder::ValuationBuilder;
 
-use crate::valuations::{GetValuationClassIndex, GetValuationData, Valuations};
+use probabilistic_models::valuations::{GetValuationClassIndex, GetValuationData, Valuations};
 
 pub trait BaseModelBuilder {
     type BaseModel;

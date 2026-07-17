@@ -1,6 +1,5 @@
 pub mod annotations;
 pub mod base_model;
-pub mod builder;
 mod choices;
 pub mod export;
 pub mod initial_states;
