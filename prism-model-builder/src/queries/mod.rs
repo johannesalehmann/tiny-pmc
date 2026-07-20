@@ -103,8 +103,8 @@ pub struct SingleQuery<S: Span> {
 }
 
 pub struct ModelAndQuery<Model, APIdx: Index> {
-    model: Model,
-    query: ProcessedQuery<APIdx>,
+    pub model: Model,
+    pub query: ProcessedQuery<APIdx>,
 }
 
 impl<S: Span> QueryCollection for SingleQuery<S> {
@@ -176,8 +176,8 @@ pub struct QueryVector<S: Span> {
 }
 
 pub struct ModelAndQueries<Model, APIdx: Index> {
-    model: Model,
-    queries: Vec<ProcessedQuery<APIdx>>,
+    pub model: Model,
+    pub queries: Vec<ProcessedQuery<APIdx>>,
 }
 
 impl<S: Span> QueryCollection for QueryVector<S> {

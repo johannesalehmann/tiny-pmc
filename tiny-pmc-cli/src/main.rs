@@ -39,35 +39,17 @@ fn checker() -> Result<(), ModelCheckerError> {
         Some((prism_model, properties)) => (prism_model, properties),
     };
 
-    let mut atomic_propositions = To1::new();
-    let properties = tiny_pmc::building::prism_objectives_to_atomic_propositions(
-        &mut atomic_propositions,
-        properties,
-    );
-    let builder_builder = probabilistic_models::builder::ModelBuilderBuilder::new(
-        probabilistic_models::builder::MdpBuilder::<
-            StateIndex<usize>,
-            ChoiceIndex<usize>,
-            BranchIndex<usize>,
-            ValuationClassIndex<u8>,
-            ValuationClassEntryIndex<u16>,
-            ValuationIndex<usize>,
-        >::default(),
-    );
-    let builder = builder_builder.finish();
     let start_build = std::time::Instant::now();
 
-    let builder = prism_model_builder::ModelBuilder::new_mdp_builder(&mut prism_model);
-    let builder_output = prism_model_builder::build_model(
-        &mut prism_model,
-        builder,
-        &atomic_propositions,
-        properties.into_iter(),
-        &constants,
-    )?;
+    let builder = prism_model_builder::ModelBuilder::new_mdp_builder(&mut prism_model)
+        .with_necessary_labels()
+        .with_queries(properties)
+        .with_constants(constants);
+
+    let builder_output = builder.build();
     println!("Built model in {:?}", start_build.elapsed());
     let model = builder_output.model;
-    let properties = builder_output.properties;
+    let properties = builder_output.queries;
 
     println!("Model has {} states", model.states().len());
 
