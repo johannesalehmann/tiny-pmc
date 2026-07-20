@@ -57,3 +57,29 @@ impl<
         self.map_initial_state_source(StartFromInitialStates::default())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use crate::ModelBuilder;
+    use prism_model::{Expression, Identifier, Model, ModelType, VariableInfo, VariableRange};
+    use probabilistic_models::traits::ReadStateSpace;
+
+    #[test]
+    pub fn simple() {
+        let mut prism: Model = Model::new(ModelType::mdp());
+        let x_info = VariableInfo::global_var(Identifier::new("x").unwrap(), VariableRange::bool());
+        prism.variable_manager.add_variable(x_info).unwrap();
+        let y_info = VariableInfo::global_var(
+            Identifier::new("y").unwrap(),
+            VariableRange::bounded_int(Expression::int(-3), Expression::int(2)),
+        );
+        prism.variable_manager.add_variable(y_info).unwrap();
+        let z_info = VariableInfo::global_var(Identifier::new("z").unwrap(), VariableRange::bool());
+        prism.variable_manager.add_variable(z_info).unwrap();
+
+        let model = ModelBuilder::new_mdp_builder(&mut prism)
+            .with_full_state_space()
+            .build();
+        assert_eq!(model.states().len(), 2 * 6 * 2);
+    }
+}

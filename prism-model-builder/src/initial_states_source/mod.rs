@@ -10,7 +10,7 @@ use prism_model::{Identifier, Model, Span, VariableRange, VariableReference};
 use probabilistic_models::valuations::{BareStandaloneValuation, StandaloneValuation};
 use typed_index_collections::Index;
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 enum VariableValue {
     Int(i64),
     Float(f64),
@@ -139,8 +139,7 @@ pub trait Context {
     fn inc_values(&mut self, values: &mut Vec<(Self::ClassEntryIdx, VariableValue)>) -> bool {
         let (_, info, _) = self.info();
 
-        let mut i = 0;
-        while i < values.len() {
+        for i in 0..values.len() {
             match &mut values[i] {
                 (_, VariableValue::Bool(val)) => {
                     if *val == false {
