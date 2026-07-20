@@ -2,6 +2,7 @@ pub use probabilistic_models;
 
 pub mod atomic_propositions_builder;
 pub mod bases;
+pub mod constants;
 mod expression_context;
 pub mod expressions;
 pub mod initial_states_builder;
@@ -12,6 +13,8 @@ pub mod queries;
 mod state_builder;
 mod synchronised_actions;
 mod variables;
+
+pub use constants::UserProvidedConstValue;
 
 use crate::expressions::stack_based_expressions::{
     StackBasedExpression, SubExpressionManager, SubExpressionManagerWithCache,
@@ -31,12 +34,6 @@ use crate::expression_context::{ExpressionContext, SubExpressionExpressionContex
 use crate::state_builder::{StateBuilder, StateBuilderVariables};
 pub use typed_index_collections::To1;
 
-pub enum UserProvidedConstValue {
-    Int(i64),
-    Bool(bool),
-    Float(f64),
-}
-
 pub struct ModelBuilder<
     'a,
     S: Span,
@@ -48,7 +45,7 @@ pub struct ModelBuilder<
     APs: atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = Base::StateIdx>,
 > {
     model: &'a mut Model<VariableReference, S, Expression<VariableReference, S>, Identifier<S>>,
-    constants: HashMap<String, UserProvidedConstValue>,
+    constants: HashMap<String, constants::UserProvidedConstValue>,
 
     queries: Queries,
     labels: Labels,
