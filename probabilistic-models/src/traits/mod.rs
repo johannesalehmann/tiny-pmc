@@ -18,7 +18,9 @@ pub use initial_state::ReadInitialStates;
 mod state_specifier;
 pub use state_specifier::StateSet;
 
-use crate::valuations::ValuationEntry;
+mod valuations;
+pub use valuations::ReadValuations;
+
 use typed_index_collections::{Index, IndexRange, SemiboundedIndexRange};
 
 pub trait ReadStateSpace {
@@ -35,17 +37,6 @@ pub trait ReadStateSpace {
 
     fn branch_probability(&self, branch: Self::BranchIdx) -> f64;
     fn branch_destination(&self, branch: Self::BranchIdx) -> Self::StateIdx;
-}
-
-pub trait ReadValuations {
-    type StateIdx: Index;
-    type ClassIdx: Index;
-    type ClassEntryIdx: Index;
-    type ValuationIdx: Index;
-    fn state_valuation(
-        &self,
-        state: Self::StateIdx,
-    ) -> ValuationEntry<'_, Self::ClassIdx, Self::ClassEntryIdx, Self::ValuationIdx>;
 }
 
 pub trait ReadAtomicPropositions {
