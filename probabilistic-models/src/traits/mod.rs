@@ -12,6 +12,9 @@ pub use branch_labels::ReadBranchLabels;
 mod choice_labels;
 pub use choice_labels::ReadChoiceLabels;
 
+mod initial_state;
+pub use initial_state::ReadInitialStates;
+
 mod state_specifier;
 pub use state_specifier::StateSet;
 

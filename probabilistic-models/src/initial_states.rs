@@ -6,6 +6,7 @@ pub struct SingleInitialState<StateIdx: Index> {
     pub index: StateIdx,
 }
 
+// TODO: Create model.map_initial_states() function and use that to simplify this
 impl<M: BaseModel, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Preds>
     Model<M, (), ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Preds>
 {
@@ -47,39 +48,30 @@ impl<M: BaseModel, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Preds>
     }
 }
 
-pub trait IsInitial<StateIdx: Index> {
-    fn is_initial(&self, index: StateIdx) -> bool;
-}
-
-impl<StateIdx: Index> IsInitial<StateIdx> for SingleInitialState<StateIdx> {
-    fn is_initial(&self, index: StateIdx) -> bool {
-        self.index == index
-    }
-}
-
-impl<StateIdx: Index> IsInitial<StateIdx> for InitialStates<StateIdx> {
-    fn is_initial(&self, index: StateIdx) -> bool {
-        self[index]
-    }
-}
-
-impl<
-    M: BaseModel,
-    Init: IsInitial<M::StateIndex>,
-    ChLabel,
-    BrLabel,
-    Obs,
-    APs,
-    Rew,
-    Anno,
-    Val,
-    Preds,
-> Model<M, Init, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val, Preds>
+impl<M: BaseModel, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val, Preds>
+    Model<M, SingleInitialState<M::StateIndex>, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val, Preds>
 {
-    pub fn is_initial(&self, state: M::StateIndex) -> bool {
-        self.initial.is_initial(state)
+    pub fn without_initial_states(
+        self,
+    ) -> Model<M, (), ChLabel, BrLabel, Obs, APs, Rew, Anno, Val, Preds> {
+        Model {
+            base: self.base,
+            initial: (),
+            choice_labels: self.choice_labels,
+            branch_labels: self.branch_labels,
+            observations: self.observations,
+            atomic_propositions: self.atomic_propositions,
+            rewards: self.rewards,
+            annotations: self.annotations,
+            state_valuations: self.state_valuations,
+            predecessors: self.predecessors,
+        }
     }
+}
 
+impl<M: BaseModel, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val, Preds>
+    Model<M, InitialStates<M::StateIndex>, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val, Preds>
+{
     pub fn without_initial_states(
         self,
     ) -> Model<M, (), ChLabel, BrLabel, Obs, APs, Rew, Anno, Val, Preds> {
