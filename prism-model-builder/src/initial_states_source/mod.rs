@@ -1,13 +1,17 @@
-use crate::ModelBuilder;
+mod entire_state_space;
+pub use entire_state_space::StartFromEveryState;
+
+mod reachable;
+pub use reachable::StartFromInitialStates;
+
 use crate::expression_context::ExpressionContext;
 use crate::variables::ModelVariableInfo;
 use prism_model::{Identifier, Model, Span, VariableRange, VariableReference};
-use probabilistic_models::valuations::{
-    BareStandaloneValuation, StandaloneValuation, ValuationBitsMut,
-};
+use probabilistic_models::valuations::{BareStandaloneValuation, StandaloneValuation};
 use typed_index_collections::Index;
 
-enum InitialValue {
+#[derive(PartialEq)]
+enum VariableValue {
     Int(i64),
     Float(f64),
     Bool(bool),
@@ -28,7 +32,7 @@ pub trait Context {
         &mut Self::ExpressionContext,
     );
 
-    fn initial_values(&mut self) -> Vec<(Self::ClassEntryIdx, InitialValue)> {
+    fn initial_values(&mut self) -> Vec<(Self::ClassEntryIdx, VariableValue)> {
         let mut values = Vec::new();
 
         let (model, info, eval) = self.info();
@@ -36,7 +40,7 @@ pub trait Context {
             if let Some(index) = &info.valuation_map.map_to_variable(i) {
                 let value = match variable.range {
                     VariableRange::BoundedInt { .. } => {
-                        InitialValue::Int(match &variable.initial_value {
+                        VariableValue::Int(match &variable.initial_value {
                             None => {
                                 if let Some((min, _)) = info.details[*index].bounds {
                                     min
@@ -52,7 +56,7 @@ pub trait Context {
                         })
                     }
                     VariableRange::UnboundedInt { .. } => {
-                        InitialValue::Int(match &variable.initial_value {
+                        VariableValue::Int(match &variable.initial_value {
                             None => panic!("Unbounded int must have init expression"),
                             Some(initial) => {
                                 let value = eval
@@ -62,7 +66,7 @@ pub trait Context {
                         })
                     }
                     VariableRange::Boolean { .. } => {
-                        InitialValue::Bool(match &variable.initial_value {
+                        VariableValue::Bool(match &variable.initial_value {
                             None => false,
                             Some(initial) => {
                                 let value = eval.evaluate_bool(
@@ -74,7 +78,7 @@ pub trait Context {
                         })
                     }
                     VariableRange::Float { .. } => {
-                        InitialValue::Float(match &variable.initial_value {
+                        VariableValue::Float(match &variable.initial_value {
                             None => {
                                 panic!(
                                     "Floats must have init expressions (I'm not sure whether this is PRISM-spec-compliant)"
@@ -95,6 +99,76 @@ pub trait Context {
         }
         values
     }
+
+    fn min_values(&mut self) -> (Vec<(Self::ClassEntryIdx, VariableValue)>, bool) {
+        let mut values = Vec::new();
+        let mut exists = true;
+
+        let (model, info, _) = self.info();
+        for (i, variable) in model.variable_manager.variables.iter().enumerate() {
+            if let Some(index) = &info.valuation_map.map_to_variable(i) {
+                let value = match variable.range {
+                    VariableRange::BoundedInt { .. } => {
+                        VariableValue::Int(if let Some((min, max)) = info.details[*index].bounds {
+                            if min > max {
+                                exists = false;
+                            }
+                            min
+                        } else {
+                            panic!("Variable bounds list is inconsistent");
+                        })
+                    }
+                    VariableRange::UnboundedInt { .. } => {
+                        panic!(
+                            "Cannot build entire model state space if the model contains unbounded variables"
+                        );
+                    }
+                    VariableRange::Boolean { .. } => VariableValue::Bool(false),
+                    VariableRange::Float { .. } => {
+                        panic!(
+                            "Cannot build entire model state space if the model contains float variables"
+                        );
+                    }
+                };
+                values.push((*index, value))
+            }
+        }
+        (values, exists)
+    }
+
+    fn inc_values(&mut self, values: &mut Vec<(Self::ClassEntryIdx, VariableValue)>) -> bool {
+        let (_, info, _) = self.info();
+
+        let mut i = 0;
+        while i < values.len() {
+            match &mut values[i] {
+                (_, VariableValue::Bool(val)) => {
+                    if *val == false {
+                        *val = true;
+                        return true;
+                    } else {
+                        *val = false;
+                    }
+                }
+                (index, VariableValue::Int(val)) => {
+                    if let Some((min, max)) = info.details[*index].bounds {
+                        if *val < max {
+                            *val += 1;
+                            return true;
+                        } else {
+                            *val = min;
+                        }
+                    } else {
+                        panic!("Variable bounds list is inconsistent");
+                    }
+                }
+                (_, VariableValue::Float(_)) => {
+                    unreachable!()
+                }
+            }
+        }
+        false
+    }
     fn create_valuation(
         &self,
     ) -> StandaloneValuation<'_, Self::ClassIdx, Self::ClassEntryIdx, Self::ValuationIdx>;
@@ -107,72 +181,4 @@ pub trait Context {
 
 pub trait InitialStateSource {
     fn mark_initial_states<'a, IniCreator: Context>(&self, state_creator: &mut IniCreator);
-}
-
-#[derive(Default)]
-pub struct StartFromInitialStates {}
-
-impl InitialStateSource for StartFromInitialStates {
-    fn mark_initial_states<'a, IniCreator: Context>(&self, state_creator: &mut IniCreator) {
-        let (model, _, _) = state_creator.info();
-        if model.init_constraint.is_some() {
-            panic!("Init constraints are not yet supported by the model builder");
-        }
-
-        let initial_values = state_creator.initial_values();
-
-        let mut valuation = state_creator.create_valuation();
-
-        for (index, value) in initial_values {
-            match value {
-                InitialValue::Int(val) => valuation.set_int(index, val),
-                InitialValue::Float(val) => valuation.set_double(index, val),
-                InitialValue::Bool(val) => valuation.set_bool(index, val),
-            }
-        }
-        state_creator.add_state(valuation.bare(), true);
-    }
-}
-
-impl<
-    'a,
-    S: Span,
-    Q: crate::queries::QueryCollection,
-    L: crate::labels::LabelSource,
-    B: crate::bases::BaseModelBuilder,
-    IB: crate::initial_states_builder::InitialStatesBuilder<StateIdx = B::StateIdx>,
-    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = B::StateIdx>,
-> ModelBuilder<'a, S, Q, L, StartFromInitialStates, B, IB, APs>
-{
-    pub fn with_full_state_space(
-        self,
-    ) -> ModelBuilder<'a, S, Q, L, StartFromEveryState, B, IB, APs> {
-        self.map_initial_state_source(StartFromEveryState::default())
-    }
-}
-
-#[derive(Default)]
-pub struct StartFromEveryState {}
-
-impl InitialStateSource for StartFromEveryState {
-    fn mark_initial_states<'a, IniCreator: Context>(&self, state_creator: &mut IniCreator) {
-        todo!()
-    }
-}
-
-impl<
-    'a,
-    S: Span,
-    Q: crate::queries::QueryCollection,
-    L: crate::labels::LabelSource,
-    B: crate::bases::BaseModelBuilder,
-    IB: crate::initial_states_builder::InitialStatesBuilder<StateIdx = B::StateIdx>,
-    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = B::StateIdx>,
-> ModelBuilder<'a, S, Q, L, StartFromEveryState, B, IB, APs>
-{
-    pub fn with_reachable_state_space(
-        self,
-    ) -> ModelBuilder<'a, S, Q, L, StartFromInitialStates, B, IB, APs> {
-        self.map_initial_state_source(StartFromInitialStates::default())
-    }
 }
