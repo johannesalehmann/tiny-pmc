@@ -24,11 +24,7 @@ use crate::expressions::{TreeWalkingEvaluator, ValuationSource, VariableType};
 use crate::synchronised_actions::SynchronisedActions;
 use crate::variables::ModelVariableInfo;
 use prism_model::{Expression, Identifier, Model, Span, VariableRange, VariableReference};
-use probabilistic_models::valuations::{
-    GetValuationClassIndex, GetValuationData, ValuationBits, ValuationBitsMut,
-};
 use std::collections::{HashMap, VecDeque};
-use typed_index_collections::Index;
 
 use crate::expression_context::{ExpressionContext, SubExpressionExpressionContext};
 use crate::state_builder::{StateBuilder, StateBuilderVariables};
@@ -45,7 +41,7 @@ pub struct ModelBuilder<
     APs: atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = Base::StateIdx>,
 > {
     model: &'a mut Model<VariableReference, S, Expression<VariableReference, S>, Identifier<S>>,
-    constants: HashMap<String, constants::UserProvidedConstValue>,
+    constants: HashMap<String, UserProvidedConstValue>,
 
     queries: Queries,
     labels: Labels,
@@ -122,8 +118,6 @@ impl<
             context,
         };
 
-        let mut open_states = VecDeque::<Base::StateIdx>::new();
-
         let synchronising_action = SynchronisedActions::from_prism(&model);
 
         let mut state_builder = StateBuilder {
@@ -132,7 +126,7 @@ impl<
             base: &mut self.base,
             initial_states_builder: &mut self.initial_states_builder,
             atomic_propositions: &mut self.atomic_propositions,
-            open_states,
+            open_states: VecDeque::new(),
 
             variables: StateBuilderVariables {
                 info: variable_info,

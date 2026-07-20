@@ -57,7 +57,7 @@ pub trait BaseModelBuilder {
     fn create_valuation(
         &self,
         class_index: Self::ClassIdx,
-    ) -> StandaloneValuation<Self::ClassIdx, Self::ClassEntryIdx, Self::ValuationIdx> {
+    ) -> StandaloneValuation<'_, Self::ClassIdx, Self::ClassEntryIdx, Self::ValuationIdx> {
         StandaloneValuation::new(class_index, self.state_valuations().class(class_index))
     }
 

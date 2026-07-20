@@ -1,6 +1,5 @@
 use crate::{
-    ModelBuilder, atomic_propositions_builder, bases, initial_states_builder,
-    initial_states_source, labels, queries,
+    ModelBuilder, atomic_propositions_builder, bases, initial_states_source, labels, queries,
 };
 use prism_model::Span;
 use probabilistic_models::InitialStates;

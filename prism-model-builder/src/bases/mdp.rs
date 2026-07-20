@@ -7,7 +7,7 @@ use probabilistic_models::{
     AnnotationEntryIndex, AtomicPropositionIndex, BranchIndex, ChoiceIndex, StateIndex,
     ValuationClassEntryIndex, ValuationClassIndex, ValuationIndex,
 };
-use typed_index_collections::{Index, RawIndex};
+use typed_index_collections::Index;
 
 #[derive(Default)]
 pub struct MdpBuilder<

@@ -1,9 +1,9 @@
 use crate::ModelBuilder;
 use crate::expression_context::ExpressionContext;
 use crate::variables::ModelVariableInfo;
-use prism_model::{Identifier, Model, Span, VariableInfo, VariableRange, VariableReference};
+use prism_model::{Identifier, Model, Span, VariableRange, VariableReference};
 use probabilistic_models::valuations::{
-    BareStandaloneValuation, StandaloneValuation, ValuationBitsMut, ValuationClass,
+    BareStandaloneValuation, StandaloneValuation, ValuationBitsMut,
 };
 use typed_index_collections::Index;
 

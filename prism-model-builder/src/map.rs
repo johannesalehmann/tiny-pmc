@@ -1,12 +1,10 @@
 use crate::atomic_propositions_builder::AtomicPropositionBuilder;
 use crate::bases::BaseModelBuilder;
-use crate::initial_states_builder::{InitialStatesBuilder, MultipleInitialStatesBuilder};
+use crate::initial_states_builder::InitialStatesBuilder;
 use crate::initial_states_source::InitialStateSource;
 use crate::labels::LabelSource;
 use crate::queries::QueryCollection;
-use crate::{
-    ModelBuilder, atomic_propositions_builder, bases, initial_states_source, labels, queries,
-};
+use crate::{ModelBuilder, atomic_propositions_builder};
 use prism_model::Span;
 
 impl<

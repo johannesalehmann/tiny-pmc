@@ -28,7 +28,7 @@ pub trait QueryCollection {
     ) -> Self::OutputType<Model, APIdx>;
 }
 
-pub type UnprocessedQuery<S: Span> = Query<
+pub type UnprocessedQuery<S> = Query<
     Expression<VariableReference, S>,
     Expression<VariableReference, S>,
     Expression<VariableReference, S>,

@@ -1,6 +1,6 @@
 use crate::ModelBuilder;
 use crate::expressions::stack_based_expressions::{StackBasedExpression, SubExpressionManager};
-use prism_model::{Expression, Identifier, Label, Model, Span, VariableManager, VariableReference};
+use prism_model::{Expression, Identifier, Model, Span, VariableManager, VariableReference};
 use std::collections::HashSet;
 use typed_index_collections::{Index, NamedTo1};
 

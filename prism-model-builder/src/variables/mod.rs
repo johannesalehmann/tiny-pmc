@@ -18,7 +18,7 @@ use crate::{ExpressionContext, ModelBuildingError, UserProvidedConstValue};
 use prism_model::{Identifier, Model, Span, VariableReference};
 use probabilistic_models::valuations::ValuationEntry;
 use std::collections::HashMap;
-use typed_index_collections::{Index, RawIndex};
+use typed_index_collections::Index;
 
 pub struct ModelVariableInfo<ClassIdx: Index, ClassEntryIdx: Index> {
     pub valuation_map: ValuationMap<ClassEntryIdx>,
@@ -46,6 +46,8 @@ impl<ClassIdx: Index, ClassEntryIdx: Index> ModelVariableInfo<ClassIdx, ClassEnt
         // builder.register_float("float_var".to_string());
         // builder.register_bounded_int("int_var".to_string(), -10, 15);
         // builder.register_bool("bool_var".to_string());
+
+        use typed_index_collections::RawIndex;
 
         ModelVariableInfo {
             valuation_map: ValuationMap::with_mock_values(),
@@ -89,9 +91,9 @@ impl<ClassIdx: Index, ClassEntryIdx: Index> ModelVariableInfo<ClassIdx, ClassEnt
         })
     }
 
-    pub fn get_const_only_valuation_source<'a>(
-        &'a self,
-    ) -> ConstOnlyValuationSource<'a, 'a, ClassEntryIdx> {
+    pub fn get_const_only_valuation_source(
+        &self,
+    ) -> ConstOnlyValuationSource<'_, '_, ClassEntryIdx> {
         ConstOnlyValuationSource::new(&self.valuation_map, &self.const_valuations)
     }
 

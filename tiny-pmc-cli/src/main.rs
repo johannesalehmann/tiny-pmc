@@ -1,10 +1,6 @@
 use clap::Parser;
-use prism_model_builder::{ModelBuildingError, To1};
+use prism_model_builder::ModelBuildingError;
 use probabilistic_models::traits::ReadStateSpace;
-use probabilistic_models::{
-    BranchIndex, ChoiceIndex, StateIndex, ValuationClassEntryIndex, ValuationClassIndex,
-    ValuationIndex,
-};
 use tiny_pmc::CheckerError;
 use tiny_pmc::parsing::ConstParsingError;
 

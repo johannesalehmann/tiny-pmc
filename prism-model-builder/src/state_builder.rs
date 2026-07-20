@@ -3,11 +3,10 @@ use crate::expression_context::ExpressionContext;
 use crate::initial_states_source;
 use crate::initial_states_source::InitialStateSource;
 use crate::labels::Labels;
-use crate::synchronised_actions::{SynchronisedAction, SynchronisedActions};
-use crate::variables::{ConstAndVarValuationSource, ModelVariableInfo};
+use crate::synchronised_actions::SynchronisedActions;
+use crate::variables::ModelVariableInfo;
 use prism_model::{
-    Command, Expression, Identifier, Model, Span, Update, VariableManager, VariableRange,
-    VariableReference,
+    Command, Expression, Identifier, Model, Span, Update, VariableRange, VariableReference,
 };
 use probabilistic_models::valuations::{
     BareStandaloneValuation, GetValuationClassIndex, GetValuationData, StandaloneValuation,
