@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter};
 use std::ops::Range;
 use typed_index_collections::{Index, RawIndex, SemiboundedIndexRange, To1, ValuePerIndexSource};
 
@@ -140,6 +141,13 @@ impl<'a, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index>
         })
     }
 }
+impl<'a, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index> Display
+    for ValuationEntry<'a, ClassIdx, ClassEntryIdx, ValuationIdx>
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.write(f)
+    }
+}
 
 fn assert_optional(variable: &ValuationClassEntry, should_be_optional: bool) {
     match should_be_optional {
@@ -180,6 +188,46 @@ pub trait ValuationBits<ClassEntryIdx: Index, ValuationIdx: Index> {
 
     fn variables(&self) -> &To1<ClassEntryIdx, ValuationClassEntry> {
         self.class().entries()
+    }
+
+    fn write(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let mut first = true;
+        for (index, variable) in self.variables().enumerate() {
+            if !first {
+                write!(f, ",")?;
+            }
+            first = false;
+            write!(f, "{}=", variable.name)?;
+            match variable.variable_type {
+                Type::Bool => {
+                    write!(f, "{}", self.evaluate_bool(index))?;
+                }
+                Type::Int => {
+                    write!(f, "{}", self.evaluate_int(index))?;
+                }
+                Type::Uint => {
+                    // We could instead always use evaluate_int, but this would fail in the
+                    // (probably rare) cases where the value can be contained in a u64, but not
+                    // an i64
+                    if variable.value_offset < 0 {
+                        write!(f, "{}", self.evaluate_int(index))?;
+                    } else {
+                        write!(f, "{}", self.evaluate_uint(index))?;
+                    }
+                }
+                Type::Double => {
+                    write!(f, "{}", self.evaluate_double(index))?;
+                }
+                Type::Rational => {
+                    let (num, denom) = self.evaluate_rational(index);
+                    write!(f, "{num}/{denom}")?;
+                }
+                Type::String => {
+                    write!(f, "{}", self.evaluate_string(index))?;
+                }
+            }
+        }
+        Ok(())
     }
 
     fn evaluate_bool(&self, variable_index: ClassEntryIdx) -> bool {
@@ -458,6 +506,13 @@ impl<'a, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index>
 
     pub fn bare(self) -> BareStandaloneValuation<ClassIdx, ValuationIdx> {
         self.into()
+    }
+}
+impl<'a, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index> Display
+    for StandaloneValuation<'a, ClassIdx, ClassEntryIdx, ValuationIdx>
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        self.write(f)
     }
 }
 
