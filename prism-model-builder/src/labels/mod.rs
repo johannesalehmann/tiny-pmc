@@ -1,3 +1,4 @@
+use crate::ModelBuilder;
 use crate::expressions::stack_based_expressions::{StackBasedExpression, SubExpressionManager};
 use prism_model::{Expression, Identifier, Label, Model, Span, VariableManager, VariableReference};
 use std::collections::HashSet;
@@ -89,6 +90,40 @@ pub trait LabelSource {
         &self,
         model: &Model<VariableReference, S, Expression<VariableReference, S>, Identifier<S>>,
     ) -> Labels<APIdx, Expression<VariableReference, S>>;
+}
+
+impl<
+    'a,
+    S: Span,
+    Q: crate::queries::QueryCollection,
+    L: LabelSource,
+    IS: crate::initial_states_source::InitialStateSource,
+    B: crate::bases::BaseModelBuilder,
+    IB: crate::initial_states_builder::InitialStatesBuilder<StateIdx = B::StateIdx>,
+    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = B::StateIdx>,
+> ModelBuilder<'a, S, Q, L, IS, B, IB, APs>
+{
+    pub fn with_all_labels(self) -> ModelBuilder<'a, S, Q, AllLabels, IS, B, IB, APs> {
+        self.map_labels(AllLabels::default())
+    }
+    pub fn without_labels(self) -> ModelBuilder<'a, S, Q, NoLabels, IS, B, IB, APs> {
+        self.map_labels(NoLabels::default())
+    }
+    pub fn with_necessary_labels(self) -> ModelBuilder<'a, S, Q, OnlyNecessary, IS, B, IB, APs> {
+        self.map_labels(OnlyNecessary::default())
+    }
+    pub fn with_given_labels(
+        self,
+        labels: HashSet<String>,
+    ) -> ModelBuilder<'a, S, Q, ListedLabels, IS, B, IB, APs> {
+        self.map_labels(ListedLabels { names: labels })
+    }
+    pub fn with_listed_plus_necessary_labels(
+        self,
+        labels: HashSet<String>,
+    ) -> ModelBuilder<'a, S, Q, ListedPlusNecessaryLabels, IS, B, IB, APs> {
+        self.map_labels(ListedPlusNecessaryLabels { names: labels })
+    }
 }
 
 #[derive(Default)]

@@ -1,3 +1,8 @@
+use crate::{
+    ModelBuilder, atomic_propositions_builder, bases, initial_states_builder,
+    initial_states_source, labels, queries,
+};
+use prism_model::Span;
 use probabilistic_models::InitialStates;
 use probabilistic_models::initial_states::SingleInitialState;
 use std::marker::PhantomData;
@@ -16,7 +21,6 @@ pub trait InitialStatesBuilder: Default {
     fn into_initial_states(self) -> Self::InitialStates;
 }
 
-#[allow(unused)] // TODO: Remove once builder construction allows omitting initial states
 #[derive(Default)]
 pub struct UntrackedInitialStatesBuilder<StateIdx: Index> {
     _phantom_data: PhantomData<StateIdx>,
@@ -36,6 +40,28 @@ impl<StateIdx: Index> InitialStatesBuilder for UntrackedInitialStatesBuilder<Sta
 
     fn into_initial_states(self) -> Self::InitialStates {
         ()
+    }
+}
+
+impl<
+    'a,
+    S: Span,
+    Q: queries::QueryCollection,
+    L: labels::LabelSource,
+    IS: initial_states_source::InitialStateSource,
+    B: bases::BaseModelBuilder,
+    APs: atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = B::StateIdx>,
+> ModelBuilder<'a, S, Q, L, IS, B, UntrackedInitialStatesBuilder<B::StateIdx>, APs>
+{
+    pub fn with_single_initial_state(
+        self,
+    ) -> ModelBuilder<'a, S, Q, L, IS, B, SingleInitialStatesBuilder<B::StateIdx>, APs> {
+        self.map_initial_states_builder(SingleInitialStatesBuilder::default())
+    }
+    pub fn with_initial_state_vector(
+        self,
+    ) -> ModelBuilder<'a, S, Q, L, IS, B, MultipleInitialStatesBuilder<B::StateIdx>, APs> {
+        self.map_initial_states_builder(MultipleInitialStatesBuilder::default())
     }
 }
 
@@ -71,7 +97,28 @@ impl<StateIdx: Index> InitialStatesBuilder for SingleInitialStatesBuilder<StateI
     }
 }
 
-#[allow(unused)] // TODO: Remove once builder construction allows building multiple states
+impl<
+    'a,
+    S: Span,
+    Q: queries::QueryCollection,
+    L: labels::LabelSource,
+    IS: initial_states_source::InitialStateSource,
+    B: bases::BaseModelBuilder,
+    APs: atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = B::StateIdx>,
+> ModelBuilder<'a, S, Q, L, IS, B, SingleInitialStatesBuilder<B::StateIdx>, APs>
+{
+    pub fn without_initial_states(
+        self,
+    ) -> ModelBuilder<'a, S, Q, L, IS, B, UntrackedInitialStatesBuilder<B::StateIdx>, APs> {
+        self.map_initial_states_builder(UntrackedInitialStatesBuilder::default())
+    }
+    pub fn with_initial_state_vector(
+        self,
+    ) -> ModelBuilder<'a, S, Q, L, IS, B, MultipleInitialStatesBuilder<B::StateIdx>, APs> {
+        self.map_initial_states_builder(MultipleInitialStatesBuilder::default())
+    }
+}
+
 #[derive(Default)]
 pub struct MultipleInitialStatesBuilder<StateIdx: Index> {
     states: To1<StateIdx, bool>,
@@ -95,5 +142,27 @@ impl<StateIdx: Index> InitialStatesBuilder for MultipleInitialStatesBuilder<Stat
 
     fn into_initial_states(self) -> Self::InitialStates {
         self.states
+    }
+}
+
+impl<
+    'a,
+    S: Span,
+    Q: queries::QueryCollection,
+    L: labels::LabelSource,
+    IS: initial_states_source::InitialStateSource,
+    B: bases::BaseModelBuilder,
+    APs: atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = B::StateIdx>,
+> ModelBuilder<'a, S, Q, L, IS, B, MultipleInitialStatesBuilder<B::StateIdx>, APs>
+{
+    pub fn without_initial_states(
+        self,
+    ) -> ModelBuilder<'a, S, Q, L, IS, B, UntrackedInitialStatesBuilder<B::StateIdx>, APs> {
+        self.map_initial_states_builder(UntrackedInitialStatesBuilder::default())
+    }
+    pub fn with_single_initial_state(
+        self,
+    ) -> ModelBuilder<'a, S, Q, L, IS, B, SingleInitialStatesBuilder<B::StateIdx>, APs> {
+        self.map_initial_states_builder(SingleInitialStatesBuilder::default())
     }
 }

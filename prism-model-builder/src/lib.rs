@@ -7,6 +7,7 @@ pub mod expressions;
 pub mod initial_states_builder;
 pub mod initial_states_source;
 pub mod labels;
+mod map;
 pub mod queries;
 mod state_builder;
 mod synchronised_actions;

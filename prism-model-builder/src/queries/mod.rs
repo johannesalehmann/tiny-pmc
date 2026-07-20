@@ -1,3 +1,4 @@
+use crate::ModelBuilder;
 use crate::expression_context::ExpressionContext;
 use crate::expressions::ValuationSource;
 use crate::labels::Labels;
@@ -73,6 +74,30 @@ impl<S: Span> QueryCollection for ModelOnly<S> {
     }
 }
 
+impl<
+    'a,
+    S: Span,
+    L: crate::labels::LabelSource,
+    IS: crate::initial_states_source::InitialStateSource,
+    B: crate::bases::BaseModelBuilder,
+    IB: crate::initial_states_builder::InitialStatesBuilder<StateIdx = B::StateIdx>,
+    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = B::StateIdx>,
+> ModelBuilder<'a, S, ModelOnly<S>, L, IS, B, IB, APs>
+{
+    pub fn with_query(
+        self,
+        query: UnprocessedQuery<S>,
+    ) -> ModelBuilder<'a, S, SingleQuery<S>, L, IS, B, IB, APs> {
+        self.map_queries(SingleQuery { query })
+    }
+    pub fn with_queries(
+        self,
+        queries: Vec<UnprocessedQuery<S>>,
+    ) -> ModelBuilder<'a, S, QueryVector<S>, L, IS, B, IB, APs> {
+        self.map_queries(QueryVector { queries })
+    }
+}
+
 pub struct SingleQuery<S: Span> {
     query: UnprocessedQuery<S>,
 }
@@ -113,6 +138,35 @@ impl<S: Span> QueryCollection for SingleQuery<S> {
         query: Self::ProcessedType<APIdx>,
     ) -> Self::OutputType<Model, APIdx> {
         ModelAndQuery { model, query }
+    }
+}
+impl<
+    'a,
+    S: Span,
+    L: crate::labels::LabelSource,
+    IS: crate::initial_states_source::InitialStateSource,
+    B: crate::bases::BaseModelBuilder,
+    IB: crate::initial_states_builder::InitialStatesBuilder<StateIdx = B::StateIdx>,
+    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = B::StateIdx>,
+> ModelBuilder<'a, S, SingleQuery<S>, L, IS, B, IB, APs>
+{
+    pub fn and_with_query(
+        self,
+        query: UnprocessedQuery<S>,
+    ) -> ModelBuilder<'a, S, QueryVector<S>, L, IS, B, IB, APs> {
+        self.map_queries_with(|q| QueryVector {
+            queries: vec![q.query, query],
+        })
+    }
+    pub fn and_with_queries(
+        self,
+        queries: Vec<UnprocessedQuery<S>>,
+    ) -> ModelBuilder<'a, S, QueryVector<S>, L, IS, B, IB, APs> {
+        self.map_queries_with(|q| QueryVector {
+            queries: std::iter::once(q.query)
+                .chain(queries.into_iter())
+                .collect(),
+        })
     }
 }
 
@@ -164,6 +218,39 @@ impl<S: Span> QueryCollection for QueryVector<S> {
         queries: Self::ProcessedType<APIdx>,
     ) -> Self::OutputType<Model, APIdx> {
         ModelAndQueries { model, queries }
+    }
+}
+impl<
+    'a,
+    S: Span,
+    L: crate::labels::LabelSource,
+    IS: crate::initial_states_source::InitialStateSource,
+    B: crate::bases::BaseModelBuilder,
+    IB: crate::initial_states_builder::InitialStatesBuilder<StateIdx = B::StateIdx>,
+    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = B::StateIdx>,
+> ModelBuilder<'a, S, QueryVector<S>, L, IS, B, IB, APs>
+{
+    pub fn and_with_query(
+        self,
+        query: UnprocessedQuery<S>,
+    ) -> ModelBuilder<'a, S, QueryVector<S>, L, IS, B, IB, APs> {
+        self.map_queries_with(|mut qs| {
+            qs.queries.push(query);
+            QueryVector {
+                queries: qs.queries,
+            }
+        })
+    }
+    pub fn and_with_queries(
+        self,
+        mut queries: Vec<UnprocessedQuery<S>>,
+    ) -> ModelBuilder<'a, S, QueryVector<S>, L, IS, B, IB, APs> {
+        self.map_queries_with(|mut qs| {
+            qs.queries.append(&mut queries);
+            QueryVector {
+                queries: qs.queries,
+            }
+        })
     }
 }
 

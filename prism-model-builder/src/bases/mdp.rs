@@ -1,10 +1,5 @@
 use crate::ModelBuilder;
-use crate::atomic_propositions_builder::AtomicPropositionVectorsBuilder;
 use crate::bases::{BaseModelBuilder, ValuationBuilder};
-use crate::initial_states_builder::SingleInitialStatesBuilder;
-use crate::initial_states_source::StartFromInitialStates;
-use crate::labels::OnlyNecessary;
-use crate::queries::ModelOnly;
 use prism_model::{Expression, Identifier, Span, VariableReference};
 use probabilistic_models::base_model::Mdp;
 use probabilistic_models::valuations::{GetValuationClassIndex, GetValuationData, Valuations};
@@ -126,9 +121,9 @@ impl<'a, S: Span>
     ModelBuilder<
         'a,
         S,
-        ModelOnly<S>,
-        OnlyNecessary,
-        StartFromInitialStates,
+        crate::queries::ModelOnly<S>,
+        crate::labels::OnlyNecessary,
+        crate::initial_states_source::StartFromInitialStates,
         MdpBuilder<
             StateIndex<usize>,
             ChoiceIndex<usize>,
@@ -137,8 +132,8 @@ impl<'a, S: Span>
             ValuationClassEntryIndex<u16>,
             ValuationIndex<usize>,
         >,
-        SingleInitialStatesBuilder<StateIndex<usize>>,
-        AtomicPropositionVectorsBuilder<
+        crate::initial_states_builder::SingleInitialStatesBuilder<StateIndex<usize>>,
+        crate::atomic_propositions_builder::AtomicPropositionVectorsBuilder<
             AtomicPropositionIndex<usize>,
             StateIndex<usize>,
             AnnotationEntryIndex<usize>,
@@ -155,13 +150,13 @@ impl<'a, S: Span>
     ) -> Self {
         Self {
             model,
-            base: MdpBuilder::default(),
-            initial_state_source: StartFromInitialStates::default(),
-            initial_states_builder: SingleInitialStatesBuilder::default(),
-            atomic_propositions: AtomicPropositionVectorsBuilder::default(),
-            queries: ModelOnly::default(),
+            base: Default::default(),
+            initial_state_source: Default::default(),
+            initial_states_builder: Default::default(),
+            atomic_propositions: Default::default(),
+            queries: Default::default(),
             constants: Default::default(),
-            labels: OnlyNecessary::default(),
+            labels: Default::default(),
         }
     }
 }

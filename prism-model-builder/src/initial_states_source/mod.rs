@@ -1,7 +1,5 @@
-use crate::expression_context;
+use crate::ModelBuilder;
 use crate::expression_context::ExpressionContext;
-use crate::expressions::ValuationSource;
-use crate::initial_states_builder::InitialStatesBuilder;
 use crate::variables::ModelVariableInfo;
 use prism_model::{Identifier, Model, Span, VariableInfo, VariableRange, VariableReference};
 use probabilistic_models::valuations::{
@@ -136,5 +134,45 @@ impl InitialStateSource for StartFromInitialStates {
     }
 }
 
+impl<
+    'a,
+    S: Span,
+    Q: crate::queries::QueryCollection,
+    L: crate::labels::LabelSource,
+    B: crate::bases::BaseModelBuilder,
+    IB: crate::initial_states_builder::InitialStatesBuilder<StateIdx = B::StateIdx>,
+    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = B::StateIdx>,
+> ModelBuilder<'a, S, Q, L, StartFromInitialStates, B, IB, APs>
+{
+    pub fn with_full_state_space(
+        self,
+    ) -> ModelBuilder<'a, S, Q, L, StartFromEveryState, B, IB, APs> {
+        self.map_initial_state_source(StartFromEveryState::default())
+    }
+}
+
 #[derive(Default)]
 pub struct StartFromEveryState {}
+
+impl InitialStateSource for StartFromEveryState {
+    fn mark_initial_states<'a, IniCreator: Context>(&self, state_creator: &mut IniCreator) {
+        todo!()
+    }
+}
+
+impl<
+    'a,
+    S: Span,
+    Q: crate::queries::QueryCollection,
+    L: crate::labels::LabelSource,
+    B: crate::bases::BaseModelBuilder,
+    IB: crate::initial_states_builder::InitialStatesBuilder<StateIdx = B::StateIdx>,
+    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = B::StateIdx>,
+> ModelBuilder<'a, S, Q, L, StartFromEveryState, B, IB, APs>
+{
+    pub fn with_reachable_state_space(
+        self,
+    ) -> ModelBuilder<'a, S, Q, L, StartFromInitialStates, B, IB, APs> {
+        self.map_initial_state_source(StartFromInitialStates::default())
+    }
+}
