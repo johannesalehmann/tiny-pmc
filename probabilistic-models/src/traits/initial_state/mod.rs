@@ -1,14 +1,15 @@
 use crate::initial_states::SingleInitialState;
+use crate::traits::StateSet;
 use crate::{InitialStates, Model};
 use typed_index_collections::Index;
 
 pub trait ReadInitialStates {
     type StateIdx: Index;
-    type InitialStatesIterator<'a>: IntoIterator<Item = Self::StateIdx>
+    type InitialStatesIterator<'a>: Iterator<Item = Self::StateIdx>
     where
         Self: 'a;
     fn is_initial(&self, state: Self::StateIdx) -> bool;
-    fn initial_states(&self) -> Self::InitialStatesIterator<'_>;
+    fn initial_states(&self) -> impl StateSet<Self::StateIdx>;
 }
 
 impl<StateIdx: Index> ReadInitialStates for SingleInitialState<StateIdx> {
@@ -22,8 +23,8 @@ impl<StateIdx: Index> ReadInitialStates for SingleInitialState<StateIdx> {
         state == self.index
     }
 
-    fn initial_states(&self) -> Self::InitialStatesIterator<'_> {
-        std::iter::once(self.index)
+    fn initial_states(&self) -> impl StateSet<Self::StateIdx> {
+        self.index
     }
 }
 
@@ -41,8 +42,8 @@ impl<StateIdx: Index> ReadInitialStates for InitialStates<StateIdx> {
         self[state]
     }
 
-    fn initial_states(&self) -> Self::InitialStatesIterator<'_> {
-        self.true_values().into_iter()
+    fn initial_states(&self) -> impl StateSet<Self::StateIdx> {
+        self
     }
 }
 
@@ -59,7 +60,7 @@ impl<M, Ini: ReadInitialStates, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals,
         self.initial.is_initial(state)
     }
 
-    fn initial_states(&self) -> Self::InitialStatesIterator<'_> {
+    fn initial_states(&self) -> impl StateSet<Self::StateIdx> {
         self.initial.initial_states()
     }
 }
