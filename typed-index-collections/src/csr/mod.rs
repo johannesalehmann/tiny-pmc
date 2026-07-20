@@ -35,7 +35,7 @@ impl<From: Index, To: Index> Csr<From, To> {
     }
 
     pub fn add_entry(&mut self, from: From, start_to: To, end_to: To) {
-        let last_end_index = self.end_to();
+        let last_end_index = self.end();
         assert_eq!(
             start_to, last_end_index,
             "Entries in `Csr` must be contiguous, i.e. `start_to` must be equal to `self.end_to()`"
@@ -54,7 +54,9 @@ impl<From: Index, To: Index> Csr<From, To> {
         self.entries[last_index] = new_to;
     }
 
-    pub fn end_to(&self) -> To {
+    // TODO: Offer `.values()` function instead, then this function can be replaced by
+    //  .values().end()
+    pub fn end(&self) -> To {
         if let Some(entry) = self.entries.last() {
             *entry
         } else {

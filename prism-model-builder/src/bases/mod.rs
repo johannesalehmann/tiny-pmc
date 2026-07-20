@@ -5,7 +5,9 @@ use typed_index_collections::Index;
 mod valuation_builder;
 pub use valuation_builder::ValuationBuilder;
 
-use crate::valuations::{GetValuationClassIndex, GetValuationData, Valuations};
+use probabilistic_models::valuations::{
+    GetValuationClassIndex, GetValuationData, StandaloneValuation, Valuations,
+};
 
 pub trait BaseModelBuilder {
     type BaseModel;
@@ -52,6 +54,12 @@ pub trait BaseModelBuilder {
         Self::ClassEntryIdx,
         Self::ValuationIdx,
     >;
+    fn create_valuation(
+        &self,
+        class_index: Self::ClassIdx,
+    ) -> StandaloneValuation<'_, Self::ClassIdx, Self::ClassEntryIdx, Self::ValuationIdx> {
+        StandaloneValuation::new(class_index, self.state_valuations().class(class_index))
+    }
 
     fn start_choice(&mut self) -> Self::ChoiceIdx; // TODO: Do we need this or is finish_choice sufficient?
     fn add_branch(&mut self, rate_or_probability: f64, target: Self::StateIdx) -> Self::BranchIdx;
@@ -62,15 +70,6 @@ pub trait BaseModelBuilder {
     //  also more closely models that actual structure and ensures choices and branches are added
     //  correctly.
     fn finish_choice(&mut self);
-
-    fn add_choice_from_slice(&mut self, branches: &[(f64, Self::StateIdx)]) -> Self::ChoiceIdx {
-        let index = self.start_choice();
-        for &(rate_or_probability, target) in branches {
-            self.add_branch(rate_or_probability, target);
-        }
-        self.finish_choice();
-        index
-    }
 
     fn into_base_and_valuations(self) -> (Self::BaseModel, Self::Valuation);
 }

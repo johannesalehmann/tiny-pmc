@@ -5,6 +5,20 @@ pub struct SynchronisedActions {
     actions: Vec<SynchronisedAction>,
 }
 
+impl SynchronisedActions {
+    pub fn len(&self) -> usize {
+        self.actions.len()
+    }
+}
+
+impl std::ops::Index<usize> for SynchronisedActions {
+    type Output = SynchronisedAction;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.actions[index]
+    }
+}
+
 impl<'a> IntoIterator for &'a SynchronisedActions {
     type Item = &'a SynchronisedAction;
     type IntoIter = core::slice::Iter<'a, SynchronisedAction>;

@@ -1,9 +1,11 @@
-use crate::base_model::Mdp;
-use crate::builder::bases::{BaseModelBuilder, ValuationBuilder};
-use crate::valuations::{GetValuationClassIndex, GetValuationData, Valuations};
-use crate::{
-    BranchIndex, ChoiceIndex, RawIndex, StateIndex, ValuationClassEntryIndex, ValuationClassIndex,
-    ValuationIndex,
+use crate::ModelBuilder;
+use crate::bases::{BaseModelBuilder, ValuationBuilder};
+use prism_model::{Expression, Identifier, Span, VariableReference};
+use probabilistic_models::base_model::Mdp;
+use probabilistic_models::valuations::{GetValuationClassIndex, GetValuationData, Valuations};
+use probabilistic_models::{
+    AnnotationEntryIndex, AtomicPropositionIndex, BranchIndex, ChoiceIndex, StateIndex,
+    ValuationClassEntryIndex, ValuationClassIndex, ValuationIndex,
 };
 use typed_index_collections::Index;
 
@@ -17,12 +19,12 @@ pub struct MdpBuilder<
     ValuationIdx: Index,
 > {
     mdp: Mdp<StateIdx, ChoiceIdx, BranchIdx>,
-    next_state: StateIdx,
-    next_choice: ChoiceIdx,
-    next_branch: BranchIdx,
     valuation: ValuationBuilder<StateIdx, ClassIdx, ClassEntryIdx, ValuationIdx>,
 }
 
+// TODO: This function exists to get existing unit tests working without specifying the full set of
+//  types in every test. Consider moving it to probabilistic-models, where the tests reside, or
+//  devising some other way of constructing an MdpBuilder.
 impl
     MdpBuilder<
         StateIndex<usize>,
@@ -71,19 +73,14 @@ impl<
         &mut self,
         valuation: Val,
     ) -> StateIdx {
-        let index = self.next_state;
-
-        self.valuation
-            .add_state_valuation(&valuation, self.next_state);
-        self.next_state += StateIdx::RawType::one();
+        let index = self.mdp.state_to_choice.keys().end();
+        self.valuation.add_state_valuation(&valuation, index);
         index
     }
 
     // Before calling this, call add_valuation to get the next state index
     fn add_state(&mut self, state_index: StateIdx) {
-        self.mdp
-            .state_to_choice
-            .add_entry(state_index, self.next_choice, self.next_choice);
+        self.mdp.add_state(state_index);
     }
 
     fn valuation_builder(
@@ -99,26 +96,11 @@ impl<
     }
 
     fn start_choice(&mut self) -> ChoiceIdx {
-        let index = self.next_choice;
-
-        self.mdp
-            .choice_to_branch
-            .add_entry(self.next_choice, self.next_branch, self.next_branch);
-        self.next_choice += ChoiceIdx::RawType::one();
-        self.mdp.state_to_choice.extend_last_entry(self.next_choice);
-        index
+        self.mdp.add_choice()
     }
 
     fn add_branch(&mut self, probability: f64, target: StateIdx) -> BranchIdx {
-        let index = self.next_branch;
-        self.next_branch += BranchIdx::RawType::one();
-
-        self.mdp.branch_destinations.add(target);
-        self.mdp.branch_probabilities.add(probability);
-        self.mdp
-            .choice_to_branch
-            .extend_last_entry(self.next_branch);
-        index
+        self.mdp.add_branch(probability, target)
     }
 
     fn finish_choice(&mut self) {
@@ -132,5 +114,49 @@ impl<
         Valuations<StateIdx, ClassIdx, ClassEntryIdx, ValuationIdx>,
     ) {
         (self.mdp, self.valuation.into_state_valuations())
+    }
+}
+
+impl<'a, S: Span>
+    ModelBuilder<
+        'a,
+        S,
+        crate::queries::ModelOnly<S>,
+        crate::labels::OnlyNecessary,
+        crate::initial_states_source::StartFromInitialStates,
+        MdpBuilder<
+            StateIndex<usize>,
+            ChoiceIndex<usize>,
+            BranchIndex<usize>,
+            ValuationClassIndex<u16>,
+            ValuationClassEntryIndex<u16>,
+            ValuationIndex<usize>,
+        >,
+        crate::initial_states_builder::SingleInitialStatesBuilder<StateIndex<usize>>,
+        crate::atomic_propositions_builder::AtomicPropositionVectorsBuilder<
+            AtomicPropositionIndex<usize>,
+            StateIndex<usize>,
+            AnnotationEntryIndex<usize>,
+        >,
+    >
+{
+    pub fn new_mdp_builder(
+        model: &'a mut prism_model::Model<
+            VariableReference,
+            S,
+            Expression<VariableReference, S>,
+            Identifier<S>,
+        >,
+    ) -> Self {
+        Self {
+            model,
+            base: Default::default(),
+            initial_state_source: Default::default(),
+            initial_states_builder: Default::default(),
+            atomic_propositions: Default::default(),
+            queries: Default::default(),
+            constants: Default::default(),
+            labels: Default::default(),
+        }
     }
 }

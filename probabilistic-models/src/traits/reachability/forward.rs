@@ -41,46 +41,45 @@ impl<M: ReadStateSpace> Reachability for M {
 #[cfg(test)]
 mod tests {
     use crate::base_model::Mdp;
-    use crate::builder::{BaseModelBuilder, MdpBuilder};
     use crate::traits::reachability::Reachability;
     use crate::{BranchIndex, ChoiceIndex, StateIndex};
     use typed_index_collections::{Index, To1};
 
     fn create_mdp() -> Mdp<StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>> {
-        let mut builder = MdpBuilder::with_default_index_types();
-        builder.add_state(StateIndex::from_raw(0));
-        builder.add_choice_from_slice(&[
+        let mut mdp = Mdp::with_default_types();
+        mdp.add_state(StateIndex::from_raw(0));
+        mdp.add_choice_from_slice(&[
             (0.3, StateIndex::from_raw(1)),
             (0.7, StateIndex::from_raw(5)),
         ]);
 
-        builder.add_state(StateIndex::from_raw(1));
+        mdp.add_state(StateIndex::from_raw(1));
 
-        builder.add_state(StateIndex::from_raw(2));
-        builder.add_choice_from_slice(&[(1.0, StateIndex::from_raw(4))]);
-        builder.add_choice_from_slice(&[(1.0, StateIndex::from_raw(5))]);
+        mdp.add_state(StateIndex::from_raw(2));
+        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(4))]);
+        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(5))]);
 
-        builder.add_state(StateIndex::from_raw(3));
-        builder.add_choice_from_slice(&[(1.0, StateIndex::from_raw(3))]);
+        mdp.add_state(StateIndex::from_raw(3));
+        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(3))]);
 
-        builder.add_state(StateIndex::from_raw(4));
-        builder.add_choice_from_slice(&[(1.0, StateIndex::from_raw(2))]);
-        builder.add_choice_from_slice(&[(1.0, StateIndex::from_raw(4))]);
+        mdp.add_state(StateIndex::from_raw(4));
+        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(2))]);
+        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(4))]);
 
-        builder.add_state(StateIndex::from_raw(5));
-        builder.add_choice_from_slice(&[(1.0, StateIndex::from_raw(0))]);
-        builder.add_choice_from_slice(&[(1.0, StateIndex::from_raw(6))]);
-        builder.add_choice_from_slice(&[(1.0, StateIndex::from_raw(5))]);
+        mdp.add_state(StateIndex::from_raw(5));
+        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(0))]);
+        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(6))]);
+        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(5))]);
 
-        builder.add_state(StateIndex::from_raw(6));
-        builder.add_choice_from_slice(&[
+        mdp.add_state(StateIndex::from_raw(6));
+        mdp.add_choice_from_slice(&[
             (0.3, StateIndex::from_raw(3)),
             (0.7, StateIndex::from_raw(6)),
         ]);
 
-        builder.add_state(StateIndex::from_raw(7));
+        mdp.add_state(StateIndex::from_raw(7));
 
-        builder.into_base_and_valuations().0
+        mdp
     }
 
     #[test]

@@ -16,10 +16,9 @@ use valuation_map::*;
 use crate::variables::variable_details::VariableDetails;
 use crate::{ExpressionContext, ModelBuildingError, UserProvidedConstValue};
 use prism_model::{Identifier, Model, Span, VariableReference};
-use probabilistic_models::builder::ValuationBuilder;
 use probabilistic_models::valuations::ValuationEntry;
 use std::collections::HashMap;
-use typed_index_collections::{Index, RawIndex};
+use typed_index_collections::Index;
 
 pub struct ModelVariableInfo<ClassIdx: Index, ClassEntryIdx: Index> {
     pub valuation_map: ValuationMap<ClassEntryIdx>,
@@ -48,6 +47,8 @@ impl<ClassIdx: Index, ClassEntryIdx: Index> ModelVariableInfo<ClassIdx, ClassEnt
         // builder.register_bounded_int("int_var".to_string(), -10, 15);
         // builder.register_bool("bool_var".to_string());
 
+        use typed_index_collections::RawIndex;
+
         ModelVariableInfo {
             valuation_map: ValuationMap::with_mock_values(),
             const_valuations: ConstValuations::with_mock_values(),
@@ -60,7 +61,12 @@ impl<ClassIdx: Index, ClassEntryIdx: Index> ModelVariableInfo<ClassIdx, ClassEnt
         model: &Model<VariableReference, S, E, Identifier<S>>,
         user_provided_consts: &HashMap<String, UserProvidedConstValue>,
         expression_context: &mut EC,
-        valuation_builder: &mut ValuationBuilder<StateIdx, ClassIdx, ClassEntryIdx, ValuationIdx>,
+        valuation_builder: &mut crate::bases::ValuationBuilder<
+            StateIdx,
+            ClassIdx,
+            ClassEntryIdx,
+            ValuationIdx,
+        >,
     ) -> Result<Self, ModelBuildingError> {
         let variables = &model.variable_manager;
 
