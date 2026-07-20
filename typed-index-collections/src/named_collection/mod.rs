@@ -34,6 +34,25 @@ impl<InternalIndex: Index, E> NamedTo1<InternalIndex, E> {
         index
     }
 
+    pub fn get_or_add(&mut self, name: String, entry: E) -> InternalIndex {
+        if let Some(entry) = self.name_to_index.get(&name) {
+            *entry
+        } else {
+            let index = self.store.add(entry);
+            self.name_to_index.insert(name.clone(), index);
+            self.names.add_checked(index, name);
+            index
+        }
+    }
+
+    pub fn map<E2>(self, map: impl FnMut(E) -> E2) -> NamedTo1<InternalIndex, E2> {
+        NamedTo1 {
+            store: To1::with_entries(self.store.into_iter().map(map).collect::<Vec<_>>()),
+            names: self.names,
+            name_to_index: self.name_to_index,
+        }
+    }
+
     pub fn get(&self, index: InternalIndex) -> Option<&E> {
         self.store.get(index)
     }
@@ -62,6 +81,10 @@ impl<InternalIndex: Index, E> NamedTo1<InternalIndex, E> {
 
     pub fn names(&self) -> &To1<InternalIndex, String> {
         &self.names
+    }
+
+    pub fn contains_name(&self, name: &str) -> bool {
+        self.name_to_index.contains_key(name)
     }
 
     pub fn internal_indices(&self) -> SemiboundedIndexRange<InternalIndex> {
@@ -130,6 +153,12 @@ pub struct NamedTo1Iterator<'a, InternalIndex: Index, E> {
     index: InternalIndex,
 }
 
+impl<'a, InternalIndex: Index, E> NamedTo1Iterator<'a, InternalIndex, E> {
+    pub fn enumerate(self) -> EnumeratingNamedTo1Iterator<'a, InternalIndex, E> {
+        EnumeratingNamedTo1Iterator { iterator: self }
+    }
+}
+
 impl<'a, InternalIndex: Index, E> Iterator for NamedTo1Iterator<'a, InternalIndex, E> {
     type Item = (&'a str, &'a E);
 
@@ -144,5 +173,17 @@ impl<'a, InternalIndex: Index, E> Iterator for NamedTo1Iterator<'a, InternalInde
         } else {
             None
         }
+    }
+}
+
+pub struct EnumeratingNamedTo1Iterator<'a, InternalIndex: Index, E> {
+    iterator: NamedTo1Iterator<'a, InternalIndex, E>,
+}
+impl<'a, InternalIndex: Index, E> Iterator for EnumeratingNamedTo1Iterator<'a, InternalIndex, E> {
+    type Item = (InternalIndex, (&'a str, &'a E));
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let index = self.iterator.index;
+        self.iterator.next().map(|val| (index, val))
     }
 }

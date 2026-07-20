@@ -7,9 +7,12 @@ mod predecessors;
 pub use predecessors::ReadPredecessors;
 
 mod branch_labels;
-mod choice_labels;
-mod state_specifier;
+pub use branch_labels::ReadBranchLabels;
 
+mod choice_labels;
+pub use choice_labels::ReadChoiceLabels;
+
+mod state_specifier;
 pub use state_specifier::StateSet;
 
 use crate::valuations::ValuationEntry;

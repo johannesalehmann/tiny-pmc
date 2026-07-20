@@ -41,7 +41,7 @@ impl<M: ReadPredecessors> BackwardReachability for M {
 
 #[cfg(test)]
 mod tests {
-    use crate::builder::{BaseModelBuilder, MdpBuilder};
+    use crate::base_model::Mdp;
     use crate::traits::BackwardReachability;
     use crate::{Model, PredecessorIndex, StateIndex};
     use typed_index_collections::Index;
@@ -51,23 +51,22 @@ mod tests {
         for (self_loop, extra_jump) in [(false, false), (false, true), (true, false), (true, true)]
         {
             for states in 2..5 {
-                let mut builder = MdpBuilder::with_default_index_types();
+                let mut mdp = Mdp::with_default_types();
                 for i in 0..states {
-                    builder.add_state(StateIndex::from_raw(i));
+                    mdp.add_state(StateIndex::from_raw(i));
                     if i + 1 < states && (!extra_jump || i + 2 >= states) {
-                        builder.add_choice_from_slice(&[(1.0, StateIndex::from_raw(i + 1))]);
+                        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(i + 1))]);
                     }
                     if i + 2 < states && extra_jump {
-                        builder.add_choice_from_slice(&[
+                        mdp.add_choice_from_slice(&[
                             (0.5, StateIndex::from_raw(i + 1)),
                             (0.5, StateIndex::from_raw(i + 2)),
                         ]);
                     }
                     if self_loop {
-                        builder.add_choice_from_slice(&[(1.0, StateIndex::from_raw(i))]);
+                        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(i))]);
                     }
                 }
-                let mdp = builder.into_base_and_valuations().0;
                 let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
 
                 for check in 0..states {

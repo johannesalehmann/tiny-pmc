@@ -174,36 +174,34 @@ impl<StateIdx: Index, ChoiceIdx: Index, BranchIdx: Index, PredecessorIdx: Index>
 
 #[cfg(test)]
 mod tests {
-    use crate::builder::{BaseModelBuilder, MdpBuilder};
+    use crate::base_model::Mdp;
     use crate::{Model, PredecessorIndex, StateIndex};
     use typed_index_collections::Index;
 
     #[test]
     fn self_loop() {
-        for padding_states in 0..3 {
-            for choices_per_state in 0..2 {
-                for branches_per_state in 0..2 {
+        for padding_states in 0..3usize {
+            for choices_per_state in 0..2usize {
+                for branches_per_state in 0..2usize {
                     let p = 1.0 / branches_per_state.max(1) as f64;
-                    let mut builder = MdpBuilder::with_default_index_types();
+                    let mut mdp = Mdp::with_default_types();
                     for i in 0..padding_states {
                         let self_index = StateIndex::from_raw(i);
-                        builder.add_state(StateIndex::from_raw(i));
+                        mdp.add_state(StateIndex::from_raw(i));
 
                         for _ in 0..choices_per_state {
-                            builder.start_choice();
+                            mdp.add_choice();
                             for _ in 0..branches_per_state {
-                                builder.add_branch(p, self_index);
+                                mdp.add_branch(p, self_index);
                             }
-                            builder.finish_choice();
                         }
                     }
 
                     let state = StateIndex::from_raw(padding_states);
-                    builder.add_state(state);
-                    let choice = builder.start_choice();
-                    let branch = builder.add_branch(1.0, state);
-                    builder.finish_choice();
-                    let mdp = builder.into_base_and_valuations().0;
+                    mdp.add_state(state);
+                    let choice = mdp.add_choice();
+                    let branch = mdp.add_branch(1.0, state);
+
                     let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
                     assert_eq!(model.predecessors.choice_to_state[choice], state);
                     assert_eq!(model.predecessors.branch_to_choice[branch], choice);
@@ -223,43 +221,37 @@ mod tests {
         // Note: We cannot be guaranteed that the predecessors are listed in a specific order, so
         //  this test is actually to specific.
         // If this test breaks, first check whether this is the cause.
-        let mut builder = MdpBuilder::with_default_index_types();
+        let mut mdp = Mdp::with_default_types();
         let s0 = StateIndex::from_raw(0);
         let s1 = StateIndex::from_raw(1);
         let s2 = StateIndex::from_raw(2);
         let s3 = StateIndex::from_raw(3);
         let s4 = StateIndex::from_raw(4);
 
-        builder.add_state(s0);
+        mdp.add_state(s0);
 
-        let c0 = builder.start_choice();
-        let b0 = builder.add_branch(0.5, s2);
-        let b1 = builder.add_branch(0.5, s4);
-        builder.finish_choice();
+        let c0 = mdp.add_choice();
+        let b0 = mdp.add_branch(0.5, s2);
+        let b1 = mdp.add_branch(0.5, s4);
 
-        let c1 = builder.start_choice();
-        let b2 = builder.add_branch(1.0, s2);
-        builder.finish_choice();
+        let c1 = mdp.add_choice();
+        let b2 = mdp.add_branch(1.0, s2);
 
-        builder.add_state(s1);
-        let c2 = builder.start_choice();
-        let b3 = builder.add_branch(1.0, s2);
-        builder.finish_choice();
+        mdp.add_state(s1);
+        let c2 = mdp.add_choice();
+        let b3 = mdp.add_branch(1.0, s2);
 
-        builder.add_state(s2);
+        mdp.add_state(s2);
 
-        builder.add_state(s3);
+        mdp.add_state(s3);
 
-        builder.add_state(s4);
-        let c3 = builder.start_choice();
-        let b4 = builder.add_branch(0.3, s4);
-        let b5 = builder.add_branch(0.7, s1);
-        builder.finish_choice();
+        mdp.add_state(s4);
+        let c3 = mdp.add_choice();
+        let b4 = mdp.add_branch(0.3, s4);
+        let b5 = mdp.add_branch(0.7, s1);
 
-        let c4 = builder.start_choice();
-        let b6 = builder.add_branch(1.0, s4);
-        builder.finish_choice();
-        let mdp = builder.into_base_and_valuations().0;
+        let c4 = mdp.add_choice();
+        let b6 = mdp.add_branch(1.0, s4);
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
         let preds = model.predecessors;
 

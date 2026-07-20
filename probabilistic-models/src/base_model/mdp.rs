@@ -1,5 +1,6 @@
 use crate::choices::{ChoiceToBranch, StateToChoice};
-use typed_index_collections::{ChainedCsrIter, Csr, CsrIterator, Index, To1};
+use crate::{BranchIndex, ChoiceIndex, StateIndex};
+use typed_index_collections::{ChainedCsrIter, Csr, CsrIterator, Index, RawIndex, To1};
 
 #[derive(Default)]
 pub struct Mdp<StateIdx: Index, ChoiceIdx: Index, BranchIdx: Index> {
@@ -17,7 +18,44 @@ impl<StateIdx: Index, ChoiceIdx: Index, BranchIdx: Index> super::BaseModel
     type BranchIndex = BranchIdx;
 }
 
+impl Mdp<StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>> {
+    pub fn with_default_types() -> Self {
+        Self::default()
+    }
+}
+
 impl<StateIdx: Index, ChoiceIdx: Index, BranchIdx: Index> Mdp<StateIdx, ChoiceIdx, BranchIdx> {
+    pub fn add_state(&mut self, state_index: StateIdx) {
+        let next_choice = self.state_to_choice.end();
+        self.state_to_choice
+            .add_entry(state_index, next_choice, next_choice);
+    }
+    pub fn add_choice(&mut self) -> ChoiceIdx {
+        let choice_index = self.choice_to_branch.keys().end();
+        let branch_index = self.choice_to_branch.end();
+        self.choice_to_branch
+            .add_entry(choice_index, branch_index, branch_index);
+        self.state_to_choice
+            .extend_last_entry(choice_index + ChoiceIdx::RawType::one());
+        choice_index
+    }
+
+    pub fn add_branch(&mut self, probability: f64, target: StateIdx) -> BranchIdx {
+        let branch_index = self.branch_destinations.add(target);
+        self.branch_probabilities.add(probability);
+        self.choice_to_branch
+            .extend_last_entry(branch_index + BranchIdx::RawType::one());
+        branch_index
+    }
+
+    pub fn add_choice_from_slice(&mut self, branches: &[(f64, StateIdx)]) -> ChoiceIdx {
+        let index = self.add_choice();
+        for &(rate_or_probability, target) in branches {
+            self.add_branch(rate_or_probability, target);
+        }
+        index
+    }
+
     pub fn state_choice_pairs(&self) -> StateChoicePairs<'_, StateIdx, ChoiceIdx> {
         StateChoicePairs {
             state_to_choice: &self.state_to_choice,

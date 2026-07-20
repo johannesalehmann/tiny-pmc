@@ -4,12 +4,12 @@ use typed_index_collections::Index;
 
 pub trait AtomicPropositionBuilder {
     type AtomicPropositions;
-    type AnnotationIdx: Index;
+    type APIdx: Index;
     type StateIdx: Index;
 
     fn stores_atomic_propositions() -> bool;
-    fn register_atomic_proposition(&mut self, id: String) -> Self::AnnotationIdx;
-    fn set_value(&mut self, index: Self::AnnotationIdx, state: Self::StateIdx, value: bool);
+    fn register_atomic_proposition(&mut self, id: String) -> Self::APIdx;
+    fn set_value(&mut self, index: Self::APIdx, state: Self::StateIdx, value: bool);
     fn into_atomic_propositions(self) -> Self::AtomicPropositions;
 }
 
@@ -23,18 +23,18 @@ impl<AnnotationIdx: Index, StateIdx: Index> AtomicPropositionBuilder
     for UntrackedAtomicPropositionBuilder<AnnotationIdx, StateIdx>
 {
     type AtomicPropositions = ();
-    type AnnotationIdx = AnnotationIdx;
+    type APIdx = AnnotationIdx;
     type StateIdx = StateIdx;
 
     fn stores_atomic_propositions() -> bool {
         false
     }
 
-    fn register_atomic_proposition(&mut self, _id: String) -> Self::AnnotationIdx {
+    fn register_atomic_proposition(&mut self, _id: String) -> Self::APIdx {
         panic!("Cannot register atomic propositions when using `UntrackedAtomicPropositionBuilder`")
     }
 
-    fn set_value(&mut self, _id: Self::AnnotationIdx, _state: Self::StateIdx, _value: bool) {
+    fn set_value(&mut self, _id: Self::APIdx, _state: Self::StateIdx, _value: bool) {
         panic!("Cannot store atomic propositions when using `UntrackedAtomicPropositionBuilder`")
     }
 
@@ -56,19 +56,19 @@ impl<AnnotationIdx: Index, StateIdx: Index, AnnotationEntryIdx: Index> AtomicPro
     for AtomicPropositionVectorsBuilder<AnnotationIdx, StateIdx, AnnotationEntryIdx>
 {
     type AtomicPropositions = AtomicPropositions<AnnotationIdx, StateIdx, AnnotationEntryIdx>;
-    type AnnotationIdx = AnnotationIdx;
+    type APIdx = AnnotationIdx;
     type StateIdx = StateIdx;
 
     fn stores_atomic_propositions() -> bool {
         true
     }
 
-    fn register_atomic_proposition(&mut self, id: String) -> Self::AnnotationIdx {
+    fn register_atomic_proposition(&mut self, id: String) -> Self::APIdx {
         self.atomic_propositions
             .add_entry(id, TypedAnnotation::default())
     }
 
-    fn set_value(&mut self, id: Self::AnnotationIdx, state: Self::StateIdx, value: bool) {
+    fn set_value(&mut self, id: Self::APIdx, state: Self::StateIdx, value: bool) {
         self.atomic_propositions[id].add_value(state, value);
     }
 

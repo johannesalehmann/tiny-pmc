@@ -59,7 +59,7 @@ impl<ClassIdx: Index, ClassEntryIdx: Index> ModelVariableInfo<ClassIdx, ClassEnt
         model: &Model<VariableReference, S, E, Identifier<S>>,
         user_provided_consts: &HashMap<String, UserProvidedConstValue>,
         expression_context: &mut EC,
-        valuation_builder: &mut crate::configuration::ValuationBuilder<
+        valuation_builder: &mut crate::bases::ValuationBuilder<
             StateIdx,
             ClassIdx,
             ClassEntryIdx,
@@ -89,9 +89,9 @@ impl<ClassIdx: Index, ClassEntryIdx: Index> ModelVariableInfo<ClassIdx, ClassEnt
         })
     }
 
-    pub fn get_const_only_valuation_source(
-        &self,
-    ) -> ConstOnlyValuationSource<'_, '_, ClassEntryIdx> {
+    pub fn get_const_only_valuation_source<'a>(
+        &'a self,
+    ) -> ConstOnlyValuationSource<'a, 'a, ClassEntryIdx> {
         ConstOnlyValuationSource::new(&self.valuation_map, &self.const_valuations)
     }
 

@@ -1,9 +1,9 @@
 pub mod annotations;
 pub mod base_model;
-mod choices;
+pub mod choices;
 pub mod export;
 pub mod initial_states;
-mod labels;
+pub mod labels;
 pub mod predecessors;
 pub mod traits;
 pub mod valuations;

@@ -56,6 +56,8 @@ fn checker() -> Result<(), ModelCheckerError> {
     );
     let builder = builder_builder.finish();
     let start_build = std::time::Instant::now();
+
+    let builder = prism_model_builder::ModelBuilder::new_mdp_builder(&mut prism_model);
     let builder_output = prism_model_builder::build_model(
         &mut prism_model,
         builder,
