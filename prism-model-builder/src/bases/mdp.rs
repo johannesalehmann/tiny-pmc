@@ -7,7 +7,7 @@ use probabilistic_models::{
     AnnotationEntryIndex, AtomicPropositionIndex, BranchIndex, ChoiceIndex, StateIndex,
     ValuationClassEntryIndex, ValuationClassIndex, ValuationIndex,
 };
-use typed_index_collections::Index;
+use typed_index_collections::{Index, RawIndex};
 
 #[derive(Default)]
 pub struct MdpBuilder<
@@ -20,6 +20,7 @@ pub struct MdpBuilder<
 > {
     mdp: Mdp<StateIdx, ChoiceIdx, BranchIdx>,
     valuation: ValuationBuilder<StateIdx, ClassIdx, ClassEntryIdx, ValuationIdx>,
+    next_state_index: StateIdx,
 }
 
 // TODO: This function exists to get existing unit tests working without specifying the full set of
@@ -73,7 +74,8 @@ impl<
         &mut self,
         valuation: Val,
     ) -> StateIdx {
-        let index = self.mdp.state_to_choice.keys().end();
+        let index = self.next_state_index;
+        self.next_state_index += StateIdx::RawType::one();
         self.valuation.add_state_valuation(&valuation, index);
         index
     }
