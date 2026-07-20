@@ -62,7 +62,10 @@ impl<
 mod tests {
     use crate::ModelBuilder;
     use prism_model::{Expression, Identifier, Model, ModelType, VariableInfo, VariableRange};
-    use probabilistic_models::traits::ReadStateSpace;
+    use probabilistic_models::StateIndex;
+    use probabilistic_models::traits::{ReadStateSpace, ReadValuations};
+    use probabilistic_models::valuations::ValuationBits;
+    use typed_index_collections::Index;
 
     #[test]
     pub fn simple() {
@@ -81,5 +84,26 @@ mod tests {
             .with_full_state_space()
             .build();
         assert_eq!(model.states().len(), 2 * 6 * 2);
+        let mut index = 0;
+        for z in [false, true] {
+            for y in [-3, -2, -1, 0, 1, 2] {
+                for x in [false, true] {
+                    let valuation = model.state_valuation(StateIndex::from_raw(index as usize));
+                    assert_eq!(
+                        valuation.evaluate_bool(valuation.class().index_by_name("x").unwrap()),
+                        x
+                    );
+                    assert_eq!(
+                        valuation.evaluate_int(valuation.class().index_by_name("y").unwrap()),
+                        y
+                    );
+                    assert_eq!(
+                        valuation.evaluate_bool(valuation.class().index_by_name("z").unwrap()),
+                        z
+                    );
+                    index += 1;
+                }
+            }
+        }
     }
 }
