@@ -44,7 +44,7 @@ impl<
     ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, NoChoiceLabels<B::ChoiceIdx>> {
         self.map_choice_labels(NoChoiceLabels::default())
     }
-    pub fn with_command_indices(
+    pub fn label_choices_with_command_indices(
         self,
     ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CommandIndexLabels<B::ChoiceIdx, ActionIdx>>
     {

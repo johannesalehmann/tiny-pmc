@@ -59,7 +59,7 @@ impl<
     ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, NoChoiceLabels<B::ChoiceIdx>> {
         self.map_choice_labels(NoChoiceLabels::default())
     }
-    pub fn with_action_names(
+    pub fn label_choices_with_action_names(
         self,
     ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, ActionNameChoiceLabels<B::ChoiceIdx, ActionIdx>>
     {
@@ -173,7 +173,7 @@ mod tests {
         prism.modules.add(module).unwrap();
 
         let model = ModelBuilder::new_mdp_builder(&mut prism)
-            .with_command_indices()
+            .label_choices_with_command_indices()
             .build();
         let states = model.states();
         assert_eq!(states.len(), 2);
@@ -234,7 +234,7 @@ mod tests {
         prism.modules.add(m2).unwrap();
 
         let model = ModelBuilder::new_mdp_builder(&mut prism)
-            .with_command_indices()
+            .label_choices_with_command_indices()
             .build();
         let states = model.states();
         assert_eq!(states.len(), 2);

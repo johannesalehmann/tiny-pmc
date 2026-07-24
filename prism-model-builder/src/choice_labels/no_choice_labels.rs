@@ -33,13 +33,13 @@ impl<
     APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = B::StateIdx>,
 > ModelBuilder<'a, S, Q, L, IS, B, IB, APs, NoChoiceLabels<B::ChoiceIdx>>
 {
-    pub fn with_action_names<ActionIdx: Index>(
+    pub fn label_choices_with_action_names<ActionIdx: Index>(
         self,
     ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, ActionNameChoiceLabels<B::ChoiceIdx, ActionIdx>>
     {
         self.map_choice_labels(ActionNameChoiceLabels::default())
     }
-    pub fn with_command_indices<ActionIdx: Index>(
+    pub fn label_choices_with_command_indices<ActionIdx: Index>(
         self,
     ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CommandIndexLabels<B::ChoiceIdx, ActionIdx>>
     {
