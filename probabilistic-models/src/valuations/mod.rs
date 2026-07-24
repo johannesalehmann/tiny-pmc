@@ -318,6 +318,31 @@ pub trait ValuationBits<ClassEntryIdx: Index, ValuationIdx: Index> {
         let index = class_data.valuations.uint(index, variable.location.clone()) as usize;
         &class_data.strings[index]
     }
+
+    fn equals_to<VB: ValuationBits<ClassEntryIdx, ValuationIdx>>(&self, other: &VB) -> bool {
+        let own_class = self.class();
+        let other_class = self.class();
+        if own_class.entries().len() != other_class.entries().len() {
+            return false;
+        }
+        for (index, variable) in own_class.entries().enumerate() {
+            let equals = match variable.variable_type {
+                Type::Bool => self.evaluate_bool(index) == other.evaluate_bool(index),
+                Type::Int => self.evaluate_int(index) == other.evaluate_int(index),
+                Type::Uint => {
+                    // Evaluate as integers because of offset
+                    self.evaluate_int(index) == other.evaluate_int(index)
+                }
+                Type::Double => self.evaluate_double(index) == other.evaluate_double(index),
+                Type::Rational => self.evaluate_rational(index) == other.evaluate_rational(index),
+                Type::String => self.evaluate_string(index) == other.evaluate_string(index),
+            };
+            if !equals {
+                return false;
+            }
+        }
+        true
+    }
 }
 
 pub trait ValuationBitsMut<ClassEntryIdx: Index, ValuationIdx: Index> {
