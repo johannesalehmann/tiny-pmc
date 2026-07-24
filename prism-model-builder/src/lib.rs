@@ -13,7 +13,7 @@ mod map;
 pub mod queries;
 mod state_builder;
 mod synchronised_actions;
-mod variables;
+pub mod variables;
 
 pub use constants::UserProvidedConstValue;
 
