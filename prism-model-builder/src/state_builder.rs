@@ -7,13 +7,16 @@ use crate::synchronised_actions::SynchronisedActions;
 use crate::variables::ModelVariableInfo;
 use crate::{ModelBuildingError, choice_labels};
 use prism_model::{
-    Command, Expression, Identifier, Model, Span, Update, VariableRange, VariableReference,
+    Command, Expression, Identifier, Model, Span, Update, VariableManager, VariableRange,
+    VariableReference,
 };
 use probabilistic_models::valuations::{
     BareStandaloneValuation, GetValuationClassIndex, GetValuationData, StandaloneValuation,
     ValuationBits, ValuationBitsMut, ValuationEntry,
 };
 use std::collections::VecDeque;
+use std::iter::once;
+use typed_index_collections::Index;
 
 pub struct StateBuilder<
     'a,
@@ -173,7 +176,7 @@ impl<
         state: Base::StateIdx,
         module_index: usize,
         command_index: usize,
-        command: &Command<VariableReference, S, E, Identifier<S>>,
+        command: &'a Command<VariableReference, S, E, Identifier<S>>,
     ) -> usize {
         let valuation = &self.base.state_valuations().entry(state);
         let val_source = self.variables.info.get_valuation_source(valuation);
@@ -192,7 +195,7 @@ impl<
                     .variables
                     .expr_context
                     .evaluate_float(&update.probability, &val_source);
-                let new_valuation = self.variables.apply_assignments(valuation, &[&update]);
+                let new_valuation = self.variables.apply_assignments(valuation, once(update));
 
                 let index = Self::get_or_add_state(
                     &mut self.base,
@@ -317,7 +320,7 @@ impl<
                             updates.push(&command.updates[update_indices[i]]);
                         }
                     }
-                    let new_valuation = self.variables.apply_assignments(&valuation, &updates[..]);
+                    let new_valuation = self.variables.apply_assignments(&valuation, updates);
 
                     let mut probability = 1.0;
 
@@ -470,57 +473,83 @@ impl<'a, S: Span, E, EC: ExpressionContext<E>, Base: crate::bases::BaseModelBuil
     fn apply_assignments(
         &mut self,
         valuation: &ValuationEntry<'_, Base::ClassIdx, Base::ClassEntryIdx, Base::ValuationIdx>,
-        updates: &[&Update<VariableReference, S, E>],
+        updates: impl IntoIterator<Item = &'a Update<VariableReference, S, E>>,
     ) -> BareStandaloneValuation<Base::ClassIdx, Base::ValuationIdx> {
-        let val_source = self.info.get_valuation_source(valuation);
         let mut new_valuation = valuation.clone_into_standalone_valuation();
+        new_valuation.apply_assignments(
+            updates,
+            valuation,
+            self.expr_context,
+            &self.info,
+            &self.model.variable_manager,
+        );
+        new_valuation.into()
+    }
+}
+
+pub trait UpdatableValuation {
+    type ClassIdx: Index;
+    type ClassEntryIdx: Index;
+    type ValuationIdx: Index;
+
+    fn apply_assignments<'a, S: Span + 'a, E: 'a, EC: ExpressionContext<E>>(
+        &mut self,
+        updates: impl IntoIterator<Item = &'a Update<VariableReference, S, E>>,
+        valuation: &ValuationEntry<Self::ClassIdx, Self::ClassEntryIdx, Self::ValuationIdx>,
+        evaluator: &mut EC,
+        variable_info: &ModelVariableInfo<Self::ClassIdx, Self::ClassEntryIdx>,
+        variables: &VariableManager<S, E>,
+    );
+}
+
+impl<CI: Index, CEI: Index, VI: Index> UpdatableValuation for StandaloneValuation<'_, CI, CEI, VI> {
+    type ClassIdx = CI;
+    type ClassEntryIdx = CEI;
+    type ValuationIdx = VI;
+
+    fn apply_assignments<'a, S: Span + 'a, E: 'a, EC: ExpressionContext<E>>(
+        &mut self,
+        updates: impl IntoIterator<Item = &'a Update<VariableReference, S, E>>,
+        valuation: &ValuationEntry<Self::ClassIdx, Self::ClassEntryIdx, Self::ValuationIdx>,
+        evaluator: &mut EC,
+        variable_info: &ModelVariableInfo<Self::ClassIdx, Self::ClassEntryIdx>,
+        variables: &VariableManager<S, E>,
+    ) {
+        let val_source = variable_info.get_valuation_source(valuation);
         for update in updates {
             for assignment in &update.assignments {
-                let target = self.model.variable_manager.get(&assignment.target).unwrap();
-                let target_index = self
-                    .info
+                let target = variables.get(&assignment.target).unwrap();
+                let target_index = variable_info
                     .valuation_map
                     .map_to_variable(assignment.target.index)
                     .expect("Cannot assign to constant");
                 match target.range {
                     VariableRange::BoundedInt { .. } => {
-                        let value = self
-                            .expr_context
-                            .evaluate_int(&assignment.value, &val_source);
-                        let (min, max) = self.info.details[target_index].bounds.unwrap();
+                        let value = evaluator.evaluate_int(&assignment.value, &val_source);
+                        let (min, max) = variable_info.details[target_index].bounds.unwrap();
                         if value < min || value > max {
                             panic!(
                                 "Value for {} exceeds variable bounds, bounds are ({}, {}), value is {}",
-                                self.model.variable_manager.variables[assignment.target.index].name,
-                                min,
-                                max,
-                                value
+                                variables.variables[assignment.target.index].name, min, max, value
                             );
                         } else {
-                            new_valuation.set_int(target_index, value);
+                            self.set_int(target_index, value);
                         }
                     }
                     VariableRange::UnboundedInt { .. } => {
-                        let value = self
-                            .expr_context
-                            .evaluate_int(&assignment.value, &val_source);
-                        new_valuation.set_int(target_index, value);
+                        let value = evaluator.evaluate_int(&assignment.value, &val_source);
+                        self.set_int(target_index, value);
                     }
                     VariableRange::Boolean { .. } => {
-                        let value = self
-                            .expr_context
-                            .evaluate_bool(&assignment.value, &val_source);
-                        new_valuation.set_bool(target_index, value);
+                        let value = evaluator.evaluate_bool(&assignment.value, &val_source);
+                        self.set_bool(target_index, value);
                     }
                     VariableRange::Float { .. } => {
-                        let value = self
-                            .expr_context
-                            .evaluate_float(&assignment.value, &val_source);
-                        new_valuation.set_double(target_index, value);
+                        let value = evaluator.evaluate_float(&assignment.value, &val_source);
+                        self.set_double(target_index, value);
                     }
                 }
             }
         }
-        new_valuation.into()
     }
 }

@@ -17,6 +17,8 @@ pub mod variables;
 
 pub use constants::UserProvidedConstValue;
 
+pub use state_builder::UpdatableValuation;
+
 use crate::expressions::stack_based_expressions::{
     StackBasedExpression, SubExpressionManager, SubExpressionManagerWithCache,
     SubExpressionProvider,
