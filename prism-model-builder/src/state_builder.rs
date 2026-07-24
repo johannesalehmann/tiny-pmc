@@ -7,8 +7,8 @@ use crate::synchronised_actions::SynchronisedActions;
 use crate::variables::ModelVariableInfo;
 use crate::{ModelBuildingError, choice_labels};
 use prism_model::{
-    Command, Expression, Identifier, Model, Span, Update, VariableManager, VariableRange,
-    VariableReference,
+    Assignment, Command, Expression, Identifier, Model, Span, Update, VariableManager,
+    VariableRange, VariableReference,
 };
 use probabilistic_models::valuations::{
     BareStandaloneValuation, GetValuationClassIndex, GetValuationData, StandaloneValuation,
@@ -476,13 +476,15 @@ impl<'a, S: Span, E, EC: ExpressionContext<E>, Base: crate::bases::BaseModelBuil
         updates: impl IntoIterator<Item = &'a Update<VariableReference, S, E>>,
     ) -> BareStandaloneValuation<Base::ClassIdx, Base::ValuationIdx> {
         let mut new_valuation = valuation.clone_into_standalone_valuation();
-        new_valuation.apply_assignments(
-            updates,
-            valuation,
-            self.expr_context,
-            &self.info,
-            &self.model.variable_manager,
-        );
+        for update in updates {
+            new_valuation.apply_assignments(
+                &update.assignments,
+                valuation,
+                self.expr_context,
+                &self.info,
+                &self.model.variable_manager,
+            );
+        }
         new_valuation.into()
     }
 }
@@ -492,9 +494,9 @@ pub trait UpdatableValuation {
     type ClassEntryIdx: Index;
     type ValuationIdx: Index;
 
-    fn apply_assignments<'a, S: Span + 'a, E: 'a, EC: ExpressionContext<E>>(
+    fn apply_assignments<S: Span, E, EC: ExpressionContext<E>>(
         &mut self,
-        updates: impl IntoIterator<Item = &'a Update<VariableReference, S, E>>,
+        assignments: &[Assignment<VariableReference, S, E>],
         valuation: &ValuationEntry<Self::ClassIdx, Self::ClassEntryIdx, Self::ValuationIdx>,
         evaluator: &mut EC,
         variable_info: &ModelVariableInfo<Self::ClassIdx, Self::ClassEntryIdx>,
@@ -507,47 +509,45 @@ impl<CI: Index, CEI: Index, VI: Index> UpdatableValuation for StandaloneValuatio
     type ClassEntryIdx = CEI;
     type ValuationIdx = VI;
 
-    fn apply_assignments<'a, S: Span + 'a, E: 'a, EC: ExpressionContext<E>>(
+    fn apply_assignments<S: Span, E, EC: ExpressionContext<E>>(
         &mut self,
-        updates: impl IntoIterator<Item = &'a Update<VariableReference, S, E>>,
+        assignments: &[Assignment<VariableReference, S, E>],
         valuation: &ValuationEntry<Self::ClassIdx, Self::ClassEntryIdx, Self::ValuationIdx>,
         evaluator: &mut EC,
         variable_info: &ModelVariableInfo<Self::ClassIdx, Self::ClassEntryIdx>,
         variables: &VariableManager<S, E>,
     ) {
         let val_source = variable_info.get_valuation_source(valuation);
-        for update in updates {
-            for assignment in &update.assignments {
-                let target = variables.get(&assignment.target).unwrap();
-                let target_index = variable_info
-                    .valuation_map
-                    .map_to_variable(assignment.target.index)
-                    .expect("Cannot assign to constant");
-                match target.range {
-                    VariableRange::BoundedInt { .. } => {
-                        let value = evaluator.evaluate_int(&assignment.value, &val_source);
-                        let (min, max) = variable_info.details[target_index].bounds.unwrap();
-                        if value < min || value > max {
-                            panic!(
-                                "Value for {} exceeds variable bounds, bounds are ({}, {}), value is {}",
-                                variables.variables[assignment.target.index].name, min, max, value
-                            );
-                        } else {
-                            self.set_int(target_index, value);
-                        }
-                    }
-                    VariableRange::UnboundedInt { .. } => {
-                        let value = evaluator.evaluate_int(&assignment.value, &val_source);
+        for assignment in assignments {
+            let target = variables.get(&assignment.target).unwrap();
+            let target_index = variable_info
+                .valuation_map
+                .map_to_variable(assignment.target.index)
+                .expect("Cannot assign to constant");
+            match target.range {
+                VariableRange::BoundedInt { .. } => {
+                    let value = evaluator.evaluate_int(&assignment.value, &val_source);
+                    let (min, max) = variable_info.details[target_index].bounds.unwrap();
+                    if value < min || value > max {
+                        panic!(
+                            "Value for {} exceeds variable bounds, bounds are ({}, {}), value is {}",
+                            variables.variables[assignment.target.index].name, min, max, value
+                        );
+                    } else {
                         self.set_int(target_index, value);
                     }
-                    VariableRange::Boolean { .. } => {
-                        let value = evaluator.evaluate_bool(&assignment.value, &val_source);
-                        self.set_bool(target_index, value);
-                    }
-                    VariableRange::Float { .. } => {
-                        let value = evaluator.evaluate_float(&assignment.value, &val_source);
-                        self.set_double(target_index, value);
-                    }
+                }
+                VariableRange::UnboundedInt { .. } => {
+                    let value = evaluator.evaluate_int(&assignment.value, &val_source);
+                    self.set_int(target_index, value);
+                }
+                VariableRange::Boolean { .. } => {
+                    let value = evaluator.evaluate_bool(&assignment.value, &val_source);
+                    self.set_bool(target_index, value);
+                }
+                VariableRange::Float { .. } => {
+                    let value = evaluator.evaluate_float(&assignment.value, &val_source);
+                    self.set_double(target_index, value);
                 }
             }
         }
