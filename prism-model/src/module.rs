@@ -4,6 +4,7 @@ use crate::{
     VariablePrintingStyle, VariableReference,
 };
 use std::fmt::{Display, Formatter};
+use std::ops::{Index, IndexMut};
 
 /// A [`ModuleManager`] using [`Identifier`] to refer to variables in expressions, instead of the
 /// default of [`VariableReference`].
@@ -216,6 +217,20 @@ impl<V, S: Span, E, A> IntoIterator for ModuleManager<V, S, E, A> {
 
     fn into_iter(self) -> Self::IntoIter {
         self.modules.into_iter()
+    }
+}
+
+impl<V, S: Span, E, A> Index<usize> for ModuleManager<V, S, E, A> {
+    type Output = Module<V, S, E, A>;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.modules[index]
+    }
+}
+
+impl<V, S: Span, E, A> IndexMut<usize> for ModuleManager<V, S, E, A> {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.modules[index]
     }
 }
 
