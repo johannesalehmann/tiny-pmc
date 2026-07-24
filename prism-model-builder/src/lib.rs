@@ -67,23 +67,26 @@ impl<
     CL: choice_labels::ChoiceLabelBuilder<ChoiceIdx = Base::ChoiceIdx>,
 > ModelBuilder<'a, S, Queries, Labels, IniSource, Base, IniBuilder, APs, CL>
 {
-    pub fn build(
+    pub fn build_and_return_variable_info(
         mut self,
-    ) -> Queries::OutputType<
-        probabilistic_models::Model<
-            Base::BaseModel,
-            IniBuilder::InitialStates,
-            CL::ChoiceLabels,
-            (),
-            (),
-            APs::AtomicPropositions,
-            (),
-            (),
-            Base::Valuation,
-            (),
+    ) -> (
+        Queries::OutputType<
+            probabilistic_models::Model<
+                Base::BaseModel,
+                IniBuilder::InitialStates,
+                CL::ChoiceLabels,
+                (),
+                (),
+                APs::AtomicPropositions,
+                (),
+                (),
+                Base::Valuation,
+                (),
+            >,
+            APs::APIdx,
         >,
-        APs::APIdx,
-    > {
+        ModelVariableInfo<Base::ClassIdx, Base::ClassEntryIdx>,
+    ) {
         self.model.replace_empty_updates_with_identity_update();
 
         let mut labels = self.labels.extract_labels(self.model);
@@ -143,23 +146,48 @@ impl<
             .create_initial_states(self.initial_state_source)
             .unwrap();
         state_builder.expand_states().unwrap();
+        let variable_info = state_builder.variables.info;
 
         let (base, state_valuations) = self.base.into_base_and_valuations();
-        Queries::output(
-            probabilistic_models::Model {
-                base,
-                initial: self.initial_states_builder.into_initial_states(),
-                choice_labels: self.choice_labels.into_choice_labels(),
-                branch_labels: (),
-                observations: (),
-                atomic_propositions: self.atomic_propositions.into_atomic_propositions(),
-                rewards: (),
-                annotations: (),
-                state_valuations,
-                predecessors: (),
-            },
-            processed,
+        (
+            Queries::output(
+                probabilistic_models::Model {
+                    base,
+                    initial: self.initial_states_builder.into_initial_states(),
+                    choice_labels: self.choice_labels.into_choice_labels(),
+                    branch_labels: (),
+                    observations: (),
+                    atomic_propositions: self.atomic_propositions.into_atomic_propositions(),
+                    rewards: (),
+                    annotations: (),
+                    state_valuations,
+                    predecessors: (),
+                },
+                processed,
+            ),
+            variable_info,
         )
+    }
+
+    pub fn build(
+        mut self,
+    ) -> Queries::OutputType<
+        probabilistic_models::Model<
+            Base::BaseModel,
+            IniBuilder::InitialStates,
+            CL::ChoiceLabels,
+            (),
+            (),
+            APs::AtomicPropositions,
+            (),
+            (),
+            Base::Valuation,
+            (),
+        >,
+        APs::APIdx,
+    > {
+        let (output, _) = self.build_and_return_variable_info();
+        output
     }
 
     fn model_with_sub_expressions(
