@@ -139,6 +139,8 @@ impl<S: Span> Identifier<S> {
     /// To construct an identifier with reserved name (e.g. to identify a function), use
     /// [`Identifier::new_potentially_reserved()`].
     ///
+    /// To omit the legality check, use [`Identifier::new_unchecked()`].
+    ///
     /// To construct an identifier with custom span, use [`Identifier::new_spanned()`].
     pub fn new<Str: Into<String>>(name: Str) -> Result<Self, InvalidName> {
         Self::new_with_reserved_option(name, false, S::empty())
@@ -152,12 +154,35 @@ impl<S: Span> Identifier<S> {
     /// To construct an identifier with reserved name (e.g. to identify a function), use
     /// [`Identifier::new_potentially_reserved_spanned()`].
     ///
+    /// To omit the legality check, use [`Identifier::new_unchecked_spanned()`].
+    ///
     /// To construct an identifier with empty span, use [`Identifier::new()`].
     pub fn new_spanned<Str: Into<String>>(
         name: Str,
         span: S,
     ) -> Result<Self, crate::identifier::InvalidName> {
         Self::new_with_reserved_option(name, false, span)
+    }
+
+    /// Constructs an identifier with given name and empty [`Span`].
+    ///
+    /// This does not check whether the name is legal. You should only use it in places where this
+    /// is not relevant. To check name legality, use [`Identifier::new()`] or
+    /// [`Identifier::new_potentially_reserved()`] instead.
+    pub fn new_unchecked<Str: Into<String>>(name: Str) -> Self {
+        Self::new_unchecked_spanned(name, S::empty())
+    }
+
+    /// Constructs an identifier with given name and [`Span`].
+    ///
+    /// This does not check whether the name is legal. You should only use it in places where this
+    /// is not relevant. To check name legality, use [`Identifier::new_spanned()`] or
+    /// [`Identifier::new_potentially_reserved_spanned()`] instead.
+    pub fn new_unchecked_spanned<Str: Into<String>>(name: Str, span: S) -> Self {
+        Self {
+            name: name.into(),
+            span,
+        }
     }
 
     /// Constructs an identifier with given name and empty [`Span`]. Here, `name` may be a reserved
@@ -167,7 +192,8 @@ impl<S: Span> Identifier<S> {
     /// have reserved keywords as names (e.g. `min`, `pow`, `floor`).
     ///
     /// The remaining checks for name validity are still performed and [`InvalidName`] is returned
-    /// on failure. See [`Identifier`] for usage examples.
+    /// on failure. See [`Identifier`] for usage examples. To omit all checks, use
+    /// [`Identifier::new_unchecked()`].
     ///
     /// To construct an identifier that must not contain a reserved keyword, use
     /// [`Identifier::new()`].
