@@ -82,18 +82,19 @@ impl<
     B: crate::bases::BaseModelBuilder,
     IB: crate::initial_states_builder::InitialStatesBuilder<StateIdx = B::StateIdx>,
     APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = B::StateIdx>,
-> ModelBuilder<'a, S, ModelOnly<S>, L, IS, B, IB, APs>
+    CL: crate::choice_labels::ChoiceLabelBuilder<ChoiceIdx = B::ChoiceIdx>,
+> ModelBuilder<'a, S, ModelOnly<S>, L, IS, B, IB, APs, CL>
 {
     pub fn with_query(
         self,
         query: UnprocessedQuery<S>,
-    ) -> ModelBuilder<'a, S, SingleQuery<S>, L, IS, B, IB, APs> {
+    ) -> ModelBuilder<'a, S, SingleQuery<S>, L, IS, B, IB, APs, CL> {
         self.map_queries(SingleQuery { query })
     }
     pub fn with_queries(
         self,
         queries: Vec<UnprocessedQuery<S>>,
-    ) -> ModelBuilder<'a, S, QueryVector<S>, L, IS, B, IB, APs> {
+    ) -> ModelBuilder<'a, S, QueryVector<S>, L, IS, B, IB, APs, CL> {
         self.map_queries(QueryVector { queries })
     }
 }
@@ -148,12 +149,13 @@ impl<
     B: crate::bases::BaseModelBuilder,
     IB: crate::initial_states_builder::InitialStatesBuilder<StateIdx = B::StateIdx>,
     APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = B::StateIdx>,
-> ModelBuilder<'a, S, SingleQuery<S>, L, IS, B, IB, APs>
+    CL: crate::choice_labels::ChoiceLabelBuilder<ChoiceIdx = B::ChoiceIdx>,
+> ModelBuilder<'a, S, SingleQuery<S>, L, IS, B, IB, APs, CL>
 {
     pub fn and_with_query(
         self,
         query: UnprocessedQuery<S>,
-    ) -> ModelBuilder<'a, S, QueryVector<S>, L, IS, B, IB, APs> {
+    ) -> ModelBuilder<'a, S, QueryVector<S>, L, IS, B, IB, APs, CL> {
         self.map_queries_with(|q| QueryVector {
             queries: vec![q.query, query],
         })
@@ -161,7 +163,7 @@ impl<
     pub fn and_with_queries(
         self,
         queries: Vec<UnprocessedQuery<S>>,
-    ) -> ModelBuilder<'a, S, QueryVector<S>, L, IS, B, IB, APs> {
+    ) -> ModelBuilder<'a, S, QueryVector<S>, L, IS, B, IB, APs, CL> {
         self.map_queries_with(|q| QueryVector {
             queries: std::iter::once(q.query)
                 .chain(queries.into_iter())
@@ -228,12 +230,13 @@ impl<
     B: crate::bases::BaseModelBuilder,
     IB: crate::initial_states_builder::InitialStatesBuilder<StateIdx = B::StateIdx>,
     APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = B::StateIdx>,
-> ModelBuilder<'a, S, QueryVector<S>, L, IS, B, IB, APs>
+    CL: crate::choice_labels::ChoiceLabelBuilder<ChoiceIdx = B::ChoiceIdx>,
+> ModelBuilder<'a, S, QueryVector<S>, L, IS, B, IB, APs, CL>
 {
     pub fn and_with_query(
         self,
         query: UnprocessedQuery<S>,
-    ) -> ModelBuilder<'a, S, QueryVector<S>, L, IS, B, IB, APs> {
+    ) -> ModelBuilder<'a, S, QueryVector<S>, L, IS, B, IB, APs, CL> {
         self.map_queries_with(|mut qs| {
             qs.queries.push(query);
             QueryVector {
@@ -244,7 +247,7 @@ impl<
     pub fn and_with_queries(
         self,
         mut queries: Vec<UnprocessedQuery<S>>,
-    ) -> ModelBuilder<'a, S, QueryVector<S>, L, IS, B, IB, APs> {
+    ) -> ModelBuilder<'a, S, QueryVector<S>, L, IS, B, IB, APs, CL> {
         self.map_queries_with(|mut qs| {
             qs.queries.append(&mut queries);
             QueryVector {

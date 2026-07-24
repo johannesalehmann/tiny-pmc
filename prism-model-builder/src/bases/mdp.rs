@@ -1,11 +1,12 @@
 use crate::ModelBuilder;
 use crate::bases::{BaseModelBuilder, ValuationBuilder};
+use crate::choice_labels::ActionNameChoiceLabels;
 use prism_model::{Expression, Identifier, Span, VariableReference};
 use probabilistic_models::base_model::Mdp;
 use probabilistic_models::valuations::{GetValuationClassIndex, GetValuationData, Valuations};
 use probabilistic_models::{
-    AnnotationEntryIndex, AtomicPropositionIndex, BranchIndex, ChoiceIndex, StateIndex,
-    ValuationClassEntryIndex, ValuationClassIndex, ValuationIndex,
+    AnnotationEntryIndex, AtomicPropositionIndex, BranchIndex, ChoiceIndex, ChoiceLabelIndex,
+    StateIndex, ValuationClassEntryIndex, ValuationClassIndex, ValuationIndex,
 };
 use typed_index_collections::{Index, RawIndex};
 
@@ -140,6 +141,7 @@ impl<'a, S: Span>
             StateIndex<usize>,
             AnnotationEntryIndex<usize>,
         >,
+        ActionNameChoiceLabels<ChoiceIndex<usize>, ChoiceLabelIndex<usize>>,
     >
 {
     pub fn new_mdp_builder(
@@ -159,6 +161,7 @@ impl<'a, S: Span>
             queries: Default::default(),
             constants: Default::default(),
             labels: Default::default(),
+            choice_labels: Default::default(),
         }
     }
 }

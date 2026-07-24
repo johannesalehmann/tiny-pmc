@@ -1,5 +1,6 @@
 use crate::{
-    ModelBuilder, atomic_propositions_builder, bases, initial_states_source, labels, queries,
+    ModelBuilder, atomic_propositions_builder, bases, choice_labels, initial_states_source, labels,
+    queries,
 };
 use prism_model::Span;
 use probabilistic_models::InitialStates;
@@ -50,16 +51,17 @@ impl<
     IS: initial_states_source::InitialStateSource,
     B: bases::BaseModelBuilder,
     APs: atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = B::StateIdx>,
-> ModelBuilder<'a, S, Q, L, IS, B, UntrackedInitialStatesBuilder<B::StateIdx>, APs>
+    CL: choice_labels::ChoiceLabelBuilder<ChoiceIdx = B::ChoiceIdx>,
+> ModelBuilder<'a, S, Q, L, IS, B, UntrackedInitialStatesBuilder<B::StateIdx>, APs, CL>
 {
     pub fn with_single_initial_state(
         self,
-    ) -> ModelBuilder<'a, S, Q, L, IS, B, SingleInitialStatesBuilder<B::StateIdx>, APs> {
+    ) -> ModelBuilder<'a, S, Q, L, IS, B, SingleInitialStatesBuilder<B::StateIdx>, APs, CL> {
         self.map_initial_states_builder(SingleInitialStatesBuilder::default())
     }
     pub fn with_initial_state_vector(
         self,
-    ) -> ModelBuilder<'a, S, Q, L, IS, B, MultipleInitialStatesBuilder<B::StateIdx>, APs> {
+    ) -> ModelBuilder<'a, S, Q, L, IS, B, MultipleInitialStatesBuilder<B::StateIdx>, APs, CL> {
         self.map_initial_states_builder(MultipleInitialStatesBuilder::default())
     }
 }
@@ -104,16 +106,17 @@ impl<
     IS: initial_states_source::InitialStateSource,
     B: bases::BaseModelBuilder,
     APs: atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = B::StateIdx>,
-> ModelBuilder<'a, S, Q, L, IS, B, SingleInitialStatesBuilder<B::StateIdx>, APs>
+    CL: choice_labels::ChoiceLabelBuilder<ChoiceIdx = B::ChoiceIdx>,
+> ModelBuilder<'a, S, Q, L, IS, B, SingleInitialStatesBuilder<B::StateIdx>, APs, CL>
 {
     pub fn without_initial_states(
         self,
-    ) -> ModelBuilder<'a, S, Q, L, IS, B, UntrackedInitialStatesBuilder<B::StateIdx>, APs> {
+    ) -> ModelBuilder<'a, S, Q, L, IS, B, UntrackedInitialStatesBuilder<B::StateIdx>, APs, CL> {
         self.map_initial_states_builder(UntrackedInitialStatesBuilder::default())
     }
     pub fn with_initial_state_vector(
         self,
-    ) -> ModelBuilder<'a, S, Q, L, IS, B, MultipleInitialStatesBuilder<B::StateIdx>, APs> {
+    ) -> ModelBuilder<'a, S, Q, L, IS, B, MultipleInitialStatesBuilder<B::StateIdx>, APs, CL> {
         self.map_initial_states_builder(MultipleInitialStatesBuilder::default())
     }
 }
@@ -152,16 +155,17 @@ impl<
     IS: initial_states_source::InitialStateSource,
     B: bases::BaseModelBuilder,
     APs: atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = B::StateIdx>,
-> ModelBuilder<'a, S, Q, L, IS, B, MultipleInitialStatesBuilder<B::StateIdx>, APs>
+    CL: choice_labels::ChoiceLabelBuilder<ChoiceIdx = B::ChoiceIdx>,
+> ModelBuilder<'a, S, Q, L, IS, B, MultipleInitialStatesBuilder<B::StateIdx>, APs, CL>
 {
     pub fn without_initial_states(
         self,
-    ) -> ModelBuilder<'a, S, Q, L, IS, B, UntrackedInitialStatesBuilder<B::StateIdx>, APs> {
+    ) -> ModelBuilder<'a, S, Q, L, IS, B, UntrackedInitialStatesBuilder<B::StateIdx>, APs, CL> {
         self.map_initial_states_builder(UntrackedInitialStatesBuilder::default())
     }
     pub fn with_single_initial_state(
         self,
-    ) -> ModelBuilder<'a, S, Q, L, IS, B, SingleInitialStatesBuilder<B::StateIdx>, APs> {
+    ) -> ModelBuilder<'a, S, Q, L, IS, B, SingleInitialStatesBuilder<B::StateIdx>, APs, CL> {
         self.map_initial_states_builder(SingleInitialStatesBuilder::default())
     }
 }

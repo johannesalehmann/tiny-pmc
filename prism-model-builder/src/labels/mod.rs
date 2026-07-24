@@ -101,27 +101,28 @@ impl<
     B: crate::bases::BaseModelBuilder,
     IB: crate::initial_states_builder::InitialStatesBuilder<StateIdx = B::StateIdx>,
     APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = B::StateIdx>,
-> ModelBuilder<'a, S, Q, L, IS, B, IB, APs>
+    CL: crate::choice_labels::ChoiceLabelBuilder<ChoiceIdx = B::ChoiceIdx>,
+> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CL>
 {
-    pub fn with_all_labels(self) -> ModelBuilder<'a, S, Q, AllLabels, IS, B, IB, APs> {
+    pub fn with_all_labels(self) -> ModelBuilder<'a, S, Q, AllLabels, IS, B, IB, APs, CL> {
         self.map_labels(AllLabels::default())
     }
-    pub fn without_labels(self) -> ModelBuilder<'a, S, Q, NoLabels, IS, B, IB, APs> {
+    pub fn without_labels(self) -> ModelBuilder<'a, S, Q, NoLabels, IS, B, IB, APs, CL> {
         self.map_labels(NoLabels::default())
     }
-    pub fn with_necessary_labels(self) -> ModelBuilder<'a, S, Q, OnlyNecessary, IS, B, IB, APs> {
+    pub fn with_necessary_labels(self) -> ModelBuilder<'a, S, Q, OnlyNecessary, IS, B, IB, APs, CL> {
         self.map_labels(OnlyNecessary::default())
     }
     pub fn with_given_labels(
         self,
         labels: HashSet<String>,
-    ) -> ModelBuilder<'a, S, Q, ListedLabels, IS, B, IB, APs> {
+    ) -> ModelBuilder<'a, S, Q, ListedLabels, IS, B, IB, APs, CL> {
         self.map_labels(ListedLabels { names: labels })
     }
     pub fn with_listed_plus_necessary_labels(
         self,
         labels: HashSet<String>,
-    ) -> ModelBuilder<'a, S, Q, ListedPlusNecessaryLabels, IS, B, IB, APs> {
+    ) -> ModelBuilder<'a, S, Q, ListedPlusNecessaryLabels, IS, B, IB, APs, CL> {
         self.map_labels(ListedPlusNecessaryLabels { names: labels })
     }
 }

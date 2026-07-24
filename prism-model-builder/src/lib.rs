@@ -2,6 +2,7 @@ pub use probabilistic_models;
 
 pub mod atomic_propositions_builder;
 pub mod bases;
+pub mod choice_labels;
 pub mod constants;
 mod expression_context;
 pub mod expressions;
@@ -39,6 +40,7 @@ pub struct ModelBuilder<
     Base: bases::BaseModelBuilder,
     IniBuilder: initial_states_builder::InitialStatesBuilder<StateIdx = Base::StateIdx>,
     APs: atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = Base::StateIdx>,
+    CL: choice_labels::ChoiceLabelBuilder<ChoiceIdx = Base::ChoiceIdx>,
 > {
     model: &'a mut Model<VariableReference, S, Expression<VariableReference, S>, Identifier<S>>,
     constants: HashMap<String, UserProvidedConstValue>,
@@ -50,6 +52,7 @@ pub struct ModelBuilder<
     base: Base,
     initial_states_builder: IniBuilder,
     atomic_propositions: APs,
+    choice_labels: CL,
 }
 
 impl<
@@ -61,7 +64,8 @@ impl<
     Base: bases::BaseModelBuilder,
     IniBuilder: initial_states_builder::InitialStatesBuilder<StateIdx = Base::StateIdx>,
     APs: atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = Base::StateIdx>,
-> ModelBuilder<'a, S, Queries, Labels, IniSource, Base, IniBuilder, APs>
+    CL: choice_labels::ChoiceLabelBuilder<ChoiceIdx = Base::ChoiceIdx>,
+> ModelBuilder<'a, S, Queries, Labels, IniSource, Base, IniBuilder, APs, CL>
 {
     pub fn build(
         mut self,
@@ -69,7 +73,7 @@ impl<
         probabilistic_models::Model<
             Base::BaseModel,
             IniBuilder::InitialStates,
-            (),
+            CL::ChoiceLabels,
             (),
             (),
             APs::AtomicPropositions,
@@ -126,6 +130,7 @@ impl<
             base: &mut self.base,
             initial_states_builder: &mut self.initial_states_builder,
             atomic_propositions: &mut self.atomic_propositions,
+            choice_labels: &mut self.choice_labels,
             open_states: VecDeque::new(),
 
             variables: StateBuilderVariables {
@@ -144,7 +149,7 @@ impl<
             probabilistic_models::Model {
                 base,
                 initial: self.initial_states_builder.into_initial_states(),
-                choice_labels: (),
+                choice_labels: self.choice_labels.into_choice_labels(),
                 branch_labels: (),
                 observations: (),
                 atomic_propositions: self.atomic_propositions.into_atomic_propositions(),

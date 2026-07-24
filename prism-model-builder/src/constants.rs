@@ -16,13 +16,14 @@ impl<
     B: crate::bases::BaseModelBuilder,
     IB: crate::initial_states_builder::InitialStatesBuilder<StateIdx = B::StateIdx>,
     APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = B::StateIdx>,
-> ModelBuilder<'a, S, Q, L, IS, B, IB, APs>
+    CL: crate::choice_labels::ChoiceLabelBuilder<ChoiceIdx = B::ChoiceIdx>,
+> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CL>
 {
     pub fn with_constant(
         mut self,
         name: String,
         value: UserProvidedConstValue,
-    ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs> {
+    ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CL> {
         self.constants.insert(name, value);
         self
     }
@@ -30,7 +31,7 @@ impl<
         mut self,
         name: String,
         value: i64,
-    ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs> {
+    ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CL> {
         self.constants
             .insert(name, UserProvidedConstValue::Int(value));
         self
@@ -39,7 +40,7 @@ impl<
         mut self,
         name: String,
         value: bool,
-    ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs> {
+    ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CL> {
         self.constants
             .insert(name, UserProvidedConstValue::Bool(value));
         self
@@ -48,7 +49,7 @@ impl<
         mut self,
         name: String,
         value: f64,
-    ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs> {
+    ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CL> {
         self.constants
             .insert(name, UserProvidedConstValue::Float(value));
         self
@@ -56,7 +57,7 @@ impl<
     pub fn with_constants(
         mut self,
         constants: impl IntoIterator<Item = (String, UserProvidedConstValue)>,
-    ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs> {
+    ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CL> {
         for (name, value) in constants {
             self.constants.insert(name, value);
         }

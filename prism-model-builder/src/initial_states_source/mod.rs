@@ -11,7 +11,7 @@ use probabilistic_models::valuations::{BareStandaloneValuation, StandaloneValuat
 use typed_index_collections::Index;
 
 #[derive(PartialEq, Debug)]
-enum VariableValue {
+pub enum VariableValue {
     Int(i64),
     Float(f64),
     Bool(bool),

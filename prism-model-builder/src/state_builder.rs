@@ -1,10 +1,11 @@
-use crate::ModelBuildingError;
+use crate::choice_labels::Context;
 use crate::expression_context::ExpressionContext;
 use crate::initial_states_source;
 use crate::initial_states_source::InitialStateSource;
 use crate::labels::Labels;
 use crate::synchronised_actions::SynchronisedActions;
 use crate::variables::ModelVariableInfo;
+use crate::{ModelBuildingError, choice_labels};
 use prism_model::{
     Command, Expression, Identifier, Model, Span, Update, VariableRange, VariableReference,
 };
@@ -22,6 +23,7 @@ pub struct StateBuilder<
     Base: crate::bases::BaseModelBuilder,
     IniBuilder: crate::initial_states_builder::InitialStatesBuilder,
     APs: crate::atomic_propositions_builder::AtomicPropositionBuilder,
+    CL: choice_labels::ChoiceLabelBuilder<ChoiceIdx = Base::ChoiceIdx>,
 > {
     pub synchronising_action: SynchronisedActions,
     pub labels: &'a Labels<APs::APIdx, E>,
@@ -29,6 +31,7 @@ pub struct StateBuilder<
     pub base: &'a mut Base,
     pub initial_states_builder: &'a mut IniBuilder,
     pub atomic_propositions: &'a mut APs,
+    pub choice_labels: &'a mut CL,
 
     pub open_states: VecDeque<Base::StateIdx>,
 
@@ -55,7 +58,8 @@ impl<
     Base: crate::bases::BaseModelBuilder,
     IniBuilder: crate::initial_states_builder::InitialStatesBuilder<StateIdx = Base::StateIdx>,
     APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = Base::StateIdx>,
-> initial_states_source::Context for StateBuilder<'a, S, E, EC, Base, IniBuilder, APs>
+    CL: choice_labels::ChoiceLabelBuilder<ChoiceIdx = Base::ChoiceIdx>,
+> initial_states_source::Context for StateBuilder<'a, S, E, EC, Base, IniBuilder, APs, CL>
 {
     type Span = S;
     type Expression = E;
@@ -109,7 +113,8 @@ impl<
     Base: crate::bases::BaseModelBuilder,
     IniBuilder: crate::initial_states_builder::InitialStatesBuilder<StateIdx = Base::StateIdx>,
     APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = Base::StateIdx>,
-> StateBuilder<'a, S, E, EC, Base, IniBuilder, APs>
+    CL: choice_labels::ChoiceLabelBuilder<ChoiceIdx = Base::ChoiceIdx>,
+> StateBuilder<'a, S, E, EC, Base, IniBuilder, APs, CL>
 {
     pub fn create_initial_states<IniSource: InitialStateSource>(
         &mut self,
@@ -133,13 +138,20 @@ impl<
 
         let mut choices_added = 0;
 
-        for module in self.variables.model.modules.iter() {
+        for (module_index, module) in self.variables.model.modules.iter().enumerate() {
             for command_index in 0..module.commands.len() {
                 let command = &module.commands[command_index];
+                // TODO: We could handle commands with actions here, as long as they only occur in
+                //  a single module.
                 if command.action.is_some() {
                     continue; // Synchronising actions are handled separately
                 }
-                choices_added += self.process_nonsynchronised_command(state, &command);
+                choices_added += self.process_nonsynchronised_command(
+                    state,
+                    module_index,
+                    command_index,
+                    &command,
+                );
             }
         }
 
@@ -159,6 +171,8 @@ impl<
     fn process_nonsynchronised_command(
         &mut self,
         state: Base::StateIdx,
+        module_index: usize,
+        command_index: usize,
         command: &Command<VariableReference, S, E, Identifier<S>>,
     ) -> usize {
         let valuation = &self.base.state_valuations().entry(state);
@@ -168,7 +182,7 @@ impl<
             .expr_context
             .evaluate_bool(&command.guard, &val_source);
         if guard {
-            self.base.start_choice();
+            let choice_index = self.base.start_choice();
             for update_index in 0..command.updates.len() {
                 let valuation = &self.base.state_valuations().entry(state);
                 let val_source = self.variables.info.get_valuation_source(valuation);
@@ -187,11 +201,14 @@ impl<
                     new_valuation,
                 );
                 self.base.add_branch(probability, index);
-
                 // TODO: Add predecessors to model here?
             }
-
-            // TODO: Add choice label
+            let index = self
+                .choice_labels
+                .name_to_index(command.action.as_ref().map(|a| a.name.as_str()));
+            let context = CL::ContextType::new_unsynchronised(module_index, command_index);
+            self.choice_labels
+                .label_choice(choice_index, &index, &context);
 
             self.base.finish_choice();
             1 // 1 new choice was added to the model
@@ -205,9 +222,12 @@ impl<
         state: Base::StateIdx,
         synchronised_action_index: usize,
     ) -> usize {
-        // TODO: Determine choice label here (and use it below?)
-
         let synchronised_action = &self.synchronising_action[synchronised_action_index];
+
+        let name = self
+            .choice_labels
+            .name_to_index(Some(&synchronised_action.name));
+
         let valuation = &self.base.state_valuations().entry(state);
         let val_source = self.variables.info.get_valuation_source(valuation);
 
@@ -250,13 +270,23 @@ impl<
         if all_satisfied {
             let modules = &synchronised_action.participating_modules;
             let mut indices = vec![0; n];
+            let mut choice_label_context = CL::ContextType::new_synchronised(n);
             while indices[0] < satisfied_guards_indices[0].len() {
-                self.base.start_choice();
+                let choice_index = self.base.start_choice();
 
                 let mut command_indices = Vec::with_capacity(n);
                 for i in 0..n {
                     command_indices.push(satisfied_guards_indices[i][indices[i]]);
                 }
+                for i in 0..n {
+                    choice_label_context.set_synchronised_component(
+                        i,
+                        modules[i].module_index,
+                        command_indices[i],
+                    );
+                }
+                self.choice_labels
+                    .label_choice(choice_index, &name, &choice_label_context);
 
                 let mut update_indices = vec![0; n];
 
