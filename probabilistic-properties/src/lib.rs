@@ -219,6 +219,58 @@ impl<I, F, E> Query<I, F, E> {
         }
     }
 
+    /// Returns a query where the integers, floats and expressions are stored as references.
+    pub fn as_ref(&self) -> Query<&I, &F, &E> {
+        match self {
+            Query::ProbabilityValue {
+                non_determinism,
+                path,
+            } => Query::ProbabilityValue {
+                non_determinism: *non_determinism,
+                path: path.as_ref(),
+            },
+            Query::StateFormula(formula) => Query::StateFormula(formula.as_ref()),
+            Query::RewardBound {
+                non_determinism,
+                name,
+                bound,
+                reward,
+            } => {
+                Query::RewardBound {
+                    non_determinism: *non_determinism,
+                    name: name.clone(), // TODO: Avoid cloning name here?
+                    bound: bound.as_ref(),
+                    reward: reward.as_ref(),
+                }
+            }
+            Query::RewardValue {
+                non_determinism,
+                name,
+                reward,
+            } => Query::RewardValue {
+                non_determinism: *non_determinism,
+                name: name.clone(),
+                reward: reward.as_ref(),
+            },
+            Query::TimeBound {
+                non_determinism,
+                bound,
+                reward,
+            } => Query::TimeBound {
+                non_determinism: *non_determinism,
+                bound: bound.as_ref(),
+                reward: reward.as_ref(),
+            },
+            Query::TimeValue {
+                non_determinism,
+                reward,
+            } => Query::TimeValue {
+                non_determinism: *non_determinism,
+                reward: reward.as_ref(),
+            },
+        }
+    }
+
     /// Maps the integer values of the query according to the given mapping function.
     pub fn map_i<I2, M: FnMut(I) -> I2>(self, map: &mut M) -> Query<I2, F, E> {
         self.try_map_i(&mut |ex| Result::<_, ()>::Ok(map(ex)))
@@ -526,6 +578,31 @@ impl<I, F, E> StateFormula<I, F, E> {
         }
     }
 
+    /// Returns a state formula where the integers, floats and expressions are stored as references.
+    pub fn as_ref(&self) -> StateFormula<&I, &F, &E> {
+        match self {
+            StateFormula::Expression(e) => StateFormula::Expression(e),
+            StateFormula::ProbabilityBound {
+                non_determinism,
+                bound,
+                path,
+            } => StateFormula::ProbabilityBound {
+                non_determinism: *non_determinism,
+                bound: bound.as_ref(),
+                path: Box::new(PathFormula::as_ref(path)),
+            },
+            StateFormula::LongRunAverage {
+                non_determinism,
+                bound,
+                states,
+            } => StateFormula::LongRunAverage {
+                non_determinism: non_determinism.clone(),
+                bound: bound.as_ref(),
+                states: Box::new(StateFormula::as_ref(states)),
+            },
+        }
+    }
+
     /// Maps the integer values of the state formula according to the given mapping function.
     pub fn map_i<I2, M: FnMut(I) -> I2>(self, map: &mut M) -> StateFormula<I2, F, E> {
         self.try_map_i(&mut |ex| Result::<_, ()>::Ok(map(ex)))
@@ -767,6 +844,35 @@ impl<I, F, E> PathFormula<I, F, E> {
         }
     }
 
+    /// Returns a path formula where the integers, floats and expressions are stored as references.
+    pub fn as_ref(&self) -> PathFormula<&I, &F, &E> {
+        match self {
+            PathFormula::Until { before, after } => PathFormula::Until {
+                before: Box::new(StateFormula::as_ref(before)),
+                after: Box::new(StateFormula::as_ref(after)),
+            },
+            PathFormula::Eventually { condition } => PathFormula::Eventually {
+                condition: Box::new(StateFormula::as_ref(condition)),
+            },
+            PathFormula::BoundedUntil {
+                before,
+                after,
+                bound,
+            } => PathFormula::BoundedUntil {
+                before: Box::new(StateFormula::as_ref(before)),
+                after: Box::new(StateFormula::as_ref(after)),
+                bound: bound.as_ref(),
+            },
+            PathFormula::BoundedEventually { condition, bound } => PathFormula::BoundedEventually {
+                condition: Box::new(StateFormula::as_ref(condition)),
+                bound: bound.as_ref(),
+            },
+            PathFormula::Generally { condition } => PathFormula::Generally {
+                condition: Box::new(StateFormula::as_ref(condition)),
+            },
+        }
+    }
+
     /// Maps the integer values of the path formula according to the given mapping function.
     pub fn map_i<I2, M: FnMut(I) -> I2>(self, map: &mut M) -> PathFormula<I2, F, E> {
         self.try_map_i(&mut |ex| Result::<_, ()>::Ok(map(ex)))
@@ -958,6 +1064,18 @@ impl<I, F, E> RewardFormula<I, F, E> {
         }
     }
 
+    /// Returns a reward formula where the integers, floats and expressions are stored as references.
+    pub fn as_ref(&self) -> RewardFormula<&I, &F, &E> {
+        match self {
+            RewardFormula::Instantaneous { k } => RewardFormula::Instantaneous { k },
+            RewardFormula::Cumulative { k } => RewardFormula::Cumulative { k },
+            RewardFormula::Finally { states: state } => RewardFormula::Finally {
+                states: state.as_ref(),
+            },
+            RewardFormula::LongRunAverage => RewardFormula::LongRunAverage,
+        }
+    }
+
     /// Maps the integer values of the reward formula according to the given mapping function.
     pub fn map_i<I2, M: FnMut(I) -> I2>(self, map: &mut M) -> RewardFormula<I2, F, E> {
         self.try_map_i(&mut |ex| Result::<_, ()>::Ok(map(ex)))
@@ -1087,6 +1205,14 @@ impl<V> Bound<V> {
         Bound {
             operator: self.operator,
             value: &mut self.value,
+        }
+    }
+
+    /// Returns a bound where the value is stored as a reference.
+    pub fn as_ref(&self) -> Bound<&V> {
+        Bound {
+            operator: self.operator,
+            value: &self.value,
         }
     }
 
