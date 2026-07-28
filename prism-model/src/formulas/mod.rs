@@ -152,6 +152,28 @@ impl<S: Span, E> FormulaManager<S, E> {
         self.formulas.get(index)
     }
 
+    /// Returns a mutable reference to the formula with the given `index`.
+    ///
+    /// If no formula with this index exists, returns `None`.
+    /// # Example
+    ///
+    /// ```
+    /// # use prism_model::{Expression, Formula, FormulaManager, Identifier};
+    /// let mut formulas: FormulaManager = FormulaManager::with_formulas(vec![
+    ///     Formula::new(Identifier::new("six").unwrap(), Expression::int(6)),
+    ///     Formula::new(Identifier::new("seven").unwrap(), Expression::int(7)),
+    /// ]).unwrap();
+    ///
+    /// assert!(formulas.get_mut(1).is_some());
+    /// assert!(formulas.get_mut (2).is_none());
+    /// if let Some(formula) = formulas.get_mut(0) {
+    ///     *formula = Formula::new(Identifier::new("eight").unwrap(), Expression::int(8));
+    /// }
+    /// ```
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut Formula<S, E>> {
+        self.formulas.get_mut(index)
+    }
+
     /// Adds a formula to the [`FormulaManager`].
     ///
     /// If a formula with this name already exists, returns [`FormulaExists`].

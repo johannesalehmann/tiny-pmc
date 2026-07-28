@@ -177,6 +177,33 @@ impl<S: Span, E> LabelManager<S, E> {
         self.labels.get(index)
     }
 
+    /// Returns a mutable reference to the formula with the given `index`.
+    ///
+    /// If no formula with this index exists, returns `None`.
+    /// # Example
+    ///
+    /// ```
+    /// # use prism_model::*;
+    /// let mut labels: LabelManager = LabelManager::with_labels(vec![
+    ///     Label::new(Identifier::new("ready").unwrap(), Expression::bool(true)),
+    ///     Label::new(Identifier::new("runing").unwrap(), Expression::bool(true)),
+    ///     Label::new(Identifier::new("done").unwrap(), Expression::bool(false)),
+    /// ]).unwrap();
+    ///
+    /// assert!(labels.get_mut(2).is_some());
+    /// assert!(labels.get_mut(3).is_none());
+    /// if let Some(label) = labels.get_mut(1) {
+    ///     // We can modify components of the label
+    ///     label.name = Identifier::new("running").unwrap();
+    ///     // or replace the entire label:
+    ///     *label = Label::new(Identifier::new("goal").unwrap(), Expression::bool(true));
+    /// }
+    ///
+    /// ```
+    pub fn get_mut(&mut self, index: usize) -> Option<&mut Label<S, E>> {
+        self.labels.get_mut(index)
+    }
+
     /// Returns the index of the label with the given `name`, or `None` if no such label exists.
     ///
     /// To retrieve the label itself by name, use [`LabelManager::by_name()`].

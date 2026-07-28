@@ -192,6 +192,13 @@ impl<S: Span, E> VariableManager<S, E> {
         self.variables.get(reference.index)
     }
 
+    /// Returns a mutable reference to details on the variable given a variable reference.
+    ///
+    /// See [`VariableManager::get()`] for more info.
+    pub fn get_mut(&mut self, reference: &VariableReference) -> Option<&mut VariableInfo<S, E>> {
+        self.variables.get_mut(reference.index)
+    }
+
     /// Returns details on the variable given a variable identifier.
     ///
     /// If the identifier is available as `&str`, use [`VariableManager::get_by_str()`] instead.
