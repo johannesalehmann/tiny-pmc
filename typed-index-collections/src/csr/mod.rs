@@ -7,7 +7,7 @@ use crate::index::RawIndex;
 use crate::{Index, IndexRange, SemiboundedIndexRange};
 use std::marker::PhantomData;
 
-#[derive(Default)]
+#[derive(Default, Debug, PartialEq, Eq, Clone)]
 pub struct Csr<From: Index, To: Index> {
     entries: Vec<To>,
     phantom_data: PhantomData<From>,
@@ -44,6 +44,11 @@ impl<From: Index, To: Index> Csr<From, To> {
         assert_eq!(from.raw().as_usize(), self.entries.len());
 
         self.entries.push(end_to);
+    }
+
+    // TODO: Unify between To1 and Csr how checked and unchecked adding works
+    pub fn add_entry_unchecked(&mut self, to: To) {
+        self.entries.push(to);
     }
 
     pub fn extend_last_entry(&mut self, new_to: To) {
@@ -95,6 +100,10 @@ impl<From: Index, To: Index> Csr<From, To> {
 
     pub fn ranges(&self) -> CsrRanges<'_, From, To> {
         CsrRanges::new(self)
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
     }
 }
 

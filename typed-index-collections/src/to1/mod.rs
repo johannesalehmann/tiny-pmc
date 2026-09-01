@@ -3,6 +3,7 @@ use crate::{Index, SemiboundedIndexRange};
 use std::marker::PhantomData;
 use std::ops::Range;
 
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct To1<From: Index, E> {
     entries: Vec<E>,
     _phantom_data: PhantomData<From>,
@@ -42,6 +43,10 @@ impl<From: Index, E> To1<From, E> {
         self.entries.len()
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
+    }
+
     pub fn get(&self, index: From) -> Option<&E> {
         self.entries.get(index.raw().as_usize())
     }
@@ -60,6 +65,13 @@ impl<From: Index, E> To1<From, E> {
         let index = From::from_raw(From::RawType::from_usize(self.entries.len()));
         self.entries.push(element);
         index
+    }
+
+    pub fn fill(&mut self, value: E)
+    where
+        E: Clone,
+    {
+        self.entries.fill(value);
     }
 
     pub fn take(mut self, index: From) -> Option<E> {
