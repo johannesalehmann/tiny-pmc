@@ -138,7 +138,37 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
         }
         is_trivial
     }
+
+    pub fn reverse_topological_ordering(&self) -> impl Iterator<Item = ScI> {
+        ReverseTopologicalOrderIterator {
+            current: self.sccs.keys().end(),
+        }
+    }
 }
+
+pub struct ReverseTopologicalOrderIterator<ScI: Index> {
+    current: ScI,
+}
+
+impl<ScI: Index> Iterator for ReverseTopologicalOrderIterator<ScI> {
+    type Item = ScI;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        if self.current.raw().as_usize() > 0 {
+            self.current -= ScI::RawType::one();
+            Some(self.current)
+        } else {
+            None
+        }
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let size = self.current.raw().as_usize();
+        (size, Some(size))
+    }
+}
+
+impl<ScI: Index> ExactSizeIterator for ReverseTopologicalOrderIterator<ScI> {}
 
 #[cfg(test)]
 mod tests {
@@ -347,5 +377,15 @@ mod tests {
             sccs.is_trivial,
             To1::with_entries(vec![false, true, false, false])
         );
+
+        assert_eq!(
+            sccs.reverse_topological_ordering().collect::<Vec<_>>(),
+            vec![
+                SccIndex::from_raw(3),
+                SccIndex::from_raw(2),
+                SccIndex::from_raw(1),
+                SccIndex::from_raw(0),
+            ]
+        )
     }
 }
