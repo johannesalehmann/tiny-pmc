@@ -18,6 +18,9 @@ pub use initial_state::ReadInitialStates;
 mod state_specifier;
 pub use state_specifier::StateSet;
 
+mod atomic_propositions;
+pub use atomic_propositions::ReadAtomicPropositions;
+
 mod valuations;
 pub use valuations::ReadValuations;
 
@@ -37,15 +40,4 @@ pub trait ReadStateSpace {
 
     fn branch_probability(&self, branch: Self::BranchIdx) -> f64;
     fn branch_destination(&self, branch: Self::BranchIdx) -> Self::StateIdx;
-}
-
-pub trait ReadAtomicPropositions {
-    type StateIdx: Index;
-    type AnnotationIdx: Index;
-
-    fn is_atomic_proposition_set(
-        &self,
-        state: Self::StateIdx,
-        atomic_proposition: Self::AnnotationIdx,
-    ) -> bool;
 }

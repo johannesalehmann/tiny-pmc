@@ -4,7 +4,7 @@ pub use index_range::{IndexRange, IndexRangeIterator, SemiboundedIndexRange};
 use num_integer::Integer;
 use num_traits::PrimInt;
 use std::fmt::{Debug, Display};
-use std::ops::{Add, AddAssign, Div, Mul, Sub};
+use std::ops::{Add, AddAssign, Div, Mul, Sub, SubAssign};
 
 pub trait RawIndex:
     Integer + PrimInt + Copy + Sub<Output = Self> + Display + Default + Debug + Ord
@@ -74,6 +74,7 @@ pub trait Index:
     + Mul<Self::RawType, Output = Self>
     + Div<Self::RawType, Output = Self>
     + AddAssign<Self::RawType>
+    + SubAssign<Self::RawType>
     + Ord
 {
     type RawType: RawIndex;
@@ -129,6 +130,12 @@ macro_rules! index {
             fn sub(self, rhs: Raw) -> Self::Output {
                 use typed_index_collections::Index;
                 Self::from_raw(self.raw - rhs)
+            }
+        }
+
+        impl<Raw: typed_index_collections::RawIndex> std::ops::SubAssign<Raw> for $name<Raw> {
+            fn sub_assign(&mut self, rhs: Raw) {
+                self.raw = self.raw - rhs
             }
         }
 

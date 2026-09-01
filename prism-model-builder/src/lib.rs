@@ -172,7 +172,7 @@ impl<
     }
 
     pub fn build(
-        mut self,
+        self,
     ) -> Queries::OutputType<
         probabilistic_models::Model<
             Base::BaseModel,

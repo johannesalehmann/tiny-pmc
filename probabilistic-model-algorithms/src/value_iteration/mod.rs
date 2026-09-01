@@ -1,164 +1,64 @@
-pub mod mdp;
-pub mod stochastic_games;
+use crate::buffer::ZeroedBuffer;
+use crate::sccs::{ExclusionList, SccEntryIndex, SccIndex, Sccs};
+use probabilistic_models::traits::{ReadAtomicPropositions, ReadPredecessors, ReadStateSpace};
+use probabilistic_models::typed_index_collections::To1;
 
-use crate::sccs::{Scc, SccList};
-use probabilistic_models::{
-    ActionCollection, Distribution, Owners, ProbabilisticModel, SinglePlayer, TwoPlayer, Valuation,
-};
-
-trait ValueComparator<O: Owners>: Copy {
-    fn initial_value(&self, state_owner: &O) -> f64;
-    fn is_better(&self, state_owner: &O, before: f64, new: f64) -> bool;
-}
-
-#[derive(Copy, Clone)]
-struct Maximiser {}
-
-impl ValueComparator<SinglePlayer> for Maximiser {
-    fn initial_value(&self, state_owner: &SinglePlayer) -> f64 {
-        let _ = state_owner;
-        0.0
-    }
-
-    fn is_better(&self, state_owner: &SinglePlayer, before: f64, new: f64) -> bool {
-        let _ = state_owner;
-        new >= before
-    }
-}
-
-#[derive(Copy, Clone)]
-struct Minimiser {}
-
-impl ValueComparator<SinglePlayer> for Minimiser {
-    fn initial_value(&self, state_owner: &SinglePlayer) -> f64 {
-        let _ = state_owner;
-        f64::MAX
-    }
-
-    fn is_better(&self, state_owner: &SinglePlayer, before: f64, new: f64) -> bool {
-        let _ = state_owner;
-        new <= before
-    }
-}
-
-#[derive(Copy, Clone)]
-struct TwoPlayerMaxMin {}
-
-impl ValueComparator<TwoPlayer> for TwoPlayerMaxMin {
-    fn initial_value(&self, state_owner: &TwoPlayer) -> f64 {
-        match state_owner {
-            TwoPlayer::PlayerOne => 0.0,
-            TwoPlayer::PlayerTwo => 1.0,
-        }
-    }
-
-    fn is_better(&self, state_owner: &TwoPlayer, before: f64, new: f64) -> bool {
-        match state_owner {
-            TwoPlayer::PlayerOne => new >= before,
-            TwoPlayer::PlayerTwo => new <= before,
-        }
-    }
-}
-
-fn value_iteration_internal<
-    M: probabilistic_models::ModelTypes,
-    SCC: Scc,
-    C: ValueComparator<M::Owners>,
+pub fn value_iteration<
+    M: ReadStateSpace
+        + ReadAtomicPropositions<StateIdx = <M as ReadStateSpace>::StateIdx>
+        + ReadPredecessors<StateIdx = <M as ReadStateSpace>::StateIdx>,
 >(
-    model: &ProbabilisticModel<M>,
-    data: &mut Vec<StateData>,
+    model: &M,
+    goal: <M as ReadAtomicPropositions>::AnnotationIdx,
     eps: f64,
-    sccs: &SccList<SCC>,
-    scc_order: &[usize],
-    comparator: C,
-) {
-    let print_details = false;
-    if print_details {
-        println!("Value iteration");
+) -> To1<<M as ReadStateSpace>::StateIdx, f64> {
+    let buffer = ZeroedBuffer::new(model.states().len());
+    let mut values = buffer.into_values();
+
+    let target_states = model
+        .states()
+        .into_iter()
+        .filter(|s| model.is_atomic_proposition_set(*s, goal))
+        .collect::<Vec<_>>();
+
+    for &target_state in &target_states {
+        values[target_state] = 1.0;
     }
-    for &scc in scc_order {
-        if print_details {
-            println!(
-                "  Scc {} with states {:?}",
-                scc,
-                sccs.sccs[scc].get_members()
-            );
-        }
+    let excluded = ExclusionList::new(&target_states);
+
+    // TODO: Adapt these types to those used for state indices in the model
+    let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> = Sccs::compute(model, &excluded);
+
+    for scc_index in sccs.reverse_topological_ordering() {
         loop {
-            let mut largest_change: f64 = 0.0;
-            for &state_index in sccs.sccs[scc].get_members() {
-                if print_details {
-                    println!(
-                        "      State {}",
-                        model.states[state_index]
-                            .valuation
-                            .displayable(&model.valuation_context),
-                    );
-                }
-                let state = &model.states[state_index];
-                let owner = &state.owner;
+            let mut largest_change = 0.0;
+            for entry in sccs.entries(scc_index) {
+                let state = sccs.entry_to_state(entry);
 
-                let mut best_value = comparator.initial_value(owner);
-                let mut best_action = 0;
-
-                for (action_index, action) in state.actions.iter().enumerate() {
-                    if print_details {
-                        println!("        Action {}", action_index);
-                    }
-                    let distribution = &action.successors;
+                let mut best_value = 0.0;
+                for choice in model.choices_of_state(state) {
                     let mut value = 0.0;
-                    for successor in distribution.iter() {
-                        if print_details {
-                            println!(
-                                "          to {} with {}, has value {}",
-                                model.states[successor.index]
-                                    .valuation
-                                    .displayable(&model.valuation_context),
-                                successor.probability,
-                                data[successor.index].value
-                            );
-                        }
-                        value += successor.probability * data[successor.index].value;
+                    for branch in model.branches_of_choice(choice) {
+                        value += model.branch_probability(branch)
+                            * values[model.branch_destination(branch)];
                     }
-                    if comparator.is_better(owner, best_value, value) {
+                    if value >= best_value {
                         best_value = value;
-                        best_action = action_index;
                     }
                 }
 
-                let state_data = &mut data[state_index];
-                let absolute_error = best_value - state_data.value;
+                let absolute_error = best_value - values[state];
                 let relative_error = absolute_error / best_value;
                 if relative_error > largest_change {
                     largest_change = relative_error;
                 }
-                if print_details {
-                    println!("      {} -> {}", state_data.value, best_value);
-                }
-                *state_data = StateData {
-                    value: best_value,
-                    action: best_action,
-                };
+                values[state] = best_value;
             }
             if largest_change < eps {
                 break;
             }
         }
     }
-}
 
-#[derive(Copy, Clone)]
-struct StateData {
-    value: f64,
-    #[allow(unused)]
-    action: usize,
-}
-
-impl StateData {
-    pub fn new() -> Self {
-        Self {
-            value: 0.0,
-            action: 0,
-        }
-    }
+    values
 }

@@ -1,5 +1,6 @@
 use clap::Parser;
 use prism_model_builder::ModelBuildingError;
+use probabilistic_models::PredecessorIndex;
 use probabilistic_models::traits::ReadStateSpace;
 use tiny_pmc::CheckerError;
 use tiny_pmc::parsing::ConstParsingError;
@@ -54,13 +55,16 @@ fn checker() -> Result<(), ModelCheckerError> {
     model.lab_file().write_to_file("model.lab").unwrap();
     println!("Wrote files to `model.tra`, `model.sta` and `model.lab`");
 
+    let model = model.compute_predecessors::<PredecessorIndex<usize>>();
+
     if properties.len() > 1 {
         panic!("Checking multiple properties is temporarily unsupported");
     }
-    // for (i, property) in properties.iter().enumerate() {
-    println!("Checking property {} of {}", 0 + 1, properties.len());
-    // tiny_pmc::checking::check(model, properties[0].clone())?;
-    // }
+    for (i, property) in properties.iter().enumerate() {
+        println!("Checking property {} of {}", i + 1, properties.len());
+        let result = tiny_pmc::checking::check(&model, property.clone())?; // TODO: Avoid cloning here?
+        println!("    Result: {result}")
+    }
 
     println!("Finished in {:?}", start_time.elapsed());
     Ok(())

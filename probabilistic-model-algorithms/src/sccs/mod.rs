@@ -4,6 +4,7 @@ use probabilistic_models::{Index, RawIndex};
 
 mod exclusion_criterion;
 pub use exclusion_criterion::*;
+use typed_index_collections::IndexRange;
 
 index!(SccIndex);
 index!(SccEntryIndex);
@@ -143,6 +144,17 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
         ReverseTopologicalOrderIterator {
             current: self.sccs.keys().end(),
         }
+    }
+
+    // TODO: This interface is not super ergonomic. Once composing CSRs and To1s is possible,
+    //  such a composition could be used to directly yield state indices. Currently, this is not
+    //  possible without either a custom iterator or allocating
+    pub fn entries(&self, scc: ScI) -> IndexRange<ScEI> {
+        self.sccs.index(scc)
+    }
+
+    pub fn entry_to_state(&self, entry: ScEI) -> SI {
+        self.scc_entries[entry]
     }
 }
 

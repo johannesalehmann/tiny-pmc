@@ -5,3 +5,4 @@ edition = "2024"
 
 [dependencies]
 probabilistic-models = { path = "../probabilistic-models" }
+typed-index-collections = { path = "../typed-index-collections" }
