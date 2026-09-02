@@ -43,6 +43,9 @@ impl<SI: Index, CI: Index> ReadStateSpace for TransitionSystem<SI, CI> {
     fn branch_destination(&self, branch: Self::BranchIdx) -> Self::StateIdx {
         self.choice_destination[branch]
     }
+
+    // TODO: Create specialised implementation of successors_of_state (and refer to this in
+    //  `NonstochasticGame`)
 }
 
 impl<SI: Index, CI: Index> BaseModel for TransitionSystem<SI, CI> {}

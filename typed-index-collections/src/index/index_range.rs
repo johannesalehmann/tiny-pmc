@@ -124,6 +124,15 @@ pub struct IndexRangeIterator<Idx: Index> {
     length: Idx,
 }
 
+impl<Idx: Index> IndexRangeIterator<Idx> {
+    pub fn empty() -> Self {
+        Self {
+            next: Idx::from_raw(Idx::RawType::zero()),
+            length: Idx::from_raw(Idx::RawType::zero()),
+        }
+    }
+}
+
 impl<Idx: Index> Iterator for IndexRangeIterator<Idx> {
     type Item = Idx;
 
