@@ -47,8 +47,10 @@ impl<From: Index, To: Index> Csr<From, To> {
     }
 
     // TODO: Unify between To1 and Csr how checked and unchecked adding works
-    pub fn add_entry_unchecked(&mut self, to: To) {
+    pub fn add_entry_unchecked(&mut self, to: To) -> From {
+        let index = self.keys().end();
         self.entries.push(to);
+        index
     }
 
     pub fn extend_last_entry(&mut self, new_to: To) {

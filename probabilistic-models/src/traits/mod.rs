@@ -43,6 +43,45 @@ pub trait ReadStateSpace {
     fn branch_destination(&self, branch: Self::BranchIdx) -> Self::StateIdx;
 }
 
+macro_rules! derive_read_state_space {
+    ($subcomponent:ident) => {
+        fn states(&self) -> typed_index_collections::SemiboundedIndexRange<Self::StateIdx> {
+            self.$subcomponent.states()
+        }
+
+        fn choices(&self) -> typed_index_collections::SemiboundedIndexRange<Self::ChoiceIdx> {
+            self.$subcomponent.choices()
+        }
+
+        fn branches(&self) -> typed_index_collections::SemiboundedIndexRange<Self::BranchIdx> {
+            self.$subcomponent.branches()
+        }
+
+        fn choices_of_state(
+            &self,
+            state: Self::StateIdx,
+        ) -> typed_index_collections::IndexRange<Self::ChoiceIdx> {
+            self.$subcomponent.choices_of_state(state)
+        }
+
+        fn branches_of_choice(
+            &self,
+            choice: Self::ChoiceIdx,
+        ) -> typed_index_collections::IndexRange<Self::BranchIdx> {
+            self.$subcomponent.branches_of_choice(choice)
+        }
+
+        fn branch_probability(&self, branch: Self::BranchIdx) -> f64 {
+            self.$subcomponent.branch_probability(branch)
+        }
+
+        fn branch_destination(&self, branch: Self::BranchIdx) -> Self::StateIdx {
+            self.$subcomponent.branch_destination(branch)
+        }
+    };
+}
+pub(crate) use derive_read_state_space;
+
 impl<M: ReadStateSpace, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds> ReadStateSpace
     for crate::Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>
 {
@@ -50,31 +89,5 @@ impl<M: ReadStateSpace, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Pr
     type ChoiceIdx = <M as ReadStateSpace>::ChoiceIdx;
     type BranchIdx = <M as ReadStateSpace>::BranchIdx;
 
-    fn states(&self) -> SemiboundedIndexRange<Self::StateIdx> {
-        self.base.states()
-    }
-
-    fn choices(&self) -> SemiboundedIndexRange<Self::ChoiceIdx> {
-        self.base.choices()
-    }
-
-    fn branches(&self) -> SemiboundedIndexRange<Self::BranchIdx> {
-        self.base.branches()
-    }
-
-    fn choices_of_state(&self, state: Self::StateIdx) -> IndexRange<Self::ChoiceIdx> {
-        self.base.choices_of_state(state)
-    }
-
-    fn branches_of_choice(&self, choice: Self::ChoiceIdx) -> IndexRange<Self::BranchIdx> {
-        self.base.branches_of_choice(choice)
-    }
-
-    fn branch_probability(&self, branch: Self::BranchIdx) -> f64 {
-        self.base.branch_probability(branch)
-    }
-
-    fn branch_destination(&self, branch: Self::BranchIdx) -> Self::StateIdx {
-        self.base.branch_destination(branch)
-    }
+    derive_read_state_space!(base);
 }
