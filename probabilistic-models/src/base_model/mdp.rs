@@ -1,6 +1,8 @@
 use crate::choices::{ChoiceToBranch, StateToChoice};
 use crate::{BranchIndex, ChoiceIndex, StateIndex};
-use typed_index_collections::{ChainedCsrIter, Csr, CsrIterator, Index, RawIndex, To1};
+use typed_index_collections::{
+    ChainedCsrIter, Csr, CsrIterator, Index, IndexRange, RawIndex, SemiboundedIndexRange, To1,
+};
 
 #[derive(Default)]
 pub struct Mdp<StateIdx: Index, ChoiceIdx: Index, BranchIdx: Index> {
@@ -8,6 +10,42 @@ pub struct Mdp<StateIdx: Index, ChoiceIdx: Index, BranchIdx: Index> {
     pub choice_to_branch: ChoiceToBranch<ChoiceIdx, BranchIdx>,
     pub branch_probabilities: To1<BranchIdx, f64>,
     pub branch_destinations: To1<BranchIdx, StateIdx>,
+}
+
+impl<StateIdx: Index, ChoiceIdx: Index, BranchIdx: Index> super::ReadStateSpace
+    for Mdp<StateIdx, ChoiceIdx, BranchIdx>
+{
+    type StateIdx = StateIdx;
+    type ChoiceIdx = ChoiceIdx;
+    type BranchIdx = BranchIdx;
+
+    fn states(&self) -> SemiboundedIndexRange<Self::StateIdx> {
+        self.state_to_choice.keys()
+    }
+
+    fn choices(&self) -> SemiboundedIndexRange<Self::ChoiceIdx> {
+        self.choice_to_branch.keys()
+    }
+
+    fn branches(&self) -> SemiboundedIndexRange<Self::BranchIdx> {
+        self.choice_to_branch.values()
+    }
+
+    fn choices_of_state(&self, state: Self::StateIdx) -> IndexRange<Self::ChoiceIdx> {
+        self.state_to_choice.index(state)
+    }
+
+    fn branches_of_choice(&self, choice: Self::ChoiceIdx) -> IndexRange<Self::BranchIdx> {
+        self.choice_to_branch.index(choice)
+    }
+
+    fn branch_probability(&self, branch: Self::BranchIdx) -> f64 {
+        self.branch_probabilities[branch]
+    }
+
+    fn branch_destination(&self, branch: Self::BranchIdx) -> Self::StateIdx {
+        self.branch_destinations[branch]
+    }
 }
 
 impl<StateIdx: Index, ChoiceIdx: Index, BranchIdx: Index> super::BaseModel

@@ -39,24 +39,37 @@ pub fn check<
         Query::ProbabilityValue {
             non_determinism,
             path,
-        } => match non_determinism {
-            Some(NonDeterminismKind::Maximise) => match path {
+        } => {
+            let non_determinism = match non_determinism {
+                None => {
+                    panic!("Non-determinism must be specified explicitly")
+                }
+                Some(non_determinism) => non_determinism,
+            };
+            match path {
                 PathFormula::Eventually { condition } => {
                     if let StateFormula::Expression(e) = &*condition {
-                        let values =
-                            probabilistic_model_algorithms::value_iteration::value_iteration(
-                                model, *e, 0.0000001,
-                            );
+                        let eps = 0.000001;
+                        let values = match non_determinism {
+                            NonDeterminismKind::Maximise => {
+                                probabilistic_model_algorithms::value_iteration::value_iteration_max(
+                                    model, *e, eps,
+                                )
+                            }
+                            NonDeterminismKind::Minimise => {
+                                probabilistic_model_algorithms::value_iteration::value_iteration_min(
+                                    model, *e, eps,
+                                )
+                            }
+                        };
                         Ok(values[initial_state])
                     } else {
                         Err(CheckerError::NoSuitableAlgorithm)
                     }
                 }
                 _ => Err(CheckerError::NoSuitableAlgorithm),
-            },
-            Some(NonDeterminismKind::Minimise) => Err(CheckerError::NoSuitableAlgorithm),
-            None => Err(CheckerError::NoSuitableAlgorithm),
-        },
+            }
+        }
         Query::StateFormula(_) => Err(CheckerError::NoSuitableAlgorithm),
         Query::RewardBound { .. } => Err(CheckerError::NoSuitableAlgorithm),
         Query::RewardValue { .. } => Err(CheckerError::NoSuitableAlgorithm),

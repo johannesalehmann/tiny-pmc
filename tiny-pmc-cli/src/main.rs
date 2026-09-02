@@ -50,10 +50,10 @@ fn checker() -> Result<(), ModelCheckerError> {
 
     println!("Model has {} states", model.states().len());
 
-    model.tra_file().write_to_file("model.tra").unwrap();
-    model.sta_file().write_to_file("model.sta").unwrap();
-    model.lab_file().write_to_file("model.lab").unwrap();
-    println!("Wrote files to `model.tra`, `model.sta` and `model.lab`");
+    // model.tra_file().write_to_file("model.tra").unwrap();
+    // model.sta_file().write_to_file("model.sta").unwrap();
+    // model.lab_file().write_to_file("model.lab").unwrap();
+    // println!("Wrote files to `model.tra`, `model.sta` and `model.lab`");
 
     let model = model.compute_predecessors::<PredecessorIndex<usize>>();
 
