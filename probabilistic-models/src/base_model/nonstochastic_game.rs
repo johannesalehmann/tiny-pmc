@@ -21,11 +21,7 @@ impl<StateIdx: Index, ChoiceIdx: Index> super::ReadStateSpace
     derive_read_state_space!(base_transition_system);
 }
 
-impl<SI: Index, CI: Index> BaseModel for NonstochasticGame<SI, CI> {
-    type StateIndex = SI;
-    type ChoiceIndex = CI;
-    type BranchIndex = CI;
-}
+impl<SI: Index, CI: Index> BaseModel for NonstochasticGame<SI, CI> {}
 
 impl NonstochasticGame<StateIndex<usize>, ChoiceIndex<usize>> {
     pub fn with_default_types() -> Self {

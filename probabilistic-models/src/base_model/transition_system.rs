@@ -45,11 +45,7 @@ impl<SI: Index, CI: Index> ReadStateSpace for TransitionSystem<SI, CI> {
     }
 }
 
-impl<SI: Index, CI: Index> BaseModel for TransitionSystem<SI, CI> {
-    type StateIndex = SI;
-    type ChoiceIndex = CI;
-    type BranchIndex = CI;
-}
+impl<SI: Index, CI: Index> BaseModel for TransitionSystem<SI, CI> {}
 
 impl TransitionSystem<StateIndex<usize>, ChoiceIndex<usize>> {
     pub fn with_default_types() -> Self {

@@ -12,8 +12,8 @@ impl<M: BaseModel, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Preds>
 {
     pub fn with_initial_state(
         self,
-        initial: M::StateIndex,
-    ) -> Model<M, SingleInitialState<M::StateIndex>, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Preds>
+        initial: M::StateIdx,
+    ) -> Model<M, SingleInitialState<M::StateIdx>, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Preds>
     {
         Model {
             base: self.base,
@@ -30,8 +30,8 @@ impl<M: BaseModel, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Preds>
     }
     pub fn with_initial_states(
         self,
-        initial: InitialStates<M::StateIndex>,
-    ) -> Model<M, InitialStates<M::StateIndex>, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Preds>
+        initial: InitialStates<M::StateIdx>,
+    ) -> Model<M, InitialStates<M::StateIdx>, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Preds>
     {
         Model {
             base: self.base,
@@ -49,7 +49,7 @@ impl<M: BaseModel, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Preds>
 }
 
 impl<M: BaseModel, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val, Preds>
-    Model<M, SingleInitialState<M::StateIndex>, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val, Preds>
+    Model<M, SingleInitialState<M::StateIdx>, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val, Preds>
 {
     pub fn without_initial_states(
         self,
@@ -70,7 +70,7 @@ impl<M: BaseModel, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val, Preds>
 }
 
 impl<M: BaseModel, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val, Preds>
-    Model<M, InitialStates<M::StateIndex>, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val, Preds>
+    Model<M, InitialStates<M::StateIdx>, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val, Preds>
 {
     pub fn without_initial_states(
         self,

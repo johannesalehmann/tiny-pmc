@@ -25,9 +25,6 @@ impl<StateIdx: Index, ChoiceIdx: Index, BranchIdx: Index> super::ReadStateSpace
 impl<StateIdx: Index, ChoiceIdx: Index, BranchIdx: Index> super::BaseModel
     for TwoPlayerTurnBasedGame<StateIdx, ChoiceIdx, BranchIdx>
 {
-    type StateIndex = StateIdx;
-    type ChoiceIndex = ChoiceIdx;
-    type BranchIndex = BranchIdx;
 }
 
 impl TwoPlayerTurnBasedGame<StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>> {
