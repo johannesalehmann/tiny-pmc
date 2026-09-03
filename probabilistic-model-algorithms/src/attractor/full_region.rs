@@ -1,24 +1,26 @@
 use super::{AttractorBuffer, AttractorCondition};
-use crate::regions::MutableStateRegion;
-use probabilistic_models::{ProbabilisticModel, TwoPlayer, VectorPredecessors};
+use probabilistic_models::owners::TwoPlayer;
+use probabilistic_models::traits::{ReadOwners, ReadPredecessors, ReadStateSpace};
+use typed_index_collections::{Index, To1};
 
-struct FullRegionAttractorCondition<R: MutableStateRegion> {
-    result: R,
+struct FullRegionAttractorCondition<StateIdx: Index> {
+    result: To1<StateIdx, bool>,
 }
 
-impl<R: MutableStateRegion> FullRegionAttractorCondition<R> {
+impl<StateIdx: Index> FullRegionAttractorCondition<StateIdx> {
     pub fn new(model_size: usize) -> Self {
         Self {
-            result: R::create(model_size),
+            result: To1::with_entries(vec![false; model_size]),
         }
     }
 }
 
-impl<R: MutableStateRegion> AttractorCondition for FullRegionAttractorCondition<R> {
-    type Output = R;
+impl<StateIdx: Index> AttractorCondition for FullRegionAttractorCondition<StateIdx> {
+    type StateIdx = StateIdx;
+    type Output = To1<StateIdx, bool>;
 
-    fn state_attracted(&mut self, index: usize) -> Option<Self::Output> {
-        self.result.add_state(index);
+    fn state_attracted(&mut self, index: StateIdx) -> Option<Self::Output> {
+        self.result[index] = true;
         None
     }
 
@@ -28,35 +30,44 @@ impl<R: MutableStateRegion> AttractorCondition for FullRegionAttractorCondition<
 }
 
 pub fn attractor<
-    M: probabilistic_models::ModelTypes<Predecessors = VectorPredecessors, Owners = TwoPlayer>,
-    R1: Iterator<Item = usize>,
-    R2: MutableStateRegion,
+    M: ReadStateSpace
+        + ReadOwners<StateIdx = <M as ReadStateSpace>::StateIdx, OwnerType = TwoPlayer>
+        + ReadPredecessors<
+            StateIdx = <M as ReadStateSpace>::StateIdx,
+            ChoiceIdx = <M as ReadStateSpace>::ChoiceIdx,
+            BranchIdx = <M as ReadStateSpace>::BranchIdx,
+        >,
+    R1: Iterator<Item = <M as ReadStateSpace>::StateIdx>,
 >(
-    model: &ProbabilisticModel<M>,
+    model: &M,
     region: R1,
     attracted_player: TwoPlayer,
-) -> R2 {
+) -> To1<<M as ReadStateSpace>::StateIdx, bool> {
     super::attractor_internal(
         model,
         region,
-        FullRegionAttractorCondition::new(model.states.len()),
+        FullRegionAttractorCondition::new(model.states().len()),
         attracted_player,
     )
 }
 
 pub fn attractor_with_buffer<
-    M: probabilistic_models::ModelTypes<Predecessors = VectorPredecessors, Owners = TwoPlayer>,
-    R1: Iterator<Item = usize>,
-    R2: MutableStateRegion,
+    M: ReadStateSpace
+        + ReadPredecessors<
+            StateIdx = <M as ReadStateSpace>::StateIdx,
+            ChoiceIdx = <M as ReadStateSpace>::ChoiceIdx,
+            BranchIdx = <M as ReadStateSpace>::BranchIdx,
+        >,
+    R1: Iterator<Item = <M as ReadStateSpace>::StateIdx>,
 >(
-    model: &ProbabilisticModel<M>,
+    model: &M,
     region: R1,
-    buffer: &mut AttractorBuffer,
-) -> R2 {
+    buffer: &mut AttractorBuffer<<M as ReadStateSpace>::StateIdx>,
+) -> To1<<M as ReadStateSpace>::StateIdx, bool> {
     super::attractor_internal_with_buffer(
         model,
         region,
-        FullRegionAttractorCondition::new(model.states.len()),
+        FullRegionAttractorCondition::new(model.states().len()),
         buffer,
     )
 }

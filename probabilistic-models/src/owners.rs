@@ -3,7 +3,7 @@ pub enum SinglePlayer {
     SinglePlayer,
 }
 
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, PartialEq, Eq)]
 pub enum TwoPlayer {
     Eve,
     Adam,

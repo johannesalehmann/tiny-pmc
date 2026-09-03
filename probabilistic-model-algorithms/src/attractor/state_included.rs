@@ -1,20 +1,23 @@
 use super::{AttractorBuffer, AttractorCondition};
-use probabilistic_models::{ProbabilisticModel, TwoPlayer, VectorPredecessors};
+use probabilistic_models::owners::TwoPlayer;
+use probabilistic_models::traits::{ReadOwners, ReadPredecessors, ReadStateSpace};
+use typed_index_collections::Index;
 
-struct StateIncludedCondition {
-    state: usize,
+struct StateIncludedCondition<StateIdx: Index> {
+    state: StateIdx,
 }
 
-impl StateIncludedCondition {
-    pub fn new(state: usize) -> Self {
+impl<StateIdx: Index> StateIncludedCondition<StateIdx> {
+    pub fn new(state: StateIdx) -> Self {
         Self { state }
     }
 }
 
-impl AttractorCondition for StateIncludedCondition {
+impl<StateIdx: Index> AttractorCondition for StateIncludedCondition<StateIdx> {
+    type StateIdx = StateIdx;
     type Output = bool;
 
-    fn state_attracted(&mut self, index: usize) -> Option<Self::Output> {
+    fn state_attracted(&mut self, index: StateIdx) -> Option<Self::Output> {
         if index == self.state {
             Some(true)
         } else {
@@ -28,12 +31,18 @@ impl AttractorCondition for StateIncludedCondition {
 }
 
 pub fn attractor_contains_state<
-    M: probabilistic_models::ModelTypes<Predecessors = VectorPredecessors, Owners = TwoPlayer>,
-    R1: Iterator<Item = usize>,
+    M: ReadStateSpace
+        + ReadOwners<StateIdx = <M as ReadStateSpace>::StateIdx, OwnerType = TwoPlayer>
+        + ReadPredecessors<
+            StateIdx = <M as ReadStateSpace>::StateIdx,
+            ChoiceIdx = <M as ReadStateSpace>::ChoiceIdx,
+            BranchIdx = <M as ReadStateSpace>::BranchIdx,
+        >,
+    R1: Iterator<Item = <M as ReadStateSpace>::StateIdx>,
 >(
-    model: &ProbabilisticModel<M>,
+    model: &M,
     region: R1,
-    state: usize,
+    state: <M as ReadStateSpace>::StateIdx,
     attracted_player: TwoPlayer,
 ) -> bool {
     super::attractor_internal(
@@ -45,13 +54,18 @@ pub fn attractor_contains_state<
 }
 
 pub fn attractor_contains_state_with_buffer<
-    M: probabilistic_models::ModelTypes<Predecessors = VectorPredecessors, Owners = TwoPlayer>,
-    R1: Iterator<Item = usize>,
+    M: ReadStateSpace
+        + ReadPredecessors<
+            StateIdx = <M as ReadStateSpace>::StateIdx,
+            ChoiceIdx = <M as ReadStateSpace>::ChoiceIdx,
+            BranchIdx = <M as ReadStateSpace>::BranchIdx,
+        >,
+    R1: Iterator<Item = <M as ReadStateSpace>::StateIdx>,
 >(
-    model: &ProbabilisticModel<M>,
+    model: &M,
     region: R1,
-    state: usize,
-    buffer: &mut AttractorBuffer,
+    state: <M as ReadStateSpace>::StateIdx,
+    buffer: &mut AttractorBuffer<<M as ReadStateSpace>::StateIdx>,
 ) -> bool {
     super::attractor_internal_with_buffer(model, region, StateIncludedCondition::new(state), buffer)
 }
