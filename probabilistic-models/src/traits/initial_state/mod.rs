@@ -12,6 +12,19 @@ pub trait ReadInitialStates {
     fn initial_states(&self) -> impl StateSet<Self::StateIdx>;
 }
 
+macro_rules! derive_read_initial_states {
+    ($subcomponent:ident) => {
+        fn is_initial(&self, state: Self::StateIdx) -> bool {
+            self.$subcomponent.is_initial(state)
+        }
+
+        fn initial_states(&self) -> impl $crate::traits::StateSet<Self::StateIdx> {
+            self.$subcomponent.initial_states()
+        }
+    };
+}
+pub(crate) use derive_read_initial_states;
+
 impl<StateIdx: Index> ReadInitialStates for SingleInitialState<StateIdx> {
     type StateIdx = StateIdx;
     type InitialStatesIterator<'a>
@@ -56,11 +69,5 @@ impl<M, Ini: ReadInitialStates, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals,
     where
         Self: 'a;
 
-    fn is_initial(&self, state: Self::StateIdx) -> bool {
-        self.initial.is_initial(state)
-    }
-
-    fn initial_states(&self) -> impl StateSet<Self::StateIdx> {
-        self.initial.initial_states()
-    }
+    derive_read_initial_states!(initial);
 }

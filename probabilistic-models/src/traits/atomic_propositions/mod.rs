@@ -13,6 +13,20 @@ pub trait ReadAtomicPropositions {
     ) -> bool;
 }
 
+macro_rules! derive_read_atomic_propositions {
+    ($subcomponent:ident) => {
+        fn is_atomic_proposition_set(
+            &self,
+            state: Self::StateIdx,
+            atomic_proposition: Self::APIdx,
+        ) -> bool {
+            self.$subcomponent
+                .is_atomic_proposition_set(state, atomic_proposition)
+        }
+    };
+}
+pub(crate) use derive_read_atomic_propositions;
+
 impl<AI: Index, SI: Index, AEI: Index> ReadAtomicPropositions for AtomicPropositions<AI, SI, AEI> {
     type StateIdx = SI;
     type APIdx = AI;
@@ -33,12 +47,5 @@ impl<M, Ini, ChLabel, BrLabel, Obs, APs: ReadAtomicPropositions, Rew, Ann, State
     type StateIdx = APs::StateIdx;
     type APIdx = APs::APIdx;
 
-    fn is_atomic_proposition_set(
-        &self,
-        state: Self::StateIdx,
-        atomic_proposition: Self::APIdx,
-    ) -> bool {
-        self.atomic_propositions
-            .is_atomic_proposition_set(state, atomic_proposition)
-    }
+    derive_read_atomic_propositions!(atomic_propositions);
 }

@@ -14,6 +14,23 @@ pub trait ReadValuations {
     ) -> ValuationEntry<'_, Self::ClassIdx, Self::ClassEntryIdx, Self::ValuationIdx>;
 }
 
+macro_rules! derive_read_valuations {
+    ($subcomponent:ident) => {
+        fn state_valuation(
+            &self,
+            state: Self::StateIdx,
+        ) -> $crate::valuations::ValuationEntry<
+            '_,
+            Self::ClassIdx,
+            Self::ClassEntryIdx,
+            Self::ValuationIdx,
+        > {
+            self.$subcomponent.state_valuation(state)
+        }
+    };
+}
+pub(crate) use derive_read_valuations;
+
 impl<EntityIdx: Index, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index> ReadValuations
     for Valuations<EntityIdx, ClassIdx, ClassEntryIdx, ValuationIdx>
 {
@@ -38,10 +55,5 @@ impl<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals: ReadValuations, Pr
     type ClassEntryIdx = StateVals::ClassEntryIdx;
     type ValuationIdx = StateVals::ValuationIdx;
 
-    fn state_valuation(
-        &self,
-        state: Self::StateIdx,
-    ) -> ValuationEntry<'_, Self::ClassIdx, Self::ClassEntryIdx, Self::ValuationIdx> {
-        self.state_valuations.state_valuation(state)
-    }
+    derive_read_valuations!(state_valuations);
 }

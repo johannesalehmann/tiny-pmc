@@ -22,49 +22,80 @@ pub trait ReadPredecessors {
     fn state_of_choice(&self, choice: Self::ChoiceIdx) -> Self::StateIdx;
 }
 
-impl<
-    SI: Index,
-    CI: Index,
-    BI: Index,
-    PI: Index,
-    M,
-    Ini,
-    ChLabel,
-    BrLabel,
-    Obs,
-    APs,
-    Rew,
-    Ann,
-    StateVals,
-> ReadPredecessors
-    for Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Predecessors<SI, CI, BI, PI>>
-{
+macro_rules! derive_read_predecessors {
+    ($subcomponent:ident) => {
+        fn predecessor_states(
+            &self,
+        ) -> typed_index_collections::SemiboundedIndexRange<Self::StateIdx> {
+            self.$subcomponent.predecessor_states()
+        }
+
+        fn predecessors(
+            &self,
+        ) -> typed_index_collections::SemiboundedIndexRange<Self::PredecessorIdx> {
+            self.$subcomponent.predecessors()
+        }
+
+        fn predecessors_of_state(
+            &self,
+            state: Self::StateIdx,
+        ) -> typed_index_collections::IndexRange<Self::PredecessorIdx> {
+            self.$subcomponent.predecessors_of_state(state)
+        }
+
+        fn branch_of_predecessor(&self, predecessor: Self::PredecessorIdx) -> Self::BranchIdx {
+            self.$subcomponent.branch_of_predecessor(predecessor)
+        }
+
+        fn choice_of_branch(&self, branch: Self::BranchIdx) -> Self::ChoiceIdx {
+            self.$subcomponent.choice_of_branch(branch)
+        }
+
+        fn state_of_choice(&self, choice: Self::ChoiceIdx) -> Self::StateIdx {
+            self.$subcomponent.state_of_choice(choice)
+        }
+    };
+}
+pub(crate) use derive_read_predecessors;
+
+impl<SI: Index, CI: Index, BI: Index, PI: Index> ReadPredecessors for Predecessors<SI, CI, BI, PI> {
     type StateIdx = SI;
     type ChoiceIdx = CI;
     type BranchIdx = BI;
     type PredecessorIdx = PI;
 
     fn predecessor_states(&self) -> SemiboundedIndexRange<Self::StateIdx> {
-        self.predecessors.state_to_predecessor.keys()
+        self.state_to_predecessor.keys()
     }
 
     fn predecessors(&self) -> SemiboundedIndexRange<Self::PredecessorIdx> {
-        self.predecessors.predecessor_to_branch.keys()
+        self.predecessor_to_branch.keys()
     }
 
     fn predecessors_of_state(&self, state: Self::StateIdx) -> IndexRange<Self::PredecessorIdx> {
-        self.predecessors.state_to_predecessor.index(state)
+        self.state_to_predecessor.index(state)
     }
 
     fn branch_of_predecessor(&self, predecessor: Self::PredecessorIdx) -> Self::BranchIdx {
-        self.predecessors.predecessor_to_branch[predecessor]
+        self.predecessor_to_branch[predecessor]
     }
 
     fn choice_of_branch(&self, branch: Self::BranchIdx) -> Self::ChoiceIdx {
-        self.predecessors.branch_to_choice[branch]
+        self.branch_to_choice[branch]
     }
 
     fn state_of_choice(&self, choice: Self::ChoiceIdx) -> Self::StateIdx {
-        self.predecessors.choice_to_state[choice]
+        self.choice_to_state[choice]
     }
+}
+
+impl<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds: ReadPredecessors>
+    ReadPredecessors for Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>
+{
+    type StateIdx = Preds::StateIdx;
+    type ChoiceIdx = Preds::ChoiceIdx;
+    type BranchIdx = Preds::BranchIdx;
+    type PredecessorIdx = Preds::PredecessorIdx;
+
+    derive_read_predecessors!(predecessors);
 }

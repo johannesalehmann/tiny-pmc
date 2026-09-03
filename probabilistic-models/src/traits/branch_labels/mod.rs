@@ -12,6 +12,23 @@ pub trait ReadBranchLabels {
     fn label_of_branch_action(&self, action: Self::BranchActionIdx) -> &Self::E;
 }
 
+macro_rules! derive_read_branch_labels {
+    ($subcomponent:ident) => {
+        fn branch_label(&self, entity: Self::BranchIdx) -> &Self::E {
+            self.$subcomponent.branch_label(entity)
+        }
+
+        fn branch_action_index(&self, entity: Self::BranchIdx) -> Self::BranchActionIdx {
+            self.$subcomponent.branch_action_index(entity)
+        }
+
+        fn label_of_branch_action(&self, action: Self::BranchActionIdx) -> &Self::E {
+            self.$subcomponent.label_of_branch_action(action)
+        }
+    };
+}
+pub(crate) use derive_read_branch_labels;
+
 impl<M, Ini, ChLabel, BrLabel: ReadLabels, Obs, APs, Rew, Ann, StateVals, Preds> ReadBranchLabels
     for Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>
 {
