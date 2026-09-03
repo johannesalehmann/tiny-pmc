@@ -9,5 +9,6 @@
 
 pub mod attractor;
 pub mod buffer;
-mod sccs;
+pub mod nonstochastic_games;
+pub mod sccs;
 pub mod value_iteration;
