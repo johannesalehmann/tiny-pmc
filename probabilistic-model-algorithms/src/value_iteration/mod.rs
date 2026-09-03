@@ -1,5 +1,9 @@
 mod min_max;
-use crate::buffer::ZeroedBuffer;
+mod optimistic_value_iteration;
+pub mod precomputation;
+
+pub use optimistic_value_iteration::optimistic_value_iteration_max;
+
 use crate::sccs::{ExclusionList, SccEntryIndex, SccIndex, Sccs};
 use min_max::*;
 use probabilistic_models::owners::TwoPlayer;
@@ -7,6 +11,7 @@ use probabilistic_models::traits::{
     ReadAtomicPropositions, ReadOwners, ReadPredecessors, ReadStateSpace,
 };
 use probabilistic_models::typed_index_collections::To1;
+use typed_index_collections::Index;
 
 pub fn value_iteration_max<
     M: ReadStateSpace
@@ -14,10 +19,10 @@ pub fn value_iteration_max<
         + ReadPredecessors<StateIdx = <M as ReadStateSpace>::StateIdx>,
 >(
     model: &M,
-    goal: <M as ReadAtomicPropositions>::AnnotationIdx,
+    goal: <M as ReadAtomicPropositions>::APIdx,
     eps: f64,
 ) -> To1<<M as ReadStateSpace>::StateIdx, f64> {
-    value_iteration_internal(model, goal, eps, Maximiser::default())
+    value_iteration_min_max(model, goal, eps, Maximiser::default())
 }
 pub fn value_iteration_min<
     M: ReadStateSpace
@@ -25,11 +30,11 @@ pub fn value_iteration_min<
         + ReadPredecessors<StateIdx = <M as ReadStateSpace>::StateIdx>,
 >(
     model: &M,
-    goal: <M as ReadAtomicPropositions>::AnnotationIdx,
+    goal: <M as ReadAtomicPropositions>::APIdx,
     eps: f64,
 ) -> To1<<M as ReadStateSpace>::StateIdx, f64> {
     // TODO: Collapse MECs!
-    value_iteration_internal(model, goal, eps, Minimiser::default())
+    value_iteration_min_max(model, goal, eps, Minimiser::default())
 }
 pub fn value_iteration_game<
     M: ReadStateSpace
@@ -38,10 +43,10 @@ pub fn value_iteration_game<
         + ReadOwners<StateIdx = <M as ReadStateSpace>::StateIdx, OwnerType = TwoPlayer>,
 >(
     model: &M,
-    goal: <M as ReadAtomicPropositions>::AnnotationIdx,
+    goal: <M as ReadAtomicPropositions>::APIdx,
     eps: f64,
 ) -> To1<<M as ReadStateSpace>::StateIdx, f64> {
-    value_iteration_internal(
+    value_iteration_min_max(
         model,
         goal,
         eps,
@@ -49,34 +54,51 @@ pub fn value_iteration_game<
     )
 }
 
-fn value_iteration_internal<
+fn value_iteration_min_max<
     M: ReadStateSpace
         + ReadAtomicPropositions<StateIdx = <M as ReadStateSpace>::StateIdx>
         + ReadPredecessors<StateIdx = <M as ReadStateSpace>::StateIdx>,
     MinMax: ValueComparator<Model = M>,
 >(
     model: &M,
-    goal: <M as ReadAtomicPropositions>::AnnotationIdx,
+    goal: <M as ReadAtomicPropositions>::APIdx,
     eps: f64,
     min_max: MinMax,
 ) -> To1<<M as ReadStateSpace>::StateIdx, f64> {
-    let buffer = ZeroedBuffer::new(model.states().len());
-    let mut values = buffer.into_values();
+    let mut values = To1::with_capacity(model.states().len());
     let mut target_states = Vec::new();
     for state in model.states() {
         if model.is_atomic_proposition_set(state, goal) {
             target_states.push(state);
-            values[state] = 1.0;
+            values.add_checked(state, 1.0);
         } else {
-            values[state] = min_max.initial_value(state, model);
+            values.add_checked(state, min_max.initial_value(state, model));
         }
     }
 
     let excluded = ExclusionList::new(&target_states);
 
     // TODO: Adapt these types to those used for state indices in the model
-    let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> = Sccs::compute(model, &excluded);
+    let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> =
+        Sccs::compute(model, &excluded, None); // TODO: Do preprocessing!
+    value_iteration_internal(model, eps, min_max, &mut values, &sccs);
+    values
+}
 
+fn value_iteration_internal<
+    M: ReadStateSpace
+        + ReadAtomicPropositions<StateIdx = <M as ReadStateSpace>::StateIdx>
+        + ReadPredecessors<StateIdx = <M as ReadStateSpace>::StateIdx>,
+    MinMax: ValueComparator<Model = M>,
+    SccIdx: Index,
+    SccEntryIdx: Index,
+>(
+    model: &M,
+    eps: f64,
+    min_max: MinMax,
+    values: &mut To1<<M as ReadStateSpace>::StateIdx, f64>,
+    sccs: &Sccs<SccIdx, SccEntryIdx, <M as ReadStateSpace>::StateIdx>,
+) {
     for scc_index in sccs.reverse_topological_ordering() {
         loop {
             let mut largest_change = 0.0;
@@ -107,6 +129,4 @@ fn value_iteration_internal<
             }
         }
     }
-
-    values
 }

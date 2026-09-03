@@ -2,7 +2,12 @@ use probabilistic_models::owners::TwoPlayer;
 use probabilistic_models::traits::{ReadOwners, ReadStateSpace};
 use std::marker::PhantomData;
 
-pub trait ValueComparator {
+pub enum AttractorBehaviour {
+    TakesHighestValueChoice,
+    TakesLowestValueChoice,
+}
+
+pub trait ValueComparator: Copy {
     type Model: ReadStateSpace;
 
     fn initial_value(
@@ -17,11 +22,25 @@ pub trait ValueComparator {
         before: f64,
         new: f64,
     ) -> bool;
+    fn attractor_behaviour(
+        &self,
+        state: <Self::Model as ReadStateSpace>::StateIdx,
+        model: &Self::Model,
+    ) -> AttractorBehaviour;
 }
 
 pub struct Maximiser<M> {
     _phantom_data: PhantomData<M>,
 }
+
+impl<M> Clone for Maximiser<M> {
+    fn clone(&self) -> Self {
+        Self {
+            _phantom_data: PhantomData,
+        }
+    }
+}
+impl<M> Copy for Maximiser<M> {}
 
 impl<M: ReadStateSpace> Default for Maximiser<M> {
     fn default() -> Self {
@@ -51,11 +70,28 @@ impl<M: ReadStateSpace> ValueComparator for Maximiser<M> {
     ) -> bool {
         new >= before
     }
+
+    fn attractor_behaviour(
+        &self,
+        _state: <Self::Model as ReadStateSpace>::StateIdx,
+        _model: &Self::Model,
+    ) -> AttractorBehaviour {
+        AttractorBehaviour::TakesHighestValueChoice
+    }
 }
 
 pub struct Minimiser<M> {
     _phantom_data: PhantomData<M>,
 }
+
+impl<M> Clone for Minimiser<M> {
+    fn clone(&self) -> Self {
+        Self {
+            _phantom_data: PhantomData,
+        }
+    }
+}
+impl<M> Copy for Minimiser<M> {}
 
 impl<M: ReadStateSpace> Default for Minimiser<M> {
     fn default() -> Self {
@@ -85,11 +121,27 @@ impl<M: ReadStateSpace> ValueComparator for Minimiser<M> {
     ) -> bool {
         new <= before
     }
+
+    fn attractor_behaviour(
+        &self,
+        _state: <Self::Model as ReadStateSpace>::StateIdx,
+        _model: &Self::Model,
+    ) -> AttractorBehaviour {
+        AttractorBehaviour::TakesLowestValueChoice
+    }
 }
 
 pub struct PlayerOneMaximisesPlayerTwoMinimises<M> {
     _phantom_data: PhantomData<M>,
 }
+impl<M> Clone for PlayerOneMaximisesPlayerTwoMinimises<M> {
+    fn clone(&self) -> Self {
+        Self {
+            _phantom_data: PhantomData,
+        }
+    }
+}
+impl<M> Copy for PlayerOneMaximisesPlayerTwoMinimises<M> {}
 
 impl<M> Default for PlayerOneMaximisesPlayerTwoMinimises<M> {
     fn default() -> Self {
@@ -126,6 +178,17 @@ impl<
         match model.state_owner(state) {
             TwoPlayer::Eve => new >= before,
             TwoPlayer::Adam => new <= before,
+        }
+    }
+
+    fn attractor_behaviour(
+        &self,
+        state: <Self::Model as ReadStateSpace>::StateIdx,
+        model: &Self::Model,
+    ) -> AttractorBehaviour {
+        match model.state_owner(state) {
+            TwoPlayer::Eve => AttractorBehaviour::TakesHighestValueChoice,
+            TwoPlayer::Adam => AttractorBehaviour::TakesLowestValueChoice,
         }
     }
 }

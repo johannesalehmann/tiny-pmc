@@ -22,11 +22,14 @@ use probabilistic_properties::{NonDeterminismKind, PathFormula, Query, StateForm
 pub fn check<
     M: ReadStateSpace
         + ReadAtomicPropositions<StateIdx = <M as ReadStateSpace>::StateIdx>
-        + ReadPredecessors<StateIdx = <M as ReadStateSpace>::StateIdx>
-        + ReadInitialStates<StateIdx = <M as ReadStateSpace>::StateIdx>,
+        + ReadPredecessors<
+            StateIdx = <M as ReadStateSpace>::StateIdx,
+            ChoiceIdx = <M as ReadStateSpace>::ChoiceIdx,
+            BranchIdx = <M as ReadStateSpace>::BranchIdx,
+        > + ReadInitialStates<StateIdx = <M as ReadStateSpace>::StateIdx>,
 >(
     model: &M,
-    query: probabilistic_properties::Query<i64, f64, <M as ReadAtomicPropositions>::AnnotationIdx>,
+    query: probabilistic_properties::Query<i64, f64, <M as ReadAtomicPropositions>::APIdx>,
 ) -> Result<f64, CheckerError> {
     let initial_states = model.initial_states().iter().collect::<Vec<_>>();
     assert_eq!(
@@ -52,11 +55,13 @@ pub fn check<
                         let eps = 0.000001;
                         let values = match non_determinism {
                             NonDeterminismKind::Maximise => {
-                                probabilistic_model_algorithms::value_iteration::value_iteration_max(
+                                println!("Performing optimistic value iteration");
+                                probabilistic_model_algorithms::value_iteration::optimistic_value_iteration_max(
                                     model, *e, eps,
                                 )
                             }
                             NonDeterminismKind::Minimise => {
+                                println!("Performing unsound value iteration with eps={eps}");
                                 probabilistic_model_algorithms::value_iteration::value_iteration_min(
                                     model, *e, eps,
                                 )

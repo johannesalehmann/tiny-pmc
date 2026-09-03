@@ -3,6 +3,7 @@ use probabilistic_models::typed_index_collections::{Csr, To1, ValuePerIndexSourc
 use probabilistic_models::{Index, RawIndex};
 
 mod exclusion_criterion;
+use crate::value_iteration::precomputation::P0P1States;
 pub use exclusion_criterion::*;
 use typed_index_collections::IndexRange;
 
@@ -22,14 +23,26 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
     >(
         model: &M,
         excluded: &EC,
+        p0p1states: Option<P0P1States<SI>>, // TODO: Perhaps this should instead be handled via the exclusion criterion?
     ) -> Self {
         let mut visited = To1::with_entries(vec![false; model.states().len()]);
         let mut l = Vec::with_capacity(model.states().len());
         let mut scc_entry_count = model.states().len();
 
+        if let Some(p0p1states) = p0p1states {
+            for state in model.states() {
+                if p0p1states.is_state_p0(state) || p0p1states.is_state_p1(state) {
+                    visited[state] = true;
+                    scc_entry_count -= 1;
+                }
+            }
+        }
+
         for excluded in excluded.iter_states() {
-            visited[excluded] = true;
-            scc_entry_count -= 1;
+            if !visited[excluded] {
+                visited[excluded] = true;
+                scc_entry_count -= 1;
+            }
         }
 
         for i in model.states() {
@@ -196,6 +209,7 @@ mod tests {
         let sccs = Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(
             &model,
             &NoExclusion::new(),
+            None,
         );
         assert!(sccs.sccs.is_empty());
         assert_eq!(sccs.state_to_scc.len(), 0);
@@ -211,6 +225,7 @@ mod tests {
         let sccs = Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(
             &model,
             &NoExclusion::new(),
+            None,
         );
         assert_eq!(
             sccs.sccs,
@@ -236,6 +251,7 @@ mod tests {
         let sccs = Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(
             &model,
             &NoExclusion::new(),
+            None,
         );
         assert_eq!(
             sccs.sccs,
@@ -262,6 +278,7 @@ mod tests {
         let sccs = Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(
             &model,
             &NoExclusion::new(),
+            None,
         );
         assert_eq!(
             sccs.sccs,
@@ -297,6 +314,7 @@ mod tests {
         let sccs = Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(
             &model,
             &NoExclusion::new(),
+            None,
         );
         assert_eq!(
             sccs.sccs,
@@ -353,6 +371,7 @@ mod tests {
         let sccs = Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(
             &model,
             &NoExclusion::new(),
+            None,
         );
         assert_eq!(
             sccs.sccs,

@@ -128,20 +128,20 @@ impl<'a, S: Span>
         crate::labels::OnlyNecessary,
         crate::initial_states_source::StartFromInitialStates,
         MdpBuilder<
-            StateIndex<usize>,
-            ChoiceIndex<usize>,
-            BranchIndex<usize>,
+            StateIndex<u32>,
+            ChoiceIndex<u32>,
+            BranchIndex<u32>,
             ValuationClassIndex<u16>,
             ValuationClassEntryIndex<u16>,
             ValuationIndex<usize>,
         >,
-        crate::initial_states_builder::SingleInitialStatesBuilder<StateIndex<usize>>,
+        crate::initial_states_builder::SingleInitialStatesBuilder<StateIndex<u32>>,
         crate::atomic_propositions_builder::AtomicPropositionVectorsBuilder<
             AtomicPropositionIndex<usize>,
-            StateIndex<usize>,
+            StateIndex<u32>,
             AnnotationEntryIndex<usize>,
         >,
-        ActionNameChoiceLabels<ChoiceIndex<usize>, ChoiceLabelIndex<usize>>,
+        ActionNameChoiceLabels<ChoiceIndex<u32>, ChoiceLabelIndex<usize>>,
     >
 {
     pub fn new_mdp_builder(

@@ -1,6 +1,9 @@
 use probabilistic_models::Index;
 use probabilistic_models::typed_index_collections::To1;
 
+// TODO: Consider removing this entire class. For example, value iteration sometimes needs a buffer
+//  initialised with non-zero values, so it needs to do a pass over the entire buffer anyways
+
 pub struct Buffer<From: Index, To> {
     values: To1<From, To>,
 }

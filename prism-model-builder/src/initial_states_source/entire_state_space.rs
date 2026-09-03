@@ -89,7 +89,7 @@ mod tests {
         for z in [false, true] {
             for y in [-3, -2, -1, 0, 1, 2] {
                 for x in [false, true] {
-                    let valuation = model.state_valuation(StateIndex::from_raw(index as usize));
+                    let valuation = model.state_valuation(StateIndex::from_raw(index as u32));
                     assert_eq!(
                         valuation.evaluate_bool(valuation.class().index_by_name("x").unwrap()),
                         x
