@@ -14,6 +14,7 @@ pub enum CommandIndices {
     Synchronised {
         components: Vec<CommandIndexComponent>,
     },
+    DeadlockFix,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
@@ -118,6 +119,10 @@ impl super::Context for CommandIndices {
                 component_count
             ],
         }
+    }
+
+    fn new_deadlock_fix() -> Self {
+        CommandIndices::DeadlockFix
     }
 
     fn set_synchronised_component(

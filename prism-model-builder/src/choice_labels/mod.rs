@@ -25,6 +25,7 @@ pub trait ChoiceLabelBuilder {
 pub trait Context {
     fn new_unsynchronised(module_index: usize, command_index: usize) -> Self;
     fn new_synchronised(component_count: usize) -> Self;
+    fn new_deadlock_fix() -> Self;
     fn set_synchronised_component(
         &mut self,
         component_index: usize,
@@ -39,6 +40,9 @@ impl Context for () {
     }
 
     fn new_synchronised(_component_count: usize) -> Self {
+        ()
+    }
+    fn new_deadlock_fix() -> Self {
         ()
     }
 

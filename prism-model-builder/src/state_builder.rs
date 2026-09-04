@@ -163,9 +163,14 @@ impl<
         }
         if choices_added == 0 {
             // Fix deadlocks: // TODO: Make this configurable
-            self.base.start_choice();
+            let choice_index = self.base.start_choice();
             self.base.add_branch(1.0, state);
             self.base.finish_choice();
+
+            let index = self.choice_labels.name_to_index(None);
+            let context = CL::ContextType::new_deadlock_fix();
+            self.choice_labels
+                .label_choice(choice_index, &index, &context);
         }
 
         Ok(())
