@@ -16,31 +16,20 @@ pub struct Sccs<SccIdx: Index, SccEntryIdx: Index, StateIdx: Index> {
 }
 
 impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
-    pub fn compute<
-        M: ReadStateSpace<StateIdx = SI> + ReadPredecessors<StateIdx = SI>,
-        EC: ExclusionCriterion<StateIdx = SI>,
-    >(
+    pub fn compute<M: ReadStateSpace<StateIdx = SI> + ReadPredecessors<StateIdx = SI>>(
         model: &M,
-        excluded: &EC,
-        s0_s1_states: Option<(To1<SI, bool>, To1<SI, bool>)>, // TODO: Perhaps this should instead be handled via the exclusion criterion?
+        s0_s1_states: Option<(To1<SI, bool>, To1<SI, bool>)>,
     ) -> Self {
         let mut visited = To1::with_entries(vec![false; model.states().len()]);
         let mut l = Vec::with_capacity(model.states().len());
         let mut scc_entry_count = model.states().len();
 
-        if let Some((s0_states, s1_states)) = s0_s1_states {
+        if let Some((s0_states, s1_states)) = &s0_s1_states {
             for state in model.states() {
                 if s0_states[state] || s1_states[state] {
                     visited[state] = true;
                     scc_entry_count -= 1;
                 }
-            }
-        }
-
-        for excluded in excluded.iter_states() {
-            if !visited[excluded] {
-                visited[excluded] = true;
-                scc_entry_count -= 1;
             }
         }
 
@@ -50,11 +39,14 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
             }
         }
 
-        for v in &mut visited {
-            *v = false;
-        }
-        for excluded in excluded.iter_states() {
-            visited[excluded] = true;
+        if let Some((s0_states, s1_states)) = &s0_s1_states {
+            for state in model.states() {
+                visited[state] = s0_states[state] || s1_states[state];
+            }
+        } else {
+            for v in &mut visited {
+                *v = false;
+            }
         }
 
         let mut sccs = Csr::new();
@@ -205,11 +197,8 @@ mod tests {
     fn empty() {
         let mdp = Mdp::with_default_types();
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
-        let sccs = Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(
-            &model,
-            &NoExclusion::new(),
-            None,
-        );
+        let sccs =
+            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
         assert!(sccs.sccs.is_empty());
         assert_eq!(sccs.state_to_scc.len(), 0);
         assert!(sccs.scc_entries.is_empty());
@@ -221,11 +210,8 @@ mod tests {
         let mut mdp = Mdp::with_default_types();
         mdp.add_state(StateIndex::from_raw(0));
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
-        let sccs = Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(
-            &model,
-            &NoExclusion::new(),
-            None,
-        );
+        let sccs =
+            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
         assert_eq!(
             sccs.sccs,
             Csr::with_entries(vec![SccEntryIndex::from_raw(1)])
@@ -247,11 +233,8 @@ mod tests {
         mdp.add_state(StateIndex::from_raw(0));
         mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(0))]);
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
-        let sccs = Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(
-            &model,
-            &NoExclusion::new(),
-            None,
-        );
+        let sccs =
+            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
         assert_eq!(
             sccs.sccs,
             Csr::with_entries(vec![SccEntryIndex::from_raw(1)])
@@ -274,11 +257,8 @@ mod tests {
         mdp.add_state(StateIndex::from_raw(1));
         mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(1))]);
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
-        let sccs = Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(
-            &model,
-            &NoExclusion::new(),
-            None,
-        );
+        let sccs =
+            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
         assert_eq!(
             sccs.sccs,
             Csr::with_entries(vec![SccEntryIndex::from_raw(1), SccEntryIndex::from_raw(2)])
@@ -310,11 +290,8 @@ mod tests {
             (0.5, StateIndex::from_raw(1)),
         ]);
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
-        let sccs = Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(
-            &model,
-            &NoExclusion::new(),
-            None,
-        );
+        let sccs =
+            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
         assert_eq!(
             sccs.sccs,
             Csr::with_entries(vec![SccEntryIndex::from_raw(2), SccEntryIndex::from_raw(3)])
@@ -367,11 +344,8 @@ mod tests {
         ]);
 
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
-        let sccs = Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(
-            &model,
-            &NoExclusion::new(),
-            None,
-        );
+        let sccs =
+            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
         assert_eq!(
             sccs.sccs,
             Csr::with_entries(vec![
