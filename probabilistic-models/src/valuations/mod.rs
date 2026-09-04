@@ -652,7 +652,7 @@ impl<ValuationIdx: Index> ValuationClassData<ValuationIdx> {
         } else if data_size_in_bits <= 64 {
             ValuationVector::U64(To1::new())
         } else {
-            let fields_per_valuation = data_size_in_bits / 64;
+            let fields_per_valuation = data_size_in_bits.div_ceil(64);
             ValuationVector::MultiField {
                 fields: To1::new(),
                 fields_per_valuation,
