@@ -79,8 +79,7 @@ fn value_iteration_min_max<
     let excluded = ExclusionList::new(&target_states);
 
     // TODO: Adapt these types to those used for state indices in the model
-    let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> =
-        Sccs::compute(model, &excluded, None); // TODO: Do preprocessing!
+    let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> = Sccs::compute(model, None); // TODO: Do preprocessing!
     value_iteration_internal(model, eps, min_max, &mut values, &sccs);
     values
 }

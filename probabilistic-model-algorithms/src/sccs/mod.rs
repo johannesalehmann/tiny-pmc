@@ -152,7 +152,7 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
 
     // TODO: This interface is not super ergonomic. Once composing CSRs and To1s is possible,
     //  such a composition could be used to directly yield state indices. Currently, this is not
-    //  possible without either a custom iterator or allocating
+    //  possible without either a custom iterator or allocating. (see also SccDependencies)
     pub fn entries(&self, scc: ScI) -> IndexRange<ScEI> {
         self.sccs.index(scc)
     }
@@ -186,10 +186,91 @@ impl<ScI: Index> Iterator for ReverseTopologicalOrderIterator<ScI> {
 
 impl<ScI: Index> ExactSizeIterator for ReverseTopologicalOrderIterator<ScI> {}
 
+index!(SccDependencyIndex);
+pub struct SccDependencies<SccIdx: Index, SccDependencyIdx: Index> {
+    scc_dependencies: Csr<SccIdx, SccDependencyIdx>,
+    depends_on: To1<SccDependencyIdx, SccIdx>,
+}
+
+impl<SccIdx: Index, SccDependencyIdx: Index> SccDependencies<SccIdx, SccDependencyIdx> {
+    pub fn compute<M: ReadStateSpace, ScEI: Index>(
+        model: &M,
+        sccs: &Sccs<SccIdx, ScEI, M::StateIdx>,
+    ) -> Self {
+        let scc_count = sccs.sccs.keys().len();
+        let mut scc_dependencies = Csr::with_capacity(scc_count);
+        let mut depends_on = To1::new();
+
+        // For each SCC, remembers the last SCC whose dependency list it was already added to.
+        // This lets us deduplicate the (possibly many) edges leading to the same successor SCC
+        // in O(1) per edge, without allocating and clearing a fresh set for every SCC.
+        let mut last_recorded_for: To1<SccIdx, Option<SccIdx>> =
+            To1::with_entries(vec![None; scc_count]);
+
+        for scc in sccs.sccs.keys() {
+            for entry in sccs.entries(scc) {
+                let state = sccs.entry_to_state(entry);
+                for successor in model.successors_of_state(state) {
+                    let Some(successor_scc) = sccs.state_to_scc[successor] else {
+                        continue;
+                    };
+                    if successor_scc != scc && last_recorded_for[successor_scc] != Some(scc) {
+                        last_recorded_for[successor_scc] = Some(scc);
+                        depends_on.add(successor_scc);
+                    }
+                }
+            }
+            scc_dependencies.add_entry_unchecked(depends_on.keys().end());
+        }
+
+        Self {
+            scc_dependencies,
+            depends_on,
+        }
+    }
+
+    pub fn dependencies(&self, scc: SccIdx) -> IndexRange<SccDependencyIdx> {
+        self.scc_dependencies.index(scc)
+    }
+
+    pub fn dependency_to_scc(&self, dependency: SccDependencyIdx) -> SccIdx {
+        self.depends_on[dependency]
+    }
+
+    /// Returns the number of SCCs in the longest chain of SCC dependencies, i.e. the length of
+    /// the longest path through the condensation graph (counting SCCs, not edges).
+    pub fn longest_chain(&self) -> usize {
+        let mut longest_chain_from: To1<SccIdx, usize> =
+            To1::with_entries(vec![0; self.scc_dependencies.keys().len()]);
+        let mut longest = 0;
+
+        // Dependency edges always point from an SCC to one with a strictly higher index (a
+        // consequence of the order in which `Sccs::compute` numbers SCCs during its second,
+        // transpose-graph DFS pass). So processing SCCs from the highest index down guarantees
+        // that every dependency of `scc` has already been resolved once we reach `scc`.
+        let mut scc = self.scc_dependencies.keys().end();
+        while scc.raw().as_usize() > 0 {
+            scc -= SccIdx::RawType::one();
+
+            let chain_length = self
+                .dependencies(scc)
+                .into_iter()
+                .map(|dependency| 1 + longest_chain_from[self.dependency_to_scc(dependency)])
+                .max()
+                .unwrap_or(1);
+
+            longest_chain_from[scc] = chain_length;
+            longest = longest.max(chain_length);
+        }
+
+        longest
+    }
+}
 #[cfg(test)]
 mod tests {
-    use super::{NoExclusion, SccEntryIndex, SccIndex, Sccs};
+    use super::{SccDependencies, SccDependencyIndex, SccEntryIndex, SccIndex, Sccs};
     use probabilistic_models::base_model::Mdp;
+    use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
     use probabilistic_models::{Model, PredecessorIndex, StateIndex};
     use typed_index_collections::{Csr, Index, To1};
 
@@ -315,8 +396,9 @@ mod tests {
         assert_eq!(sccs.is_trivial, To1::with_entries(vec![false, true]));
     }
 
-    #[test]
-    fn complex() {
+    fn complex_model()
+    -> impl ReadStateSpace<StateIdx = StateIndex<usize>> + ReadPredecessors<StateIdx = StateIndex<usize>>
+    {
         let mut mdp = Mdp::with_default_types();
         mdp.add_state(StateIndex::from_raw(0));
         mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(1))]);
@@ -343,7 +425,12 @@ mod tests {
             (0.7, StateIndex::from_raw(5)),
         ]);
 
-        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
+        Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>()
+    }
+
+    #[test]
+    fn complex() {
+        let model = complex_model();
         let sccs =
             Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
         assert_eq!(
@@ -391,5 +478,67 @@ mod tests {
                 SccIndex::from_raw(0),
             ]
         )
+    }
+
+    #[test]
+    fn scc_dependencies_complex() {
+        let model = complex_model();
+        let sccs =
+            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
+        let dependencies =
+            SccDependencies::<SccIndex<usize>, SccDependencyIndex<usize>>::compute(&model, &sccs);
+
+        let deps_of = |scc: SccIndex<usize>| {
+            dependencies
+                .dependencies(scc)
+                .into_iter()
+                .map(|d| dependencies.dependency_to_scc(d))
+                .collect::<Vec<_>>()
+        };
+
+        assert_eq!(deps_of(SccIndex::from_raw(0)), vec![SccIndex::from_raw(2)]);
+        assert_eq!(deps_of(SccIndex::from_raw(1)), vec![SccIndex::from_raw(2)]);
+        assert_eq!(deps_of(SccIndex::from_raw(2)), vec![SccIndex::from_raw(3)]);
+        assert_eq!(deps_of(SccIndex::from_raw(3)), vec![]);
+
+        // SCC0 -> SCC2 -> SCC3 (and SCC1 -> SCC2 -> SCC3) are the longest chains, each with 3
+        // SCCs.
+        assert_eq!(dependencies.longest_chain(), 3);
+    }
+
+    #[test]
+    fn longest_chain_empty() {
+        let mdp = Mdp::with_default_types();
+        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
+        let sccs =
+            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
+        let dependencies =
+            SccDependencies::<SccIndex<usize>, SccDependencyIndex<usize>>::compute(&model, &sccs);
+
+        assert_eq!(dependencies.longest_chain(), 0);
+    }
+
+    #[test]
+    fn longest_chain_linear() {
+        // A chain of four states, each its own trivial SCC: 0 -> 1 -> 2 -> 3.
+        let mut mdp = Mdp::with_default_types();
+        mdp.add_state(StateIndex::from_raw(0));
+        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(1))]);
+
+        mdp.add_state(StateIndex::from_raw(1));
+        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(2))]);
+
+        mdp.add_state(StateIndex::from_raw(2));
+        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(3))]);
+
+        mdp.add_state(StateIndex::from_raw(3));
+
+        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
+        let sccs =
+            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
+        let dependencies =
+            SccDependencies::<SccIndex<usize>, SccDependencyIndex<usize>>::compute(&model, &sccs);
+
+        assert_eq!(dependencies.longest_chain(), 4);
     }
 }
