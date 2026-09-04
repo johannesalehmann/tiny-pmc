@@ -20,6 +20,14 @@ pub trait ReadPredecessors {
     fn branch_of_predecessor(&self, predecessor: Self::PredecessorIdx) -> Self::BranchIdx;
     fn choice_of_branch(&self, branch: Self::BranchIdx) -> Self::ChoiceIdx;
     fn state_of_choice(&self, choice: Self::ChoiceIdx) -> Self::StateIdx;
+    // TODO: There are probably quite a few locations in the algorithms that were written before
+    //  these helper functions existed. Find them and use the helper functions to declutter them.
+    fn choice_of_predecessor(&self, predecessor: Self::PredecessorIdx) -> Self::ChoiceIdx {
+        self.choice_of_branch(self.branch_of_predecessor(predecessor))
+    }
+    fn source_state_of_predecessor(&self, predecessor: Self::PredecessorIdx) -> Self::StateIdx {
+        self.state_of_choice(self.choice_of_branch(self.branch_of_predecessor(predecessor)))
+    }
 }
 
 macro_rules! derive_read_predecessors {
