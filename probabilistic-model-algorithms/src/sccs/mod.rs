@@ -3,7 +3,6 @@ use probabilistic_models::typed_index_collections::{Csr, To1, ValuePerIndexSourc
 use probabilistic_models::{Index, RawIndex};
 
 mod exclusion_criterion;
-use crate::value_iteration::precomputation::P0P1States;
 pub use exclusion_criterion::*;
 use typed_index_collections::IndexRange;
 
@@ -23,15 +22,15 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
     >(
         model: &M,
         excluded: &EC,
-        p0p1states: Option<P0P1States<SI>>, // TODO: Perhaps this should instead be handled via the exclusion criterion?
+        s0_s1_states: Option<(To1<SI, bool>, To1<SI, bool>)>, // TODO: Perhaps this should instead be handled via the exclusion criterion?
     ) -> Self {
         let mut visited = To1::with_entries(vec![false; model.states().len()]);
         let mut l = Vec::with_capacity(model.states().len());
         let mut scc_entry_count = model.states().len();
 
-        if let Some(p0p1states) = p0p1states {
+        if let Some((s0_states, s1_states)) = s0_s1_states {
             for state in model.states() {
-                if p0p1states.is_state_p0(state) || p0p1states.is_state_p1(state) {
+                if s0_states[state] || s1_states[state] {
                     visited[state] = true;
                     scc_entry_count -= 1;
                 }

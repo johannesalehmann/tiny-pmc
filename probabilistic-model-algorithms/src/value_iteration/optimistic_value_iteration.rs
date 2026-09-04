@@ -19,12 +19,8 @@ pub fn optimistic_value_iteration_max<
 ) -> To1<<M as ReadStateSpace>::StateIdx, f64> {
     let min_max = Maximiser::default();
 
-    let p0p1_states = super::precomputation::compute_p_0_and_p1_states(model, min_max, goal);
-    println!(
-        "Found {} states with probability 0, {} with probability 1",
-        p0p1_states.p0_states().into_iter().count(),
-        p0p1_states.p1_states().into_iter().count(),
-    );
+    let s0_max = super::precomputation::s0_max(model, goal);
+    let s1_max = super::precomputation::s1_max(model, goal);
 
     let mut values = To1::with_capacity(model.states().len());
     let mut upper_bound = To1::with_entries(vec![0.0; model.states().len()]);
@@ -36,7 +32,7 @@ pub fn optimistic_value_iteration_max<
             target_states.push(state);
             values.add_checked(state, 1.0);
         } else {
-            if p0p1_states.is_state_p1(state) {
+            if s1_max[state] {
                 values.add_checked(state, 1.0);
             } else {
                 values.add_checked(state, 0.0);
@@ -47,9 +43,9 @@ pub fn optimistic_value_iteration_max<
     let excluded = ExclusionList::new(&target_states);
 
     let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> =
-        Sccs::compute(model, &excluded, Some(p0p1_states));
+        Sccs::compute(model, &excluded, Some((s0_max, s1_max)));
 
-    let mut initial_eps = eps;
+    let initial_eps = eps;
     loop {
         println!("eps={}:", eps);
         let start_vi = std::time::Instant::now();
