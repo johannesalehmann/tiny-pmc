@@ -72,7 +72,7 @@ fn value_iteration_min_max<
             target_states.push(state);
             values.add_checked(state, 1.0);
         } else {
-            values.add_checked(state, min_max.initial_value(state, model));
+            values.add_checked(state, 0.0);
         }
     }
 
@@ -105,17 +105,22 @@ fn value_iteration_internal<
             for entry in sccs.entries(scc_index) {
                 let state = sccs.entry_to_state(entry);
 
-                let mut best_value = min_max.initial_value(state, model);
-                for choice in model.choices_of_state(state) {
-                    let mut value = 0.0;
-                    for branch in model.branches_of_choice(choice) {
-                        value += model.branch_probability(branch)
-                            * values[model.branch_destination(branch)];
+                let best_value = if model.choices_of_state(state).len() == 0 {
+                    0.0
+                } else {
+                    let mut best_value = min_max.neutral_value(state, model);
+                    for choice in model.choices_of_state(state) {
+                        let mut value = 0.0;
+                        for branch in model.branches_of_choice(choice) {
+                            value += model.branch_probability(branch)
+                                * values[model.branch_destination(branch)];
+                        }
+                        if min_max.is_better(state, model, best_value, value) {
+                            best_value = value;
+                        }
                     }
-                    if min_max.is_better(state, model, best_value, value) {
-                        best_value = value;
-                    }
-                }
+                    best_value
+                };
 
                 let absolute_error = best_value - values[state];
                 let relative_error = absolute_error / best_value;

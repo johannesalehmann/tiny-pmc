@@ -39,7 +39,7 @@ pub fn optimistic_value_iteration_max<
             if p0p1_states.is_state_p1(state) {
                 values.add_checked(state, 1.0);
             } else {
-                values.add_checked(state, min_max.initial_value(state, model));
+                values.add_checked(state, 0.0);
             }
         }
     }
@@ -108,8 +108,8 @@ fn verify_optimistic<
             for entry in sccs.entries(scc_index) {
                 let state = sccs.entry_to_state(entry);
 
-                let mut new_lower_value = min_max.initial_value(state, model);
-                let mut new_upper_value = min_max.initial_value(state, model);
+                let mut new_lower_value = min_max.neutral_value(state, model);
+                let mut new_upper_value = min_max.neutral_value(state, model);
 
                 for choice in model.choices_of_state(state) {
                     let mut lower_value = 0.0;
@@ -126,6 +126,10 @@ fn verify_optimistic<
                     if min_max.is_better(state, model, new_upper_value, upper_value) {
                         new_upper_value = upper_value;
                     }
+                }
+                if model.choices_of_state(state).len() == 0 {
+                    new_lower_value = 0.0;
+                    new_upper_value = 0.0;
                 }
 
                 if new_lower_value > 0.0 {

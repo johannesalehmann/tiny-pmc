@@ -10,7 +10,7 @@ pub enum AttractorBehaviour {
 pub trait ValueComparator: Copy {
     type Model: ReadStateSpace;
 
-    fn initial_value(
+    fn neutral_value(
         &self,
         state: <Self::Model as ReadStateSpace>::StateIdx,
         model: &Self::Model,
@@ -53,7 +53,7 @@ impl<M: ReadStateSpace> Default for Maximiser<M> {
 impl<M: ReadStateSpace> ValueComparator for Maximiser<M> {
     type Model = M;
 
-    fn initial_value(
+    fn neutral_value(
         &self,
         _state: <Self::Model as ReadStateSpace>::StateIdx,
         _model: &Self::Model,
@@ -104,7 +104,7 @@ impl<M: ReadStateSpace> Default for Minimiser<M> {
 impl<M: ReadStateSpace> ValueComparator for Minimiser<M> {
     type Model = M;
 
-    fn initial_value(
+    fn neutral_value(
         &self,
         _state: <Self::Model as ReadStateSpace>::StateIdx,
         _model: &Self::Model,
@@ -157,7 +157,7 @@ impl<
 {
     type Model = M;
 
-    fn initial_value(
+    fn neutral_value(
         &self,
         state: <Self::Model as ReadStateSpace>::StateIdx,
         model: &Self::Model,
