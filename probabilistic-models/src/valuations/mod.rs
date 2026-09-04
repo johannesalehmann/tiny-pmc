@@ -791,7 +791,7 @@ impl<ValuationIdx: Index> ValuationVector<ValuationIdx> {
     }
 
     fn set_int(&mut self, index: ValuationIdx, range: Range<usize>, value: i64) {
-        let bits = if value > 0 {
+        let bits = if value >= 0 {
             value as u64
         } else {
             let mask: u64 = if range.len() == 64 {
