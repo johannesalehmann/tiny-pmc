@@ -775,7 +775,7 @@ impl<ValuationIdx: Index> ValuationVector<ValuationIdx> {
     fn int(&self, index: ValuationIdx, range: Range<usize>) -> i64 {
         let bits = self.bits(index, range.clone());
         // Convert the two's complement (of given length) into the actual representation
-        if bits & (1 << range.len()) != 0 {
+        if bits & (1 << range.len() - 1) != 0 {
             let mask = if range.len() == 64 {
                 !0
             } else {
