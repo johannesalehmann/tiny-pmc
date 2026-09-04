@@ -541,4 +541,112 @@ mod tests {
 
         assert_eq!(dependencies.longest_chain(), 4);
     }
+
+    #[test]
+    fn excluded_state_breaks_cycle() {
+        let mut mdp = Mdp::with_default_types();
+        mdp.add_state(StateIndex::from_raw(0));
+        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(1))]);
+
+        mdp.add_state(StateIndex::from_raw(1));
+        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(2))]);
+
+        mdp.add_state(StateIndex::from_raw(2));
+        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(0))]);
+
+        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
+
+        let s0_states = To1::with_entries(vec![false, true, false]);
+        let s1_states = To1::with_entries(vec![false, false, false]);
+        let sccs = Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(
+            &model,
+            Some((s0_states, s1_states)),
+        );
+
+        assert_eq!(sccs.state_to_scc[StateIndex::from_raw(1)], None);
+        let scc0 = sccs.state_to_scc[StateIndex::from_raw(0)].unwrap();
+        let scc2 = sccs.state_to_scc[StateIndex::from_raw(2)].unwrap();
+        assert_ne!(
+            scc0, scc2,
+            "excluding state 1 must prevent 0 and 2 from merging into one SCC"
+        );
+        assert!(sccs.is_trivial[scc0]);
+        assert!(sccs.is_trivial[scc2]);
+
+        let dependencies =
+            SccDependencies::<SccIndex<usize>, SccDependencyIndex<usize>>::compute(&model, &sccs);
+        let deps_of = |scc: SccIndex<usize>| {
+            dependencies
+                .dependencies(scc)
+                .into_iter()
+                .map(|d| dependencies.dependency_to_scc(d))
+                .collect::<Vec<_>>()
+        };
+
+        assert_eq!(deps_of(scc0), vec![]);
+        assert_eq!(deps_of(scc2), vec![scc0]);
+    }
+
+    #[test]
+    fn scc_dependencies_deduplicates_parallel_edges() {
+        // State 0 has two choices, one into each state of the 2-state SCC {1, 2}. Both edges
+        // land in the same target SCC, so `dependencies` must report it only once rather than
+        // once per edge.
+        let mut mdp = Mdp::with_default_types();
+        mdp.add_state(StateIndex::from_raw(0));
+        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(1))]);
+        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(2))]);
+
+        mdp.add_state(StateIndex::from_raw(1));
+        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(2))]);
+
+        mdp.add_state(StateIndex::from_raw(2));
+        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(1))]);
+
+        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
+        let sccs =
+            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
+        let dependencies =
+            SccDependencies::<SccIndex<usize>, SccDependencyIndex<usize>>::compute(&model, &sccs);
+
+        let scc0 = sccs.state_to_scc[StateIndex::from_raw(0)].unwrap();
+        let scc1 = sccs.state_to_scc[StateIndex::from_raw(1)].unwrap();
+        assert_eq!(sccs.state_to_scc[StateIndex::from_raw(2)], Some(scc1));
+
+        let deps = dependencies
+            .dependencies(scc0)
+            .into_iter()
+            .map(|d| dependencies.dependency_to_scc(d))
+            .collect::<Vec<_>>();
+        assert_eq!(deps, vec![scc1]);
+    }
+
+    #[test]
+    fn longest_chain_picks_the_longer_branch() {
+        // The dynamic programming of longest chain should correctly choose the largest value of a
+        // a state's successors. In the case of state 0, that means it should use the value of state
+        // 2 instead of 1.
+        let mut mdp = Mdp::with_default_types();
+        mdp.add_state(StateIndex::from_raw(0));
+        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(1))]);
+        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(2))]);
+
+        mdp.add_state(StateIndex::from_raw(1));
+
+        mdp.add_state(StateIndex::from_raw(2));
+        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(3))]);
+
+        mdp.add_state(StateIndex::from_raw(3));
+        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(4))]);
+
+        mdp.add_state(StateIndex::from_raw(4));
+
+        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
+        let sccs =
+            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
+        let dependencies =
+            SccDependencies::<SccIndex<usize>, SccDependencyIndex<usize>>::compute(&model, &sccs);
+
+        assert_eq!(dependencies.longest_chain(), 4);
+    }
 }
