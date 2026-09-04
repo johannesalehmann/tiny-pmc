@@ -734,7 +734,7 @@ impl<ValuationIdx: Index> ValuationVector<ValuationIdx> {
                 for &new_field in new_fields {
                     fields.add(new_field);
                 }
-                index
+                index / ValuationIdx::RawType::from_usize(*fields_per_valuation)
             }
             _ => panic!(
                 "New valuation does not have the same underlying type as the vector it is added to"
