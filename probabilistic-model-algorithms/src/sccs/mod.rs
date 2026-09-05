@@ -157,8 +157,21 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
         self.sccs.index(scc)
     }
 
-    pub fn entry_to_state(&self, entry: ScEI) -> SI {
+    pub fn state_of_entry(&self, entry: ScEI) -> SI {
         self.scc_entries[entry]
+    }
+
+    /// Returns the SCC containing the state, or `None` if the state was excluded from the SCC
+    /// computation.
+    pub fn scc_of_state(&self, state: SI) -> Option<ScI> {
+        self.state_to_scc[state]
+    }
+
+    pub fn compute_dependencies<SccDependencyIdx: Index, M: ReadStateSpace<StateIdx = SI>>(
+        &self,
+        model: &M,
+    ) -> SccDependencies<ScI, SccDependencyIdx> {
+        SccDependencies::compute(model, self)
     }
 }
 
@@ -209,7 +222,7 @@ impl<SccIdx: Index, SccDependencyIdx: Index> SccDependencies<SccIdx, SccDependen
 
         for scc in sccs.sccs.keys() {
             for entry in sccs.entries(scc) {
-                let state = sccs.entry_to_state(entry);
+                let state = sccs.state_of_entry(entry);
                 for successor in model.successors_of_state(state) {
                     let Some(successor_scc) = sccs.state_to_scc[successor] else {
                         continue;
@@ -237,17 +250,14 @@ impl<SccIdx: Index, SccDependencyIdx: Index> SccDependencies<SccIdx, SccDependen
         self.depends_on[dependency]
     }
 
-    /// Returns the number of SCCs in the longest chain of SCC dependencies, i.e. the length of
-    /// the longest path through the condensation graph (counting SCCs, not edges).
+    /// Returns the number of SCCs in the longest chain of SCC dependencies.
     pub fn longest_chain(&self) -> usize {
         let mut longest_chain_from: To1<SccIdx, usize> =
             To1::with_entries(vec![0; self.scc_dependencies.keys().len()]);
         let mut longest = 0;
 
-        // Dependency edges always point from an SCC to one with a strictly higher index (a
-        // consequence of the order in which `Sccs::compute` numbers SCCs during its second,
-        // transpose-graph DFS pass). So processing SCCs from the highest index down guarantees
-        // that every dependency of `scc` has already been resolved once we reach `scc`.
+        // As SCCs are already in reverse topological order, a single pass suffices to compute the
+        // dependency chain length for every SCC.
         let mut scc = self.scc_dependencies.keys().end();
         while scc.raw().as_usize() > 0 {
             scc -= SccIdx::RawType::one();

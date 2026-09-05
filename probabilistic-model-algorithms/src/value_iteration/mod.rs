@@ -1,6 +1,7 @@
 mod min_max;
 mod optimistic_value_iteration;
 pub mod precomputation;
+mod sub_model;
 
 pub use optimistic_value_iteration::optimistic_value_iteration_max;
 
@@ -102,7 +103,7 @@ fn value_iteration_internal<
         loop {
             let mut largest_change = 0.0;
             for entry in sccs.entries(scc_index) {
-                let state = sccs.entry_to_state(entry);
+                let state = sccs.state_of_entry(entry);
 
                 let best_value = if model.choices_of_state(state).len() == 0 {
                     0.0
