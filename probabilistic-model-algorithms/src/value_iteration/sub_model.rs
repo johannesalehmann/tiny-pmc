@@ -23,8 +23,6 @@ pub struct SubModel<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index> {
     pub to_old_state_index: To1<NewSI, StateIdx>,
 }
 
-// TODO: As we know the size of the SCC before, we could determine the smallest possible index types
-//  for each SCC and build the sub-model using those.
 pub fn build_sub_model<
     M: ReadStateSpace,
     ScI: Index,
