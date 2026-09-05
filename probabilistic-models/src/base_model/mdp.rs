@@ -168,3 +168,61 @@ impl<'a, StateIdx: Index, ChoiceIdx: Index, BranchIdx: Index> Iterator
         self.iterator.size_hint()
     }
 }
+
+#[macro_export]
+macro_rules! mdp {
+    ($mdp:ident = {$($state:ident -> $($p:literal: $dest:ident)&*),* $(,)?}) => {
+        #[allow(unused_mut)]
+        let (mut $mdp, __mdp_state_indices) = {
+            use $crate::Index;
+            use $crate::StateIndex;
+            use $crate::base_model::Mdp;
+            use ::std::collections::HashMap;
+
+            let mut state_indices: HashMap<&'static str, StateIndex<usize>> = HashMap::new();
+            let mut order: Vec<&'static str> = Vec::new();
+            $(
+                state_indices.entry(stringify!($state)).or_insert_with(|| {
+                    let index = StateIndex::from_raw(order.len());
+                    order.push(stringify!($state));
+                    index
+                });
+            )*
+
+            let mut choices_by_state: HashMap<&'static str, Vec<Vec<(f64, StateIndex<usize>)>>> =
+                HashMap::new();
+            $(
+                choices_by_state
+                    .entry(stringify!($state))
+                    .or_insert_with(Vec::new)
+                    .push(vec![$( ($p, state_indices[stringify!($dest)]) ),*]);
+            )*
+
+            let mut built = Mdp::with_default_types();
+            for name in &order {
+                built.add_state(state_indices[name]);
+                if let Some(choices) = choices_by_state.get(name) {
+                    for choice in choices {
+                        built.add_choice_from_slice(choice);
+                    }
+                }
+            }
+            (built, state_indices)
+        };
+        $(
+            #[allow(unused_variables)]
+            let $state = __mdp_state_indices[stringify!($state)];
+        )*
+    };
+}
+
+fn test() {
+    mdp!(model = {
+        s1 -> 0.4: s1 & 0.6: s2,
+        s2 -> 0.4: s1 & 0.6: s2,
+        a -> 0.4: s1 & 0.6: s2,
+        b -> 0.4: s1 & 0.6: s2,
+        c -> 0.4: s1 & 0.6: s2,
+        d -> 0.4: s1 & 0.6: s2
+    });
+}

@@ -114,24 +114,18 @@ mod tests {
     use super::{SubModel, SubModelContext, build_sub_model};
     use crate::dominated_by::DominatedByRelation;
     use crate::sccs::{SccEntryIndex, SccIndex, Sccs};
-    use probabilistic_models::base_model::Mdp;
+    use probabilistic_models::mdp;
     use probabilistic_models::{BranchIndex, ChoiceIndex, Model, PredecessorIndex, StateIndex};
     use typed_index_collections::{Csr, Index, To1};
 
     #[test]
     fn loop_removal_and_rescaling() {
         // States 0 and 1 form an SCC, state 2 is the goal state.
-        let mut mdp = Mdp::with_default_types();
-        mdp.add_state(StateIndex::from_raw(0));
-        mdp.add_choice_from_slice(&[
-            (0.25, StateIndex::from_raw(0)),
-            (0.25, StateIndex::from_raw(1)),
-            (0.5, StateIndex::from_raw(2)),
-        ]);
-        mdp.add_state(StateIndex::from_raw(1));
-        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(0))]);
-        mdp.add_state(StateIndex::from_raw(2));
-        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(2))]);
+        mdp!(mdp = {
+            s0 -> 0.25: s0 & 0.25: s1 & 0.5: s2,
+            s1 -> 1.0: s0,
+            s2 -> 1.0: s2
+        });
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
 
         let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> = Sccs::compute(
@@ -183,17 +177,11 @@ mod tests {
     #[test]
     fn external_branch_values() {
         // State 0 forms an SCC of its own and leaves it into state 1 and into the goal state 2.
-        let mut mdp = Mdp::with_default_types();
-        mdp.add_state(StateIndex::from_raw(0));
-        mdp.add_choice_from_slice(&[
-            (0.5, StateIndex::from_raw(0)),
-            (0.25, StateIndex::from_raw(1)),
-            (0.25, StateIndex::from_raw(2)),
-        ]);
-        mdp.add_state(StateIndex::from_raw(1));
-        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(1))]);
-        mdp.add_state(StateIndex::from_raw(2));
-        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(2))]);
+        mdp!(mdp = {
+            s0 -> 0.5: s0 & 0.25: s1 & 0.25: s2,
+            s1 -> 1.0: s1,
+            s2 -> 1.0: s2
+        });
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
 
         let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> = Sccs::compute(
@@ -238,21 +226,12 @@ mod tests {
     #[test]
     fn dominating_states() {
         // States 0 and 1 form an SCC, state 2 is the goal state.
-        let mut mdp = Mdp::with_default_types();
-        mdp.add_state(StateIndex::from_raw(0));
-        mdp.add_choice_from_slice(&[
-            (0.5, StateIndex::from_raw(0)),
-            (0.5, StateIndex::from_raw(1)),
-        ]);
-        mdp.add_choice_from_slice(&[
-            (0.25, StateIndex::from_raw(0)),
-            (0.25, StateIndex::from_raw(1)),
-            (0.5, StateIndex::from_raw(2)),
-        ]);
-        mdp.add_state(StateIndex::from_raw(1));
-        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(0))]);
-        mdp.add_state(StateIndex::from_raw(2));
-        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(2))]);
+        mdp!(mdp = {
+            s0 -> 0.5: s0 & 0.5: s1,
+            s0 -> 0.25: s0 & 0.25: s1 & 0.5: s2,
+            s1 -> 1.0: s0,
+            s2 -> 1.0: s2
+        });
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
 
         let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> = Sccs::compute(
@@ -304,14 +283,10 @@ mod tests {
     #[test]
     fn the_context_can_be_reused_for_every_scc() {
         // State 0 leaves its own SCC into the SCC of state 1, which is built first.
-        let mut mdp = Mdp::with_default_types();
-        mdp.add_state(StateIndex::from_raw(0));
-        mdp.add_choice_from_slice(&[
-            (0.5, StateIndex::from_raw(0)),
-            (0.5, StateIndex::from_raw(1)),
-        ]);
-        mdp.add_state(StateIndex::from_raw(1));
-        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(1))]);
+        mdp!(mdp = {
+            s0 -> 0.5: s0 & 0.5: s1,
+            s1 -> 1.0: s1
+        });
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
 
         let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> = Sccs::compute(&model, None);

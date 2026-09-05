@@ -143,35 +143,20 @@ impl<M: ReadStateSpace, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Pr
 
 #[cfg(test)]
 mod tests {
-    use crate::StateIndex;
-    use crate::base_model::Mdp;
+    use crate::mdp;
     use crate::traits::ReadStateSpace;
-    use typed_index_collections::Index;
 
     #[test]
     fn successors_of_state() {
-        let mut mdp = Mdp::with_default_types();
-        let s0 = StateIndex::from_raw(0);
-        let s1 = StateIndex::from_raw(1);
-        let s2 = StateIndex::from_raw(2);
-        let s3 = StateIndex::from_raw(3);
-        let s4 = StateIndex::from_raw(4);
-
-        mdp.add_state(s0);
-        mdp.add_choice_from_slice(&[(0.3, s0), (0.7, s1)]);
-
-        mdp.add_state(s1);
-        mdp.add_choice_from_slice(&[(1.0, s3)]);
-        mdp.add_choice_from_slice(&[(0.6, s1), (0.4, s2)]);
-        mdp.add_choice_from_slice(&[(1.0, s4)]);
-
-        mdp.add_state(s2);
-        mdp.add_choice_from_slice(&[(0.1, s3), (0.3, s2), (0.3, s1), (0.3, s0)]);
-
-        mdp.add_state(s3);
-
-        mdp.add_state(s4);
-        mdp.add_choice_from_slice(&[(1.0, s1)]);
+        mdp!(mdp = {
+            s0 -> 0.3: s0 & 0.7: s1,
+            s1 -> 1.0: s3,
+            s1 -> 0.6: s1 & 0.4: s2,
+            s1 -> 1.0: s4,
+            s2 -> 0.1: s3 & 0.3: s2 & 0.3: s1 & 0.3: s0,
+            s3 ->,
+            s4 -> 1.0: s1
+        });
 
         assert_eq!(
             mdp.successors_of_state(s0).collect::<Vec<_>>(),

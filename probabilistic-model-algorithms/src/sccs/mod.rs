@@ -279,14 +279,14 @@ impl<SccIdx: Index, SccDependencyIdx: Index> SccDependencies<SccIdx, SccDependen
 #[cfg(test)]
 mod tests {
     use super::{SccDependencies, SccDependencyIndex, SccEntryIndex, SccIndex, Sccs};
-    use probabilistic_models::base_model::Mdp;
+    use probabilistic_models::mdp;
     use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
     use probabilistic_models::{Model, PredecessorIndex, StateIndex};
     use typed_index_collections::{Csr, Index, To1};
 
     #[test]
     fn empty() {
-        let mdp = Mdp::with_default_types();
+        mdp!(mdp = {});
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
         let sccs =
             Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
@@ -298,8 +298,7 @@ mod tests {
 
     #[test]
     fn single() {
-        let mut mdp = Mdp::with_default_types();
-        mdp.add_state(StateIndex::from_raw(0));
+        mdp!(mdp = { s0 ->, });
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
         let sccs =
             Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
@@ -320,9 +319,7 @@ mod tests {
 
     #[test]
     fn single_with_loop() {
-        let mut mdp = Mdp::with_default_types();
-        mdp.add_state(StateIndex::from_raw(0));
-        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(0))]);
+        mdp!(mdp = { s0 -> 1.0: s0 });
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
         let sccs =
             Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
@@ -343,10 +340,10 @@ mod tests {
 
     #[test]
     fn two_unconnected() {
-        let mut mdp = Mdp::with_default_types();
-        mdp.add_state(StateIndex::from_raw(0));
-        mdp.add_state(StateIndex::from_raw(1));
-        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(1))]);
+        mdp!(mdp = {
+            s0 ->,
+            s1 -> 1.0: s1
+        });
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
         let sccs =
             Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
@@ -370,16 +367,12 @@ mod tests {
 
     #[test]
     fn two_state_loop() {
-        let mut mdp = Mdp::with_default_types();
-        mdp.add_state(StateIndex::from_raw(0));
-        mdp.add_state(StateIndex::from_raw(1));
-        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(2))]);
-        mdp.add_state(StateIndex::from_raw(2));
-        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(2))]);
-        mdp.add_choice_from_slice(&[
-            (0.5, StateIndex::from_raw(2)),
-            (0.5, StateIndex::from_raw(1)),
-        ]);
+        mdp!(mdp = {
+            s0 ->,
+            s1 -> 1.0: s2,
+            s2 -> 1.0: s2,
+            s2 -> 0.5: s2 & 0.5: s1
+        });
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
         let sccs =
             Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
@@ -409,31 +402,15 @@ mod tests {
     fn complex_model()
     -> impl ReadStateSpace<StateIdx = StateIndex<usize>> + ReadPredecessors<StateIdx = StateIndex<usize>>
     {
-        let mut mdp = Mdp::with_default_types();
-        mdp.add_state(StateIndex::from_raw(0));
-        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(1))]);
-
-        mdp.add_state(StateIndex::from_raw(1));
-        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(2))]);
-
-        mdp.add_state(StateIndex::from_raw(2));
-        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(3))]);
-
-        mdp.add_state(StateIndex::from_raw(3));
-        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(1))]);
-        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(5))]);
-
-        mdp.add_state(StateIndex::from_raw(4));
-        mdp.add_choice_from_slice(&[
-            (0.1, StateIndex::from_raw(2)),
-            (0.9, StateIndex::from_raw(4)),
-        ]);
-
-        mdp.add_state(StateIndex::from_raw(5));
-        mdp.add_choice_from_slice(&[
-            (0.3, StateIndex::from_raw(5)),
-            (0.7, StateIndex::from_raw(5)),
-        ]);
+        mdp!(mdp = {
+            s0 -> 1.0: s1,
+            s1 -> 1.0: s2,
+            s2 -> 1.0: s3,
+            s3 -> 1.0: s1,
+            s3 -> 1.0: s5,
+            s4 -> 0.1: s2 & 0.9: s4,
+            s5 -> 0.3: s5 & 0.7: s5
+        });
 
         Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>()
     }
@@ -518,7 +495,7 @@ mod tests {
 
     #[test]
     fn longest_chain_empty() {
-        let mdp = Mdp::with_default_types();
+        mdp!(mdp = {});
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
         let sccs =
             Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
@@ -531,17 +508,12 @@ mod tests {
     #[test]
     fn longest_chain_linear() {
         // A chain of four states, each its own trivial SCC: 0 -> 1 -> 2 -> 3.
-        let mut mdp = Mdp::with_default_types();
-        mdp.add_state(StateIndex::from_raw(0));
-        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(1))]);
-
-        mdp.add_state(StateIndex::from_raw(1));
-        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(2))]);
-
-        mdp.add_state(StateIndex::from_raw(2));
-        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(3))]);
-
-        mdp.add_state(StateIndex::from_raw(3));
+        mdp!(mdp = {
+            s0 -> 1.0: s1,
+            s1 -> 1.0: s2,
+            s2 -> 1.0: s3,
+            s3 ->,
+        });
 
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
         let sccs =
@@ -554,15 +526,11 @@ mod tests {
 
     #[test]
     fn excluded_state_breaks_cycle() {
-        let mut mdp = Mdp::with_default_types();
-        mdp.add_state(StateIndex::from_raw(0));
-        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(1))]);
-
-        mdp.add_state(StateIndex::from_raw(1));
-        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(2))]);
-
-        mdp.add_state(StateIndex::from_raw(2));
-        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(0))]);
+        mdp!(mdp = {
+            s0 -> 1.0: s1,
+            s1 -> 1.0: s2,
+            s2 -> 1.0: s0
+        });
 
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
 
@@ -602,16 +570,12 @@ mod tests {
         // State 0 has two choices, one into each state of the 2-state SCC {1, 2}. Both edges
         // land in the same target SCC, so `dependencies` must report it only once rather than
         // once per edge.
-        let mut mdp = Mdp::with_default_types();
-        mdp.add_state(StateIndex::from_raw(0));
-        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(1))]);
-        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(2))]);
-
-        mdp.add_state(StateIndex::from_raw(1));
-        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(2))]);
-
-        mdp.add_state(StateIndex::from_raw(2));
-        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(1))]);
+        mdp!(mdp = {
+            s0 -> 1.0: s1,
+            s0 -> 1.0: s2,
+            s1 -> 1.0: s2,
+            s2 -> 1.0: s1
+        });
 
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
         let sccs =
@@ -636,20 +600,14 @@ mod tests {
         // The dynamic programming of longest chain should correctly choose the largest value of a
         // a state's successors. In the case of state 0, that means it should use the value of state
         // 2 instead of 1.
-        let mut mdp = Mdp::with_default_types();
-        mdp.add_state(StateIndex::from_raw(0));
-        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(1))]);
-        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(2))]);
-
-        mdp.add_state(StateIndex::from_raw(1));
-
-        mdp.add_state(StateIndex::from_raw(2));
-        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(3))]);
-
-        mdp.add_state(StateIndex::from_raw(3));
-        mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(4))]);
-
-        mdp.add_state(StateIndex::from_raw(4));
+        mdp!(mdp = {
+            s0 -> 1.0: s1,
+            s0 -> 1.0: s2,
+            s1 ->,
+            s2 -> 1.0: s3,
+            s3 -> 1.0: s4,
+            s4 ->,
+        });
 
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
         let sccs =
