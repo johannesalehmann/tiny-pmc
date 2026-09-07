@@ -294,8 +294,8 @@ fn subgame_value_iteration<NewSI: Index, NewCI: Index, NewBI: Index>(
 
             if converged {
                 let absolute_error = best_value - values[state.raw().as_usize()];
-                let relative_error = absolute_error / best_value;
-                if relative_error >= eps {
+                // The condition is equivalent to `absolute_error / best_value >= eps`:
+                if absolute_error >= eps * best_value {
                     converged = false;
                 }
             }
