@@ -138,52 +138,52 @@ pub fn s1_max<
     let mut result = To1::with_entries(vec![true; model.states().len()]);
     let mut inner_buffer = To1::with_entries(vec![false; model.states().len()]);
     let mut open_list = Vec::new();
+    // Tracks whether all branches of this choice stay in result.
     let mut stays_in_result = To1::with_entries(vec![true; model.choices().len()]);
+    let goal_states: Vec<_> = model
+        .states()
+        .into_iter()
+        .filter(|&state| model.is_atomic_proposition_set(state, goal))
+        .collect();
     loop {
-        open_list.clear();
-        for state in model.states() {
-            if model.is_atomic_proposition_set(state, goal) {
-                inner_buffer[state] = true;
-                open_list.push(state);
-            } else {
-                inner_buffer[state] = false;
-            }
+        inner_buffer.fill(false);
+        for &state in &goal_states {
+            inner_buffer[state] = true;
+            open_list.push(state);
         }
-        for choice in model.choices() {
-            // If stays_in_result[choice] is already false, it still is in this iteration, because
-            // result only ever shrinks.
-            if stays_in_result[choice] {
-                let mut all_inside = true;
-                for branch in model.branches_of_choice(choice) {
-                    if !result[model.branch_destination(branch)] {
-                        all_inside = false;
-                        break;
-                    }
-                }
-                stays_in_result[choice] = all_inside;
-            }
-        }
+        // Repeatedly add states to `inner_buffer` that reach `goal_states` via a transition that
+        // stays in `result`.
         while let Some(state) = open_list.pop() {
             for predecessor in model.predecessors_of_state(state) {
                 let predecessor_choice = model.choice_of_predecessor(predecessor);
+                if !stays_in_result[predecessor_choice] {
+                    continue;
+                }
                 let predecessor_state = model.state_of_choice(predecessor_choice);
-                if stays_in_result[predecessor_choice] {
-                    if !inner_buffer[predecessor_state] {
-                        inner_buffer[predecessor_state] = true;
-                        open_list.push(predecessor_state);
-                    }
+                if !inner_buffer[predecessor_state] {
+                    inner_buffer[predecessor_state] = true;
+                    open_list.push(predecessor_state);
                 }
             }
         }
 
-        let mut any_change = false;
-        for (result, inner) in result.iter_mut().zip(inner_buffer.iter()) {
-            if *result != *inner {
-                any_change = true;
-                *result = *inner;
+        // Update `stays_in_result`: Remove choices with a branch to a state that is both in
+        // `result` and not in `inner_buffer`
+        let mut any_choices_removed = false;
+        for state in model.states() {
+            if !result[state] || inner_buffer[state] {
+                continue;
+            }
+            result[state] = false;
+            for predecessor in model.predecessors_of_state(state) {
+                let predecessor_choice = model.choice_of_predecessor(predecessor);
+                if stays_in_result[predecessor_choice] {
+                    stays_in_result[predecessor_choice] = false;
+                    any_choices_removed = true;
+                }
             }
         }
-        if !any_change {
+        if !any_choices_removed {
             break;
         }
     }
