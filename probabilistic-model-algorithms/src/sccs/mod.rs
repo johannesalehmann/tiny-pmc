@@ -4,7 +4,7 @@ use probabilistic_models::{Index, RawIndex};
 
 mod exclusion_criterion;
 pub use exclusion_criterion::*;
-use typed_index_collections::IndexRange;
+use typed_index_collections::{IndexRange, IndexRangeIterator};
 
 index!(SccIndex);
 index!(SccEntryIndex);
@@ -12,7 +12,7 @@ pub struct Sccs<SccIdx: Index, SccEntryIdx: Index, StateIdx: Index> {
     sccs: Csr<SccIdx, SccEntryIdx>,
     scc_entries: To1<SccEntryIdx, StateIdx>,
     is_trivial: To1<SccIdx, bool>,
-    state_to_scc: To1<StateIdx, Option<SccIdx>>, // This maps to None for states excluded by the ExclusionCriterion
+    state_to_scc: To1<StateIdx, Option<SccIdx>>, // This maps to None for states in s0 or s1
 }
 
 impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
@@ -82,35 +82,76 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
         }
     }
 
+    /// Appends the states reachable from `state` to `l` in DFS post-order, i.e. every state is
+    /// appended only after all states reachable from it have been appended.
+    ///
+    /// To this end, it maintains a stack of cursors, where each cursor points to the next successor
+    /// of a state that needs to be visited. Once all successors are visited, the cursor is popped
+    /// from the stack.
     fn visit<M: ReadStateSpace<StateIdx = SI>>(
         model: &M,
         visited: &mut To1<SI, bool>,
         l: &mut Vec<SI>,
         state: SI,
     ) {
-        let mut stack = Vec::new();
-        stack.push((state, false));
+        let mut stack = vec![Self::cursor(model, state)];
         visited[state] = true;
 
-        while let Some(top) = stack.pop() {
-            match top {
-                (i, false) => {
-                    stack.push((i, true));
-                    for choice in model.choices_of_state(i) {
-                        for branch in model.branches_of_choice(choice) {
-                            let destination = model.branch_destination(branch);
-                            if !visited[destination] {
-                                visited[destination] = true;
-                                stack.push((destination, false));
-                            }
-                        }
-                    }
+        while let Some((i, choices, branches)) = stack.last_mut() {
+            let i = *i;
+
+            let descend_into = Self::get_next_unvisited(model, visited, choices, branches);
+
+            match descend_into {
+                Some(destination) => {
+                    visited[destination] = true;
+                    stack.push(Self::cursor(model, destination));
                 }
-                (i, true) => {
+                None => {
                     l.push(i);
+                    stack.pop();
                 }
             }
         }
+    }
+
+    fn get_next_unvisited<M: ReadStateSpace<StateIdx = SI>>(
+        model: &M,
+        visited: &mut To1<SI, bool>,
+        choices: &mut IndexRangeIterator<<M as ReadStateSpace>::ChoiceIdx>,
+        branches: &mut IndexRangeIterator<<M as ReadStateSpace>::BranchIdx>,
+    ) -> Option<SI> {
+        let mut descend_into = None;
+        loop {
+            if let Some(branch) = branches.next() {
+                let destination = model.branch_destination(branch);
+                if !visited[destination] {
+                    descend_into = Some(destination);
+                    break;
+                }
+            } else if let Some(choice) = choices.next() {
+                *branches = model.branches_of_choice(choice).into_iter();
+            } else {
+                break;
+            }
+        }
+        descend_into
+    }
+
+    /// Creates a DFS stack frame for `state`, with its cursor placed before its first successor.
+    fn cursor<M: ReadStateSpace<StateIdx = SI>>(
+        model: &M,
+        state: SI,
+    ) -> (
+        SI,
+        IndexRangeIterator<M::ChoiceIdx>,
+        IndexRangeIterator<M::BranchIdx>,
+    ) {
+        (
+            state,
+            model.choices_of_state(state).into_iter(),
+            IndexRangeIterator::empty(),
+        )
     }
 
     fn visit_reversed<M: ReadPredecessors<StateIdx = SI>>(
@@ -616,5 +657,94 @@ mod tests {
             SccDependencies::<SccIndex<usize>, SccDependencyIndex<usize>>::compute(&model, &sccs);
 
         assert_eq!(dependencies.longest_chain(), 4);
+    }
+
+    #[test]
+    fn cross_edge_between_siblings_does_not_merge_sccs() {
+        // A graph of this form previously caused a too-large SCC to be generated (because the first
+        // DFS in the above algorithm did not push nodes in the correct order). This tests for a
+        // regression.
+        mdp!(mdp = {
+            s0 -> 1.0: s1,
+            s0 -> 1.0: s2,
+            s1 ->,
+            s2 -> 1.0: s1,
+        });
+
+        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
+        let sccs =
+            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
+
+        let scc0 = sccs.scc_of_state(StateIndex::from_raw(0)).unwrap();
+        let scc1 = sccs.scc_of_state(StateIndex::from_raw(1)).unwrap();
+        let scc2 = sccs.scc_of_state(StateIndex::from_raw(2)).unwrap();
+
+        assert_ne!(scc1, scc2, "states 1 and 2 are not strongly connected");
+        assert_ne!(scc0, scc1, "states 0 and 1 are not strongly connected");
+        assert_ne!(scc0, scc2, "states 0 and 2 are not strongly connected");
+        assert!(sccs.is_trivial[scc0]);
+        assert!(sccs.is_trivial[scc1]);
+        assert!(sccs.is_trivial[scc2]);
+
+        assert!(
+            scc0 < scc2,
+            "the edge 0 -> 2 must be respected by the order"
+        );
+        assert!(
+            scc2 < scc1,
+            "the edge 2 -> 1 must be respected by the order"
+        );
+    }
+
+    #[test]
+    fn cross_edge_does_not_absorb_predecessor_into_scc() {
+        // Tests for the same regression as cross_edge_between_siblings_does_not_merge_sccs
+        mdp!(mdp = {
+            s0 -> 1.0: s1,
+            s0 -> 1.0: s2,
+            s1 -> 1.0: s3,
+            s2 -> 1.0: s1,
+            s3 -> 1.0: s1,
+        });
+
+        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
+        let sccs =
+            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
+
+        let scc0 = sccs.scc_of_state(StateIndex::from_raw(0)).unwrap();
+        let scc1 = sccs.scc_of_state(StateIndex::from_raw(1)).unwrap();
+        let scc2 = sccs.scc_of_state(StateIndex::from_raw(2)).unwrap();
+        let scc3 = sccs.scc_of_state(StateIndex::from_raw(3)).unwrap();
+
+        assert_eq!(scc1, scc3, "states 1 and 3 form an SCC");
+        assert_ne!(
+            scc2, scc1,
+            "state 2 only reaches the SCC {{1, 3}} and cannot be part of it"
+        );
+        assert_ne!(scc0, scc1);
+        assert_ne!(scc0, scc2);
+
+        assert_eq!(
+            sccs.entries(scc1)
+                .into_iter()
+                .map(|entry| sccs.state_of_entry(entry))
+                .collect::<std::collections::BTreeSet<_>>(),
+            [StateIndex::from_raw(1), StateIndex::from_raw(3)]
+                .into_iter()
+                .collect::<std::collections::BTreeSet<_>>()
+        );
+
+        assert!(sccs.is_trivial[scc0]);
+        assert!(!sccs.is_trivial[scc1]);
+        assert!(sccs.is_trivial[scc2]);
+
+        assert!(
+            scc0 < scc2,
+            "the edge 0 -> 2 must be respected by the order"
+        );
+        assert!(
+            scc2 < scc1,
+            "the edge 2 -> 1 must be respected by the order"
+        );
     }
 }
