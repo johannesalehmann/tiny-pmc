@@ -107,6 +107,14 @@ impl<From: Index, To: Index> Csr<From, To> {
     pub fn is_empty(&self) -> bool {
         self.entries.is_empty()
     }
+
+    pub fn iter(&self) -> <&Csr<From, To> as IntoIterator>::IntoIter {
+        self.into_iter()
+    }
+
+    pub fn entries_raw(&self) -> &[To] {
+        &self.entries[..]
+    }
 }
 
 impl<'a, From: Index, To: Index> IntoIterator for &'a Csr<From, To> {
