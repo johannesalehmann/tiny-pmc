@@ -214,6 +214,15 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
     ) -> SccDependencies<ScI, SccDependencyIdx> {
         SccDependencies::compute(model, self)
     }
+
+    pub fn max_size(&self) -> usize {
+        self.sccs
+            .ranges()
+            .into_iter()
+            .map(|r| r.len())
+            .max()
+            .unwrap_or(0)
+    }
 }
 
 pub struct ReverseTopologicalOrderIterator<ScI: Index> {
