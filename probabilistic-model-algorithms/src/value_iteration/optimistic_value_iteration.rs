@@ -40,6 +40,7 @@ pub fn optimistic_value_iteration_max<
     // TODO: Perhaps allocate precision depending on SCC size? And what about SCCs that are not
     //  part of the longest SCC chain? And if an upstream SCC is solved with higher precision than
     //  planned, we can allocate the extra budget to the downstream SCCs.
+    // TODO: Is this approach actually correct when using a relative error criterion?
     let precision_per_scc = 2.0 * eps * (1.0 / longest_chain as f64);
 
     let mut subgame_construction_context = SubModelContext::new(model);
@@ -135,7 +136,7 @@ fn solve_subgame_via_ovi<NewCI: Index, NewBI: Index>(
         for state in mdp.states() {
             upper_bound[state] = match values[state] {
                 0.0 => 0.0,
-                v => (v + initial_eps).min(1.0),
+                v => (v * (1.0 + initial_eps)).min(1.0),
             }
         }
 
@@ -224,7 +225,7 @@ fn verify_subgame_optimistic<NewCI: Index, NewBI: Index>(
             }
 
             if new_lower_value > 0.0 {
-                error = error.max(new_lower_value - values[state]);
+                error = error.max((new_lower_value - values[state]) / new_lower_value);
             }
             values[state] = new_lower_value;
             if new_upper_value < upper_bound[state] {
