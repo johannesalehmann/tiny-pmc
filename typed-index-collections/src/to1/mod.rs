@@ -55,6 +55,10 @@ impl<From: Index, E> To1<From, E> {
         self.entries.get_mut(index.raw().as_usize())
     }
 
+    pub fn entries(&self) -> &[E] {
+        &self.entries[..]
+    }
+
     pub fn add_checked(&mut self, index: From, element: E) -> From {
         assert_eq!(index.raw().as_usize(), self.entries.len());
         self.entries.push(element);

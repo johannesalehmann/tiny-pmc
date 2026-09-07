@@ -268,15 +268,21 @@ fn subgame_value_iteration<NewSI: Index, NewCI: Index, NewBI: Index>(
         // choices_of_state() because this is about 15% faster:
         let mut current_choice = NewCI::default();
         let mut current_branch = NewBI::default();
+        let mut choices = mdp.choice_to_branch.entries_raw().iter();
+        let mut branches = mdp
+            .branch_probabilities
+            .iter()
+            .zip(mdp.branch_destinations.iter());
+
         for (state, &last_choice) in mdp.state_to_choice.entries_raw().iter().enumerate() {
             let state = NewSI::from_raw(NewSI::RawType::from_usize(state));
             let mut best_value = 0.0;
             while current_choice < last_choice {
-                let last_branch = mdp.choice_to_branch.index_raw(current_choice);
+                let last_branch = *choices.next().unwrap();
                 let mut value = choice_exit_values[current_choice];
                 while current_branch < last_branch {
-                    value += mdp.branch_probability(current_branch)
-                        * values[mdp.branch_destination(current_branch).raw().as_usize()];
+                    let (probability, destination) = branches.next().unwrap();
+                    value += probability * values[destination.raw().as_usize()];
                     current_branch += NewBI::RawType::one();
                 }
                 if value >= best_value {
@@ -315,6 +321,12 @@ fn verify_subgame_optimistic<NewSI: Index, NewCI: Index, NewBI: Index>(
         error = 0.0;
         let mut current_choice = NewCI::default();
         let mut current_branch = NewBI::default();
+        let mut choices = mdp.choice_to_branch.entries_raw().iter();
+        let mut branches = mdp
+            .branch_probabilities
+            .iter()
+            .zip(mdp.branch_destinations.iter());
+        let mut choice_exit_values = choice_exit_values.iter();
         for (state, &last_choice) in mdp.state_to_choice.entries_raw().iter().enumerate() {
             let state = NewSI::from_raw(NewSI::RawType::from_usize(state));
             let state_raw = state.raw().as_usize();
@@ -322,14 +334,14 @@ fn verify_subgame_optimistic<NewSI: Index, NewCI: Index, NewBI: Index>(
             let mut new_upper_value = 0.0;
 
             while current_choice < last_choice {
-                let last_branch = mdp.choice_to_branch.index_raw(current_choice);
-                let mut lower_value = choice_exit_values[current_choice];
-                let mut upper_value = choice_exit_values[current_choice];
+                let last_branch = *choices.next().unwrap();
+                let exit_value = *choice_exit_values.next().unwrap();
+                let mut lower_value = exit_value;
+                let mut upper_value = exit_value;
                 while current_branch < last_branch {
-                    lower_value += mdp.branch_probability(current_branch)
-                        * values[mdp.branch_destination(current_branch).raw().as_usize()];
-                    upper_value += mdp.branch_probability(current_branch)
-                        * upper_bound[mdp.branch_destination(current_branch).raw().as_usize()];
+                    let (probability, destination) = branches.next().unwrap();
+                    lower_value += probability * values[destination.raw().as_usize()];
+                    upper_value += probability * upper_bound[destination.raw().as_usize()];
                     current_branch += NewBI::RawType::one();
                 }
                 if lower_value >= new_lower_value {
