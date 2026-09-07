@@ -23,6 +23,8 @@ pub fn optimistic_value_iteration_max<
     let mut precomputation_time = Duration::default();
     let mut build_time = Duration::default();
     let mut value_iteration_time = Duration::default();
+    let mut vi_time = Duration::default();
+    let mut verification_time = Duration::default();
 
     let mut precomputation_start = std::time::Instant::now();
     let s0_max = super::precomputation::s0_max(model, goal);
@@ -53,7 +55,7 @@ pub fn optimistic_value_iteration_max<
     let mut subgame_construction_context = SubModelContext::new(model);
     // TODO: Determine size of largest SCC (or even subgame?) and use that as buffer size instead?
     let mut subgame_values = vec![0.0; model.states().len()];
-    let mut subgame_upper_bound = vec![0.0; model.states().len()];
+    let mut subgame_verification_bounds = vec![(0.0, 0.0); model.states().len()];
     let mut core_start = std::time::Instant::now();
     for scc in sccs.reverse_topological_ordering() {
         if sccs.entries(scc).len() == 1 {
@@ -86,12 +88,14 @@ pub fn optimistic_value_iteration_max<
                     model,
                     &mut build_time,
                     &mut value_iteration_time,
+                    &mut vi_time,
+                    &mut verification_time,
                     &mut values,
                     &sccs,
                     precision_per_scc,
                     &mut subgame_construction_context,
                     &mut subgame_values,
-                    &mut subgame_upper_bound,
+                    &mut subgame_verification_bounds,
                     scc,
                 );
             } else if states < 256 * 256 && choices < 256 * 256 && branches < 256 * 256 {
@@ -99,12 +103,14 @@ pub fn optimistic_value_iteration_max<
                     model,
                     &mut build_time,
                     &mut value_iteration_time,
+                    &mut vi_time,
+                    &mut verification_time,
                     &mut values,
                     &sccs,
                     precision_per_scc,
                     &mut subgame_construction_context,
                     &mut subgame_values,
-                    &mut subgame_upper_bound,
+                    &mut subgame_verification_bounds,
                     scc,
                 );
             } else if states < 256 * 256 * 256 * 256
@@ -115,12 +121,14 @@ pub fn optimistic_value_iteration_max<
                     model,
                     &mut build_time,
                     &mut value_iteration_time,
+                    &mut vi_time,
+                    &mut verification_time,
                     &mut values,
                     &sccs,
                     precision_per_scc,
                     &mut subgame_construction_context,
                     &mut subgame_values,
-                    &mut subgame_upper_bound,
+                    &mut subgame_verification_bounds,
                     scc,
                 );
             } else {
@@ -136,12 +144,14 @@ pub fn optimistic_value_iteration_max<
                     model,
                     &mut build_time,
                     &mut value_iteration_time,
+                    &mut vi_time,
+                    &mut verification_time,
                     &mut values,
                     &sccs,
                     precision_per_scc,
                     &mut subgame_construction_context,
                     &mut subgame_values,
-                    &mut subgame_upper_bound,
+                    &mut subgame_verification_bounds,
                     scc,
                 );
             }
@@ -149,8 +159,8 @@ pub fn optimistic_value_iteration_max<
     }
     println!("Total core time: {:?}", core_start.elapsed());
     println!(
-        "Precomputation time: {:?}, sub model build time: {:?}, value iteration time: {:?}",
-        precomputation_time, build_time, value_iteration_time
+        "Precomputation time: {:?}, sub model build time: {:?}, value iteration time: {:?} (iteration: {:?}, verification: {:?})",
+        precomputation_time, build_time, value_iteration_time, vi_time, verification_time
     );
     values
 }
@@ -160,12 +170,14 @@ fn build_and_solve_submodel<NewSI: Index, NewCI: Index, NewBI: Index, M: ReadSta
     model: &M,
     build_time: &mut Duration,
     value_iteration_time: &mut Duration,
+    vi_time: &mut Duration,
+    verification_time: &mut Duration,
     values: &mut To1<M::StateIdx, f64>,
     sccs: &Sccs<SccIndex<usize>, SccEntryIndex<usize>, M::StateIdx>,
     precision_per_scc: f64,
     subgame_construction_context: &mut SubModelContext<M::StateIdx>,
     subgame_values: &mut Vec<f64>,
-    subgame_upper_bound: &mut Vec<f64>,
+    subgame_verification_bounds: &mut Vec<(f64, f64)>,
     scc: SccIndex<usize>,
 ) {
     let start_submodel = std::time::Instant::now();
@@ -180,13 +192,15 @@ fn build_and_solve_submodel<NewSI: Index, NewCI: Index, NewBI: Index, M: ReadSta
     *build_time += start_submodel.elapsed();
 
     let start_solve = std::time::Instant::now();
-    solve_subgame_via_ovi(
+    let (own_vi_time, own_verification_time) = solve_subgame_via_ovi(
         &sub_model.mdp,
         &sub_model.choice_exit_values,
         precision_per_scc,
         subgame_values,
-        subgame_upper_bound,
+        subgame_verification_bounds,
     );
+    *vi_time += own_vi_time;
+    *verification_time += own_verification_time;
     *value_iteration_time += start_solve.elapsed();
 
     for new_state in sub_model.mdp.states() {
@@ -224,36 +238,62 @@ fn solve_subgame_via_ovi<NewSI: Index, NewCI: Index, NewBI: Index>(
     choice_exit_values: &To1<NewCI, f64>,
     mut eps: f64,
     values: &mut Vec<f64>,
-    upper_bound: &mut Vec<f64>,
-) {
+    verification_bounds: &mut Vec<(f64, f64)>,
+) -> (std::time::Duration, std::time::Duration) {
     for state in mdp.states() {
         values[state.raw().as_usize()] = 0.0;
     }
 
+    let mut vi_duration = Duration::default();
+    let mut verification_duration = Duration::default();
+
     let initial_eps = eps;
     loop {
-        subgame_value_iteration(mdp, choice_exit_values, eps, values);
+        let vi_start = std::time::Instant::now();
+        let _vi_steps = subgame_value_iteration(mdp, choice_exit_values, eps, values);
+        vi_duration += vi_start.elapsed();
 
         for state in mdp.states() {
-            upper_bound[state.raw().as_usize()] = match values[state.raw().as_usize()] {
+            let value = values[state.raw().as_usize()];
+            let upper = match value {
                 0.0 => 0.0,
                 v => (v * (1.0 + initial_eps)).min(1.0),
-            }
+            };
+            verification_bounds[state.raw().as_usize()] = (value, upper);
         }
 
-        match verify_subgame_optimistic(mdp, choice_exit_values, 2.0 * eps, values, upper_bound) {
+        let verification = std::time::Instant::now();
+        match verify_subgame_optimistic(
+            mdp,
+            choice_exit_values,
+            (1.0 / (2.0 * eps)).max(1.0) as usize,
+            verification_bounds,
+        ) {
             OptimisticValueIterationResult::UpperBoundVerified => {
-                for state in mdp.states() {
-                    values[state.raw().as_usize()] = 0.5
-                        * (values[state.raw().as_usize()] + upper_bound[state.raw().as_usize()]);
+                for (_, (value, (lower, upper))) in mdp
+                    .states()
+                    .into_iter()
+                    .zip(values.iter_mut().zip(verification_bounds.iter()))
+                {
+                    *value = 0.5 * (lower + upper);
                 }
+                verification_duration += verification.elapsed();
                 break;
             }
             OptimisticValueIterationResult::UpperBoundRefuted { error } => {
                 eps = error * 0.5;
+                for (_, (value, (lower, _))) in mdp
+                    .states()
+                    .into_iter()
+                    .zip(values.iter_mut().zip(verification_bounds.iter()))
+                {
+                    *value = *lower;
+                }
+                verification_duration += verification.elapsed();
             }
         }
     }
+    (vi_duration, verification_duration)
 }
 
 fn subgame_value_iteration<NewSI: Index, NewCI: Index, NewBI: Index>(
@@ -261,8 +301,10 @@ fn subgame_value_iteration<NewSI: Index, NewCI: Index, NewBI: Index>(
     choice_exit_values: &To1<NewCI, f64>,
     eps: f64,
     values: &mut Vec<f64>,
-) {
+) -> usize {
+    let mut steps = 0;
     loop {
+        steps += 1;
         let mut converged = true;
         // Iterate states manually instead of relying on built-in functions such as
         // choices_of_state() because this is about 15% faster:
@@ -302,7 +344,7 @@ fn subgame_value_iteration<NewSI: Index, NewCI: Index, NewBI: Index>(
             values[state.raw().as_usize()] = best_value;
         }
         if converged {
-            break;
+            break steps;
         }
     }
 }
@@ -310,13 +352,11 @@ fn subgame_value_iteration<NewSI: Index, NewCI: Index, NewBI: Index>(
 fn verify_subgame_optimistic<NewSI: Index, NewCI: Index, NewBI: Index>(
     mdp: &Mdp<NewSI, NewCI, NewBI>,
     choice_exit_values: &To1<NewCI, f64>,
-    eps: f64,
-    values: &mut Vec<f64>,
-    upper_bound: &mut Vec<f64>,
+    max_steps: usize,
+    verification_bounds: &mut Vec<(f64, f64)>,
 ) -> OptimisticValueIterationResult {
-    let verification_steps = (1.0 / eps).max(1.0) as usize;
     let mut error: f64 = 0.0;
-    for _ in 0..verification_steps {
+    for _ in 0..max_steps {
         let mut all_up = true;
         let mut all_down = true;
         error = 0.0;
@@ -341,8 +381,9 @@ fn verify_subgame_optimistic<NewSI: Index, NewCI: Index, NewBI: Index>(
                 let mut upper_value = exit_value;
                 while current_branch < last_branch {
                     let (probability, destination) = branches.next().unwrap();
-                    lower_value += probability * values[destination.raw().as_usize()];
-                    upper_value += probability * upper_bound[destination.raw().as_usize()];
+                    let (lower, upper) = verification_bounds[destination.raw().as_usize()];
+                    lower_value += probability * lower;
+                    upper_value += probability * upper;
                     current_branch += NewBI::RawType::one();
                 }
                 if lower_value >= new_lower_value {
@@ -354,14 +395,15 @@ fn verify_subgame_optimistic<NewSI: Index, NewCI: Index, NewBI: Index>(
                 current_choice += NewCI::RawType::one();
             }
 
+            let (lower, upper) = verification_bounds[state_raw];
             if new_lower_value > 0.0 {
-                error = error.max((new_lower_value - values[state_raw]) / new_lower_value);
+                error = error.max((new_lower_value - lower) / new_lower_value);
             }
-            values[state_raw] = new_lower_value;
-            if new_upper_value < upper_bound[state_raw] {
+            verification_bounds[state_raw].0 = new_lower_value;
+            if new_upper_value < upper {
                 all_up = false;
-                upper_bound[state_raw] = new_upper_value;
-            } else if new_upper_value > upper_bound[state_raw] {
+                verification_bounds[state_raw].1 = new_upper_value;
+            } else if new_upper_value > upper {
                 all_down = false;
             }
 
