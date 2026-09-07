@@ -160,7 +160,7 @@ fn subgame_value_iteration<NewCI: Index, NewBI: Index>(
     values: &mut To1<StateIndex<usize>, f64>,
 ) {
     loop {
-        let mut largest_change = 0.0;
+        let mut converged = true;
         for state in mdp.states() {
             let mut best_value = 0.0;
             for choice in mdp.choices_of_state(state) {
@@ -174,14 +174,16 @@ fn subgame_value_iteration<NewCI: Index, NewBI: Index>(
                 }
             }
 
-            let absolute_error = best_value - values[state];
-            let relative_error = absolute_error / best_value;
-            if relative_error > largest_change {
-                largest_change = relative_error;
+            if converged {
+                let absolute_error = best_value - values[state];
+                let relative_error = absolute_error / best_value;
+                if relative_error >= eps {
+                    converged = false;
+                }
             }
             values[state] = best_value;
         }
-        if largest_change < eps {
+        if converged {
             break;
         }
     }
