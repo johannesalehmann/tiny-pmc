@@ -62,8 +62,9 @@ fn checker() -> Result<(), ModelCheckerError> {
     }
     for (i, property) in properties.iter().enumerate() {
         println!("Checking property {} of {}", i + 1, properties.len());
+        let check_start = std::time::Instant::now();
         let result = tiny_pmc::checking::check(&model, property.clone())?; // TODO: Avoid cloning here?
-        println!("    Result: {result}")
+        println!("    Result: {result} (in {:?})", check_start.elapsed());
     }
 
     println!("Finished in {:?}", start_time.elapsed());
