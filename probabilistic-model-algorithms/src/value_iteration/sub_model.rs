@@ -2,13 +2,16 @@ use crate::dominated_by::DominatedByRelation;
 use crate::sccs::Sccs;
 use probabilistic_models::base_model::Mdp;
 use probabilistic_models::traits::ReadStateSpace;
-use typed_index_collections::{Index, To1};
+use typed_index_collections::{Index, RawIndex, To1};
 
-pub struct SubModelContext<StateIdx: Index, NewSI: Index> {
-    to_new_state_index: To1<StateIdx, Option<NewSI>>,
+pub struct SubModelContext<StateIdx: Index> {
+    // For the same model, different sub-models may use different new index types (usually the
+    // narrowest-possible type). To support all these in a single buffer, we use usize instead of a
+    // specific state index type here.
+    to_new_state_index: To1<StateIdx, Option<usize>>,
 }
 
-impl<StateIdx: Index, NewSI: Index> SubModelContext<StateIdx, NewSI> {
+impl<StateIdx: Index> SubModelContext<StateIdx> {
     pub fn new<M: ReadStateSpace<StateIdx = StateIdx>>(model: &M) -> Self {
         Self {
             to_new_state_index: To1::with_entries(vec![None; model.states().len()]),
@@ -36,7 +39,7 @@ pub fn build_sub_model<
     sccs: &Sccs<ScI, ScEI, M::StateIdx>,
     dominated_by: &DominatedByRelation<M::StateIdx>,
     values: &To1<M::StateIdx, f64>,
-    context: &mut SubModelContext<M::StateIdx, NewSI>,
+    context: &mut SubModelContext<M::StateIdx>,
 ) -> SubModel<M::StateIdx, NewSI, NewCI, NewBI> {
     let to_new_state_index = &mut context.to_new_state_index;
     let mut to_old_state_index: To1<NewSI, M::StateIdx> =
@@ -45,7 +48,7 @@ pub fn build_sub_model<
         let state = sccs.state_of_entry(scc_entry);
         if dominated_by.dominated_by(state).is_none() {
             let new_index = to_old_state_index.add(state);
-            to_new_state_index[state] = Some(new_index);
+            to_new_state_index[state] = Some(new_index.raw().as_usize());
         }
     }
 
@@ -59,6 +62,7 @@ pub fn build_sub_model<
         let Some(new_state) = to_new_state_index[state] else {
             continue;
         };
+        let new_state = NewSI::from_raw(NewSI::RawType::from_usize(new_state));
         mdp.add_state(new_state);
         for choice in model.choices_of_state(state) {
             let choice_index = mdp.add_choice();
@@ -74,8 +78,9 @@ pub fn build_sub_model<
                 if destination == state {
                     to_self += p;
                 } else if let Some(target) = to_new_state_index[destination] {
-                    // We first add the true probability. After the loop, we then scale the
+                    // We first add the actual probability. After the loop, we then scale the
                     // probability to account for removed self loops.
+                    let target = NewSI::from_raw(NewSI::RawType::from_usize(target));
                     mdp.add_branch(p, target);
                 } else {
                     exit_value += p * values[destination];
@@ -83,8 +88,6 @@ pub fn build_sub_model<
             }
 
             let scale_factor = if to_self == 1.0 {
-                // If the model is well-formed, then the choice has no other branches and thus
-                // cannot contribute any value. Scaling with zero avoids dividing by zero.
                 0.0
             } else {
                 1.0 / (1.0 - to_self)
@@ -96,6 +99,7 @@ pub fn build_sub_model<
         }
     }
 
+    // Reset the buffer for future use
     for &state in &to_old_state_index {
         to_new_state_index[state] = None;
     }

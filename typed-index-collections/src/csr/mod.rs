@@ -86,6 +86,10 @@ impl<From: Index, To: Index> Csr<From, To> {
         self.get(index).unwrap()
     }
 
+    pub fn index_raw(&self, index: From) -> To {
+        self.entries[index.raw().as_usize()]
+    }
+
     pub fn keys(&self) -> SemiboundedIndexRange<From> {
         SemiboundedIndexRange::new(From::from_raw(From::RawType::from_usize(
             self.entries.len(),

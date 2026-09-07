@@ -4,7 +4,8 @@ use crate::value_iteration::sub_model::{SubModelContext, build_sub_model};
 use probabilistic_models::base_model::Mdp;
 use probabilistic_models::traits::{ReadAtomicPropositions, ReadPredecessors, ReadStateSpace};
 use probabilistic_models::{BranchIndex, ChoiceIndex, StateIndex};
-use typed_index_collections::{Index, To1};
+use std::time::Duration;
+use typed_index_collections::{Index, RawIndex, To1};
 
 pub fn optimistic_value_iteration_max<
     M: ReadStateSpace
@@ -17,8 +18,13 @@ pub fn optimistic_value_iteration_max<
 >(
     model: &M,
     goal: <M as ReadAtomicPropositions>::APIdx,
-    mut eps: f64,
+    eps: f64,
 ) -> To1<<M as ReadStateSpace>::StateIdx, f64> {
+    let mut precomputation_time = Duration::default();
+    let mut build_time = Duration::default();
+    let mut value_iteration_time = Duration::default();
+
+    let mut precomputation_start = std::time::Instant::now();
     let s0_max = super::precomputation::s0_max(model, goal);
     let s1_max = super::precomputation::s1_max(model, goal);
 
@@ -36,6 +42,7 @@ pub fn optimistic_value_iteration_max<
     let longest_chain = sccs
         .compute_dependencies::<SccDependencyIndex<usize>, _>(model)
         .longest_chain();
+    precomputation_time += precomputation_start.elapsed();
 
     // TODO: Perhaps allocate precision depending on SCC size? And what about SCCs that are not
     //  part of the longest SCC chain? And if an upstream SCC is solved with higher precision than
@@ -45,8 +52,9 @@ pub fn optimistic_value_iteration_max<
 
     let mut subgame_construction_context = SubModelContext::new(model);
     // TODO: Determine size of largest SCC (or even subgame?) and use that as buffer size instead?
-    let mut subgame_values = To1::with_entries(vec![0.0; model.states().len()]);
-    let mut subgame_upper_bound = To1::with_entries(vec![0.0; model.states().len()]);
+    let mut subgame_values = vec![0.0; model.states().len()];
+    let mut subgame_upper_bound = vec![0.0; model.states().len()];
+    let mut core_start = std::time::Instant::now();
     for scc in sccs.reverse_topological_ordering() {
         if sccs.entries(scc).len() == 1 {
             let entry = sccs.entries(scc).into_iter().next().unwrap();
@@ -61,37 +69,130 @@ pub fn optimistic_value_iteration_max<
             }
             values[state] = best_value;
         } else {
-            // TODO: Dynamically select sub model index types?
-            let sub_model = build_sub_model::<
-                _,
-                _,
-                _,
-                StateIndex<usize>,
-                ChoiceIndex<usize>,
-                BranchIndex<usize>,
-            >(
-                model,
-                scc,
-                &sccs,
-                &DominatedByRelation::empty(),
-                &values,
-                &mut subgame_construction_context,
-            );
+            let states = sccs.entries(scc).len();
+            let mut choices = 0;
+            let mut branches = 0;
+            for entry in sccs.entries(scc) {
+                let state = sccs.state_of_entry(entry);
+                let entry_choices = model.choices_of_state(state);
+                choices += entry_choices.len();
+                for choice in entry_choices {
+                    branches += model.branches_of_choice(choice).len();
+                }
+            }
 
-            solve_subgame_via_ovi(
-                &sub_model.mdp,
-                &sub_model.choice_exit_values,
-                precision_per_scc,
-                &mut subgame_values,
-                &mut subgame_upper_bound,
-            );
-
-            for new_state in sub_model.mdp.states() {
-                values[sub_model.to_old_state_index[new_state]] = subgame_values[new_state];
+            if states < 256 && choices < 256 && branches < 256 {
+                build_and_solve_submodel::<StateIndex<u8>, ChoiceIndex<u8>, BranchIndex<u8>, _>(
+                    model,
+                    &mut build_time,
+                    &mut value_iteration_time,
+                    &mut values,
+                    &sccs,
+                    precision_per_scc,
+                    &mut subgame_construction_context,
+                    &mut subgame_values,
+                    &mut subgame_upper_bound,
+                    scc,
+                );
+            } else if states < 256 * 256 && choices < 256 * 256 && branches < 256 * 256 {
+                build_and_solve_submodel::<StateIndex<u16>, ChoiceIndex<u16>, BranchIndex<u16>, _>(
+                    model,
+                    &mut build_time,
+                    &mut value_iteration_time,
+                    &mut values,
+                    &sccs,
+                    precision_per_scc,
+                    &mut subgame_construction_context,
+                    &mut subgame_values,
+                    &mut subgame_upper_bound,
+                    scc,
+                );
+            } else if states < 256 * 256 * 256 * 256
+                && choices < 256 * 256 * 256 * 256
+                && branches < 256 * 256 * 256 * 256
+            {
+                build_and_solve_submodel::<StateIndex<u32>, ChoiceIndex<u32>, BranchIndex<u32>, _>(
+                    model,
+                    &mut build_time,
+                    &mut value_iteration_time,
+                    &mut values,
+                    &sccs,
+                    precision_per_scc,
+                    &mut subgame_construction_context,
+                    &mut subgame_values,
+                    &mut subgame_upper_bound,
+                    scc,
+                );
+            } else {
+                // Using u64 instead of usize here would not help here, as on 32-bit platforms, the
+                // underlying indexing operation would fail regardless (because it converts the
+                // index type into a usize).
+                build_and_solve_submodel::<
+                    StateIndex<usize>,
+                    ChoiceIndex<usize>,
+                    BranchIndex<usize>,
+                    _,
+                >(
+                    model,
+                    &mut build_time,
+                    &mut value_iteration_time,
+                    &mut values,
+                    &sccs,
+                    precision_per_scc,
+                    &mut subgame_construction_context,
+                    &mut subgame_values,
+                    &mut subgame_upper_bound,
+                    scc,
+                );
             }
         }
     }
+    println!("Total core time: {:?}", core_start.elapsed());
+    println!(
+        "Precomputation time: {:?}, sub model build time: {:?}, value iteration time: {:?}",
+        precomputation_time, build_time, value_iteration_time
+    );
     values
+}
+
+// TODO: This function signature is a mess
+fn build_and_solve_submodel<NewSI: Index, NewCI: Index, NewBI: Index, M: ReadStateSpace>(
+    model: &M,
+    build_time: &mut Duration,
+    value_iteration_time: &mut Duration,
+    values: &mut To1<M::StateIdx, f64>,
+    sccs: &Sccs<SccIndex<usize>, SccEntryIndex<usize>, M::StateIdx>,
+    precision_per_scc: f64,
+    subgame_construction_context: &mut SubModelContext<M::StateIdx>,
+    subgame_values: &mut Vec<f64>,
+    subgame_upper_bound: &mut Vec<f64>,
+    scc: SccIndex<usize>,
+) {
+    let start_submodel = std::time::Instant::now();
+    let sub_model = build_sub_model::<_, _, _, NewSI, NewCI, NewBI>(
+        model,
+        scc,
+        &sccs,
+        &DominatedByRelation::empty(),
+        &values,
+        subgame_construction_context,
+    );
+    *build_time += start_submodel.elapsed();
+
+    let start_solve = std::time::Instant::now();
+    solve_subgame_via_ovi(
+        &sub_model.mdp,
+        &sub_model.choice_exit_values,
+        precision_per_scc,
+        subgame_values,
+        subgame_upper_bound,
+    );
+    *value_iteration_time += start_solve.elapsed();
+
+    for new_state in sub_model.mdp.states() {
+        values[sub_model.to_old_state_index[new_state]] =
+            subgame_values[new_state.raw().as_usize()];
+    }
 }
 
 fn evaluate_choice<M: ReadStateSpace>(
@@ -122,11 +223,11 @@ fn solve_subgame_via_ovi<NewSI: Index, NewCI: Index, NewBI: Index>(
     mdp: &Mdp<NewSI, NewCI, NewBI>,
     choice_exit_values: &To1<NewCI, f64>,
     mut eps: f64,
-    values: &mut To1<NewSI, f64>,
-    upper_bound: &mut To1<NewSI, f64>,
+    values: &mut Vec<f64>,
+    upper_bound: &mut Vec<f64>,
 ) {
     for state in mdp.states() {
-        values[state] = 0.0;
+        values[state.raw().as_usize()] = 0.0;
     }
 
     let initial_eps = eps;
@@ -134,7 +235,7 @@ fn solve_subgame_via_ovi<NewSI: Index, NewCI: Index, NewBI: Index>(
         subgame_value_iteration(mdp, choice_exit_values, eps, values);
 
         for state in mdp.states() {
-            upper_bound[state] = match values[state] {
+            upper_bound[state.raw().as_usize()] = match values[state.raw().as_usize()] {
                 0.0 => 0.0,
                 v => (v * (1.0 + initial_eps)).min(1.0),
             }
@@ -143,7 +244,8 @@ fn solve_subgame_via_ovi<NewSI: Index, NewCI: Index, NewBI: Index>(
         match verify_subgame_optimistic(mdp, choice_exit_values, 2.0 * eps, values, upper_bound) {
             OptimisticValueIterationResult::UpperBoundVerified => {
                 for state in mdp.states() {
-                    values[state] = 0.5 * (values[state] + upper_bound[state]);
+                    values[state.raw().as_usize()] = 0.5
+                        * (values[state.raw().as_usize()] + upper_bound[state.raw().as_usize()]);
                 }
                 break;
             }
@@ -158,7 +260,7 @@ fn subgame_value_iteration<NewSI: Index, NewCI: Index, NewBI: Index>(
     mdp: &Mdp<NewSI, NewCI, NewBI>,
     choice_exit_values: &To1<NewCI, f64>,
     eps: f64,
-    values: &mut To1<NewSI, f64>,
+    values: &mut Vec<f64>,
 ) {
     loop {
         let mut converged = true;
@@ -174,7 +276,7 @@ fn subgame_value_iteration<NewSI: Index, NewCI: Index, NewBI: Index>(
                 let mut value = choice_exit_values[current_choice];
                 while current_branch < last_branch {
                     value += mdp.branch_probability(current_branch)
-                        * values[mdp.branch_destination(current_branch)];
+                        * values[mdp.branch_destination(current_branch).raw().as_usize()];
                     current_branch += NewBI::RawType::one();
                 }
                 if value >= best_value {
@@ -184,13 +286,13 @@ fn subgame_value_iteration<NewSI: Index, NewCI: Index, NewBI: Index>(
             }
 
             if converged {
-                let absolute_error = best_value - values[state];
+                let absolute_error = best_value - values[state.raw().as_usize()];
                 let relative_error = absolute_error / best_value;
                 if relative_error >= eps {
                     converged = false;
                 }
             }
-            values[state] = best_value;
+            values[state.raw().as_usize()] = best_value;
         }
         if converged {
             break;
@@ -202,8 +304,8 @@ fn verify_subgame_optimistic<NewSI: Index, NewCI: Index, NewBI: Index>(
     mdp: &Mdp<NewSI, NewCI, NewBI>,
     choice_exit_values: &To1<NewCI, f64>,
     eps: f64,
-    values: &mut To1<NewSI, f64>,
-    upper_bound: &mut To1<NewSI, f64>,
+    values: &mut Vec<f64>,
+    upper_bound: &mut Vec<f64>,
 ) -> OptimisticValueIterationResult {
     let verification_steps = (1.0 / eps).max(1.0) as usize;
     let mut error: f64 = 0.0;
@@ -215,6 +317,7 @@ fn verify_subgame_optimistic<NewSI: Index, NewCI: Index, NewBI: Index>(
         let mut current_branch = NewBI::default();
         for (state, &last_choice) in mdp.state_to_choice.entries_raw().iter().enumerate() {
             let state = NewSI::from_raw(NewSI::RawType::from_usize(state));
+            let state_raw = state.raw().as_usize();
             let mut new_lower_value = 0.0;
             let mut new_upper_value = 0.0;
 
@@ -224,9 +327,9 @@ fn verify_subgame_optimistic<NewSI: Index, NewCI: Index, NewBI: Index>(
                 let mut upper_value = choice_exit_values[current_choice];
                 while current_branch < last_branch {
                     lower_value += mdp.branch_probability(current_branch)
-                        * values[mdp.branch_destination(current_branch)];
+                        * values[mdp.branch_destination(current_branch).raw().as_usize()];
                     upper_value += mdp.branch_probability(current_branch)
-                        * upper_bound[mdp.branch_destination(current_branch)];
+                        * upper_bound[mdp.branch_destination(current_branch).raw().as_usize()];
                     current_branch += NewBI::RawType::one();
                 }
                 if lower_value >= new_lower_value {
@@ -239,13 +342,13 @@ fn verify_subgame_optimistic<NewSI: Index, NewCI: Index, NewBI: Index>(
             }
 
             if new_lower_value > 0.0 {
-                error = error.max((new_lower_value - values[state]) / new_lower_value);
+                error = error.max((new_lower_value - values[state_raw]) / new_lower_value);
             }
-            values[state] = new_lower_value;
-            if new_upper_value < upper_bound[state] {
+            values[state_raw] = new_lower_value;
+            if new_upper_value < upper_bound[state_raw] {
                 all_up = false;
-                upper_bound[state] = new_upper_value;
-            } else if new_upper_value > upper_bound[state] {
+                upper_bound[state_raw] = new_upper_value;
+            } else if new_upper_value > upper_bound[state_raw] {
                 all_down = false;
             }
 
