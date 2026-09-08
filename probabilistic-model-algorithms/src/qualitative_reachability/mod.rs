@@ -1,6 +1,6 @@
+use crate::state_description::StateDescription;
 use probabilistic_models::traits::{ReadAtomicPropositions, ReadPredecessors, ReadStateSpace};
 use typed_index_collections::To1;
-
 // The functions in this file implement Algorithms 4.1 to 4.4 from "Forejt, V., Kwiatkowska, M.,
 // Norman, G., & Parker, D. (2011). Automated verification techniques for probabilistic systems"
 
@@ -14,7 +14,7 @@ pub fn s0_min<
         >,
 >(
     model: &M,
-    goal: M::APIdx,
+    goal: &StateDescription<M>,
 ) -> To1<<M as ReadStateSpace>::StateIdx, bool> {
     let mut open_list = Vec::new();
     let mut result = To1::with_entries(vec![true; model.states().len()]);
@@ -29,7 +29,7 @@ pub fn s0_min<
         To1::with_entries(vec![false; model.choices().len()]);
     for state in model.states() {
         remaining_choices.add(model.choices_of_state(state).len() as u32);
-        if model.is_atomic_proposition_set(state, goal) {
+        if goal.is_set(state) {
             result[state] = false;
             open_list.push(state);
         }
@@ -65,7 +65,7 @@ pub fn s1_min<
         >,
 >(
     model: &M,
-    goal: M::APIdx,
+    goal: &StateDescription<M>,
     s0_states: &To1<<M as ReadStateSpace>::StateIdx, bool>,
 ) -> To1<<M as ReadStateSpace>::StateIdx, bool> {
     let mut result = To1::with_capacity(model.states().len());
@@ -79,9 +79,7 @@ pub fn s1_min<
     while let Some(state) = open_list.pop() {
         for predecessor in model.predecessors_of_state(state) {
             let predecessor_state = model.source_state_of_predecessor(predecessor);
-            if result[predecessor_state]
-                && !model.is_atomic_proposition_set(predecessor_state, goal)
-            {
+            if result[predecessor_state] && !goal.is_set(predecessor_state) {
                 result[predecessor_state] = false;
                 open_list.push(predecessor_state);
             }
@@ -100,12 +98,12 @@ pub fn s0_max<
         >,
 >(
     model: &M,
-    goal: M::APIdx,
+    goal: &StateDescription<M>,
 ) -> To1<<M as ReadStateSpace>::StateIdx, bool> {
     let mut open_list = Vec::new();
     let mut result = To1::with_entries(vec![true; model.states().len()]);
     for state in model.states() {
-        if model.is_atomic_proposition_set(state, goal) {
+        if goal.is_set(state) {
             result[state] = false;
             open_list.push(state);
         }
@@ -133,7 +131,7 @@ pub fn s1_max<
         >,
 >(
     model: &M,
-    goal: M::APIdx,
+    goal: &StateDescription<M>,
 ) -> To1<<M as ReadStateSpace>::StateIdx, bool> {
     let mut result = To1::with_entries(vec![true; model.states().len()]);
     let mut inner_buffer = To1::with_entries(vec![false; model.states().len()]);
@@ -143,7 +141,7 @@ pub fn s1_max<
     let goal_states: Vec<_> = model
         .states()
         .into_iter()
-        .filter(|&state| model.is_atomic_proposition_set(state, goal))
+        .filter(|&state| goal.is_set(state))
         .collect();
     loop {
         inner_buffer.fill(false);

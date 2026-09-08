@@ -1,6 +1,5 @@
 mod min_max;
 mod optimistic_value_iteration;
-pub mod precomputation;
 mod sub_model;
 
 pub use optimistic_value_iteration::optimistic_value_iteration_max;

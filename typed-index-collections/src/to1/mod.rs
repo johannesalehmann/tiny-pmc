@@ -39,6 +39,18 @@ impl<From: Index, E> To1<From, E> {
         }
     }
 
+    pub fn copy_from_other(&mut self, src: &Self)
+    where
+        E: Copy,
+    {
+        assert_eq!(
+            self.len(),
+            src.len(),
+            "`copy_from_other` requires source and target to have the same length"
+        );
+        self.entries.copy_from_slice(&src.entries[..])
+    }
+
     pub fn len(&self) -> usize {
         self.entries.len()
     }
@@ -184,6 +196,16 @@ impl<From: Index, E> ValuePerIndexSource for &'_ To1<From, E> {
 pub struct MappedIndices<'a, From: Index, From2: Index, E> {
     to1: &'a To1<From, E>,
     phantom_data: PhantomData<From2>,
+}
+
+impl<'a, From: Index, From2: Index, E> MappedIndices<'a, From, From2, E> {
+    pub fn len(&self) -> usize {
+        self.to1.len()
+    }
+
+    pub fn as_slice(&self) -> &[E] {
+        &self.to1.entries[..]
+    }
 }
 
 impl<'a, From: Index, From2: Index> MappedIndices<'a, From, From2, bool> {

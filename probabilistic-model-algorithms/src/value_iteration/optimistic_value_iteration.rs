@@ -1,5 +1,6 @@
 use crate::dominated_by::DominatedByRelation;
 use crate::sccs::{Scc, SccDependencyIndex, SccEntryIndex, SccIndex, Sccs};
+use crate::state_description::StateDescription;
 use crate::value_iteration::sub_model::{SubModel, SubModelContext};
 use probabilistic_models::base_model::Mdp;
 use probabilistic_models::traits::{ReadAtomicPropositions, ReadPredecessors, ReadStateSpace};
@@ -17,7 +18,7 @@ pub fn optimistic_value_iteration_max<
         >,
 >(
     model: &M,
-    goal: <M as ReadAtomicPropositions>::APIdx,
+    goal: &StateDescription<M>,
     eps: f64,
 ) -> To1<<M as ReadStateSpace>::StateIdx, f64> {
     let mut precomputation_time = Duration::default();
@@ -27,10 +28,10 @@ pub fn optimistic_value_iteration_max<
     let mut verification_time = Duration::default();
 
     let mut precomputation_start = std::time::Instant::now();
-    let s0_max = super::precomputation::s0_max(model, goal);
+    let s0_max = crate::qualitative_reachability::s0_max(model, goal);
     println!("s0_max: {:?}", precomputation_start.elapsed());
     let s1_max_start = std::time::Instant::now();
-    let s1_max = super::precomputation::s1_max(model, goal);
+    let s1_max = crate::qualitative_reachability::s1_max(model, goal);
     println!("s1_max: {:?}", s1_max_start.elapsed());
 
     let mut values = To1::with_capacity(model.states().len());
