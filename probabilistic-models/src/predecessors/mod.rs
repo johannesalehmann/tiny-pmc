@@ -18,7 +18,7 @@ impl<M: BaseModel, I, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val>
         Rew,
         Ann,
         Val,
-        Predecessors<M::StateIdx, M::ChoiceIdx, M::BranchIdx, PredecessorIdx>,
+        Predecessors<M::StateIndex, M::ChoiceIndex, M::BranchIndex, PredecessorIdx>,
     > {
         let predecessors = Predecessors::compute(&self.base);
         Model {
@@ -37,7 +37,7 @@ impl<M: BaseModel, I, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val>
 
     pub fn with_predecessors<PredecessorIdx: Index>(
         self,
-        predecessors: Predecessors<M::StateIdx, M::ChoiceIdx, M::BranchIdx, PredecessorIdx>,
+        predecessors: Predecessors<M::StateIndex, M::ChoiceIndex, M::BranchIndex, PredecessorIdx>,
     ) -> Model<
         M,
         I,
@@ -48,7 +48,7 @@ impl<M: BaseModel, I, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val>
         Rew,
         Ann,
         Val,
-        Predecessors<M::StateIdx, M::ChoiceIdx, M::BranchIdx, PredecessorIdx>,
+        Predecessors<M::StateIndex, M::ChoiceIndex, M::BranchIndex, PredecessorIdx>,
     > {
         Model {
             base: self.base,
@@ -96,7 +96,7 @@ impl<StateIdx: Index, ChoiceIdx: Index, BranchIdx: Index, PredecessorIdx: Index>
     Predecessors<StateIdx, ChoiceIdx, BranchIdx, PredecessorIdx>
 {
     pub fn compute<
-        M: ReadStateSpace<StateIdx = StateIdx, ChoiceIdx = ChoiceIdx, BranchIdx = BranchIdx>,
+        M: ReadStateSpace<StateIndex = StateIdx, ChoiceIndex = ChoiceIdx, BranchIndex = BranchIdx>,
     >(
         model: &M,
     ) -> Self {

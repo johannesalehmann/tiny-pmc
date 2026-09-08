@@ -33,7 +33,7 @@ impl Count {
 }
 
 impl<StateIdx: Index> AttractorBuffer<StateIdx> {
-    pub fn create<M: ReadStateSpace<StateIdx = StateIdx>>(model: &M) -> Self {
+    pub fn create<M: ReadStateSpace<StateIndex = StateIdx>>(model: &M) -> Self {
         let mut counts = To1::with_capacity(model.states().len());
         for state in model.states() {
             counts.add_checked(
@@ -48,7 +48,7 @@ impl<StateIdx: Index> AttractorBuffer<StateIdx> {
     }
 
     pub fn reset_owner_counts<
-        M: ReadStateSpace<StateIdx = StateIdx>
+        M: ReadStateSpace<StateIndex = StateIdx>
             + ReadOwners<StateIdx = StateIdx, OwnerType = TwoPlayer>,
     >(
         &mut self,

@@ -16,7 +16,7 @@ pub struct Sccs<SccIdx: Index, SccEntryIdx: Index, StateIdx: Index> {
 }
 
 impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
-    pub fn compute<M: ReadStateSpace<StateIdx = SI> + ReadPredecessors<StateIdx = SI>>(
+    pub fn compute<M: ReadStateSpace<StateIndex = SI> + ReadPredecessors<StateIdx = SI>>(
         model: &M,
         s0_s1_states: Option<(To1<SI, bool>, To1<SI, bool>)>,
     ) -> Self {
@@ -88,7 +88,7 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
     /// To this end, it maintains a stack of cursors, where each cursor points to the next successor
     /// of a state that needs to be visited. Once all successors are visited, the cursor is popped
     /// from the stack.
-    fn visit<M: ReadStateSpace<StateIdx = SI>>(
+    fn visit<M: ReadStateSpace<StateIndex = SI>>(
         model: &M,
         visited: &mut To1<SI, bool>,
         l: &mut Vec<SI>,
@@ -115,11 +115,11 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
         }
     }
 
-    fn get_next_unvisited<M: ReadStateSpace<StateIdx = SI>>(
+    fn get_next_unvisited<M: ReadStateSpace<StateIndex = SI>>(
         model: &M,
         visited: &mut To1<SI, bool>,
-        choices: &mut IndexRangeIterator<<M as ReadStateSpace>::ChoiceIdx>,
-        branches: &mut IndexRangeIterator<<M as ReadStateSpace>::BranchIdx>,
+        choices: &mut IndexRangeIterator<M::ChoiceIndex>,
+        branches: &mut IndexRangeIterator<M::BranchIndex>,
     ) -> Option<SI> {
         let mut descend_into = None;
         loop {
@@ -139,13 +139,13 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
     }
 
     /// Creates a DFS stack frame for `state`, with its cursor placed before its first successor.
-    fn cursor<M: ReadStateSpace<StateIdx = SI>>(
+    fn cursor<M: ReadStateSpace<StateIndex = SI>>(
         model: &M,
         state: SI,
     ) -> (
         SI,
-        IndexRangeIterator<M::ChoiceIdx>,
-        IndexRangeIterator<M::BranchIdx>,
+        IndexRangeIterator<M::ChoiceIndex>,
+        IndexRangeIterator<M::BranchIndex>,
     ) {
         (
             state,
@@ -216,7 +216,7 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
         Some(self.scc(self.scc_index_of_state(state)?))
     }
 
-    pub fn compute_dependencies<SccDependencyIdx: Index, M: ReadStateSpace<StateIdx = SI>>(
+    pub fn compute_dependencies<SccDependencyIdx: Index, M: ReadStateSpace<StateIndex = SI>>(
         &self,
         model: &M,
     ) -> SccDependencies<ScI, SccDependencyIdx> {
@@ -307,7 +307,7 @@ pub struct SccDependencies<SccIdx: Index, SccDependencyIdx: Index> {
 impl<SccIdx: Index, SccDependencyIdx: Index> SccDependencies<SccIdx, SccDependencyIdx> {
     pub fn compute<M: ReadStateSpace, ScEI: Index>(
         model: &M,
-        sccs: &Sccs<SccIdx, ScEI, M::StateIdx>,
+        sccs: &Sccs<SccIdx, ScEI, M::StateIndex>,
     ) -> Self {
         let scc_count = sccs.sccs.keys().len();
         let mut scc_dependencies = Csr::with_capacity(scc_count);
@@ -498,9 +498,8 @@ mod tests {
         assert_eq!(sccs.is_trivial, To1::with_entries(vec![false, true]));
     }
 
-    fn complex_model()
-    -> impl ReadStateSpace<StateIdx = StateIndex<usize>> + ReadPredecessors<StateIdx = StateIndex<usize>>
-    {
+    fn complex_model() -> impl ReadStateSpace<StateIndex = StateIndex<usize>>
+    + ReadPredecessors<StateIdx = StateIndex<usize>> {
         mdp!(mdp = {
             s0 -> 1.0: s1,
             s1 -> 1.0: s2,

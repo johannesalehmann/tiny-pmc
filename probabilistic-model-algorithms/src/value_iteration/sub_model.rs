@@ -17,7 +17,7 @@ pub struct SubModelContext<StateIdx: Index> {
 }
 
 impl<StateIdx: Index> SubModelContext<StateIdx> {
-    pub fn new<M: ReadStateSpace<StateIdx = StateIdx>>(model: &M) -> Self {
+    pub fn new<M: ReadStateSpace<StateIndex = StateIdx>>(model: &M) -> Self {
         Self {
             to_new_state_index: To1::with_entries(vec![None; model.states().len()]),
             visited: To1::with_entries(vec![false; model.states().len()]),
@@ -55,16 +55,16 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
     }
 
     pub fn rebuild<
-        M: ReadStateSpace<StateIdx = StateIdx> + ReadPredecessors<StateIdx = StateIdx>,
+        M: ReadStateSpace<StateIndex = StateIdx> + ReadPredecessors<StateIdx = StateIdx>,
         ScI: Index,
         ScEI: Index,
     >(
         &mut self,
         model: &M,
-        scc: Scc<'_, ScI, ScEI, <M as ReadStateSpace>::StateIdx>,
-        dominated_by: &DominatedByRelation<<M as ReadStateSpace>::StateIdx>,
-        values: &To1<<M as ReadStateSpace>::StateIdx, f64>,
-        context: &mut SubModelContext<<M as ReadStateSpace>::StateIdx>,
+        scc: Scc<'_, ScI, ScEI, M::StateIndex>,
+        dominated_by: &DominatedByRelation<M::StateIndex>,
+        values: &To1<M::StateIndex, f64>,
+        context: &mut SubModelContext<M::StateIndex>,
     ) {
         self.to_old_state_index.clear();
         compute_order(
@@ -126,17 +126,17 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
 }
 
 fn compute_order<
-    M: ReadStateSpace + ReadPredecessors<StateIdx = <M as ReadStateSpace>::StateIdx>,
+    M: ReadStateSpace + ReadPredecessors<StateIdx = M::StateIndex>,
     ScI: Index,
     ScEI: Index,
     NewSI: Index,
 >(
     model: &M,
-    scc: Scc<'_, ScI, ScEI, <M as ReadStateSpace>::StateIdx>,
-    dominated_by: &DominatedByRelation<<M as ReadStateSpace>::StateIdx>,
-    values: &To1<<M as ReadStateSpace>::StateIdx, f64>,
-    context: &mut SubModelContext<<M as ReadStateSpace>::StateIdx>,
-    to_old_state_index: &mut To1<NewSI, <M as ReadStateSpace>::StateIdx>,
+    scc: Scc<'_, ScI, ScEI, M::StateIndex>,
+    dominated_by: &DominatedByRelation<M::StateIndex>,
+    values: &To1<M::StateIndex, f64>,
+    context: &mut SubModelContext<M::StateIndex>,
+    to_old_state_index: &mut To1<NewSI, M::StateIndex>,
 ) {
     // Find states that can leave the SCC into a state with a non-zero value.
     // If an SCC has no such exits, all states within it also have value zero, so the

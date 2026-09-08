@@ -8,8 +8,9 @@ impl<M: BaseModel, Ini, BrLabel, O, APs, R, A, V, P>
 {
     pub fn with_choice_labels<ChoiceActionIdx: Index, E>(
         self,
-        labels: Labels<M::ChoiceIdx, ChoiceActionIdx, E>,
-    ) -> Model<M, Ini, Labels<M::ChoiceIdx, ChoiceActionIdx, E>, BrLabel, O, APs, R, A, V, P> {
+        labels: Labels<M::ChoiceIndex, ChoiceActionIdx, E>,
+    ) -> Model<M, Ini, Labels<M::ChoiceIndex, ChoiceActionIdx, E>, BrLabel, O, APs, R, A, V, P>
+    {
         Model {
             base: self.base,
             initial: self.initial,

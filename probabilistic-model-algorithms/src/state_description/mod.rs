@@ -3,16 +3,16 @@ use typed_index_collections::{Index, RawIndex, To1};
 
 pub enum StateDescription<
     'a,
-    M: ReadStateSpace + ReadAtomicPropositions<StateIdx = <M as ReadStateSpace>::StateIdx>,
+    M: ReadStateSpace + ReadAtomicPropositions<StateIdx = M::StateIndex>,
 > {
     AtomicProposition { ap_index: M::APIdx, model: &'a M },
-    Flags(To1<<M as ReadStateSpace>::StateIdx, bool>),
+    Flags(To1<M::StateIndex, bool>),
     Conjunction(Box<Self>, Box<Self>),
     Disjunction(Box<Self>, Box<Self>),
     Negation(Box<Self>),
 }
 
-impl<'a, M: ReadStateSpace + ReadAtomicPropositions<StateIdx = <M as ReadStateSpace>::StateIdx>>
+impl<'a, M: ReadStateSpace + ReadAtomicPropositions<StateIdx = M::StateIndex>>
     StateDescription<'a, M>
 {
     pub fn len(&self) -> usize {
@@ -41,7 +41,7 @@ impl<'a, M: ReadStateSpace + ReadAtomicPropositions<StateIdx = <M as ReadStateSp
         }
     }
 
-    pub fn is_set(&self, state: <M as ReadStateSpace>::StateIdx) -> bool {
+    pub fn is_set(&self, state: M::StateIndex) -> bool {
         match self {
             StateDescription::AtomicProposition { ap_index, model } => {
                 model.is_atomic_proposition_set(state, *ap_index)
@@ -53,7 +53,7 @@ impl<'a, M: ReadStateSpace + ReadAtomicPropositions<StateIdx = <M as ReadStateSp
         }
     }
 
-    pub fn write_flags(&self, flags: &mut To1<<M as ReadStateSpace>::StateIdx, bool>) {
+    pub fn write_flags(&self, flags: &mut To1<M::StateIndex, bool>) {
         // We enforce this check because `copy_from_other` also requires this:
         assert_eq!(
             flags.len(),
@@ -65,8 +65,8 @@ impl<'a, M: ReadStateSpace + ReadAtomicPropositions<StateIdx = <M as ReadStateSp
             _ => {
                 flags.clear();
                 for state in 0..self.len() {
-                    let state = <M as ReadStateSpace>::StateIdx::from_raw(
-                        <<M as ReadStateSpace>::StateIdx as Index>::RawType::from_usize(state),
+                    let state = M::StateIndex::from_raw(
+                        <M::StateIndex as Index>::RawType::from_usize(state),
                     );
                     flags.add(self.is_set(state));
                 }

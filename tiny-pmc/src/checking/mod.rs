@@ -21,12 +21,12 @@ use probabilistic_models::traits::{
 
 pub fn check<
     M: ReadStateSpace
-        + ReadAtomicPropositions<StateIdx = <M as ReadStateSpace>::StateIdx>
+        + ReadAtomicPropositions<StateIdx = M::StateIndex>
         + ReadPredecessors<
-            StateIdx = <M as ReadStateSpace>::StateIdx,
-            ChoiceIdx = <M as ReadStateSpace>::ChoiceIdx,
-            BranchIdx = <M as ReadStateSpace>::BranchIdx,
-        > + ReadInitialStates<StateIdx = <M as ReadStateSpace>::StateIdx>,
+            StateIdx = M::StateIndex,
+            ChoiceIdx = M::ChoiceIndex,
+            BranchIdx = M::BranchIndex,
+        > + ReadInitialStates<StateIdx = M::StateIndex>,
 >(
     model: &M,
     query: probabilistic_properties::Query<i64, f64, <M as ReadAtomicPropositions>::APIdx>,

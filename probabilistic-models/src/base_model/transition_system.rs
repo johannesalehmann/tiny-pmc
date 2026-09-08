@@ -12,35 +12,35 @@ pub struct TransitionSystem<StateIdx: Index, ChoiceIdx: Index> {
 }
 
 impl<SI: Index, CI: Index> ReadStateSpace for TransitionSystem<SI, CI> {
-    type StateIdx = SI;
-    type ChoiceIdx = CI;
-    type BranchIdx = CI; // As there is exactly one branch per choice, we can re-use the index here
+    type StateIndex = SI;
+    type ChoiceIndex = CI;
+    type BranchIndex = CI; // As there is exactly one branch per choice, we can re-use the index here
 
-    fn states(&self) -> SemiboundedIndexRange<Self::StateIdx> {
+    fn states(&self) -> SemiboundedIndexRange<Self::StateIndex> {
         self.state_to_choice.keys()
     }
 
-    fn choices(&self) -> SemiboundedIndexRange<Self::ChoiceIdx> {
+    fn choices(&self) -> SemiboundedIndexRange<Self::ChoiceIndex> {
         self.state_to_choice.values()
     }
 
-    fn branches(&self) -> SemiboundedIndexRange<Self::BranchIdx> {
+    fn branches(&self) -> SemiboundedIndexRange<Self::BranchIndex> {
         self.state_to_choice.values()
     }
 
-    fn choices_of_state(&self, state: Self::StateIdx) -> IndexRange<Self::ChoiceIdx> {
+    fn choices_of_state(&self, state: Self::StateIndex) -> IndexRange<Self::ChoiceIndex> {
         self.state_to_choice.index(state)
     }
 
-    fn branches_of_choice(&self, choice: Self::ChoiceIdx) -> IndexRange<Self::BranchIdx> {
+    fn branches_of_choice(&self, choice: Self::ChoiceIndex) -> IndexRange<Self::BranchIndex> {
         IndexRange::with_single_index(choice)
     }
 
-    fn branch_probability(&self, _branch: Self::BranchIdx) -> f64 {
+    fn branch_probability(&self, _branch: Self::BranchIndex) -> f64 {
         1.0
     }
 
-    fn branch_destination(&self, branch: Self::BranchIdx) -> Self::StateIdx {
+    fn branch_destination(&self, branch: Self::BranchIndex) -> Self::StateIndex {
         self.choice_destination[branch]
     }
 

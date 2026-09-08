@@ -8,8 +8,9 @@ impl<M: BaseModel, Ini, ChLabel, O, APs, R, A, V, P>
 {
     pub fn with_branch_labels<BranchActionIdx: Index, E>(
         self,
-        labels: Labels<M::BranchIdx, BranchActionIdx, E>,
-    ) -> Model<M, Ini, ChLabel, Labels<M::BranchIdx, BranchActionIdx, E>, O, APs, R, A, V, P> {
+        labels: Labels<M::BranchIndex, BranchActionIdx, E>,
+    ) -> Model<M, Ini, ChLabel, Labels<M::BranchIndex, BranchActionIdx, E>, O, APs, R, A, V, P>
+    {
         Model {
             base: self.base,
             initial: self.initial,

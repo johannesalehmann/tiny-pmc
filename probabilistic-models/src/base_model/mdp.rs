@@ -15,35 +15,35 @@ pub struct Mdp<StateIdx: Index, ChoiceIdx: Index, BranchIdx: Index> {
 impl<StateIdx: Index, ChoiceIdx: Index, BranchIdx: Index> super::ReadStateSpace
     for Mdp<StateIdx, ChoiceIdx, BranchIdx>
 {
-    type StateIdx = StateIdx;
-    type ChoiceIdx = ChoiceIdx;
-    type BranchIdx = BranchIdx;
+    type StateIndex = StateIdx;
+    type ChoiceIndex = ChoiceIdx;
+    type BranchIndex = BranchIdx;
 
-    fn states(&self) -> SemiboundedIndexRange<Self::StateIdx> {
+    fn states(&self) -> SemiboundedIndexRange<Self::StateIndex> {
         self.state_to_choice.keys()
     }
 
-    fn choices(&self) -> SemiboundedIndexRange<Self::ChoiceIdx> {
+    fn choices(&self) -> SemiboundedIndexRange<Self::ChoiceIndex> {
         self.choice_to_branch.keys()
     }
 
-    fn branches(&self) -> SemiboundedIndexRange<Self::BranchIdx> {
+    fn branches(&self) -> SemiboundedIndexRange<Self::BranchIndex> {
         self.choice_to_branch.values()
     }
 
-    fn choices_of_state(&self, state: Self::StateIdx) -> IndexRange<Self::ChoiceIdx> {
+    fn choices_of_state(&self, state: Self::StateIndex) -> IndexRange<Self::ChoiceIndex> {
         self.state_to_choice.index(state)
     }
 
-    fn branches_of_choice(&self, choice: Self::ChoiceIdx) -> IndexRange<Self::BranchIdx> {
+    fn branches_of_choice(&self, choice: Self::ChoiceIndex) -> IndexRange<Self::BranchIndex> {
         self.choice_to_branch.index(choice)
     }
 
-    fn branch_probability(&self, branch: Self::BranchIdx) -> f64 {
+    fn branch_probability(&self, branch: Self::BranchIndex) -> f64 {
         self.branch_probabilities[branch]
     }
 
-    fn branch_destination(&self, branch: Self::BranchIdx) -> Self::StateIdx {
+    fn branch_destination(&self, branch: Self::BranchIndex) -> Self::StateIndex {
         self.branch_destinations[branch]
     }
 }

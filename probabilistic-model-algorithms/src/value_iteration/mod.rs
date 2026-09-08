@@ -15,37 +15,37 @@ use typed_index_collections::Index;
 
 pub fn value_iteration_max<
     M: ReadStateSpace
-        + ReadAtomicPropositions<StateIdx = <M as ReadStateSpace>::StateIdx>
-        + ReadPredecessors<StateIdx = <M as ReadStateSpace>::StateIdx>,
+        + ReadAtomicPropositions<StateIdx = M::StateIndex>
+        + ReadPredecessors<StateIdx = M::StateIndex>,
 >(
     model: &M,
     goal: <M as ReadAtomicPropositions>::APIdx,
     eps: f64,
-) -> To1<<M as ReadStateSpace>::StateIdx, f64> {
+) -> To1<M::StateIndex, f64> {
     value_iteration_min_max(model, goal, eps, Maximiser::default())
 }
 pub fn value_iteration_min<
     M: ReadStateSpace
-        + ReadAtomicPropositions<StateIdx = <M as ReadStateSpace>::StateIdx>
-        + ReadPredecessors<StateIdx = <M as ReadStateSpace>::StateIdx>,
+        + ReadAtomicPropositions<StateIdx = M::StateIndex>
+        + ReadPredecessors<StateIdx = M::StateIndex>,
 >(
     model: &M,
     goal: <M as ReadAtomicPropositions>::APIdx,
     eps: f64,
-) -> To1<<M as ReadStateSpace>::StateIdx, f64> {
+) -> To1<M::StateIndex, f64> {
     // TODO: Collapse MECs!
     value_iteration_min_max(model, goal, eps, Minimiser::default())
 }
 pub fn value_iteration_game<
     M: ReadStateSpace
-        + ReadAtomicPropositions<StateIdx = <M as ReadStateSpace>::StateIdx>
-        + ReadPredecessors<StateIdx = <M as ReadStateSpace>::StateIdx>
-        + ReadOwners<StateIdx = <M as ReadStateSpace>::StateIdx, OwnerType = TwoPlayer>,
+        + ReadAtomicPropositions<StateIdx = M::StateIndex>
+        + ReadPredecessors<StateIdx = M::StateIndex>
+        + ReadOwners<StateIdx = M::StateIndex, OwnerType = TwoPlayer>,
 >(
     model: &M,
     goal: <M as ReadAtomicPropositions>::APIdx,
     eps: f64,
-) -> To1<<M as ReadStateSpace>::StateIdx, f64> {
+) -> To1<M::StateIndex, f64> {
     value_iteration_min_max(
         model,
         goal,
@@ -56,15 +56,15 @@ pub fn value_iteration_game<
 
 fn value_iteration_min_max<
     M: ReadStateSpace
-        + ReadAtomicPropositions<StateIdx = <M as ReadStateSpace>::StateIdx>
-        + ReadPredecessors<StateIdx = <M as ReadStateSpace>::StateIdx>,
+        + ReadAtomicPropositions<StateIdx = M::StateIndex>
+        + ReadPredecessors<StateIdx = M::StateIndex>,
     MinMax: ValueComparator<Model = M>,
 >(
     model: &M,
     goal: <M as ReadAtomicPropositions>::APIdx,
     eps: f64,
     min_max: MinMax,
-) -> To1<<M as ReadStateSpace>::StateIdx, f64> {
+) -> To1<M::StateIndex, f64> {
     let mut values = To1::with_capacity(model.states().len());
     let mut target_states = Vec::new();
     for state in model.states() {
@@ -86,8 +86,8 @@ fn value_iteration_min_max<
 
 fn value_iteration_internal<
     M: ReadStateSpace
-        + ReadAtomicPropositions<StateIdx = <M as ReadStateSpace>::StateIdx>
-        + ReadPredecessors<StateIdx = <M as ReadStateSpace>::StateIdx>,
+        + ReadAtomicPropositions<StateIdx = M::StateIndex>
+        + ReadPredecessors<StateIdx = M::StateIndex>,
     MinMax: ValueComparator<Model = M>,
     SccIdx: Index,
     SccEntryIdx: Index,
@@ -95,8 +95,8 @@ fn value_iteration_internal<
     model: &M,
     eps: f64,
     min_max: MinMax,
-    values: &mut To1<<M as ReadStateSpace>::StateIdx, f64>,
-    sccs: &Sccs<SccIdx, SccEntryIdx, <M as ReadStateSpace>::StateIdx>,
+    values: &mut To1<M::StateIndex, f64>,
+    sccs: &Sccs<SccIdx, SccEntryIdx, M::StateIndex>,
 ) {
     for scc in sccs.reverse_topological_ordering() {
         loop {

@@ -10,7 +10,7 @@ pub trait Reachability {
 }
 
 impl<M: ReadStateSpace> Reachability for M {
-    type StateIdx = M::StateIdx;
+    type StateIdx = M::StateIndex;
 
     fn reachable_states<S: StateSet<Self::StateIdx>>(&self, from: S) -> To1<Self::StateIdx, bool> {
         let mut open_states = from.iter().collect::<Vec<_>>();

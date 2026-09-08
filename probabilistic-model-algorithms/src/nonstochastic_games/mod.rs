@@ -26,10 +26,11 @@ use probabilistic_models::traits::{ReadAtomicPropositions, ReadOwners, ReadState
 use typed_index_collections::{Index, To1};
 
 fn model_owners<
-    M: ReadStateSpace + ReadOwners<StateIdx = <M as ReadStateSpace>::StateIdx, OwnerType = TwoPlayer>,
+    M: ReadStateSpace
+        + ReadOwners<StateIdx = M::StateIndex, OwnerType = TwoPlayer>,
 >(
     model: &M,
-) -> To1<<M as ReadStateSpace>::StateIdx, TwoPlayer> {
+) -> To1<M::StateIndex, TwoPlayer> {
     let mut owners = To1::with_capacity(model.states().len());
     for state in model.states() {
         owners.add_checked(state, model.state_owner(state));
@@ -38,11 +39,11 @@ fn model_owners<
 }
 
 fn states_with_ap<
-    M: ReadStateSpace + ReadAtomicPropositions<StateIdx = <M as ReadStateSpace>::StateIdx>,
+    M: ReadStateSpace + ReadAtomicPropositions<StateIdx = M::StateIndex>,
 >(
     model: &M,
     atomic_proposition: <M as ReadAtomicPropositions>::APIdx,
-) -> Vec<<M as ReadStateSpace>::StateIdx> {
+) -> Vec<M::StateIndex> {
     model
         .states()
         .into_iter()
@@ -51,11 +52,11 @@ fn states_with_ap<
 }
 
 fn states_without_ap<
-    M: ReadStateSpace + ReadAtomicPropositions<StateIdx = <M as ReadStateSpace>::StateIdx>,
+    M: ReadStateSpace + ReadAtomicPropositions<StateIdx = M::StateIndex>,
 >(
     model: &M,
     atomic_proposition: <M as ReadAtomicPropositions>::APIdx,
-) -> Vec<<M as ReadStateSpace>::StateIdx> {
+) -> Vec<M::StateIndex> {
     model
         .states()
         .into_iter()

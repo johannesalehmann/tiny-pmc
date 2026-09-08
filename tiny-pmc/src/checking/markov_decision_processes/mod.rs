@@ -8,16 +8,16 @@ use probabilistic_properties::{NonDeterminismKind, PathFormula, Query, StateForm
 
 pub fn check_mdp<
     M: ReadStateSpace
-        + ReadAtomicPropositions<StateIdx = <M as ReadStateSpace>::StateIdx>
+        + ReadAtomicPropositions<StateIdx = M::StateIndex>
         + ReadPredecessors<
-            StateIdx = <M as ReadStateSpace>::StateIdx,
-            ChoiceIdx = <M as ReadStateSpace>::ChoiceIdx,
-            BranchIdx = <M as ReadStateSpace>::BranchIdx,
-        > + ReadInitialStates<StateIdx = <M as ReadStateSpace>::StateIdx>,
+            StateIdx = M::StateIndex,
+            ChoiceIdx = M::ChoiceIndex,
+            BranchIdx = M::BranchIndex,
+        > + ReadInitialStates<StateIdx = M::StateIndex>,
 >(
     model: &M,
     query: probabilistic_properties::Query<i64, f64, <M as ReadAtomicPropositions>::APIdx>,
-    state: <M as ReadStateSpace>::StateIdx,
+    state: M::StateIndex,
     eps: f64,
 ) -> Result<f64, CheckerError> {
     match query {
@@ -45,18 +45,18 @@ pub fn check_mdp<
 
 pub fn compute_path_value<
     M: ReadStateSpace
-        + ReadAtomicPropositions<StateIdx = <M as ReadStateSpace>::StateIdx>
+        + ReadAtomicPropositions<StateIdx = M::StateIndex>
         + ReadPredecessors<
-            StateIdx = <M as ReadStateSpace>::StateIdx,
-            ChoiceIdx = <M as ReadStateSpace>::ChoiceIdx,
-            BranchIdx = <M as ReadStateSpace>::BranchIdx,
-        > + ReadInitialStates<StateIdx = <M as ReadStateSpace>::StateIdx>,
+            StateIdx = M::StateIndex,
+            ChoiceIdx = M::ChoiceIndex,
+            BranchIdx = M::BranchIndex,
+        > + ReadInitialStates<StateIdx = M::StateIndex>,
 >(
     model: &M,
     non_determinism: Option<NonDeterminismKind>,
     formula: &PathFormula<i64, f64, M::APIdx>,
     eps: f64,
-) -> Result<To1<<M as ReadStateSpace>::StateIdx, f64>, CheckerError> {
+) -> Result<To1<M::StateIndex, f64>, CheckerError> {
     match formula {
         PathFormula::Until { .. } => Err(CheckerError::NoSuitableAlgorithm),
         PathFormula::Eventually { condition } => {
@@ -86,12 +86,12 @@ pub fn compute_path_value<
 pub fn compute_state_value<
     'a,
     M: ReadStateSpace
-        + ReadAtomicPropositions<StateIdx = <M as ReadStateSpace>::StateIdx>
+        + ReadAtomicPropositions<StateIdx = M::StateIndex>
         + ReadPredecessors<
-            StateIdx = <M as ReadStateSpace>::StateIdx,
-            ChoiceIdx = <M as ReadStateSpace>::ChoiceIdx,
-            BranchIdx = <M as ReadStateSpace>::BranchIdx,
-        > + ReadInitialStates<StateIdx = <M as ReadStateSpace>::StateIdx>,
+            StateIdx = M::StateIndex,
+            ChoiceIdx = M::ChoiceIndex,
+            BranchIdx = M::BranchIndex,
+        > + ReadInitialStates<StateIdx = M::StateIndex>,
 >(
     model: &'a M,
     formula: &StateFormula<i64, f64, M::APIdx>,

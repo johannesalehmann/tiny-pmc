@@ -32,17 +32,17 @@ impl<StateIdx: Index> AttractorCondition for StateIncludedCondition<StateIdx> {
 
 pub fn attractor_contains_state<
     M: ReadStateSpace
-        + ReadOwners<StateIdx = <M as ReadStateSpace>::StateIdx, OwnerType = TwoPlayer>
+        + ReadOwners<StateIdx = M::StateIndex, OwnerType = TwoPlayer>
         + ReadPredecessors<
-            StateIdx = <M as ReadStateSpace>::StateIdx,
-            ChoiceIdx = <M as ReadStateSpace>::ChoiceIdx,
-            BranchIdx = <M as ReadStateSpace>::BranchIdx,
+            StateIdx = M::StateIndex,
+            ChoiceIdx = M::ChoiceIndex,
+            BranchIdx = M::BranchIndex,
         >,
-    R1: Iterator<Item = <M as ReadStateSpace>::StateIdx>,
+    R1: Iterator<Item = M::StateIndex>,
 >(
     model: &M,
     region: R1,
-    state: <M as ReadStateSpace>::StateIdx,
+    state: M::StateIndex,
     attracted_player: TwoPlayer,
 ) -> bool {
     super::attractor_internal(
@@ -56,16 +56,16 @@ pub fn attractor_contains_state<
 pub fn attractor_contains_state_with_buffer<
     M: ReadStateSpace
         + ReadPredecessors<
-            StateIdx = <M as ReadStateSpace>::StateIdx,
-            ChoiceIdx = <M as ReadStateSpace>::ChoiceIdx,
-            BranchIdx = <M as ReadStateSpace>::BranchIdx,
+            StateIdx = M::StateIndex,
+            ChoiceIdx = M::ChoiceIndex,
+            BranchIdx = M::BranchIndex,
         >,
-    R1: Iterator<Item = <M as ReadStateSpace>::StateIdx>,
+    R1: Iterator<Item = M::StateIndex>,
 >(
     model: &M,
     region: R1,
-    state: <M as ReadStateSpace>::StateIdx,
-    buffer: &mut AttractorBuffer<<M as ReadStateSpace>::StateIdx>,
+    state: M::StateIndex,
+    buffer: &mut AttractorBuffer<M::StateIndex>,
 ) -> bool {
     super::attractor_internal_with_buffer(model, region, StateIncludedCondition::new(state), buffer)
 }

@@ -48,12 +48,12 @@ impl<StateIdx: Index> ReachabilityContext<StateIdx> {
 
 pub fn create_reachability_context<
     M: ReadStateSpace
-        + ReadOwners<StateIdx = <M as ReadStateSpace>::StateIdx, OwnerType = TwoPlayer>
-        + ReadAtomicPropositions<StateIdx = <M as ReadStateSpace>::StateIdx>,
+        + ReadOwners<StateIdx = M::StateIndex, OwnerType = TwoPlayer>
+        + ReadAtomicPropositions<StateIdx = M::StateIndex>,
 >(
     model: &M,
     target_states: <M as ReadAtomicPropositions>::APIdx,
-) -> ReachabilityContext<<M as ReadStateSpace>::StateIdx> {
+) -> ReachabilityContext<M::StateIndex> {
     let mut context = ReachabilityContext {
         target_states: super::states_with_ap(model, target_states),
         owners: super::model_owners(model),
@@ -66,17 +66,17 @@ pub fn create_reachability_context<
 
 pub fn solve_reachability<
     M: ReadStateSpace
-        + ReadOwners<StateIdx = <M as ReadStateSpace>::StateIdx, OwnerType = TwoPlayer>
-        + ReadAtomicPropositions<StateIdx = <M as ReadStateSpace>::StateIdx>
+        + ReadOwners<StateIdx = M::StateIndex, OwnerType = TwoPlayer>
+        + ReadAtomicPropositions<StateIdx = M::StateIndex>
         + ReadPredecessors<
-            StateIdx = <M as ReadStateSpace>::StateIdx,
-            ChoiceIdx = <M as ReadStateSpace>::ChoiceIdx,
-            BranchIdx = <M as ReadStateSpace>::BranchIdx,
+            StateIdx = M::StateIndex,
+            ChoiceIdx = M::ChoiceIndex,
+            BranchIdx = M::BranchIndex,
         >,
 >(
     model: &M,
     target_states: <M as ReadAtomicPropositions>::APIdx,
-) -> To1<<M as ReadStateSpace>::StateIdx, bool> {
+) -> To1<M::StateIndex, bool> {
     let mut context = create_reachability_context(model, target_states);
     solve_reachability_raw(model, &mut context)
 }
@@ -84,14 +84,14 @@ pub fn solve_reachability<
 pub fn solve_reachability_raw<
     M: ReadStateSpace
         + ReadPredecessors<
-            StateIdx = <M as ReadStateSpace>::StateIdx,
-            ChoiceIdx = <M as ReadStateSpace>::ChoiceIdx,
-            BranchIdx = <M as ReadStateSpace>::BranchIdx,
+            StateIdx = M::StateIndex,
+            ChoiceIdx = M::ChoiceIndex,
+            BranchIdx = M::BranchIndex,
         >,
 >(
     model: &M,
-    context: &mut ReachabilityContext<<M as ReadStateSpace>::StateIdx>,
-) -> To1<<M as ReadStateSpace>::StateIdx, bool> {
+    context: &mut ReachabilityContext<M::StateIndex>,
+) -> To1<M::StateIndex, bool> {
     context.mark_dirty();
     attractor::attractor_with_buffer(
         model,
@@ -102,17 +102,17 @@ pub fn solve_reachability_raw<
 
 pub fn reachability_winner_from_state<
     M: ReadStateSpace
-        + ReadOwners<StateIdx = <M as ReadStateSpace>::StateIdx, OwnerType = TwoPlayer>
-        + ReadAtomicPropositions<StateIdx = <M as ReadStateSpace>::StateIdx>
+        + ReadOwners<StateIdx = M::StateIndex, OwnerType = TwoPlayer>
+        + ReadAtomicPropositions<StateIdx = M::StateIndex>
         + ReadPredecessors<
-            StateIdx = <M as ReadStateSpace>::StateIdx,
-            ChoiceIdx = <M as ReadStateSpace>::ChoiceIdx,
-            BranchIdx = <M as ReadStateSpace>::BranchIdx,
+            StateIdx = M::StateIndex,
+            ChoiceIdx = M::ChoiceIndex,
+            BranchIdx = M::BranchIndex,
         >,
 >(
     model: &M,
     target_states: <M as ReadAtomicPropositions>::APIdx,
-    state: <M as ReadStateSpace>::StateIdx,
+    state: M::StateIndex,
 ) -> TwoPlayer {
     let mut context = create_reachability_context(model, target_states);
     reachability_winner_from_state_raw(model, &mut context, state)
@@ -121,14 +121,14 @@ pub fn reachability_winner_from_state<
 pub fn reachability_winner_from_state_raw<
     M: ReadStateSpace
         + ReadPredecessors<
-            StateIdx = <M as ReadStateSpace>::StateIdx,
-            ChoiceIdx = <M as ReadStateSpace>::ChoiceIdx,
-            BranchIdx = <M as ReadStateSpace>::BranchIdx,
+            StateIdx = M::StateIndex,
+            ChoiceIdx = M::ChoiceIndex,
+            BranchIdx = M::BranchIndex,
         >,
 >(
     model: &M,
-    context: &mut ReachabilityContext<<M as ReadStateSpace>::StateIdx>,
-    state: <M as ReadStateSpace>::StateIdx,
+    context: &mut ReachabilityContext<M::StateIndex>,
+    state: M::StateIndex,
 ) -> TwoPlayer {
     context.mark_dirty();
     match attractor::attractor_contains_state_with_buffer(

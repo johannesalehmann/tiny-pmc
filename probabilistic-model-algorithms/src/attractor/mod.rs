@@ -24,14 +24,14 @@ trait AttractorCondition {
 
 fn attractor_internal<
     M: ReadStateSpace
-        + ReadOwners<StateIdx = <M as ReadStateSpace>::StateIdx, OwnerType = TwoPlayer>
+        + ReadOwners<StateIdx = M::StateIndex, OwnerType = TwoPlayer>
         + ReadPredecessors<
-            StateIdx = <M as ReadStateSpace>::StateIdx,
-            ChoiceIdx = <M as ReadStateSpace>::ChoiceIdx,
-            BranchIdx = <M as ReadStateSpace>::BranchIdx,
+            StateIdx = M::StateIndex,
+            ChoiceIdx = M::ChoiceIndex,
+            BranchIdx = M::BranchIndex,
         >,
-    R1: Iterator<Item = <M as ReadStateSpace>::StateIdx>,
-    C: AttractorCondition<StateIdx = <M as ReadStateSpace>::StateIdx>,
+    R1: Iterator<Item = M::StateIndex>,
+    C: AttractorCondition<StateIdx = M::StateIndex>,
 >(
     model: &M,
     region: R1,
@@ -48,17 +48,17 @@ fn attractor_internal<
 fn attractor_internal_with_buffer<
     M: ReadStateSpace
         + ReadPredecessors<
-            StateIdx = <M as ReadStateSpace>::StateIdx,
-            ChoiceIdx = <M as ReadStateSpace>::ChoiceIdx,
-            BranchIdx = <M as ReadStateSpace>::BranchIdx,
+            StateIdx = M::StateIndex,
+            ChoiceIdx = M::ChoiceIndex,
+            BranchIdx = M::BranchIndex,
         >,
-    R1: Iterator<Item = <M as ReadStateSpace>::StateIdx>,
-    C: AttractorCondition<StateIdx = <M as ReadStateSpace>::StateIdx>,
+    R1: Iterator<Item = M::StateIndex>,
+    C: AttractorCondition<StateIdx = M::StateIndex>,
 >(
     model: &M,
     region: R1,
     mut condition: C,
-    buffer: &mut AttractorBuffer<<M as ReadStateSpace>::StateIdx>,
+    buffer: &mut AttractorBuffer<M::StateIndex>,
 ) -> C::Output {
     buffer.open_list.clear();
 

@@ -14,9 +14,9 @@ pub struct NonstochasticGame<StateIdx: Index, ChoiceIdx: Index> {
 impl<StateIdx: Index, ChoiceIdx: Index> super::ReadStateSpace
     for NonstochasticGame<StateIdx, ChoiceIdx>
 {
-    type StateIdx = StateIdx;
-    type ChoiceIdx = ChoiceIdx;
-    type BranchIdx = ChoiceIdx;
+    type StateIndex = StateIdx;
+    type ChoiceIndex = ChoiceIdx;
+    type BranchIndex = ChoiceIdx;
 
     derive_read_state_space!(base_transition_system);
 }

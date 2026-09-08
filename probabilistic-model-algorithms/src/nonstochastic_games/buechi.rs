@@ -67,12 +67,12 @@ impl<StateIdx: Index> BuechiContext<StateIdx> {
 
 pub fn create_buechi_context<
     M: ReadStateSpace
-        + ReadOwners<StateIdx = <M as ReadStateSpace>::StateIdx, OwnerType = TwoPlayer>
-        + ReadAtomicPropositions<StateIdx = <M as ReadStateSpace>::StateIdx>,
+        + ReadOwners<StateIdx = M::StateIndex, OwnerType = TwoPlayer>
+        + ReadAtomicPropositions<StateIdx = M::StateIndex>,
 >(
     model: &M,
     buechi_states: <M as ReadAtomicPropositions>::APIdx,
-) -> BuechiContext<<M as ReadStateSpace>::StateIdx> {
+) -> BuechiContext<M::StateIndex> {
     BuechiContext {
         buechi_states: super::states_with_ap(model, buechi_states),
         owners: super::model_owners(model),
@@ -84,17 +84,17 @@ pub fn create_buechi_context<
 
 pub fn solve_buechi<
     M: ReadStateSpace
-        + ReadOwners<StateIdx = <M as ReadStateSpace>::StateIdx, OwnerType = TwoPlayer>
-        + ReadAtomicPropositions<StateIdx = <M as ReadStateSpace>::StateIdx>
+        + ReadOwners<StateIdx = M::StateIndex, OwnerType = TwoPlayer>
+        + ReadAtomicPropositions<StateIdx = M::StateIndex>
         + ReadPredecessors<
-            StateIdx = <M as ReadStateSpace>::StateIdx,
-            ChoiceIdx = <M as ReadStateSpace>::ChoiceIdx,
-            BranchIdx = <M as ReadStateSpace>::BranchIdx,
+            StateIdx = M::StateIndex,
+            ChoiceIdx = M::ChoiceIndex,
+            BranchIdx = M::BranchIndex,
         >,
 >(
     model: &M,
     buechi_states: <M as ReadAtomicPropositions>::APIdx,
-) -> To1<<M as ReadStateSpace>::StateIdx, bool> {
+) -> To1<M::StateIndex, bool> {
     let mut context = create_buechi_context(model, buechi_states);
     solve_buechi_raw(model, &mut context)
 }
@@ -102,14 +102,14 @@ pub fn solve_buechi<
 pub fn solve_buechi_raw<
     M: ReadStateSpace
         + ReadPredecessors<
-            StateIdx = <M as ReadStateSpace>::StateIdx,
-            ChoiceIdx = <M as ReadStateSpace>::ChoiceIdx,
-            BranchIdx = <M as ReadStateSpace>::BranchIdx,
+            StateIdx = M::StateIndex,
+            ChoiceIdx = M::ChoiceIndex,
+            BranchIdx = M::BranchIndex,
         >,
 >(
     model: &M,
-    context: &mut BuechiContext<<M as ReadStateSpace>::StateIdx>,
-) -> To1<<M as ReadStateSpace>::StateIdx, bool> {
+    context: &mut BuechiContext<M::StateIndex>,
+) -> To1<M::StateIndex, bool> {
     context.mark_dirty();
 
     let mut changed = true;
@@ -143,17 +143,17 @@ pub fn solve_buechi_raw<
 
 pub fn buechi_winner_from_state<
     M: ReadStateSpace
-        + ReadOwners<StateIdx = <M as ReadStateSpace>::StateIdx, OwnerType = TwoPlayer>
-        + ReadAtomicPropositions<StateIdx = <M as ReadStateSpace>::StateIdx>
+        + ReadOwners<StateIdx = M::StateIndex, OwnerType = TwoPlayer>
+        + ReadAtomicPropositions<StateIdx = M::StateIndex>
         + ReadPredecessors<
-            StateIdx = <M as ReadStateSpace>::StateIdx,
-            ChoiceIdx = <M as ReadStateSpace>::ChoiceIdx,
-            BranchIdx = <M as ReadStateSpace>::BranchIdx,
+            StateIdx = M::StateIndex,
+            ChoiceIdx = M::ChoiceIndex,
+            BranchIdx = M::BranchIndex,
         >,
 >(
     model: &M,
     buechi_states: <M as ReadAtomicPropositions>::APIdx,
-    state: <M as ReadStateSpace>::StateIdx,
+    state: M::StateIndex,
 ) -> TwoPlayer {
     let mut context = create_buechi_context(model, buechi_states);
     buechi_winner_from_state_raw(model, &mut context, state)
@@ -162,14 +162,14 @@ pub fn buechi_winner_from_state<
 pub fn buechi_winner_from_state_raw<
     M: ReadStateSpace
         + ReadPredecessors<
-            StateIdx = <M as ReadStateSpace>::StateIdx,
-            ChoiceIdx = <M as ReadStateSpace>::ChoiceIdx,
-            BranchIdx = <M as ReadStateSpace>::BranchIdx,
+            StateIdx = M::StateIndex,
+            ChoiceIdx = M::ChoiceIndex,
+            BranchIdx = M::BranchIndex,
         >,
 >(
     model: &M,
-    context: &mut BuechiContext<<M as ReadStateSpace>::StateIdx>,
-    state: <M as ReadStateSpace>::StateIdx,
+    context: &mut BuechiContext<M::StateIndex>,
+    state: M::StateIndex,
 ) -> TwoPlayer {
     if solve_buechi_raw(model, context)[state] {
         TwoPlayer::Eve

@@ -10,17 +10,17 @@ use typed_index_collections::{Index, RawIndex, To1};
 
 pub fn optimistic_value_iteration_max<
     M: ReadStateSpace
-        + ReadAtomicPropositions<StateIdx = <M as ReadStateSpace>::StateIdx>
+        + ReadAtomicPropositions<StateIdx = M::StateIndex>
         + ReadPredecessors<
-            StateIdx = <M as ReadStateSpace>::StateIdx,
-            ChoiceIdx = <M as ReadStateSpace>::ChoiceIdx,
-            BranchIdx = <M as ReadStateSpace>::BranchIdx,
+            StateIdx = M::StateIndex,
+            ChoiceIdx = M::ChoiceIndex,
+            BranchIdx = M::BranchIndex,
         >,
 >(
     model: &M,
     goal: &StateDescription<M>,
     eps: f64,
-) -> To1<<M as ReadStateSpace>::StateIdx, f64> {
+) -> To1<M::StateIndex, f64> {
     let mut precomputation_time = Duration::default();
     let mut build_time = Duration::default();
     let mut value_iteration_time = Duration::default();
@@ -176,20 +176,20 @@ fn build_and_solve_submodel<
     NewSI: Index,
     NewCI: Index,
     NewBI: Index,
-    M: ReadStateSpace + ReadPredecessors<StateIdx = <M as ReadStateSpace>::StateIdx>,
+    M: ReadStateSpace + ReadPredecessors<StateIdx = M::StateIndex>,
 >(
     model: &M,
     build_time: &mut Duration,
     value_iteration_time: &mut Duration,
     vi_time: &mut Duration,
     verification_time: &mut Duration,
-    values: &mut To1<<M as ReadStateSpace>::StateIdx, f64>,
+    values: &mut To1<M::StateIndex, f64>,
     precision_per_scc: f64,
-    subgame_construction_context: &mut SubModelContext<<M as ReadStateSpace>::StateIdx>,
-    sub_model: &mut SubModel<<M as ReadStateSpace>::StateIdx, NewSI, NewCI, NewBI>,
+    subgame_construction_context: &mut SubModelContext<M::StateIndex>,
+    sub_model: &mut SubModel<M::StateIndex, NewSI, NewCI, NewBI>,
     subgame_values: &mut Vec<f64>,
     subgame_verification_bounds: &mut Vec<(f64, f64)>,
-    scc: Scc<'_, SccIndex<usize>, SccEntryIndex<usize>, <M as ReadStateSpace>::StateIdx>,
+    scc: Scc<'_, SccIndex<usize>, SccEntryIndex<usize>, M::StateIndex>,
 ) {
     let start_submodel = std::time::Instant::now();
     sub_model.rebuild(
@@ -221,9 +221,9 @@ fn build_and_solve_submodel<
 
 fn evaluate_choice<M: ReadStateSpace>(
     model: &M,
-    values: &To1<M::StateIdx, f64>,
-    state: M::StateIdx,
-    choice: M::ChoiceIdx,
+    values: &To1<M::StateIndex, f64>,
+    state: M::StateIndex,
+    choice: M::ChoiceIndex,
 ) -> f64 {
     let mut to_self = 0.0;
     let mut exit_value = 0.0;

@@ -12,19 +12,19 @@ pub trait ValueComparator: Copy {
 
     fn neutral_value(
         &self,
-        state: <Self::Model as ReadStateSpace>::StateIdx,
+        state: <Self::Model as ReadStateSpace>::StateIndex,
         model: &Self::Model,
     ) -> f64;
     fn is_better(
         &self,
-        state: <Self::Model as ReadStateSpace>::StateIdx,
+        state: <Self::Model as ReadStateSpace>::StateIndex,
         model: &Self::Model,
         before: f64,
         new: f64,
     ) -> bool;
     fn attractor_behaviour(
         &self,
-        state: <Self::Model as ReadStateSpace>::StateIdx,
+        state: <Self::Model as ReadStateSpace>::StateIndex,
         model: &Self::Model,
     ) -> AttractorBehaviour;
 }
@@ -55,7 +55,7 @@ impl<M: ReadStateSpace> ValueComparator for Maximiser<M> {
 
     fn neutral_value(
         &self,
-        _state: <Self::Model as ReadStateSpace>::StateIdx,
+        _state: <Self::Model as ReadStateSpace>::StateIndex,
         _model: &Self::Model,
     ) -> f64 {
         0.0
@@ -63,7 +63,7 @@ impl<M: ReadStateSpace> ValueComparator for Maximiser<M> {
 
     fn is_better(
         &self,
-        _state: <Self::Model as ReadStateSpace>::StateIdx,
+        _state: <Self::Model as ReadStateSpace>::StateIndex,
         _model: &Self::Model,
         before: f64,
         new: f64,
@@ -73,7 +73,7 @@ impl<M: ReadStateSpace> ValueComparator for Maximiser<M> {
 
     fn attractor_behaviour(
         &self,
-        _state: <Self::Model as ReadStateSpace>::StateIdx,
+        _state: <Self::Model as ReadStateSpace>::StateIndex,
         _model: &Self::Model,
     ) -> AttractorBehaviour {
         AttractorBehaviour::TakesHighestValueChoice
@@ -106,7 +106,7 @@ impl<M: ReadStateSpace> ValueComparator for Minimiser<M> {
 
     fn neutral_value(
         &self,
-        _state: <Self::Model as ReadStateSpace>::StateIdx,
+        _state: <Self::Model as ReadStateSpace>::StateIndex,
         _model: &Self::Model,
     ) -> f64 {
         1.0
@@ -114,7 +114,7 @@ impl<M: ReadStateSpace> ValueComparator for Minimiser<M> {
 
     fn is_better(
         &self,
-        _state: <Self::Model as ReadStateSpace>::StateIdx,
+        _state: <Self::Model as ReadStateSpace>::StateIndex,
         _model: &Self::Model,
         before: f64,
         new: f64,
@@ -124,7 +124,7 @@ impl<M: ReadStateSpace> ValueComparator for Minimiser<M> {
 
     fn attractor_behaviour(
         &self,
-        _state: <Self::Model as ReadStateSpace>::StateIdx,
+        _state: <Self::Model as ReadStateSpace>::StateIndex,
         _model: &Self::Model,
     ) -> AttractorBehaviour {
         AttractorBehaviour::TakesLowestValueChoice
@@ -152,14 +152,15 @@ impl<M> Default for PlayerOneMaximisesPlayerTwoMinimises<M> {
 }
 
 impl<
-    M: ReadStateSpace + ReadOwners<OwnerType = TwoPlayer, StateIdx = <M as ReadStateSpace>::StateIdx>,
+    M: ReadStateSpace
+        + ReadOwners<OwnerType = TwoPlayer, StateIdx = M::StateIndex>,
 > ValueComparator for PlayerOneMaximisesPlayerTwoMinimises<M>
 {
     type Model = M;
 
     fn neutral_value(
         &self,
-        state: <Self::Model as ReadStateSpace>::StateIdx,
+        state: <Self::Model as ReadStateSpace>::StateIndex,
         model: &Self::Model,
     ) -> f64 {
         match model.state_owner(state) {
@@ -170,7 +171,7 @@ impl<
 
     fn is_better(
         &self,
-        state: <Self::Model as ReadStateSpace>::StateIdx,
+        state: <Self::Model as ReadStateSpace>::StateIndex,
         model: &Self::Model,
         before: f64,
         new: f64,
@@ -183,7 +184,7 @@ impl<
 
     fn attractor_behaviour(
         &self,
-        state: <Self::Model as ReadStateSpace>::StateIdx,
+        state: <Self::Model as ReadStateSpace>::StateIndex,
         model: &Self::Model,
     ) -> AttractorBehaviour {
         match model.state_owner(state) {

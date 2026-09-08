@@ -42,21 +42,26 @@ pub(crate) use owners::derive_read_owners;
 use typed_index_collections::{Index, IndexRange, IndexRangeIterator, SemiboundedIndexRange};
 
 pub trait ReadStateSpace {
-    type StateIdx: Index;
-    type ChoiceIdx: Index;
-    type BranchIdx: Index;
+    // The Index types in this trait have suffix `Index`, whereas those in the other Read traits
+    // have suffix `Idx`. This is intentional to allow notation of the form:
+    //     M: ReadStateSpace + ReadAtomicPropositions<StateIdx=M::StateIndex>
+    // instead of
+    //     M: ReadStateSpace + ReadAtomicPropositions<StateIdx=<M as ReadStateSpace>::StateIdx>
+    type StateIndex: Index;
+    type ChoiceIndex: Index;
+    type BranchIndex: Index;
 
-    fn states(&self) -> SemiboundedIndexRange<Self::StateIdx>;
-    fn choices(&self) -> SemiboundedIndexRange<Self::ChoiceIdx>;
-    fn branches(&self) -> SemiboundedIndexRange<Self::BranchIdx>;
+    fn states(&self) -> SemiboundedIndexRange<Self::StateIndex>;
+    fn choices(&self) -> SemiboundedIndexRange<Self::ChoiceIndex>;
+    fn branches(&self) -> SemiboundedIndexRange<Self::BranchIndex>;
 
-    fn choices_of_state(&self, state: Self::StateIdx) -> IndexRange<Self::ChoiceIdx>;
-    fn branches_of_choice(&self, choice: Self::ChoiceIdx) -> IndexRange<Self::BranchIdx>;
+    fn choices_of_state(&self, state: Self::StateIndex) -> IndexRange<Self::ChoiceIndex>;
+    fn branches_of_choice(&self, choice: Self::ChoiceIndex) -> IndexRange<Self::BranchIndex>;
 
-    fn branch_probability(&self, branch: Self::BranchIdx) -> f64;
-    fn branch_destination(&self, branch: Self::BranchIdx) -> Self::StateIdx;
+    fn branch_probability(&self, branch: Self::BranchIndex) -> f64;
+    fn branch_destination(&self, branch: Self::BranchIndex) -> Self::StateIndex;
 
-    fn successors_of_state(&self, state: Self::StateIdx) -> impl Iterator<Item = Self::StateIdx>
+    fn successors_of_state(&self, state: Self::StateIndex) -> impl Iterator<Item = Self::StateIndex>
     where
         Self: Sized,
     {
@@ -69,13 +74,13 @@ pub trait ReadStateSpace {
 }
 
 struct SuccessorIterator<'a, M: ReadStateSpace> {
-    choices_iterator: IndexRangeIterator<M::ChoiceIdx>,
-    branches_iterator: IndexRangeIterator<M::BranchIdx>,
+    choices_iterator: IndexRangeIterator<M::ChoiceIndex>,
+    branches_iterator: IndexRangeIterator<M::BranchIndex>,
     model: &'a M,
 }
 
 impl<'a, M: ReadStateSpace> Iterator for SuccessorIterator<'a, M> {
-    type Item = M::StateIdx;
+    type Item = M::StateIndex;
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -94,37 +99,37 @@ impl<'a, M: ReadStateSpace> Iterator for SuccessorIterator<'a, M> {
 
 macro_rules! derive_read_state_space {
     ($subcomponent:ident) => {
-        fn states(&self) -> typed_index_collections::SemiboundedIndexRange<Self::StateIdx> {
+        fn states(&self) -> typed_index_collections::SemiboundedIndexRange<Self::StateIndex> {
             self.$subcomponent.states()
         }
 
-        fn choices(&self) -> typed_index_collections::SemiboundedIndexRange<Self::ChoiceIdx> {
+        fn choices(&self) -> typed_index_collections::SemiboundedIndexRange<Self::ChoiceIndex> {
             self.$subcomponent.choices()
         }
 
-        fn branches(&self) -> typed_index_collections::SemiboundedIndexRange<Self::BranchIdx> {
+        fn branches(&self) -> typed_index_collections::SemiboundedIndexRange<Self::BranchIndex> {
             self.$subcomponent.branches()
         }
 
         fn choices_of_state(
             &self,
-            state: Self::StateIdx,
-        ) -> typed_index_collections::IndexRange<Self::ChoiceIdx> {
+            state: Self::StateIndex,
+        ) -> typed_index_collections::IndexRange<Self::ChoiceIndex> {
             self.$subcomponent.choices_of_state(state)
         }
 
         fn branches_of_choice(
             &self,
-            choice: Self::ChoiceIdx,
-        ) -> typed_index_collections::IndexRange<Self::BranchIdx> {
+            choice: Self::ChoiceIndex,
+        ) -> typed_index_collections::IndexRange<Self::BranchIndex> {
             self.$subcomponent.branches_of_choice(choice)
         }
 
-        fn branch_probability(&self, branch: Self::BranchIdx) -> f64 {
+        fn branch_probability(&self, branch: Self::BranchIndex) -> f64 {
             self.$subcomponent.branch_probability(branch)
         }
 
-        fn branch_destination(&self, branch: Self::BranchIdx) -> Self::StateIdx {
+        fn branch_destination(&self, branch: Self::BranchIndex) -> Self::StateIndex {
             self.$subcomponent.branch_destination(branch)
         }
     };
@@ -134,9 +139,9 @@ pub(crate) use derive_read_state_space;
 impl<M: ReadStateSpace, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds> ReadStateSpace
     for crate::Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>
 {
-    type StateIdx = <M as ReadStateSpace>::StateIdx;
-    type ChoiceIdx = <M as ReadStateSpace>::ChoiceIdx;
-    type BranchIdx = <M as ReadStateSpace>::BranchIdx;
+    type StateIndex = M::StateIndex;
+    type ChoiceIndex = M::ChoiceIndex;
+    type BranchIndex = M::BranchIndex;
 
     derive_read_state_space!(base);
 }

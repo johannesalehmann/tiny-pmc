@@ -15,9 +15,9 @@ pub struct TwoPlayerTurnBasedGame<StateIdx: Index, ChoiceIdx: Index, BranchIdx: 
 impl<StateIdx: Index, ChoiceIdx: Index, BranchIdx: Index> super::ReadStateSpace
     for TwoPlayerTurnBasedGame<StateIdx, ChoiceIdx, BranchIdx>
 {
-    type StateIdx = StateIdx;
-    type ChoiceIdx = ChoiceIdx;
-    type BranchIdx = BranchIdx;
+    type StateIndex = StateIdx;
+    type ChoiceIndex = ChoiceIdx;
+    type BranchIndex = BranchIdx;
 
     derive_read_state_space!(base_mdp);
 }
