@@ -43,6 +43,88 @@ pub struct SubModel<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index> {
     pub to_old_state_index: To1<NewSI, StateIdx>,
 }
 
+impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
+    SubModel<StateIdx, NewSI, NewCI, NewBI>
+{
+    pub fn empty() -> Self {
+        Self {
+            mdp: Mdp::default(),
+            choice_exit_values: To1::new(),
+            to_old_state_index: To1::new(),
+        }
+    }
+
+    pub fn rebuild<
+        M: ReadStateSpace<StateIdx = StateIdx> + ReadPredecessors<StateIdx = StateIdx>,
+        ScI: Index,
+        ScEI: Index,
+    >(
+        &mut self,
+        model: &M,
+        scc: Scc<'_, ScI, ScEI, <M as ReadStateSpace>::StateIdx>,
+        dominated_by: &DominatedByRelation<<M as ReadStateSpace>::StateIdx>,
+        values: &To1<<M as ReadStateSpace>::StateIdx, f64>,
+        context: &mut SubModelContext<<M as ReadStateSpace>::StateIdx>,
+    ) {
+        self.to_old_state_index.clear();
+        compute_order(
+            model,
+            scc,
+            dominated_by,
+            values,
+            context,
+            &mut self.to_old_state_index,
+        );
+
+        self.mdp.clear();
+        self.choice_exit_values.clear();
+
+        for &state in &context.visitation_order {
+            let Some(new_state) = context.to_new_state_index[state] else {
+                continue; // Skip dominated states
+            };
+            let new_state = NewSI::from_raw(NewSI::RawType::from_usize(new_state));
+            self.mdp.add_state(new_state);
+            for choice in model.choices_of_state(state) {
+                let choice_index = self.mdp.add_choice();
+                let mut to_self = 0.0;
+                let mut exit_value = 0.0;
+                for branch in model.branches_of_choice(choice) {
+                    let mut destination = model.branch_destination(branch);
+                    if let Some(dominating_state) = dominated_by.dominated_by(destination) {
+                        destination = dominating_state;
+                    }
+                    let p = model.branch_probability(branch);
+
+                    if destination == state {
+                        to_self += p;
+                    } else if let Some(target) = context.to_new_state_index[destination] {
+                        // We first add the actual probability. After the loop, we then scale the
+                        // probability to account for removed self loops.
+                        let target = NewSI::from_raw(NewSI::RawType::from_usize(target));
+                        self.mdp.add_branch(p, target);
+                    } else {
+                        exit_value += p * values[destination];
+                    }
+                }
+
+                let scale_factor = if to_self == 1.0 {
+                    0.0
+                } else {
+                    1.0 / (1.0 - to_self)
+                };
+                for branch in self.mdp.branches_of_choice(choice_index) {
+                    self.mdp.branch_probabilities[branch] *= scale_factor;
+                }
+                self.choice_exit_values
+                    .add_checked(choice_index, exit_value * scale_factor);
+            }
+        }
+
+        context.reset(&self.to_old_state_index);
+    }
+}
+
 fn compute_order<
     M: ReadStateSpace + ReadPredecessors<StateIdx = <M as ReadStateSpace>::StateIdx>,
     ScI: Index,
@@ -95,87 +177,9 @@ fn compute_order<
     }
 }
 
-pub fn build_sub_model<
-    M: ReadStateSpace + ReadPredecessors<StateIdx = <M as ReadStateSpace>::StateIdx>,
-    ScI: Index,
-    ScEI: Index,
-    NewSI: Index,
-    NewCI: Index,
-    NewBI: Index,
->(
-    model: &M,
-    scc: Scc<'_, ScI, ScEI, <M as ReadStateSpace>::StateIdx>,
-    dominated_by: &DominatedByRelation<<M as ReadStateSpace>::StateIdx>,
-    values: &To1<<M as ReadStateSpace>::StateIdx, f64>,
-    context: &mut SubModelContext<<M as ReadStateSpace>::StateIdx>,
-) -> SubModel<<M as ReadStateSpace>::StateIdx, NewSI, NewCI, NewBI> {
-    let mut to_old_state_index: To1<NewSI, <M as ReadStateSpace>::StateIdx> =
-        To1::with_capacity(scc.size());
-    compute_order(
-        model,
-        scc,
-        dominated_by,
-        values,
-        context,
-        &mut to_old_state_index,
-    );
-
-    let mut mdp = Mdp::default();
-    let mut choice_exit_values = To1::new();
-
-    for &state in &context.visitation_order {
-        let Some(new_state) = context.to_new_state_index[state] else {
-            continue; // Skip dominated states
-        };
-        let new_state = NewSI::from_raw(NewSI::RawType::from_usize(new_state));
-        mdp.add_state(new_state);
-        for choice in model.choices_of_state(state) {
-            let choice_index = mdp.add_choice();
-            let mut to_self = 0.0;
-            let mut exit_value = 0.0;
-            for branch in model.branches_of_choice(choice) {
-                let mut destination = model.branch_destination(branch);
-                if let Some(dominating_state) = dominated_by.dominated_by(destination) {
-                    destination = dominating_state;
-                }
-                let p = model.branch_probability(branch);
-
-                if destination == state {
-                    to_self += p;
-                } else if let Some(target) = context.to_new_state_index[destination] {
-                    // We first add the actual probability. After the loop, we then scale the
-                    // probability to account for removed self loops.
-                    let target = NewSI::from_raw(NewSI::RawType::from_usize(target));
-                    mdp.add_branch(p, target);
-                } else {
-                    exit_value += p * values[destination];
-                }
-            }
-
-            let scale_factor = if to_self == 1.0 {
-                0.0
-            } else {
-                1.0 / (1.0 - to_self)
-            };
-            for branch in mdp.branches_of_choice(choice_index) {
-                mdp.branch_probabilities[branch] *= scale_factor;
-            }
-            choice_exit_values.add_checked(choice_index, exit_value * scale_factor);
-        }
-    }
-
-    context.reset(&to_old_state_index);
-
-    SubModel {
-        mdp,
-        choice_exit_values,
-        to_old_state_index,
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{SubModel, SubModelContext, build_sub_model};
+    use super::{SubModel, SubModelContext};
     use crate::dominated_by::DominatedByRelation;
     use crate::sccs::{SccEntryIndex, SccIndex, Sccs};
     use probabilistic_models::mdp;
@@ -202,14 +206,15 @@ mod tests {
         let values = To1::with_entries(vec![0.0, 0.0, 1.0]);
         let mut context = SubModelContext::new(&model);
 
-        let sub_model =
-            build_sub_model::<_, _, _, StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>>(
-                &model,
-                sccs.scc_of_state(StateIndex::from_raw(0)).unwrap(),
-                &DominatedByRelation::empty(),
-                &values,
-                &mut context,
-            );
+        let mut sub_model: SubModel<_, StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>> =
+            SubModel::empty();
+        sub_model.rebuild(
+            &model,
+            sccs.scc_of_state(StateIndex::from_raw(0)).unwrap(),
+            &DominatedByRelation::empty(),
+            &values,
+            &mut context,
+        );
 
         assert_eq!(
             sub_model.to_old_state_index,
@@ -257,14 +262,15 @@ mod tests {
         let values = To1::with_entries(vec![0.0, 0.6, 1.0]);
         let mut context = SubModelContext::new(&model);
 
-        let sub_model =
-            build_sub_model::<_, _, _, StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>>(
-                &model,
-                sccs.scc_of_state(StateIndex::from_raw(0)).unwrap(),
-                &DominatedByRelation::empty(),
-                &values,
-                &mut context,
-            );
+        let mut sub_model: SubModel<_, StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>> =
+            SubModel::empty();
+        sub_model.rebuild(
+            &model,
+            sccs.scc_of_state(StateIndex::from_raw(0)).unwrap(),
+            &DominatedByRelation::empty(),
+            &values,
+            &mut context,
+        );
 
         assert_eq!(
             sub_model.to_old_state_index,
@@ -311,14 +317,15 @@ mod tests {
         ]));
         let mut context = SubModelContext::new(&model);
 
-        let sub_model =
-            build_sub_model::<_, _, _, StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>>(
-                &model,
-                sccs.scc_of_state(StateIndex::from_raw(0)).unwrap(),
-                &dominated_by,
-                &values,
-                &mut context,
-            );
+        let mut sub_model: SubModel<_, StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>> =
+            SubModel::empty();
+        sub_model.rebuild(
+            &model,
+            sccs.scc_of_state(StateIndex::from_raw(0)).unwrap(),
+            &dominated_by,
+            &values,
+            &mut context,
+        );
 
         // State 1 is dominated by state 0 and thus neither contributes a state nor its choice.
         assert_eq!(
@@ -366,13 +373,20 @@ mod tests {
             SubModel<StateIndex<usize>, StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>>,
         > = Vec::new();
         for scc in sccs.reverse_topological_ordering() {
-            sub_models.push(build_sub_model(
+            let mut sub_model: SubModel<
+                _,
+                StateIndex<usize>,
+                ChoiceIndex<usize>,
+                BranchIndex<usize>,
+            > = SubModel::empty();
+            sub_model.rebuild(
                 &model,
                 scc,
                 &DominatedByRelation::empty(),
                 &values,
                 &mut context,
-            ));
+            );
+            sub_models.push(sub_model);
         }
 
         assert_eq!(

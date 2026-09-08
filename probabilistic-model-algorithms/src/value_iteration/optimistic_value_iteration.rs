@@ -1,6 +1,6 @@
 use crate::dominated_by::DominatedByRelation;
 use crate::sccs::{Scc, SccDependencyIndex, SccEntryIndex, SccIndex, Sccs};
-use crate::value_iteration::sub_model::{SubModelContext, build_sub_model};
+use crate::value_iteration::sub_model::{SubModel, SubModelContext};
 use probabilistic_models::base_model::Mdp;
 use probabilistic_models::traits::{ReadAtomicPropositions, ReadPredecessors, ReadStateSpace};
 use probabilistic_models::{BranchIndex, ChoiceIndex, StateIndex};
@@ -58,6 +58,10 @@ pub fn optimistic_value_iteration_max<
     let precision_per_scc = 2.0 * eps * (1.0 / longest_chain as f64);
 
     let mut subgame_construction_context = SubModelContext::new(model);
+    let mut submodel_u8 = SubModel::empty();
+    let mut submodel_u16 = SubModel::empty();
+    let mut submodel_u32 = SubModel::empty();
+    let mut submodel_usize = SubModel::empty();
     let max_size = sccs.max_size();
     let mut subgame_values = vec![0.0; max_size];
     let mut subgame_verification_bounds = vec![(0.0, 0.0); max_size];
@@ -94,6 +98,7 @@ pub fn optimistic_value_iteration_max<
                     &mut values,
                     precision_per_scc,
                     &mut subgame_construction_context,
+                    &mut submodel_u8,
                     &mut subgame_values,
                     &mut subgame_verification_bounds,
                     scc,
@@ -108,6 +113,7 @@ pub fn optimistic_value_iteration_max<
                     &mut values,
                     precision_per_scc,
                     &mut subgame_construction_context,
+                    &mut submodel_u16,
                     &mut subgame_values,
                     &mut subgame_verification_bounds,
                     scc,
@@ -125,6 +131,7 @@ pub fn optimistic_value_iteration_max<
                     &mut values,
                     precision_per_scc,
                     &mut subgame_construction_context,
+                    &mut submodel_u32,
                     &mut subgame_values,
                     &mut subgame_verification_bounds,
                     scc,
@@ -147,6 +154,7 @@ pub fn optimistic_value_iteration_max<
                     &mut values,
                     precision_per_scc,
                     &mut subgame_construction_context,
+                    &mut submodel_usize,
                     &mut subgame_values,
                     &mut subgame_verification_bounds,
                     scc,
@@ -177,12 +185,13 @@ fn build_and_solve_submodel<
     values: &mut To1<<M as ReadStateSpace>::StateIdx, f64>,
     precision_per_scc: f64,
     subgame_construction_context: &mut SubModelContext<<M as ReadStateSpace>::StateIdx>,
+    sub_model: &mut SubModel<<M as ReadStateSpace>::StateIdx, NewSI, NewCI, NewBI>,
     subgame_values: &mut Vec<f64>,
     subgame_verification_bounds: &mut Vec<(f64, f64)>,
     scc: Scc<'_, SccIndex<usize>, SccEntryIndex<usize>, <M as ReadStateSpace>::StateIdx>,
 ) {
     let start_submodel = std::time::Instant::now();
-    let sub_model = build_sub_model::<_, _, _, NewSI, NewCI, NewBI>(
+    sub_model.rebuild(
         model,
         scc,
         &DominatedByRelation::empty(),

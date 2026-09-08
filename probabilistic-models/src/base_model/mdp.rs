@@ -91,6 +91,13 @@ impl<StateIdx: Index, ChoiceIdx: Index, BranchIdx: Index> Mdp<StateIdx, ChoiceId
         index
     }
 
+    pub fn clear(&mut self) {
+        self.state_to_choice.clear();
+        self.choice_to_branch.clear();
+        self.branch_probabilities.clear();
+        self.branch_destinations.clear();
+    }
+
     pub fn state_choice_pairs(&self) -> StateChoicePairs<'_, StateIdx, ChoiceIdx> {
         StateChoicePairs {
             state_to_choice: &self.state_to_choice,

@@ -61,6 +61,10 @@ impl<From: Index, To: Index> Csr<From, To> {
         self.entries[last_index] = new_to;
     }
 
+    pub fn clear(&mut self) {
+        self.entries.clear();
+    }
+
     // TODO: Offer `.values()` function instead, then this function can be replaced by
     //  .values().end()
     pub fn end(&self) -> To {

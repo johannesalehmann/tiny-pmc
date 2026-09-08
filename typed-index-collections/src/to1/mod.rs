@@ -78,6 +78,10 @@ impl<From: Index, E> To1<From, E> {
         self.entries.fill(value);
     }
 
+    pub fn clear(&mut self) {
+        self.entries.clear();
+    }
+
     pub fn take(mut self, index: From) -> Option<E> {
         let raw = index.raw().as_usize();
         if raw < self.entries.len() {
