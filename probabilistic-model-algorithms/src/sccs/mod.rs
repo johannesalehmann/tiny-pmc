@@ -185,15 +185,15 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
         is_trivial
     }
 
-    pub fn reverse_topological_ordering(&self) -> impl Iterator<Item = ScI> {
+    pub fn reverse_topological_ordering(
+        &self,
+    ) -> ReverseTopologicalOrderIterator<'_, ScI, ScEI, SI> {
         ReverseTopologicalOrderIterator {
+            sccs: self,
             current: self.sccs.keys().end(),
         }
     }
 
-    // TODO: This interface is not super ergonomic. Once composing CSRs and To1s is possible,
-    //  such a composition could be used to directly yield state indices. Currently, this is not
-    //  possible without either a custom iterator or allocating. (see also SccDependencies)
     pub fn entries(&self, scc: ScI) -> IndexRange<ScEI> {
         self.sccs.index(scc)
     }
@@ -202,10 +202,18 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
         self.scc_entries[entry]
     }
 
-    /// Returns the SCC containing the state, or `None` if the state was excluded from the SCC
-    /// computation.
-    pub fn scc_of_state(&self, state: SI) -> Option<ScI> {
+    /// Returns the index of the SCC containing the state, or `None` if the state was excluded
+    /// from the SCC computation.
+    pub fn scc_index_of_state(&self, state: SI) -> Option<ScI> {
         self.state_to_scc[state]
+    }
+
+    pub fn scc(&self, index: ScI) -> Scc<'_, ScI, ScEI, SI> {
+        Scc { sccs: self, index }
+    }
+
+    pub fn scc_of_state(&self, state: SI) -> Option<Scc<'_, ScI, ScEI, SI>> {
+        Some(self.scc(self.scc_index_of_state(state)?))
     }
 
     pub fn compute_dependencies<SccDependencyIdx: Index, M: ReadStateSpace<StateIdx = SI>>(
@@ -225,17 +233,55 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
     }
 }
 
-pub struct ReverseTopologicalOrderIterator<ScI: Index> {
+#[derive(Clone, Copy)]
+pub struct Scc<'a, ScI: Index, ScEI: Index, SI: Index> {
+    sccs: &'a Sccs<ScI, ScEI, SI>,
+    index: ScI,
+}
+
+impl<'a, ScI: Index, ScEI: Index, SI: Index> Scc<'a, ScI, ScEI, SI> {
+    pub fn size(&self) -> usize {
+        self.sccs.entries(self.index).len()
+    }
+
+    pub fn as_singleton(&self) -> Option<SI> {
+        if self.size() == 1 {
+            Some(self.states().next().unwrap())
+        } else {
+            None
+        }
+    }
+
+    pub fn states(&self) -> impl Iterator<Item = SI> + 'a {
+        let sccs = self.sccs;
+        let index = self.index;
+        sccs.entries(index)
+            .into_iter()
+            .map(move |entry| sccs.state_of_entry(entry))
+    }
+
+    pub fn contains(&self, state: SI) -> bool {
+        self.sccs.scc_index_of_state(state) == Some(self.index)
+    }
+}
+
+pub struct ReverseTopologicalOrderIterator<'a, ScI: Index, ScEI: Index, SI: Index> {
+    sccs: &'a Sccs<ScI, ScEI, SI>,
     current: ScI,
 }
 
-impl<ScI: Index> Iterator for ReverseTopologicalOrderIterator<ScI> {
-    type Item = ScI;
+impl<'a, ScI: Index, ScEI: Index, SI: Index> Iterator
+    for ReverseTopologicalOrderIterator<'a, ScI, ScEI, SI>
+{
+    type Item = Scc<'a, ScI, ScEI, SI>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.current.raw().as_usize() > 0 {
             self.current -= ScI::RawType::one();
-            Some(self.current)
+            Some(Scc {
+                sccs: self.sccs,
+                index: self.current,
+            })
         } else {
             None
         }
@@ -247,7 +293,10 @@ impl<ScI: Index> Iterator for ReverseTopologicalOrderIterator<ScI> {
     }
 }
 
-impl<ScI: Index> ExactSizeIterator for ReverseTopologicalOrderIterator<ScI> {}
+impl<'a, ScI: Index, ScEI: Index, SI: Index> ExactSizeIterator
+    for ReverseTopologicalOrderIterator<'a, ScI, ScEI, SI>
+{
+}
 
 index!(SccDependencyIndex);
 pub struct SccDependencies<SccIdx: Index, SccDependencyIdx: Index> {
@@ -506,15 +555,52 @@ mod tests {
             To1::with_entries(vec![false, true, false, false])
         );
 
+        let order: Vec<Vec<StateIndex<usize>>> = sccs
+            .reverse_topological_ordering()
+            .map(|scc| {
+                let mut states: Vec<_> = scc.states().collect();
+                states.sort();
+                states
+            })
+            .collect();
         assert_eq!(
-            sccs.reverse_topological_ordering().collect::<Vec<_>>(),
+            order,
             vec![
-                SccIndex::from_raw(3),
-                SccIndex::from_raw(2),
-                SccIndex::from_raw(1),
-                SccIndex::from_raw(0),
+                vec![StateIndex::from_raw(5)],
+                vec![
+                    StateIndex::from_raw(1),
+                    StateIndex::from_raw(2),
+                    StateIndex::from_raw(3)
+                ],
+                vec![StateIndex::from_raw(0)],
+                vec![StateIndex::from_raw(4)],
             ]
         )
+    }
+
+    #[test]
+    fn scc_wrapper() {
+        let model = complex_model();
+        let sccs =
+            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
+
+        let scc = sccs.scc_of_state(StateIndex::from_raw(1)).unwrap();
+
+        assert_eq!(scc.size(), 3);
+        let mut entries: Vec<_> = scc.states().collect();
+        entries.sort();
+        assert_eq!(
+            entries,
+            vec![
+                StateIndex::from_raw(1),
+                StateIndex::from_raw(2),
+                StateIndex::from_raw(3)
+            ]
+        );
+        assert!(scc.contains(StateIndex::from_raw(1)));
+        assert!(scc.contains(StateIndex::from_raw(3)));
+        assert!(!scc.contains(StateIndex::from_raw(0)));
+        assert!(!scc.contains(StateIndex::from_raw(4)));
     }
 
     #[test]
@@ -684,9 +770,9 @@ mod tests {
         let sccs =
             Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
 
-        let scc0 = sccs.scc_of_state(StateIndex::from_raw(0)).unwrap();
-        let scc1 = sccs.scc_of_state(StateIndex::from_raw(1)).unwrap();
-        let scc2 = sccs.scc_of_state(StateIndex::from_raw(2)).unwrap();
+        let scc0 = sccs.scc_index_of_state(StateIndex::from_raw(0)).unwrap();
+        let scc1 = sccs.scc_index_of_state(StateIndex::from_raw(1)).unwrap();
+        let scc2 = sccs.scc_index_of_state(StateIndex::from_raw(2)).unwrap();
 
         assert_ne!(scc1, scc2, "states 1 and 2 are not strongly connected");
         assert_ne!(scc0, scc1, "states 0 and 1 are not strongly connected");
@@ -720,10 +806,10 @@ mod tests {
         let sccs =
             Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
 
-        let scc0 = sccs.scc_of_state(StateIndex::from_raw(0)).unwrap();
-        let scc1 = sccs.scc_of_state(StateIndex::from_raw(1)).unwrap();
-        let scc2 = sccs.scc_of_state(StateIndex::from_raw(2)).unwrap();
-        let scc3 = sccs.scc_of_state(StateIndex::from_raw(3)).unwrap();
+        let scc0 = sccs.scc_index_of_state(StateIndex::from_raw(0)).unwrap();
+        let scc1 = sccs.scc_index_of_state(StateIndex::from_raw(1)).unwrap();
+        let scc2 = sccs.scc_index_of_state(StateIndex::from_raw(2)).unwrap();
+        let scc3 = sccs.scc_index_of_state(StateIndex::from_raw(3)).unwrap();
 
         assert_eq!(scc1, scc3, "states 1 and 3 form an SCC");
         assert_ne!(

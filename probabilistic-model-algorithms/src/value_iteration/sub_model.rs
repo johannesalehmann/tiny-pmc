@@ -1,5 +1,5 @@
 use crate::dominated_by::DominatedByRelation;
-use crate::sccs::Sccs;
+use crate::sccs::Scc;
 use probabilistic_models::base_model::Mdp;
 use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
 use std::collections::VecDeque;
@@ -50,8 +50,7 @@ fn compute_order<
     NewSI: Index,
 >(
     model: &M,
-    scc: ScI,
-    sccs: &Sccs<ScI, ScEI, <M as ReadStateSpace>::StateIdx>,
+    scc: Scc<'_, ScI, ScEI, <M as ReadStateSpace>::StateIdx>,
     dominated_by: &DominatedByRelation<<M as ReadStateSpace>::StateIdx>,
     values: &To1<<M as ReadStateSpace>::StateIdx, f64>,
     context: &mut SubModelContext<<M as ReadStateSpace>::StateIdx>,
@@ -63,11 +62,10 @@ fn compute_order<
     // TODO: A BFS is a good starting point, but there are probably algorithms that yield an even
     //  better result (e.g. something inspired by attractor computation or recursive SCC
     //  computation within the SCC)
-    for scc_entry in sccs.entries(scc) {
-        let state = sccs.state_of_entry(scc_entry);
+    for state in scc.states() {
         let mut non_zero_exit = false;
         for successor in model.successors_of_state(state) {
-            if sccs.scc_of_state(successor) != Some(scc) && values[successor] > 0.0 {
+            if !scc.contains(successor) && values[successor] > 0.0 {
                 non_zero_exit = true;
                 break;
             }
@@ -89,9 +87,7 @@ fn compute_order<
         }
         for predecessor in model.predecessors_of_state(state) {
             let predecessor_state = model.source_state_of_predecessor(predecessor);
-            if !context.visited[predecessor_state]
-                && sccs.scc_of_state(predecessor_state) == Some(scc)
-            {
+            if !context.visited[predecessor_state] && scc.contains(predecessor_state) {
                 context.visited[predecessor_state] = true;
                 context.visited_open_list.push_back(predecessor_state);
             }
@@ -108,18 +104,16 @@ pub fn build_sub_model<
     NewBI: Index,
 >(
     model: &M,
-    scc: ScI,
-    sccs: &Sccs<ScI, ScEI, <M as ReadStateSpace>::StateIdx>,
+    scc: Scc<'_, ScI, ScEI, <M as ReadStateSpace>::StateIdx>,
     dominated_by: &DominatedByRelation<<M as ReadStateSpace>::StateIdx>,
     values: &To1<<M as ReadStateSpace>::StateIdx, f64>,
     context: &mut SubModelContext<<M as ReadStateSpace>::StateIdx>,
 ) -> SubModel<<M as ReadStateSpace>::StateIdx, NewSI, NewCI, NewBI> {
     let mut to_old_state_index: To1<NewSI, <M as ReadStateSpace>::StateIdx> =
-        To1::with_capacity(sccs.entries(scc).len());
+        To1::with_capacity(scc.size());
     compute_order(
         model,
         scc,
-        sccs,
         dominated_by,
         values,
         context,
@@ -212,7 +206,6 @@ mod tests {
             build_sub_model::<_, _, _, StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>>(
                 &model,
                 sccs.scc_of_state(StateIndex::from_raw(0)).unwrap(),
-                &sccs,
                 &DominatedByRelation::empty(),
                 &values,
                 &mut context,
@@ -268,7 +261,6 @@ mod tests {
             build_sub_model::<_, _, _, StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>>(
                 &model,
                 sccs.scc_of_state(StateIndex::from_raw(0)).unwrap(),
-                &sccs,
                 &DominatedByRelation::empty(),
                 &values,
                 &mut context,
@@ -323,7 +315,6 @@ mod tests {
             build_sub_model::<_, _, _, StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>>(
                 &model,
                 sccs.scc_of_state(StateIndex::from_raw(0)).unwrap(),
-                &sccs,
                 &dominated_by,
                 &values,
                 &mut context,
@@ -378,7 +369,6 @@ mod tests {
             sub_models.push(build_sub_model(
                 &model,
                 scc,
-                &sccs,
                 &DominatedByRelation::empty(),
                 &values,
                 &mut context,

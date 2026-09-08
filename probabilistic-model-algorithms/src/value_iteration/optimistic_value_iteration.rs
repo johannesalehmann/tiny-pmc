@@ -1,5 +1,5 @@
 use crate::dominated_by::DominatedByRelation;
-use crate::sccs::{SccDependencyIndex, SccEntryIndex, SccIndex, Sccs};
+use crate::sccs::{Scc, SccDependencyIndex, SccEntryIndex, SccIndex, Sccs};
 use crate::value_iteration::sub_model::{SubModelContext, build_sub_model};
 use probabilistic_models::base_model::Mdp;
 use probabilistic_models::traits::{ReadAtomicPropositions, ReadPredecessors, ReadStateSpace};
@@ -63,10 +63,7 @@ pub fn optimistic_value_iteration_max<
     let mut subgame_verification_bounds = vec![(0.0, 0.0); max_size];
     let mut core_start = std::time::Instant::now();
     for scc in sccs.reverse_topological_ordering() {
-        if sccs.entries(scc).len() == 1 {
-            let entry = sccs.entries(scc).into_iter().next().unwrap();
-            let state = sccs.state_of_entry(entry);
-
+        if let Some(state) = scc.as_singleton() {
             let mut best_value = 0.0;
             for choice in model.choices_of_state(state) {
                 let choice_value = evaluate_choice(model, &values, state, choice);
@@ -76,11 +73,10 @@ pub fn optimistic_value_iteration_max<
             }
             values[state] = best_value;
         } else {
-            let states = sccs.entries(scc).len();
+            let states = scc.size();
             let mut choices = 0;
             let mut branches = 0;
-            for entry in sccs.entries(scc) {
-                let state = sccs.state_of_entry(entry);
+            for state in scc.states() {
                 let entry_choices = model.choices_of_state(state);
                 choices += entry_choices.len();
                 for choice in entry_choices {
@@ -96,7 +92,6 @@ pub fn optimistic_value_iteration_max<
                     &mut vi_time,
                     &mut verification_time,
                     &mut values,
-                    &sccs,
                     precision_per_scc,
                     &mut subgame_construction_context,
                     &mut subgame_values,
@@ -111,7 +106,6 @@ pub fn optimistic_value_iteration_max<
                     &mut vi_time,
                     &mut verification_time,
                     &mut values,
-                    &sccs,
                     precision_per_scc,
                     &mut subgame_construction_context,
                     &mut subgame_values,
@@ -129,7 +123,6 @@ pub fn optimistic_value_iteration_max<
                     &mut vi_time,
                     &mut verification_time,
                     &mut values,
-                    &sccs,
                     precision_per_scc,
                     &mut subgame_construction_context,
                     &mut subgame_values,
@@ -152,7 +145,6 @@ pub fn optimistic_value_iteration_max<
                     &mut vi_time,
                     &mut verification_time,
                     &mut values,
-                    &sccs,
                     precision_per_scc,
                     &mut subgame_construction_context,
                     &mut subgame_values,
@@ -183,18 +175,16 @@ fn build_and_solve_submodel<
     vi_time: &mut Duration,
     verification_time: &mut Duration,
     values: &mut To1<<M as ReadStateSpace>::StateIdx, f64>,
-    sccs: &Sccs<SccIndex<usize>, SccEntryIndex<usize>, <M as ReadStateSpace>::StateIdx>,
     precision_per_scc: f64,
     subgame_construction_context: &mut SubModelContext<<M as ReadStateSpace>::StateIdx>,
     subgame_values: &mut Vec<f64>,
     subgame_verification_bounds: &mut Vec<(f64, f64)>,
-    scc: SccIndex<usize>,
+    scc: Scc<'_, SccIndex<usize>, SccEntryIndex<usize>, <M as ReadStateSpace>::StateIdx>,
 ) {
     let start_submodel = std::time::Instant::now();
     let sub_model = build_sub_model::<_, _, _, NewSI, NewCI, NewBI>(
         model,
         scc,
-        &sccs,
         &DominatedByRelation::empty(),
         &values,
         subgame_construction_context,

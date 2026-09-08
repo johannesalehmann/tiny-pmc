@@ -99,12 +99,10 @@ fn value_iteration_internal<
     values: &mut To1<<M as ReadStateSpace>::StateIdx, f64>,
     sccs: &Sccs<SccIdx, SccEntryIdx, <M as ReadStateSpace>::StateIdx>,
 ) {
-    for scc_index in sccs.reverse_topological_ordering() {
+    for scc in sccs.reverse_topological_ordering() {
         loop {
             let mut largest_change = 0.0;
-            for entry in sccs.entries(scc_index) {
-                let state = sccs.state_of_entry(entry);
-
+            for state in scc.states() {
                 let best_value = if model.choices_of_state(state).len() == 0 {
                     0.0
                 } else {
