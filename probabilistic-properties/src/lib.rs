@@ -35,6 +35,8 @@
 //! [^1]: probabilistic Computation Tree Logic
 //!
 
+use std::borrow::Borrow;
+use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 
 /// Represents a pCTL query that can be answered by a model checker.
@@ -1243,6 +1245,32 @@ impl<V> Bound<V> {
         Self {
             operator: self.operator.invert(),
             value: self.value,
+        }
+    }
+
+    /// Returns `true` if the given `value` adheres to the bound, otherwise false.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use probabilistic_properties::Bound;
+    /// let bound = Bound::greater_or_equal(0.3);
+    /// assert!(bound.accepts(0.5)); // because 0.5 >= 0.3
+    /// assert!(bound.accepts(0.3)); // because 0.3 >= 0.3
+    /// assert!(!bound.accepts(0.1)); // because not 0.1 >= 0.3
+    /// ```
+    pub fn accepts<VRef: Borrow<V>>(&self, value: VRef) -> bool
+    where
+        V: PartialOrd,
+    {
+        let Some(ord) = value.borrow().partial_cmp(&self.value) else {
+            return false;
+        };
+        match self.operator {
+            BoundOperator::LessThan => ord.is_lt(),
+            BoundOperator::LessOrEqual => ord.is_le(),
+            BoundOperator::GreaterThan => ord.is_gt(),
+            BoundOperator::GreaterOrEqual => ord.is_ge(),
         }
     }
 }
