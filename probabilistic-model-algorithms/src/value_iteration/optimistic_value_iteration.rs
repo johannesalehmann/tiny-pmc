@@ -28,15 +28,20 @@ pub fn optimistic_value_iteration_max<
 
     let mut precomputation_start = std::time::Instant::now();
     let s0_max = super::precomputation::s0_max(model, goal);
+    println!("s0_max: {:?}", precomputation_start.elapsed());
+    let s1_max_start = std::time::Instant::now();
     let s1_max = super::precomputation::s1_max(model, goal);
+    println!("s1_max: {:?}", s1_max_start.elapsed());
 
     let mut values = To1::with_capacity(model.states().len());
     for state in model.states() {
         values.add_checked(state, if s1_max[state] { 1.0 } else { 0.0 });
     }
 
+    let sccs_start = std::time::Instant::now();
     let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> =
         Sccs::compute(model, Some((s0_max, s1_max)));
+    println!("sccs: {:?}", sccs_start.elapsed());
 
     // TODO: Only count non-singleton SCCs for the longest chain. That way, we get a bit more
     //  precision budget for those, as singleton SCCs can be solved exactly (except for floating-
@@ -166,16 +171,21 @@ pub fn optimistic_value_iteration_max<
 }
 
 // TODO: This function signature is a mess
-fn build_and_solve_submodel<NewSI: Index, NewCI: Index, NewBI: Index, M: ReadStateSpace>(
+fn build_and_solve_submodel<
+    NewSI: Index,
+    NewCI: Index,
+    NewBI: Index,
+    M: ReadStateSpace + ReadPredecessors<StateIdx = <M as ReadStateSpace>::StateIdx>,
+>(
     model: &M,
     build_time: &mut Duration,
     value_iteration_time: &mut Duration,
     vi_time: &mut Duration,
     verification_time: &mut Duration,
-    values: &mut To1<M::StateIdx, f64>,
-    sccs: &Sccs<SccIndex<usize>, SccEntryIndex<usize>, M::StateIdx>,
+    values: &mut To1<<M as ReadStateSpace>::StateIdx, f64>,
+    sccs: &Sccs<SccIndex<usize>, SccEntryIndex<usize>, <M as ReadStateSpace>::StateIdx>,
     precision_per_scc: f64,
-    subgame_construction_context: &mut SubModelContext<M::StateIdx>,
+    subgame_construction_context: &mut SubModelContext<<M as ReadStateSpace>::StateIdx>,
     subgame_values: &mut Vec<f64>,
     subgame_verification_bounds: &mut Vec<(f64, f64)>,
     scc: SccIndex<usize>,
