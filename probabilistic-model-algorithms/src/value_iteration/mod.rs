@@ -1,134 +1,151 @@
-mod min_max;
-mod optimistic_value_iteration;
-mod sub_model;
+use crate::dominated_by::DominatedByRelation;
+use crate::state_description::StateDescription;
+use probabilistic_models::traits::{ReadAtomicPropositions, ReadPredecessors, ReadStateSpace};
+use typed_index_collections::To1;
 
-pub use optimistic_value_iteration::optimistic_value_iteration_max;
+mod non_determinism;
+use non_determinism::{Maximise, Minimise, NonDeterminism};
 
-use crate::sccs::{ExclusionList, SccEntryIndex, SccIndex, Sccs};
-use min_max::*;
-use probabilistic_models::owners::TwoPlayer;
-use probabilistic_models::traits::{
-    ReadAtomicPropositions, ReadOwners, ReadPredecessors, ReadStateSpace,
-};
-use probabilistic_models::typed_index_collections::To1;
-use typed_index_collections::Index;
+mod solve_order;
+use solve_order::{Monolithic, SolveOrder, Topological};
 
-pub fn value_iteration_max<
+mod subgame_solver;
+use subgame_solver::{OptimisticValueIteration, SubGameSolver, ValueIteration};
+
+pub fn p_min_topo_vi<
     M: ReadStateSpace
-        + ReadAtomicPropositions<StateIdx = M::StateIndex>
-        + ReadPredecessors<StateIdx = M::StateIndex>,
+        + ReadPredecessors<
+            StateIdx = M::StateIndex,
+            ChoiceIdx = M::ChoiceIndex,
+            BranchIdx = M::BranchIndex,
+        > + ReadAtomicPropositions<StateIdx = M::StateIndex>,
 >(
     model: &M,
-    goal: <M as ReadAtomicPropositions>::APIdx,
+    goal: &StateDescription<M>,
     eps: f64,
 ) -> To1<M::StateIndex, f64> {
-    value_iteration_min_max(model, goal, eps, Maximiser::default())
-}
-pub fn value_iteration_min<
-    M: ReadStateSpace
-        + ReadAtomicPropositions<StateIdx = M::StateIndex>
-        + ReadPredecessors<StateIdx = M::StateIndex>,
->(
-    model: &M,
-    goal: <M as ReadAtomicPropositions>::APIdx,
-    eps: f64,
-) -> To1<M::StateIndex, f64> {
-    // TODO: Collapse MECs!
-    value_iteration_min_max(model, goal, eps, Minimiser::default())
-}
-pub fn value_iteration_game<
-    M: ReadStateSpace
-        + ReadAtomicPropositions<StateIdx = M::StateIndex>
-        + ReadPredecessors<StateIdx = M::StateIndex>
-        + ReadOwners<StateIdx = M::StateIndex, OwnerType = TwoPlayer>,
->(
-    model: &M,
-    goal: <M as ReadAtomicPropositions>::APIdx,
-    eps: f64,
-) -> To1<M::StateIndex, f64> {
-    value_iteration_min_max(
-        model,
-        goal,
-        eps,
-        PlayerOneMaximisesPlayerTwoMinimises::default(),
-    )
+    value_iteration_internal::<Minimise, Topological, ValueIteration, _>(model, goal, eps)
 }
 
-fn value_iteration_min_max<
+pub fn p_max_topo_vi<
     M: ReadStateSpace
-        + ReadAtomicPropositions<StateIdx = M::StateIndex>
-        + ReadPredecessors<StateIdx = M::StateIndex>,
-    MinMax: ValueComparator<Model = M>,
+        + ReadPredecessors<
+            StateIdx = M::StateIndex,
+            ChoiceIdx = M::ChoiceIndex,
+            BranchIdx = M::BranchIndex,
+        > + ReadAtomicPropositions<StateIdx = M::StateIndex>,
 >(
     model: &M,
-    goal: <M as ReadAtomicPropositions>::APIdx,
+    goal: &StateDescription<M>,
     eps: f64,
-    min_max: MinMax,
 ) -> To1<M::StateIndex, f64> {
-    let mut values = To1::with_capacity(model.states().len());
-    let mut target_states = Vec::new();
-    for state in model.states() {
-        if model.is_atomic_proposition_set(state, goal) {
-            target_states.push(state);
-            values.add_checked(state, 1.0);
-        } else {
-            values.add_checked(state, 0.0);
-        }
-    }
+    value_iteration_internal::<Maximise, Topological, ValueIteration, _>(model, goal, eps)
+}
+pub fn p_min_monolithic_vi<
+    M: ReadStateSpace
+        + ReadPredecessors<
+            StateIdx = M::StateIndex,
+            ChoiceIdx = M::ChoiceIndex,
+            BranchIdx = M::BranchIndex,
+        > + ReadAtomicPropositions<StateIdx = M::StateIndex>,
+>(
+    model: &M,
+    goal: &StateDescription<M>,
+    eps: f64,
+) -> To1<M::StateIndex, f64> {
+    value_iteration_internal::<Minimise, Monolithic, ValueIteration, _>(model, goal, eps)
+}
 
-    let excluded = ExclusionList::new(&target_states);
+pub fn p_max_monolithic_vi<
+    M: ReadStateSpace
+        + ReadPredecessors<
+            StateIdx = M::StateIndex,
+            ChoiceIdx = M::ChoiceIndex,
+            BranchIdx = M::BranchIndex,
+        > + ReadAtomicPropositions<StateIdx = M::StateIndex>,
+>(
+    model: &M,
+    goal: &StateDescription<M>,
+    eps: f64,
+) -> To1<M::StateIndex, f64> {
+    value_iteration_internal::<Maximise, Monolithic, ValueIteration, _>(model, goal, eps)
+}
 
-    // TODO: Adapt these types to those used for state indices in the model
-    let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> = Sccs::compute(model, None); // TODO: Do preprocessing!
-    value_iteration_internal(model, eps, min_max, &mut values, &sccs);
-    values
+pub fn p_min_topo_ovi<
+    M: ReadStateSpace
+        + ReadPredecessors<
+            StateIdx = M::StateIndex,
+            ChoiceIdx = M::ChoiceIndex,
+            BranchIdx = M::BranchIndex,
+        > + ReadAtomicPropositions<StateIdx = M::StateIndex>,
+>(
+    model: &M,
+    goal: &StateDescription<M>,
+    eps: f64,
+) -> To1<M::StateIndex, f64> {
+    value_iteration_internal::<Minimise, Topological, OptimisticValueIteration, _>(model, goal, eps)
+}
+
+pub fn p_max_topo_ovi<
+    M: ReadStateSpace
+        + ReadPredecessors<
+            StateIdx = M::StateIndex,
+            ChoiceIdx = M::ChoiceIndex,
+            BranchIdx = M::BranchIndex,
+        > + ReadAtomicPropositions<StateIdx = M::StateIndex>,
+>(
+    model: &M,
+    goal: &StateDescription<M>,
+    eps: f64,
+) -> To1<M::StateIndex, f64> {
+    value_iteration_internal::<Maximise, Topological, OptimisticValueIteration, _>(model, goal, eps)
+}
+pub fn p_min_monolithic_ovi<
+    M: ReadStateSpace
+        + ReadPredecessors<
+            StateIdx = M::StateIndex,
+            ChoiceIdx = M::ChoiceIndex,
+            BranchIdx = M::BranchIndex,
+        > + ReadAtomicPropositions<StateIdx = M::StateIndex>,
+>(
+    model: &M,
+    goal: &StateDescription<M>,
+    eps: f64,
+) -> To1<M::StateIndex, f64> {
+    value_iteration_internal::<Minimise, Monolithic, OptimisticValueIteration, _>(model, goal, eps)
+}
+
+pub fn p_max_monolithic_ovi<
+    M: ReadStateSpace
+        + ReadPredecessors<
+            StateIdx = M::StateIndex,
+            ChoiceIdx = M::ChoiceIndex,
+            BranchIdx = M::BranchIndex,
+        > + ReadAtomicPropositions<StateIdx = M::StateIndex>,
+>(
+    model: &M,
+    goal: &StateDescription<M>,
+    eps: f64,
+) -> To1<M::StateIndex, f64> {
+    value_iteration_internal::<Maximise, Monolithic, OptimisticValueIteration, _>(model, goal, eps)
 }
 
 fn value_iteration_internal<
+    ND: NonDeterminism,
+    SolveOrder: solve_order::SolveOrder,
+    Solver: subgame_solver::SubGameSolver,
     M: ReadStateSpace
-        + ReadAtomicPropositions<StateIdx = M::StateIndex>
-        + ReadPredecessors<StateIdx = M::StateIndex>,
-    MinMax: ValueComparator<Model = M>,
-    SccIdx: Index,
-    SccEntryIdx: Index,
+        + ReadPredecessors<
+            StateIdx = M::StateIndex,
+            ChoiceIdx = M::ChoiceIndex,
+            BranchIdx = M::BranchIndex,
+        > + ReadAtomicPropositions<StateIdx = M::StateIndex>,
 >(
     model: &M,
+    goal: &StateDescription<M>,
     eps: f64,
-    min_max: MinMax,
-    values: &mut To1<M::StateIndex, f64>,
-    sccs: &Sccs<SccIdx, SccEntryIdx, M::StateIndex>,
-) {
-    for scc in sccs.reverse_topological_ordering() {
-        loop {
-            let mut largest_change = 0.0;
-            for state in scc.states() {
-                let best_value = if model.choices_of_state(state).len() == 0 {
-                    0.0
-                } else {
-                    let mut best_value = min_max.neutral_value(state, model);
-                    for choice in model.choices_of_state(state) {
-                        let mut value = 0.0;
-                        for branch in model.branches_of_choice(choice) {
-                            value += model.branch_probability(branch)
-                                * values[model.branch_destination(branch)];
-                        }
-                        if min_max.is_better(state, model, best_value, value) {
-                            best_value = value;
-                        }
-                    }
-                    best_value
-                };
-
-                let absolute_error = best_value - values[state];
-                let relative_error = absolute_error / best_value;
-                if relative_error > largest_change {
-                    largest_change = relative_error;
-                }
-                values[state] = best_value;
-            }
-            if largest_change < eps {
-                break;
-            }
-        }
-    }
+) -> To1<M::StateIndex, f64> {
+    let (s0, s1) = ND::compute_s0_s1(model, goal);
+    let dominated_by = DominatedByRelation::empty();
+    SolveOrder::find_and_solve_subgames::<ND, Solver, _>(model, &s0, &s1, &dominated_by, eps)
 }

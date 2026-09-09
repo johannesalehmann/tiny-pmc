@@ -5,7 +5,7 @@ use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
 use std::collections::VecDeque;
 use typed_index_collections::{Index, RawIndex, To1};
 
-pub struct SubModelContext<StateIdx: Index> {
+pub struct SubModelConstructionContext<StateIdx: Index> {
     // For the same model, different sub-models may use different new index types (usually the
     // narrowest-possible type). To support all these in a single buffer, we use usize instead of a
     // specific state index type here.
@@ -16,7 +16,7 @@ pub struct SubModelContext<StateIdx: Index> {
     visited_open_list: VecDeque<StateIdx>,
 }
 
-impl<StateIdx: Index> SubModelContext<StateIdx> {
+impl<StateIdx: Index> SubModelConstructionContext<StateIdx> {
     pub fn new<M: ReadStateSpace<StateIndex = StateIdx>>(model: &M) -> Self {
         Self {
             to_new_state_index: To1::with_entries(vec![None; model.states().len()]),
@@ -54,7 +54,34 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
         }
     }
 
-    pub fn rebuild<
+    pub fn from_active_states<
+        M: ReadStateSpace<StateIndex = StateIdx> + ReadPredecessors<StateIdx = StateIdx>,
+    >(
+        model: &M,
+        dominated_by: &DominatedByRelation<M::StateIndex>,
+        s0: &To1<M::StateIndex, bool>,
+        s1: &To1<M::StateIndex, bool>,
+    ) -> Self {
+        todo!()
+    }
+
+    pub fn from_scc<
+        M: ReadStateSpace<StateIndex = StateIdx> + ReadPredecessors<StateIdx = StateIdx>,
+        ScI: Index,
+        ScEI: Index,
+    >(
+        model: &M,
+        scc: Scc<'_, ScI, ScEI, M::StateIndex>,
+        dominated_by: &DominatedByRelation<M::StateIndex>,
+        values: &To1<M::StateIndex, f64>,
+    ) -> Self {
+        let mut context = SubModelConstructionContext::new(model);
+        let mut sub_model = SubModel::empty();
+        sub_model.rebuild_from_scc(model, scc, dominated_by, values, &mut context);
+        sub_model
+    }
+
+    pub fn rebuild_from_scc<
         M: ReadStateSpace<StateIndex = StateIdx> + ReadPredecessors<StateIdx = StateIdx>,
         ScI: Index,
         ScEI: Index,
@@ -64,7 +91,7 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
         scc: Scc<'_, ScI, ScEI, M::StateIndex>,
         dominated_by: &DominatedByRelation<M::StateIndex>,
         values: &To1<M::StateIndex, f64>,
-        context: &mut SubModelContext<M::StateIndex>,
+        context: &mut SubModelConstructionContext<M::StateIndex>,
     ) {
         self.to_old_state_index.clear();
         compute_order(
@@ -135,7 +162,7 @@ fn compute_order<
     scc: Scc<'_, ScI, ScEI, M::StateIndex>,
     dominated_by: &DominatedByRelation<M::StateIndex>,
     values: &To1<M::StateIndex, f64>,
-    context: &mut SubModelContext<M::StateIndex>,
+    context: &mut SubModelConstructionContext<M::StateIndex>,
     to_old_state_index: &mut To1<NewSI, M::StateIndex>,
 ) {
     // Find states that can leave the SCC into a state with a non-zero value.
@@ -179,7 +206,7 @@ fn compute_order<
 
 #[cfg(test)]
 mod tests {
-    use super::{SubModel, SubModelContext};
+    use super::{SubModel, SubModelConstructionContext};
     use crate::dominated_by::DominatedByRelation;
     use crate::sccs::{SccEntryIndex, SccIndex, Sccs};
     use probabilistic_models::mdp;
@@ -199,16 +226,16 @@ mod tests {
         let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> = Sccs::compute(
             &model,
             Some((
-                To1::with_entries(vec![false, false, false]),
-                To1::with_entries(vec![false, false, true]),
+                &To1::with_entries(vec![false, false, false]),
+                &To1::with_entries(vec![false, false, true]),
             )),
         );
         let values = To1::with_entries(vec![0.0, 0.0, 1.0]);
-        let mut context = SubModelContext::new(&model);
+        let mut context = SubModelConstructionContext::new(&model);
 
         let mut sub_model: SubModel<_, StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>> =
             SubModel::empty();
-        sub_model.rebuild(
+        sub_model.rebuild_from_scc(
             &model,
             sccs.scc_of_state(StateIndex::from_raw(0)).unwrap(),
             &DominatedByRelation::empty(),
@@ -255,16 +282,16 @@ mod tests {
         let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> = Sccs::compute(
             &model,
             Some((
-                To1::with_entries(vec![false, false, false]),
-                To1::with_entries(vec![false, false, true]),
+                &To1::with_entries(vec![false, false, false]),
+                &To1::with_entries(vec![false, false, true]),
             )),
         );
         let values = To1::with_entries(vec![0.0, 0.6, 1.0]);
-        let mut context = SubModelContext::new(&model);
+        let mut context = SubModelConstructionContext::new(&model);
 
         let mut sub_model: SubModel<_, StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>> =
             SubModel::empty();
-        sub_model.rebuild(
+        sub_model.rebuild_from_scc(
             &model,
             sccs.scc_of_state(StateIndex::from_raw(0)).unwrap(),
             &DominatedByRelation::empty(),
@@ -305,8 +332,8 @@ mod tests {
         let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> = Sccs::compute(
             &model,
             Some((
-                To1::with_entries(vec![false, false, false]),
-                To1::with_entries(vec![false, false, true]),
+                &To1::with_entries(vec![false, false, false]),
+                &To1::with_entries(vec![false, false, true]),
             )),
         );
         let values = To1::with_entries(vec![0.0, 0.0, 1.0]);
@@ -315,11 +342,11 @@ mod tests {
             Some(StateIndex::from_raw(0)),
             None,
         ]));
-        let mut context = SubModelContext::new(&model);
+        let mut context = SubModelConstructionContext::new(&model);
 
         let mut sub_model: SubModel<_, StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>> =
             SubModel::empty();
-        sub_model.rebuild(
+        sub_model.rebuild_from_scc(
             &model,
             sccs.scc_of_state(StateIndex::from_raw(0)).unwrap(),
             &dominated_by,
@@ -362,12 +389,12 @@ mod tests {
         let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> = Sccs::compute(
             &model,
             Some((
-                To1::with_entries(vec![false, false, false]),
-                To1::with_entries(vec![false, false, true]),
+                &To1::with_entries(vec![false, false, false]),
+                &To1::with_entries(vec![false, false, true]),
             )),
         );
         let values = To1::with_entries(vec![0.0, 0.6, 1.0]);
-        let mut context = SubModelContext::new(&model);
+        let mut context = SubModelConstructionContext::new(&model);
 
         let mut sub_models: Vec<
             SubModel<StateIndex<usize>, StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>>,
@@ -379,7 +406,7 @@ mod tests {
                 ChoiceIndex<usize>,
                 BranchIndex<usize>,
             > = SubModel::empty();
-            sub_model.rebuild(
+            sub_model.rebuild_from_scc(
                 &model,
                 scc,
                 &DominatedByRelation::empty(),

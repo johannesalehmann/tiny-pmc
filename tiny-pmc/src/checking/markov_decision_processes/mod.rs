@@ -66,15 +66,19 @@ pub fn compute_path_value<
                     panic!("Must specify non-determinism explicitly!")
                 }
                 Some(NonDeterminismKind::Maximise) => Ok(
-                    probabilistic_model_algorithms::value_iteration::optimistic_value_iteration_max(
+                    probabilistic_model_algorithms::value_iteration::p_max_topo_ovi(
                         model,
                         &condition_values,
                         eps,
                     ),
                 ),
-                Some(NonDeterminismKind::Minimise) => {
-                    todo!()
-                }
+                Some(NonDeterminismKind::Minimise) => Ok(
+                    probabilistic_model_algorithms::value_iteration::p_min_topo_ovi(
+                        model,
+                        &condition_values,
+                        eps,
+                    ),
+                ),
             }
         }
         PathFormula::BoundedUntil { .. } => Err(CheckerError::NoSuitableAlgorithm),

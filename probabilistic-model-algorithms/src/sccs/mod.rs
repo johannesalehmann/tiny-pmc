@@ -18,13 +18,13 @@ pub struct Sccs<SccIdx: Index, SccEntryIdx: Index, StateIdx: Index> {
 impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
     pub fn compute<M: ReadStateSpace<StateIndex = SI> + ReadPredecessors<StateIdx = SI>>(
         model: &M,
-        s0_s1_states: Option<(To1<SI, bool>, To1<SI, bool>)>,
+        s0_s1_states: Option<(&To1<SI, bool>, &To1<SI, bool>)>,
     ) -> Self {
         let mut visited = To1::with_entries(vec![false; model.states().len()]);
         let mut l = Vec::with_capacity(model.states().len());
         let mut scc_entry_count = model.states().len();
 
-        if let Some((s0_states, s1_states)) = &s0_s1_states {
+        if let Some((s0_states, s1_states)) = s0_s1_states {
             for state in model.states() {
                 if s0_states[state] || s1_states[state] {
                     visited[state] = true;
@@ -673,7 +673,7 @@ mod tests {
         let s1_states = To1::with_entries(vec![false, false, false]);
         let sccs = Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(
             &model,
-            Some((s0_states, s1_states)),
+            Some((&s0_states, &s1_states)),
         );
 
         assert_eq!(sccs.state_to_scc[StateIndex::from_raw(1)], None);
