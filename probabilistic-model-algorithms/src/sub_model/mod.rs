@@ -135,16 +135,20 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
                     }
                 }
 
-                let scale_factor = if to_self == 1.0 {
-                    0.0
+                // Preserve actions that are just a self-loop (relevant at least for minimum
+                //  reachability probability).
+                if to_self == 1.0 {
+                    self.mdp.add_branch(1.0, new_state);
+                    assert_eq!(exit_value, 0.0);
+                    self.choice_exit_values.add_checked(choice_index, 0.0);
                 } else {
-                    1.0 / (1.0 - to_self)
-                };
-                for branch in self.mdp.branches_of_choice(choice_index) {
-                    self.mdp.branch_probabilities[branch] *= scale_factor;
+                    let scale_factor = 1.0 / (1.0 - to_self);
+                    for branch in self.mdp.branches_of_choice(choice_index) {
+                        self.mdp.branch_probabilities[branch] *= scale_factor;
+                    }
+                    self.choice_exit_values
+                        .add_checked(choice_index, exit_value * scale_factor);
                 }
-                self.choice_exit_values
-                    .add_checked(choice_index, exit_value * scale_factor);
             }
         }
 
