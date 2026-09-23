@@ -12,12 +12,14 @@ impl super::SolveOrder for Monolithic {
         Solver: SubGameSolver,
         M: ReadStateSpace + ReadPredecessors<StateIdx = M::StateIndex>,
     >(
+        self,
         model: &M,
         s0: &To1<M::StateIndex, bool>,
         s1: &To1<M::StateIndex, bool>,
         dominated_by_relation: &DominatedByRelation<M::StateIndex>,
         eps: f64,
     ) -> To1<M::StateIndex, f64> {
+        let _ = (model, s0, s1, dominated_by_relation, eps);
         todo!()
     }
 }

@@ -23,6 +23,10 @@ fn checker() -> Result<(), ModelCheckerError> {
     let start_time = std::time::Instant::now();
 
     let arguments = arg_parsing::Arguments::parse();
+    let checker_options = arguments
+        .value_iteration
+        .to_checker_options()
+        .map_err(ModelCheckerError::InvalidArguments)?;
     let source = read_model_file(&arguments.model)?;
     let constants = tiny_pmc::parsing::parse_const_assignments(&arguments.constants)?;
 
@@ -63,7 +67,7 @@ fn checker() -> Result<(), ModelCheckerError> {
     for (i, property) in properties.iter().enumerate() {
         println!("Checking property {} of {}", i + 1, properties.len());
         let check_start = std::time::Instant::now();
-        let result = tiny_pmc::checking::check(&model, property.clone())?; // TODO: Avoid cloning here?
+        let result = tiny_pmc::checking::check(&model, property.clone(), &checker_options)?; // TODO: Avoid cloning property here?
         println!("    Result: {result} (in {:?})", check_start.elapsed());
     }
 
@@ -76,6 +80,7 @@ fn read_model_file(path: &str) -> Result<String, std::io::Error> {
 }
 
 enum ModelCheckerError {
+    InvalidArguments(String),
     InputFileError(std::io::Error),
     ConstParsingError(ConstParsingError),
     ModelAndPropertyParsingError,
@@ -102,6 +107,10 @@ impl ModelCheckerError {
             ModelCheckerError::ModelCheckingError(err) => {
                 println!("Error during model checking: {:?}", err);
                 5
+            }
+            ModelCheckerError::InvalidArguments(err) => {
+                println!("Invalid arguments: {err}");
+                6
             }
         }
     }

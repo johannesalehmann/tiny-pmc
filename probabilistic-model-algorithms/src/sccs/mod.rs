@@ -263,6 +263,10 @@ impl<'a, ScI: Index, ScEI: Index, SI: Index> Scc<'a, ScI, ScEI, SI> {
     pub fn contains(&self, state: SI) -> bool {
         self.sccs.scc_index_of_state(state) == Some(self.index)
     }
+
+    pub fn get_index(&self) -> ScI {
+        self.index
+    }
 }
 
 pub struct ReverseTopologicalOrderIterator<'a, ScI: Index, ScEI: Index, SI: Index> {

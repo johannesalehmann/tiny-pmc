@@ -1,35 +1,57 @@
+mod eps_allocation;
+pub use eps_allocation::{EpsAllocationScheme, GlobalEpsForEachScc, UniformEpsAllocation};
+
+mod scc_timings;
+pub use scc_timings::{SccTimingOutput, SccTimings, TopoTiming};
+
 use crate::dominated_by::DominatedByRelation;
-use crate::sccs::{SccDependencyIndex, SccEntryIndex, SccIndex, Sccs};
+use crate::sccs::{SccEntryIndex, SccIndex, Sccs};
 use crate::sub_model::{SubModel, SubModelConstructionContext};
 use crate::value_iteration::non_determinism::NonDeterminism;
+use crate::value_iteration::solve_order::topological::eps_allocation::EpsAllocation;
 use crate::value_iteration::solve_order::{ModelSize, SolveOrder};
 use crate::value_iteration::subgame_solver::SubGameSolver;
 use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
 use probabilistic_models::{BranchIndex, ChoiceIndex, StateIndex};
+use std::marker::PhantomData;
 use typed_index_collections::{Index, RawIndex, SemiboundedIndexRange, To1};
 
-pub struct Topological {}
+pub struct Topological<Timing: TopoTiming, EA: EpsAllocation<SccIndex<usize>>> {
+    timing: Timing,
+    _phantom_data: PhantomData<EA>,
+}
 
-impl SolveOrder for Topological {
+impl<Timing: TopoTiming, EA: EpsAllocation<SccIndex<usize>>> Topological<Timing, EA> {
+    pub fn new(timing: Timing) -> Self {
+        Self {
+            timing,
+            _phantom_data: PhantomData,
+        }
+    }
+}
+
+impl<Timing: TopoTiming, EA: EpsAllocation<SccIndex<usize>>> SolveOrder
+    for Topological<Timing, EA>
+{
     fn find_and_solve_subgames<
         ND: NonDeterminism,
         Solver: SubGameSolver,
         M: ReadStateSpace + ReadPredecessors<StateIdx = M::StateIndex>,
     >(
+        self,
         model: &M,
         s0: &To1<M::StateIndex, bool>,
         s1: &To1<M::StateIndex, bool>,
         dom_by: &DominatedByRelation<M::StateIndex>,
         eps: f64,
     ) -> To1<M::StateIndex, f64> {
+        let mut timings = self.timing;
+
         let mut values = create_value_vector(model.states(), &s1);
 
         let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> =
             Sccs::compute(model, Some((s0, s1)));
-        let longest_chain = sccs
-            .compute_dependencies::<SccDependencyIndex<usize>, _>(model)
-            .longest_chain();
-        let scc_eps = 2.0 * eps * (1.0 / longest_chain as f64);
+        let eps_allocation = EA::create(eps, model, &sccs);
         let max_size = sccs.max_size();
         let mut solver = Solver::create(max_size);
         let mut submodels = SubModelCollection::new();
@@ -50,6 +72,8 @@ impl SolveOrder for Topological {
                 }
             } else {
                 let size = ModelSize::from_scc(model, scc);
+                let scc_eps = eps_allocation.eps(scc.get_index(), &size);
+                let timing_entry = timings.start_entry(&size);
                 if size.fits_u8() {
                     let sm = &mut submodels.u8;
                     sm.rebuild_from_scc(model, scc, &dom_by, &values, &mut submodel_context);
@@ -71,8 +95,12 @@ impl SolveOrder for Topological {
                     let res = solver.solve::<ND, _, _, _>(&sm.mdp, &sm.choice_exit_values, scc_eps);
                     write_to_global_values(&mut values, sm, res);
                 };
+                timings.finish_entry(timing_entry);
             }
         }
+
+        timings.write_topo_timings();
+
         values
     }
 }

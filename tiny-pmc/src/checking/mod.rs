@@ -15,9 +15,19 @@ use probabilistic_models::traits::StateSet;
 // pub use nonstochastic_games::check_nonstochastic_game;
 
 use crate::CheckerError;
+pub use probabilistic_model_algorithms::value_iteration::{
+    EpsAllocationScheme, SccTimingOutput, SolveOrder,
+};
 use probabilistic_models::traits::{
     ReadAtomicPropositions, ReadInitialStates, ReadPredecessors, ReadStateSpace,
 };
+
+#[derive(Clone, Debug)]
+pub struct CheckerOptions {
+    pub eps: f64,
+    pub sound: bool,
+    pub solve_order: SolveOrder,
+}
 
 pub fn check<
     M: ReadStateSpace
@@ -30,6 +40,7 @@ pub fn check<
 >(
     model: &M,
     query: probabilistic_properties::Query<i64, f64, <M as ReadAtomicPropositions>::APIdx>,
+    options: &CheckerOptions,
 ) -> Result<f64, CheckerError> {
     let initial_states = model.initial_states().iter().collect::<Vec<_>>();
     assert_eq!(
@@ -38,5 +49,5 @@ pub fn check<
         "The model checker does not yet support models with multiple initial states"
     );
     let initial_state = initial_states[0];
-    markov_decision_processes::check_mdp(model, query, initial_state, 0.000001)
+    markov_decision_processes::check_mdp(model, query, initial_state, options)
 }

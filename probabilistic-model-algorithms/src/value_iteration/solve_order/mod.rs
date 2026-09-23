@@ -2,7 +2,10 @@ mod monolithic;
 pub use monolithic::Monolithic;
 
 mod topological;
-pub use topological::Topological;
+pub use topological::{
+    EpsAllocationScheme, GlobalEpsForEachScc, SccTimingOutput, SccTimings, TopoTiming, Topological,
+    UniformEpsAllocation,
+};
 
 use crate::dominated_by::DominatedByRelation;
 use crate::sccs::Scc;
@@ -16,6 +19,7 @@ pub trait SolveOrder {
         Solver: super::subgame_solver::SubGameSolver,
         M: ReadStateSpace + ReadPredecessors<StateIdx = M::StateIndex>,
     >(
+        self,
         model: &M,
         s0: &To1<M::StateIndex, bool>,
         s1: &To1<M::StateIndex, bool>,
@@ -24,6 +28,7 @@ pub trait SolveOrder {
     ) -> To1<M::StateIndex, f64>;
 }
 
+#[derive(Clone)]
 pub struct ModelSize {
     states: usize,
     choices: usize,
