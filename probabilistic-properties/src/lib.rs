@@ -36,7 +36,6 @@
 //!
 
 use std::borrow::Borrow;
-use std::cmp::Ordering;
 use std::fmt::{Display, Formatter};
 
 /// Represents a pCTL query that can be answered by a model checker.
