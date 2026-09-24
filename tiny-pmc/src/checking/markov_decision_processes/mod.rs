@@ -3,10 +3,12 @@ use crate::checking::CheckerOptions;
 use probabilistic_model_algorithms::state_description::StateDescription;
 use probabilistic_model_algorithms::value_iteration::NonDeterminism;
 use probabilistic_models::traits::{
-    ReadAtomicPropositions, ReadInitialStates, ReadPredecessors, ReadStateSpace,
+    ReadAtomicPropositions, ReadInitialStates, ReadPredecessors, ReadRewards, ReadStateSpace,
 };
 use probabilistic_models::typed_index_collections::To1;
-use probabilistic_properties::{NonDeterminismKind, PathFormula, Query, StateFormula};
+use probabilistic_properties::{
+    NonDeterminismKind, PathFormula, Query, RewardFormula, StateFormula,
+};
 
 pub fn check_mdp<
     M: ReadStateSpace
@@ -15,7 +17,8 @@ pub fn check_mdp<
             StateIdx = M::StateIndex,
             ChoiceIdx = M::ChoiceIndex,
             BranchIdx = M::BranchIndex,
-        > + ReadInitialStates<StateIdx = M::StateIndex>,
+        > + ReadInitialStates<StateIdx = M::StateIndex>
+        + ReadRewards<StateIdx = M::StateIndex, ChoiceIdx = M::ChoiceIndex>,
 >(
     model: &M,
     query: probabilistic_properties::Query<i64, f64, <M as ReadAtomicPropositions>::APIdx>,
@@ -38,8 +41,27 @@ pub fn check_mdp<
             };
             Ok(as_float)
         }
-        Query::RewardBound { .. } => Err(CheckerError::NoSuitableAlgorithm),
-        Query::RewardValue { .. } => Err(CheckerError::NoSuitableAlgorithm),
+        Query::RewardBound {
+            non_determinism,
+            name,
+            bound,
+            reward,
+        } => {
+            let result = compute_reward_value(model, non_determinism, name, &reward, options)?;
+            let as_float = match bound.accepts(result[state]) {
+                false => 0.0,
+                true => 1.0,
+            };
+            Ok(as_float)
+        }
+        Query::RewardValue {
+            non_determinism,
+            name,
+            reward,
+        } => {
+            let result = compute_reward_value(model, non_determinism, name, &reward, options)?;
+            Ok(result[state])
+        }
         Query::TimeBound { .. } => Err(CheckerError::NoSuitableAlgorithm),
         Query::TimeValue { .. } => Err(CheckerError::NoSuitableAlgorithm),
     }
@@ -52,7 +74,8 @@ pub fn compute_path_value<
             StateIdx = M::StateIndex,
             ChoiceIdx = M::ChoiceIndex,
             BranchIdx = M::BranchIndex,
-        > + ReadInitialStates<StateIdx = M::StateIndex>,
+        > + ReadInitialStates<StateIdx = M::StateIndex>
+        + ReadRewards<StateIdx = M::StateIndex, ChoiceIdx = M::ChoiceIndex>,
 >(
     model: &M,
     non_determinism: Option<NonDeterminismKind>,
@@ -100,6 +123,67 @@ pub fn compute_path_value<
     }
 }
 
+pub fn compute_reward_value<
+    M: ReadStateSpace
+        + ReadAtomicPropositions<StateIdx = M::StateIndex>
+        + ReadPredecessors<
+            StateIdx = M::StateIndex,
+            ChoiceIdx = M::ChoiceIndex,
+            BranchIdx = M::BranchIndex,
+        > + ReadInitialStates<StateIdx = M::StateIndex>
+        + ReadRewards<StateIdx = M::StateIndex, ChoiceIdx = M::ChoiceIndex>,
+>(
+    model: &M,
+    non_determinism: Option<NonDeterminismKind>,
+    name: Option<String>,
+    formula: &RewardFormula<i64, f64, M::APIdx>,
+    options: &CheckerOptions,
+) -> Result<To1<M::StateIndex, f64>, CheckerError> {
+    let Some(rewards) = model.reward_structure(name.as_deref()) else {
+        return Err(CheckerError::UnknownRewardStructure { name });
+    };
+    match formula {
+        RewardFormula::Finally { states } => {
+            let goal = compute_state_value(model, states, options)?;
+            let non_determinism = match non_determinism {
+                None => {
+                    panic!("Must specify non-determinism explicitly!")
+                }
+                Some(NonDeterminismKind::Maximise) => NonDeterminism::Maximise,
+                Some(NonDeterminismKind::Minimise) => NonDeterminism::Minimise,
+            };
+            let solve_order = options.solve_order.clone();
+            match options.sound {
+                true => Ok(
+                    probabilistic_model_algorithms::value_iteration::optimistic_value_iteration_rewards(
+                        model,
+                        &goal,
+                        rewards,
+                        non_determinism,
+                        options.eps,
+                        solve_order,
+                        options.collapse_mecs,
+                    ),
+                ),
+                false => Ok(
+                    probabilistic_model_algorithms::value_iteration::value_iteration_rewards(
+                        model,
+                        &goal,
+                        rewards,
+                        non_determinism,
+                        options.eps,
+                        solve_order,
+                        options.collapse_mecs,
+                    ),
+                ),
+            }
+        }
+        RewardFormula::Instantaneous { .. } => Err(CheckerError::NoSuitableAlgorithm),
+        RewardFormula::Cumulative { .. } => Err(CheckerError::NoSuitableAlgorithm),
+        RewardFormula::LongRunAverage => Err(CheckerError::NoSuitableAlgorithm),
+    }
+}
+
 pub fn compute_state_value<
     'a,
     M: ReadStateSpace
@@ -108,7 +192,8 @@ pub fn compute_state_value<
             StateIdx = M::StateIndex,
             ChoiceIdx = M::ChoiceIndex,
             BranchIdx = M::BranchIndex,
-        > + ReadInitialStates<StateIdx = M::StateIndex>,
+        > + ReadInitialStates<StateIdx = M::StateIndex>
+        + ReadRewards<StateIdx = M::StateIndex, ChoiceIdx = M::ChoiceIndex>,
 >(
     model: &'a M,
     formula: &StateFormula<i64, f64, M::APIdx>,

@@ -18,11 +18,19 @@ pub type PrismQuery = probabilistic_properties::Query<
 
 pub enum CheckerError {
     NoSuitableAlgorithm,
+    UnknownRewardStructure { name: Option<String> },
 }
 impl std::fmt::Debug for CheckerError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             CheckerError::NoSuitableAlgorithm => write!(f, "No suitable model-checking algorithm"),
+            CheckerError::UnknownRewardStructure { name } => {
+                let name = match name {
+                    Some(name) => format!(" named \"{name}\""),
+                    None => "".to_string(),
+                };
+                write!(f, "The model has no reward structure{name}")
+            }
         }
     }
 }

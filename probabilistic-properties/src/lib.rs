@@ -59,6 +59,7 @@ pub enum Query<I, F, E> {
     /// variant is used for `P>=threshold [path]`.
     StateFormula(StateFormula<I, F, E>),
 
+    // TODO: Could we move RewardBound to StateFormula? That way, it could occur in nested queries.
     /// A query for whether a rewards formula adheres to a bound, e.g. `Rmin <= t [F "goal"]`,
     /// `R{"name"}max >= t [C<=k]` or `R < t [LRA]`.
     RewardBound {

@@ -19,7 +19,7 @@ pub use probabilistic_model_algorithms::value_iteration::{
     CollapseMecs, EpsAllocationScheme, SccTimingOutput, SolveOrder,
 };
 use probabilistic_models::traits::{
-    ReadAtomicPropositions, ReadInitialStates, ReadPredecessors, ReadStateSpace,
+    ReadAtomicPropositions, ReadInitialStates, ReadPredecessors, ReadRewards, ReadStateSpace,
 };
 
 #[derive(Clone, Debug)]
@@ -37,7 +37,8 @@ pub fn check<
             StateIdx = M::StateIndex,
             ChoiceIdx = M::ChoiceIndex,
             BranchIdx = M::BranchIndex,
-        > + ReadInitialStates<StateIdx = M::StateIndex>,
+        > + ReadInitialStates<StateIdx = M::StateIndex>
+        + ReadRewards<StateIdx = M::StateIndex, ChoiceIdx = M::ChoiceIndex>,
 >(
     model: &M,
     query: probabilistic_properties::Query<i64, f64, <M as ReadAtomicPropositions>::APIdx>,
