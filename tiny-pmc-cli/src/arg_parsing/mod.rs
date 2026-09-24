@@ -1,6 +1,8 @@
 use clap::{Args, Parser, ValueEnum};
 use std::path::PathBuf;
-use tiny_pmc::checking::{CheckerOptions, EpsAllocationScheme, SccTimingOutput, SolveOrder};
+use tiny_pmc::checking::{
+    CheckerOptions, CollapseMecs, EpsAllocationScheme, SccTimingOutput, SolveOrder,
+};
 
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
@@ -28,6 +30,14 @@ pub struct ValueIterationArguments {
     pub eps_allocation: Option<EpsAllocationArg>,
     #[arg(long = "topo.scc-timings", value_name = "FILE", num_args = 0..=1)]
     pub scc_timings: Option<Option<PathBuf>>,
+    #[arg(long, value_enum, default_value_t = CollapseMecsArg::WhenNecessary)]
+    pub collapse_mecs: CollapseMecsArg,
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+pub enum CollapseMecsArg {
+    WhenNecessary,
+    WheneverPossible,
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -71,6 +81,10 @@ impl ValueIterationArguments {
             eps: self.eps,
             sound: !self.unsound,
             solve_order,
+            collapse_mecs: match self.collapse_mecs {
+                CollapseMecsArg::WhenNecessary => CollapseMecs::WhenNecessary,
+                CollapseMecsArg::WheneverPossible => CollapseMecs::WheneverPossible,
+            },
         })
     }
 }

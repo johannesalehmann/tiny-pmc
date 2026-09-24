@@ -1,5 +1,4 @@
 use crate::dominated_by::DominatedByRelation;
-use crate::mecs::Mecs;
 use crate::state_description::StateDescription;
 use probabilistic_models::traits::{
     ReadAtomicPropositions, ReadPredecessors, ReadRewards, ReadStateSpace,
@@ -26,6 +25,12 @@ pub enum NonDeterminism {
     Maximise,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub enum CollapseMecs {
+    WhenNecessary,
+    WheneverPossible,
+}
+
 #[derive(Clone, Debug)]
 pub enum SolveOrder {
     Monolithic,
@@ -49,6 +54,7 @@ pub fn value_iteration<
     non_determinism: NonDeterminism,
     eps: f64,
     solve_order: SolveOrder,
+    collapse_mecs: CollapseMecs,
 ) -> To1<M::StateIndex, f64> {
     dispatch_non_determinism::<ValueIteration, _, ()>(
         model,
@@ -56,6 +62,7 @@ pub fn value_iteration<
         non_determinism,
         eps,
         solve_order,
+        collapse_mecs,
         None,
     )
 }
@@ -75,6 +82,7 @@ pub fn value_iteration_rewards<
     non_determinism: NonDeterminism,
     eps: f64,
     solve_order: SolveOrder,
+    collapse_mecs: CollapseMecs,
 ) -> To1<M::StateIndex, f64> {
     dispatch_non_determinism::<ValueIteration, _, _>(
         model,
@@ -82,6 +90,7 @@ pub fn value_iteration_rewards<
         non_determinism,
         eps,
         solve_order,
+        collapse_mecs,
         Some(sub_model::StateAndChoiceRewards::new(model, rewards)),
     )
 }
@@ -99,6 +108,7 @@ pub fn optimistic_value_iteration<
     non_determinism: NonDeterminism,
     eps: f64,
     solve_order: SolveOrder,
+    collapse_mecs: CollapseMecs,
 ) -> To1<M::StateIndex, f64> {
     dispatch_non_determinism::<OptimisticValueIteration, _, ()>(
         model,
@@ -106,6 +116,7 @@ pub fn optimistic_value_iteration<
         non_determinism,
         eps,
         solve_order,
+        collapse_mecs,
         None,
     )
 }
@@ -125,6 +136,7 @@ pub fn optimistic_value_iteration_rewards<
     non_determinism: NonDeterminism,
     eps: f64,
     solve_order: SolveOrder,
+    collapse_mecs: CollapseMecs,
 ) -> To1<M::StateIndex, f64> {
     dispatch_non_determinism::<OptimisticValueIteration, _, _>(
         model,
@@ -132,6 +144,7 @@ pub fn optimistic_value_iteration_rewards<
         non_determinism,
         eps,
         solve_order,
+        collapse_mecs,
         Some(sub_model::StateAndChoiceRewards::new(model, rewards)),
     )
 }
@@ -151,6 +164,7 @@ fn dispatch_non_determinism<
     non_determinism: NonDeterminism,
     eps: f64,
     solve_order: SolveOrder,
+    collapse_mecs: CollapseMecs,
     reward_source: Option<Rew>,
 ) -> To1<M::StateIndex, f64> {
     match non_determinism {
@@ -159,6 +173,7 @@ fn dispatch_non_determinism<
             goal,
             eps,
             solve_order,
+            collapse_mecs,
             reward_source,
         ),
         NonDeterminism::Maximise => dispatch_solve_order::<Maximise, Solver, _, _>(
@@ -166,6 +181,7 @@ fn dispatch_non_determinism<
             goal,
             eps,
             solve_order,
+            collapse_mecs,
             reward_source,
         ),
     }
@@ -186,6 +202,7 @@ fn dispatch_solve_order<
     goal: &StateDescription<M>,
     eps: f64,
     solve_order: SolveOrder,
+    collapse_mecs: CollapseMecs,
     reward_source: Option<Rew>,
 ) -> To1<M::StateIndex, f64> {
     match solve_order {
@@ -194,6 +211,7 @@ fn dispatch_solve_order<
             model,
             goal,
             eps,
+            collapse_mecs,
             reward_source,
         ),
         SolveOrder::Topological {
@@ -205,6 +223,7 @@ fn dispatch_solve_order<
             eps,
             eps_allocation_scheme,
             write_scc_timing,
+            collapse_mecs,
             reward_source,
         ),
     }
@@ -226,6 +245,7 @@ fn dispatch_scc_timing<
     eps: f64,
     eps_allocation_scheme: EpsAllocationScheme,
     write_scc_timing: Option<SccTimingOutput>,
+    collapse_mecs: CollapseMecs,
     reward_source: Option<Rew>,
 ) -> To1<M::StateIndex, f64> {
     match write_scc_timing {
@@ -235,6 +255,7 @@ fn dispatch_scc_timing<
             goal,
             eps,
             eps_allocation_scheme,
+            collapse_mecs,
             reward_source,
         ),
         None => dispatch_eps_allocation::<ND, Solver, _, _, _>(
@@ -243,6 +264,7 @@ fn dispatch_scc_timing<
             goal,
             eps,
             eps_allocation_scheme,
+            collapse_mecs,
             reward_source,
         ),
     }
@@ -265,6 +287,7 @@ fn dispatch_eps_allocation<
     goal: &StateDescription<M>,
     eps: f64,
     eps_allocation_scheme: EpsAllocationScheme,
+    collapse_mecs: CollapseMecs,
     reward_source: Option<Rew>,
 ) -> To1<M::StateIndex, f64> {
     match eps_allocation_scheme {
@@ -274,6 +297,7 @@ fn dispatch_eps_allocation<
                 model,
                 goal,
                 eps,
+                collapse_mecs,
                 reward_source,
             )
         }
@@ -283,6 +307,7 @@ fn dispatch_eps_allocation<
                 model,
                 goal,
                 eps,
+                collapse_mecs,
                 reward_source,
             )
         }
@@ -305,6 +330,7 @@ fn value_iteration_internal<
     model: &M,
     goal: &StateDescription<M>,
     eps: f64,
+    collapse_mecs: CollapseMecs,
     rew: Option<Rew>,
 ) -> To1<M::StateIndex, f64> {
     if let Some(rew) = rew {
@@ -322,12 +348,13 @@ fn value_iteration_internal<
     } else {
         let precomputed_states = ND::compute_s0_s1(model, goal);
         let dominated_by = DominatedByRelation::empty();
+        let mecs = ND::compute_probability_mecs(model, &precomputed_states, collapse_mecs);
         solve_order.find_and_solve_subgames::<ND, Solver, _, _, _>(
             model,
             &precomputed_states,
             (),
             &dominated_by,
-            &Mecs::empty(),
+            &mecs,
             eps,
         )
     }

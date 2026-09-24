@@ -16,7 +16,7 @@ use probabilistic_models::traits::StateSet;
 
 use crate::CheckerError;
 pub use probabilistic_model_algorithms::value_iteration::{
-    EpsAllocationScheme, SccTimingOutput, SolveOrder,
+    CollapseMecs, EpsAllocationScheme, SccTimingOutput, SolveOrder,
 };
 use probabilistic_models::traits::{
     ReadAtomicPropositions, ReadInitialStates, ReadPredecessors, ReadStateSpace,
@@ -27,6 +27,7 @@ pub struct CheckerOptions {
     pub eps: f64,
     pub sound: bool,
     pub solve_order: SolveOrder,
+    pub collapse_mecs: CollapseMecs,
 }
 
 pub fn check<

@@ -128,7 +128,7 @@ impl<StateIdx: Index, ChoiceIdx: Index> Mecs<StateIdx, ChoiceIdx> {
     }
 
     pub fn representative(&self, state: StateIdx) -> Option<StateIdx> {
-        self.representative[state]
+        self.representative.get(state).copied().flatten()
     }
 
     pub fn is_merged_away(&self, state: StateIdx) -> bool {

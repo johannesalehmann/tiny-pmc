@@ -79,6 +79,7 @@ pub fn compute_path_value<
                         non_determinism,
                         options.eps,
                         solve_order,
+                        options.collapse_mecs,
                     ),
                 ),
                 false => Ok(
@@ -88,6 +89,7 @@ pub fn compute_path_value<
                         non_determinism,
                         options.eps,
                         solve_order,
+                        options.collapse_mecs,
                     ),
                 ),
             }
