@@ -5,10 +5,10 @@ mod scc_timings;
 pub use scc_timings::{SccTimingOutput, SccTimings, TopoTiming};
 
 use crate::dominated_by::DominatedByRelation;
-use crate::precomputed_states::PrecomputedStates;
 use crate::sccs::{SccEntryIndex, SccIndex, Sccs};
 use crate::sub_model::{SubModel, SubModelConstructionContext};
 use crate::value_iteration::non_determinism::NonDeterminism;
+use crate::value_iteration::precomputed_states::PrecomputedStates;
 use crate::value_iteration::solve_order::topological::eps_allocation::EpsAllocation;
 use crate::value_iteration::solve_order::{ModelSize, SolveOrder};
 use crate::value_iteration::subgame_solver::SubGameSolver;
@@ -51,7 +51,7 @@ impl<Timing: TopoTiming, EA: EpsAllocation<SccIndex<usize>>> SolveOrder
         let mut values = create_value_vector(model.states(), precomputed_states);
 
         let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> =
-            Sccs::compute(model, Some(precomputed_states));
+            Sccs::compute(model, precomputed_states);
         let eps_allocation = EA::create(eps, model, &sccs);
         let max_size = sccs.max_size();
         let mut solver = Solver::create(max_size);

@@ -6,6 +6,8 @@ use typed_index_collections::To1;
 mod non_determinism;
 use non_determinism::{Maximise, Minimise};
 
+pub(crate) mod precomputed_states;
+
 mod solve_order;
 pub use solve_order::{EpsAllocationScheme, SccTimingOutput};
 use solve_order::{GlobalEpsForEachScc, Monolithic, SccTimings, Topological, UniformEpsAllocation};

@@ -1,9 +1,5 @@
+use crate::sccs::ExclusionCriterion;
 use typed_index_collections::{Index, To1};
-
-// TODO: Consider moving this from a top-level module to some `helper` module. It is used in
-//  multiple places, but not that interesting for end users of this crate. Perhaps it would be more
-//  suitable to move it to the value iteration module and have a separate exclusion criterion for
-//  SCC analysis (and perhaps implement ExclusionCriterion for S0S1 and SInfinity)?
 
 // This trait is used by value iteration and SCC computation to exclude states for which we have
 // qualitatively precomputed the answer. As its behaviour differs for reachability probabilities and
@@ -14,6 +10,14 @@ pub trait PrecomputedStates {
 
     fn is_maybe_state(&self, state: Self::StateIdx) -> bool;
     fn initial_value(&self, state: Self::StateIdx) -> f64;
+}
+
+impl<StateIdx: Index, P: PrecomputedStates<StateIdx = StateIdx>> ExclusionCriterion<StateIdx>
+    for P
+{
+    fn is_excluded(&self, state: StateIdx) -> bool {
+        !self.is_maybe_state(state)
+    }
 }
 
 pub struct S0S1<StateIdx: Index> {

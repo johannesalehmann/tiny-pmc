@@ -1,5 +1,5 @@
-use crate::precomputed_states::S0S1;
 use crate::state_description::StateDescription;
+use crate::value_iteration::precomputed_states::S0S1;
 use probabilistic_models::traits::{ReadAtomicPropositions, ReadPredecessors, ReadStateSpace};
 
 pub trait NonDeterminism {

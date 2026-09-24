@@ -1,4 +1,3 @@
-use crate::precomputed_states::PrecomputedStates;
 use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
 use probabilistic_models::typed_index_collections::{Csr, To1, ValuePerIndexSource, index};
 use probabilistic_models::{Index, RawIndex};
@@ -17,20 +16,21 @@ pub struct Sccs<SccIdx: Index, SccEntryIdx: Index, StateIdx: Index> {
 }
 
 impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
-    pub fn compute<M: ReadStateSpace<StateIndex = SI> + ReadPredecessors<StateIdx = SI>>(
+    pub fn compute<
+        M: ReadStateSpace<StateIndex = SI> + ReadPredecessors<StateIdx = SI>,
+        Ex: ExclusionCriterion<SI>,
+    >(
         model: &M,
-        precomputed_states: Option<&dyn PrecomputedStates<StateIdx = SI>>, // TODO: Benchmark the cost of &dyn here
+        exclusion_criterion: &Ex,
     ) -> Self {
         let mut visited = To1::with_entries(vec![false; model.states().len()]);
         let mut l = Vec::with_capacity(model.states().len());
         let mut scc_entry_count = model.states().len();
 
-        if let Some(precomputed_states) = precomputed_states {
-            for state in model.states() {
-                if !precomputed_states.is_maybe_state(state) {
-                    visited[state] = true;
-                    scc_entry_count -= 1;
-                }
+        for state in model.states() {
+            if exclusion_criterion.is_excluded(state) {
+                visited[state] = true;
+                scc_entry_count -= 1;
             }
         }
 
@@ -40,14 +40,8 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
             }
         }
 
-        if let Some(precomputed_states) = precomputed_states {
-            for state in model.states() {
-                visited[state] = !precomputed_states.is_maybe_state(state);
-            }
-        } else {
-            for v in &mut visited {
-                *v = false;
-            }
+        for state in model.states() {
+            visited[state] = exclusion_criterion.is_excluded(state);
         }
 
         let mut sccs = Csr::new();
@@ -383,7 +377,7 @@ impl<SccIdx: Index, SccDependencyIdx: Index> SccDependencies<SccIdx, SccDependen
 #[cfg(test)]
 mod tests {
     use super::{SccDependencies, SccDependencyIndex, SccEntryIndex, SccIndex, Sccs};
-    use crate::precomputed_states::S0S1;
+    use crate::value_iteration::precomputed_states::S0S1;
     use probabilistic_models::mdp;
     use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
     use probabilistic_models::{Model, PredecessorIndex, StateIndex};
@@ -394,7 +388,7 @@ mod tests {
         mdp!(mdp = {});
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
         let sccs =
-            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
+            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, &());
         assert!(sccs.sccs.is_empty());
         assert_eq!(sccs.state_to_scc.len(), 0);
         assert!(sccs.scc_entries.is_empty());
@@ -406,7 +400,7 @@ mod tests {
         mdp!(mdp = { s0 ->, });
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
         let sccs =
-            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
+            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, &());
         assert_eq!(
             sccs.sccs,
             Csr::with_entries(vec![SccEntryIndex::from_raw(1)])
@@ -427,7 +421,7 @@ mod tests {
         mdp!(mdp = { s0 -> 1.0: s0 });
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
         let sccs =
-            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
+            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, &());
         assert_eq!(
             sccs.sccs,
             Csr::with_entries(vec![SccEntryIndex::from_raw(1)])
@@ -451,7 +445,7 @@ mod tests {
         });
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
         let sccs =
-            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
+            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, &());
         assert_eq!(
             sccs.sccs,
             Csr::with_entries(vec![SccEntryIndex::from_raw(1), SccEntryIndex::from_raw(2)])
@@ -480,7 +474,7 @@ mod tests {
         });
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
         let sccs =
-            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
+            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, &());
         assert_eq!(
             sccs.sccs,
             Csr::with_entries(vec![SccEntryIndex::from_raw(2), SccEntryIndex::from_raw(3)])
@@ -523,7 +517,7 @@ mod tests {
     fn complex() {
         let model = complex_model();
         let sccs =
-            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
+            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, &());
         assert_eq!(
             sccs.sccs,
             Csr::with_entries(vec![
@@ -587,7 +581,7 @@ mod tests {
     fn scc_wrapper() {
         let model = complex_model();
         let sccs =
-            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
+            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, &());
 
         let scc = sccs.scc_of_state(StateIndex::from_raw(1)).unwrap();
 
@@ -612,7 +606,7 @@ mod tests {
     fn scc_dependencies_complex() {
         let model = complex_model();
         let sccs =
-            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
+            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, &());
         let dependencies =
             SccDependencies::<SccIndex<usize>, SccDependencyIndex<usize>>::compute(&model, &sccs);
 
@@ -639,7 +633,7 @@ mod tests {
         mdp!(mdp = {});
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
         let sccs =
-            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
+            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, &());
         let dependencies =
             SccDependencies::<SccIndex<usize>, SccDependencyIndex<usize>>::compute(&model, &sccs);
 
@@ -658,7 +652,7 @@ mod tests {
 
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
         let sccs =
-            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
+            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, &());
         let dependencies =
             SccDependencies::<SccIndex<usize>, SccDependencyIndex<usize>>::compute(&model, &sccs);
 
@@ -681,7 +675,7 @@ mod tests {
         );
         let sccs = Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(
             &model,
-            Some(&precomputed_states),
+            &precomputed_states,
         );
 
         assert_eq!(sccs.state_to_scc[StateIndex::from_raw(1)], None);
@@ -722,7 +716,7 @@ mod tests {
 
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
         let sccs =
-            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
+            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, &());
         let dependencies =
             SccDependencies::<SccIndex<usize>, SccDependencyIndex<usize>>::compute(&model, &sccs);
 
@@ -754,7 +748,7 @@ mod tests {
 
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
         let sccs =
-            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
+            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, &());
         let dependencies =
             SccDependencies::<SccIndex<usize>, SccDependencyIndex<usize>>::compute(&model, &sccs);
 
@@ -775,7 +769,7 @@ mod tests {
 
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
         let sccs =
-            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
+            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, &());
 
         let scc0 = sccs.scc_index_of_state(StateIndex::from_raw(0)).unwrap();
         let scc1 = sccs.scc_index_of_state(StateIndex::from_raw(1)).unwrap();
@@ -811,7 +805,7 @@ mod tests {
 
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
         let sccs =
-            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, None);
+            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, &());
 
         let scc0 = sccs.scc_index_of_state(StateIndex::from_raw(0)).unwrap();
         let scc1 = sccs.scc_index_of_state(StateIndex::from_raw(1)).unwrap();

@@ -8,9 +8,9 @@ pub use topological::{
 };
 
 use crate::dominated_by::DominatedByRelation;
-use crate::precomputed_states::PrecomputedStates;
 use crate::sccs::Scc;
 use crate::value_iteration::non_determinism::NonDeterminism;
+use crate::value_iteration::precomputed_states::PrecomputedStates;
 use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
 use typed_index_collections::{Index, To1};
 
