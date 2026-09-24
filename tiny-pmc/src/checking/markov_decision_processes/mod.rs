@@ -93,16 +93,13 @@ pub fn compute_path_value<
                 Some(NonDeterminismKind::Maximise) => NonDeterminism::Maximise,
                 Some(NonDeterminismKind::Minimise) => NonDeterminism::Minimise,
             };
-            let solve_order = options.solve_order.clone();
             match options.sound {
                 true => Ok(
                     probabilistic_model_algorithms::value_iteration::optimistic_value_iteration(
                         model,
                         &condition_values,
                         non_determinism,
-                        options.eps,
-                        solve_order,
-                        options.collapse_mecs,
+                        options.value_iteration_config(),
                     ),
                 ),
                 false => Ok(
@@ -110,9 +107,7 @@ pub fn compute_path_value<
                         model,
                         &condition_values,
                         non_determinism,
-                        options.eps,
-                        solve_order,
-                        options.collapse_mecs,
+                        options.value_iteration_config(),
                     ),
                 ),
             }
@@ -152,7 +147,6 @@ pub fn compute_reward_value<
                 Some(NonDeterminismKind::Maximise) => NonDeterminism::Maximise,
                 Some(NonDeterminismKind::Minimise) => NonDeterminism::Minimise,
             };
-            let solve_order = options.solve_order.clone();
             match options.sound {
                 true => Ok(
                     probabilistic_model_algorithms::value_iteration::optimistic_value_iteration_rewards(
@@ -160,9 +154,7 @@ pub fn compute_reward_value<
                         &goal,
                         rewards,
                         non_determinism,
-                        options.eps,
-                        solve_order,
-                        options.collapse_mecs,
+                        options.value_iteration_config()
                     ),
                 ),
                 false => Ok(
@@ -171,9 +163,7 @@ pub fn compute_reward_value<
                         &goal,
                         rewards,
                         non_determinism,
-                        options.eps,
-                        solve_order,
-                        options.collapse_mecs,
+                        options.value_iteration_config()
                     ),
                 ),
             }

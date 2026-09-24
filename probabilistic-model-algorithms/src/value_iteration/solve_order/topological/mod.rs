@@ -15,26 +15,26 @@ use crate::value_iteration::solve_order::{ModelSize, SolveOrder};
 use crate::value_iteration::subgame_solver::SubGameSolver;
 use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
 use probabilistic_models::{BranchIndex, ChoiceIndex, StateIndex};
-use std::marker::PhantomData;
 use typed_index_collections::{Index, RawIndex, SemiboundedIndexRange, To1};
 
-pub struct Topological<Timing: TopoTiming, EA: EpsAllocation<SccIndex<usize>>> {
-    timing: Timing,
-    _phantom_data: PhantomData<EA>,
+pub struct Topological {
+    timing: Option<SccTimingOutput>,
+    eps_allocation_scheme: EpsAllocationScheme,
 }
 
-impl<Timing: TopoTiming, EA: EpsAllocation<SccIndex<usize>>> Topological<Timing, EA> {
-    pub fn new(timing: Timing) -> Self {
+impl Topological {
+    pub fn new(
+        timing: Option<SccTimingOutput>,
+        eps_allocation_scheme: EpsAllocationScheme,
+    ) -> Self {
         Self {
             timing,
-            _phantom_data: PhantomData,
+            eps_allocation_scheme,
         }
     }
 }
 
-impl<Timing: TopoTiming, EA: EpsAllocation<SccIndex<usize>>> SolveOrder
-    for Topological<Timing, EA>
-{
+impl SolveOrder for Topological {
     fn find_and_solve_subgames<
         ND: NonDeterminism,
         Solver: SubGameSolver,
@@ -55,8 +55,84 @@ impl<Timing: TopoTiming, EA: EpsAllocation<SccIndex<usize>>> SolveOrder
         mecs: &Mecs<M::StateIndex, M::ChoiceIndex>,
         eps: f64,
     ) -> To1<M::StateIndex, f64> {
-        let mut timings = self.timing;
+        match self.timing.clone() {
+            None => self.find_and_solve_subgames_with_timing::<ND, Solver, M, P, Rew, _>(
+                model,
+                precomputed_states,
+                rew,
+                dom_by,
+                mecs,
+                eps,
+                (),
+            ),
+            Some(output) => self.find_and_solve_subgames_with_timing::<ND, Solver, M, P, Rew, _>(
+                model,
+                precomputed_states,
+                rew,
+                dom_by,
+                mecs,
+                eps,
+                SccTimings::new(output),
+            ),
+        }
+    }
+}
 
+impl Topological {
+    fn find_and_solve_subgames_with_timing<
+        ND: NonDeterminism,
+        Solver: SubGameSolver,
+        M: ReadStateSpace
+            + ReadPredecessors<
+                StateIdx = M::StateIndex,
+                ChoiceIdx = M::ChoiceIndex,
+                BranchIdx = M::BranchIndex,
+            >,
+        P: PrecomputedStates<StateIdx = M::StateIndex>,
+        Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>,
+        Timing: TopoTiming,
+    >(
+        self,
+        model: &M,
+        precomputed_states: &P,
+        rew: Rew,
+        dom_by: &DominatedByRelation<M::StateIndex>,
+        mecs: &Mecs<M::StateIndex, M::ChoiceIndex>,
+        eps: f64,
+        timing: Timing,
+    ) -> To1<M::StateIndex, f64> {
+        match self.eps_allocation_scheme {
+            EpsAllocationScheme::Uniform => {
+                self.find_and_solve_subgames_with_timing_and_eps_allocation::<ND, Solver, M, P, Rew, Timing, UniformEpsAllocation>(model, precomputed_states, rew, dom_by, mecs, eps, timing)
+            }
+            EpsAllocationScheme::GlobalEpsForEach => {
+                self.find_and_solve_subgames_with_timing_and_eps_allocation::<ND, Solver, M, P, Rew, Timing, GlobalEpsForEachScc>(model, precomputed_states, rew, dom_by, mecs, eps, timing)
+            }
+        }
+    }
+    fn find_and_solve_subgames_with_timing_and_eps_allocation<
+        ND: NonDeterminism,
+        Solver: SubGameSolver,
+        M: ReadStateSpace
+            + ReadPredecessors<
+                StateIdx = M::StateIndex,
+                ChoiceIdx = M::ChoiceIndex,
+                BranchIdx = M::BranchIndex,
+            >,
+        P: PrecomputedStates<StateIdx = M::StateIndex>,
+        Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>,
+        Timing: TopoTiming,
+        EA: EpsAllocation<SccIndex<usize>>,
+    >(
+        self,
+        model: &M,
+        precomputed_states: &P,
+        rew: Rew,
+        dom_by: &DominatedByRelation<M::StateIndex>,
+        mecs: &Mecs<M::StateIndex, M::ChoiceIndex>,
+        eps: f64,
+        mut timings: Timing,
+    ) -> To1<M::StateIndex, f64> {
         let mut values = create_value_vector(model.states(), precomputed_states);
         let max = precomputed_states.max_value();
 

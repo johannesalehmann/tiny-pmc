@@ -70,12 +70,12 @@ impl ValueIterationArguments {
                         EpsAllocationScheme::GlobalEpsForEach
                     }
                 },
-                write_scc_timing: match &self.scc_timings {
-                    None => None,
-                    Some(None) => Some(SccTimingOutput::Stdout),
-                    Some(Some(path)) => Some(SccTimingOutput::File(path.clone())),
-                },
             },
+        };
+        let write_scc_timing = match &self.scc_timings {
+            None => None,
+            Some(None) => Some(SccTimingOutput::Stdout),
+            Some(Some(path)) => Some(SccTimingOutput::File(path.clone())),
         };
         Ok(CheckerOptions {
             eps: self.eps,
@@ -85,6 +85,7 @@ impl ValueIterationArguments {
                 CollapseMecsArg::WhenNecessary => CollapseMecs::WhenNecessary,
                 CollapseMecsArg::WheneverPossible => CollapseMecs::WheneverPossible,
             },
+            write_scc_timing,
         })
     }
 }

@@ -12,7 +12,10 @@ pub(crate) mod precomputed_states;
 
 mod solve_order;
 pub use solve_order::{EpsAllocationScheme, SccTimingOutput};
-use solve_order::{GlobalEpsForEachScc, Monolithic, SccTimings, Topological, UniformEpsAllocation};
+use solve_order::{Monolithic, Topological};
+
+mod config;
+pub use config::*;
 
 mod subgame_solver;
 
@@ -23,22 +26,6 @@ use subgame_solver::{OptimisticValueIteration, SubGameSolver, ValueIteration};
 pub enum NonDeterminism {
     Minimise,
     Maximise,
-}
-
-#[derive(Clone, Copy, Debug)]
-pub enum CollapseMecs {
-    WhenNecessary,
-    WheneverPossible,
-}
-
-#[derive(Clone, Debug)]
-pub enum SolveOrder {
-    Monolithic,
-    Topological {
-        eps_allocation_scheme: EpsAllocationScheme,
-        // Can be used for benchmarking. Prints how long each SCC took to solve
-        write_scc_timing: Option<SccTimingOutput>,
-    },
 }
 
 pub fn value_iteration<
@@ -52,19 +39,9 @@ pub fn value_iteration<
     model: &M,
     goal: &StateDescription<M>,
     non_determinism: NonDeterminism,
-    eps: f64,
-    solve_order: SolveOrder,
-    collapse_mecs: CollapseMecs,
+    config: ValueIterationConfig,
 ) -> To1<M::StateIndex, f64> {
-    dispatch_non_determinism::<ValueIteration, _, ()>(
-        model,
-        goal,
-        non_determinism,
-        eps,
-        solve_order,
-        collapse_mecs,
-        None,
-    )
+    dispatch_non_determinism::<ValueIteration, _, ()>(model, goal, non_determinism, config, None)
 }
 
 pub fn value_iteration_rewards<
@@ -80,17 +57,13 @@ pub fn value_iteration_rewards<
     goal: &StateDescription<M>,
     rewards: <M as ReadRewards>::RewardIdx,
     non_determinism: NonDeterminism,
-    eps: f64,
-    solve_order: SolveOrder,
-    collapse_mecs: CollapseMecs,
+    config: ValueIterationConfig,
 ) -> To1<M::StateIndex, f64> {
     dispatch_non_determinism::<ValueIteration, _, _>(
         model,
         goal,
         non_determinism,
-        eps,
-        solve_order,
-        collapse_mecs,
+        config,
         Some(sub_model::StateAndChoiceRewards::new(model, rewards)),
     )
 }
@@ -106,17 +79,13 @@ pub fn optimistic_value_iteration<
     model: &M,
     goal: &StateDescription<M>,
     non_determinism: NonDeterminism,
-    eps: f64,
-    solve_order: SolveOrder,
-    collapse_mecs: CollapseMecs,
+    config: ValueIterationConfig,
 ) -> To1<M::StateIndex, f64> {
     dispatch_non_determinism::<OptimisticValueIteration, _, ()>(
         model,
         goal,
         non_determinism,
-        eps,
-        solve_order,
-        collapse_mecs,
+        config,
         None,
     )
 }
@@ -134,17 +103,13 @@ pub fn optimistic_value_iteration_rewards<
     goal: &StateDescription<M>,
     rewards: <M as ReadRewards>::RewardIdx,
     non_determinism: NonDeterminism,
-    eps: f64,
-    solve_order: SolveOrder,
-    collapse_mecs: CollapseMecs,
+    config: ValueIterationConfig,
 ) -> To1<M::StateIndex, f64> {
     dispatch_non_determinism::<OptimisticValueIteration, _, _>(
         model,
         goal,
         non_determinism,
-        eps,
-        solve_order,
-        collapse_mecs,
+        config,
         Some(sub_model::StateAndChoiceRewards::new(model, rewards)),
     )
 }
@@ -162,28 +127,16 @@ fn dispatch_non_determinism<
     model: &M,
     goal: &StateDescription<M>,
     non_determinism: NonDeterminism,
-    eps: f64,
-    solve_order: SolveOrder,
-    collapse_mecs: CollapseMecs,
+    config: ValueIterationConfig,
     reward_source: Option<Rew>,
 ) -> To1<M::StateIndex, f64> {
     match non_determinism {
-        NonDeterminism::Minimise => dispatch_solve_order::<Minimise, Solver, _, _>(
-            model,
-            goal,
-            eps,
-            solve_order,
-            collapse_mecs,
-            reward_source,
-        ),
-        NonDeterminism::Maximise => dispatch_solve_order::<Maximise, Solver, _, _>(
-            model,
-            goal,
-            eps,
-            solve_order,
-            collapse_mecs,
-            reward_source,
-        ),
+        NonDeterminism::Minimise => {
+            dispatch_solve_order::<Minimise, Solver, _, _>(model, goal, config, reward_source)
+        }
+        NonDeterminism::Maximise => {
+            dispatch_solve_order::<Maximise, Solver, _, _>(model, goal, config, reward_source)
+        }
     }
 }
 
@@ -200,117 +153,31 @@ fn dispatch_solve_order<
 >(
     model: &M,
     goal: &StateDescription<M>,
-    eps: f64,
-    solve_order: SolveOrder,
-    collapse_mecs: CollapseMecs,
+    config: ValueIterationConfig,
     reward_source: Option<Rew>,
 ) -> To1<M::StateIndex, f64> {
-    match solve_order {
-        SolveOrder::Monolithic => value_iteration_internal::<ND, Monolithic, Solver, _, _>(
-            Monolithic {},
-            model,
-            goal,
-            eps,
-            collapse_mecs,
-            reward_source,
-        ),
+    match config.solve_order {
+        SolveOrder::Monolithic => {
+            if config.write_sub_mdp_timing.is_some() {
+                println!("Warning: Monolithic solver does not print per-SCC timing");
+            }
+            value_iteration_internal::<ND, Monolithic, Solver, _, _>(
+                Monolithic {},
+                model,
+                goal,
+                config,
+                reward_source,
+            )
+        }
         SolveOrder::Topological {
             eps_allocation_scheme,
-            write_scc_timing,
-        } => dispatch_scc_timing::<ND, Solver, _, _>(
+        } => value_iteration_internal::<ND, Topological, Solver, _, _>(
+            Topological::new(config.write_sub_mdp_timing.clone(), eps_allocation_scheme),
             model,
             goal,
-            eps,
-            eps_allocation_scheme,
-            write_scc_timing,
-            collapse_mecs,
+            config,
             reward_source,
         ),
-    }
-}
-
-fn dispatch_scc_timing<
-    ND: non_determinism::NonDeterminism,
-    Solver: SubGameSolver,
-    M: ReadStateSpace
-        + ReadPredecessors<
-            StateIdx = M::StateIndex,
-            ChoiceIdx = M::ChoiceIndex,
-            BranchIdx = M::BranchIndex,
-        > + ReadAtomicPropositions<StateIdx = M::StateIndex>,
-    Rew: sub_model::RewardsSource<M::StateIndex, M::ChoiceIndex>,
->(
-    model: &M,
-    goal: &StateDescription<M>,
-    eps: f64,
-    eps_allocation_scheme: EpsAllocationScheme,
-    write_scc_timing: Option<SccTimingOutput>,
-    collapse_mecs: CollapseMecs,
-    reward_source: Option<Rew>,
-) -> To1<M::StateIndex, f64> {
-    match write_scc_timing {
-        Some(output) => dispatch_eps_allocation::<ND, Solver, _, _, _>(
-            SccTimings::new(output),
-            model,
-            goal,
-            eps,
-            eps_allocation_scheme,
-            collapse_mecs,
-            reward_source,
-        ),
-        None => dispatch_eps_allocation::<ND, Solver, _, _, _>(
-            (),
-            model,
-            goal,
-            eps,
-            eps_allocation_scheme,
-            collapse_mecs,
-            reward_source,
-        ),
-    }
-}
-
-fn dispatch_eps_allocation<
-    ND: non_determinism::NonDeterminism,
-    Solver: SubGameSolver,
-    Timing: solve_order::TopoTiming,
-    M: ReadStateSpace
-        + ReadPredecessors<
-            StateIdx = M::StateIndex,
-            ChoiceIdx = M::ChoiceIndex,
-            BranchIdx = M::BranchIndex,
-        > + ReadAtomicPropositions<StateIdx = M::StateIndex>,
-    Rew: sub_model::RewardsSource<M::StateIndex, M::ChoiceIndex>,
->(
-    timing: Timing,
-    model: &M,
-    goal: &StateDescription<M>,
-    eps: f64,
-    eps_allocation_scheme: EpsAllocationScheme,
-    collapse_mecs: CollapseMecs,
-    reward_source: Option<Rew>,
-) -> To1<M::StateIndex, f64> {
-    match eps_allocation_scheme {
-        EpsAllocationScheme::Uniform => {
-            value_iteration_internal::<ND, Topological<Timing, UniformEpsAllocation>, Solver, _, _>(
-                Topological::new(timing),
-                model,
-                goal,
-                eps,
-                collapse_mecs,
-                reward_source,
-            )
-        }
-        EpsAllocationScheme::GlobalEpsForEach => {
-            value_iteration_internal::<ND, Topological<Timing, GlobalEpsForEachScc>, Solver, _, _>(
-                Topological::new(timing),
-                model,
-                goal,
-                eps,
-                collapse_mecs,
-                reward_source,
-            )
-        }
     }
 }
 
@@ -329,8 +196,7 @@ fn value_iteration_internal<
     solve_order: SolveOrder,
     model: &M,
     goal: &StateDescription<M>,
-    eps: f64,
-    collapse_mecs: CollapseMecs,
+    config: ValueIterationConfig,
     rew: Option<Rew>,
 ) -> To1<M::StateIndex, f64> {
     if let Some(rew) = rew {
@@ -343,19 +209,19 @@ fn value_iteration_internal<
             rew,
             &dominated_by,
             &mecs,
-            eps,
+            config.eps,
         )
     } else {
         let precomputed_states = ND::compute_s0_s1(model, goal);
         let dominated_by = DominatedByRelation::empty();
-        let mecs = ND::compute_probability_mecs(model, &precomputed_states, collapse_mecs);
+        let mecs = ND::compute_probability_mecs(model, &precomputed_states, config.collapse_mecs);
         solve_order.find_and_solve_subgames::<ND, Solver, _, _, _>(
             model,
             &precomputed_states,
             (),
             &dominated_by,
             &mecs,
-            eps,
+            config.eps,
         )
     }
 }
