@@ -5,6 +5,7 @@ mod scc_timings;
 pub use scc_timings::{SccTimingOutput, SccTimings, TopoTiming};
 
 use crate::dominated_by::DominatedByRelation;
+use crate::mecs::Mecs;
 use crate::sccs::{SccEntryIndex, SccIndex, Sccs};
 use crate::sub_model::{RewardsSource, SubModel, SubModelConstructionContext};
 use crate::value_iteration::non_determinism::NonDeterminism;
@@ -51,6 +52,7 @@ impl<Timing: TopoTiming, EA: EpsAllocation<SccIndex<usize>>> SolveOrder
         precomputed_states: &P,
         rew: Rew,
         dom_by: &DominatedByRelation<M::StateIndex>,
+        mecs: &Mecs<M::StateIndex, M::ChoiceIndex>,
         eps: f64,
     ) -> To1<M::StateIndex, f64> {
         let mut timings = self.timing;
@@ -86,30 +88,67 @@ impl<Timing: TopoTiming, EA: EpsAllocation<SccIndex<usize>>> SolveOrder
                 let timing_entry = timings.start_entry(&size);
                 if size.fits_u8() {
                     let sm = &mut submodels.u8;
-                    sm.rebuild_from_scc(model, scc, &dom_by, &values, &rew, &mut submodel_context);
+                    sm.rebuild_from_scc(
+                        model,
+                        scc,
+                        &dom_by,
+                        mecs,
+                        &values,
+                        &rew,
+                        &mut submodel_context,
+                    );
                     let res =
                         solver.solve::<ND, _, _, _>(&sm.mdp, &sm.choice_exit_values, scc_eps, max);
                     write_to_global_values(&mut values, sm, res);
                 } else if size.fits_u16() {
                     let sm = &mut submodels.u16;
-                    sm.rebuild_from_scc(model, scc, &dom_by, &values, &rew, &mut submodel_context);
+                    sm.rebuild_from_scc(
+                        model,
+                        scc,
+                        &dom_by,
+                        mecs,
+                        &values,
+                        &rew,
+                        &mut submodel_context,
+                    );
                     let res =
                         solver.solve::<ND, _, _, _>(&sm.mdp, &sm.choice_exit_values, scc_eps, max);
 
                     write_to_global_values(&mut values, sm, res);
                 } else if size.fits_u32() {
                     let sm = &mut submodels.u32;
-                    sm.rebuild_from_scc(model, scc, &dom_by, &values, &rew, &mut submodel_context);
+                    sm.rebuild_from_scc(
+                        model,
+                        scc,
+                        &dom_by,
+                        mecs,
+                        &values,
+                        &rew,
+                        &mut submodel_context,
+                    );
                     let res =
                         solver.solve::<ND, _, _, _>(&sm.mdp, &sm.choice_exit_values, scc_eps, max);
                     write_to_global_values(&mut values, sm, res);
                 } else {
                     let sm = &mut submodels.usize;
-                    sm.rebuild_from_scc(model, scc, &dom_by, &values, &rew, &mut submodel_context);
+                    sm.rebuild_from_scc(
+                        model,
+                        scc,
+                        &dom_by,
+                        mecs,
+                        &values,
+                        &rew,
+                        &mut submodel_context,
+                    );
                     let res =
                         solver.solve::<ND, _, _, _>(&sm.mdp, &sm.choice_exit_values, scc_eps, max);
                     write_to_global_values(&mut values, sm, res);
                 };
+                for state in scc.states() {
+                    if let Some(representative) = mecs.representative(state) {
+                        values[state] = values[representative];
+                    }
+                }
                 timings.finish_entry(timing_entry);
             }
         }

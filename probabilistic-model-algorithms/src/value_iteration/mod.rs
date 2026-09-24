@@ -1,4 +1,5 @@
 use crate::dominated_by::DominatedByRelation;
+use crate::mecs::Mecs;
 use crate::state_description::StateDescription;
 use probabilistic_models::traits::{
     ReadAtomicPropositions, ReadPredecessors, ReadRewards, ReadStateSpace,
@@ -309,11 +310,13 @@ fn value_iteration_internal<
     if let Some(rew) = rew {
         let precomputed_states = ND::compute_s_inf(model, goal);
         let dominated_by = DominatedByRelation::empty();
+        let mecs = ND::compute_reward_mecs(model, &precomputed_states, &rew);
         solve_order.find_and_solve_subgames::<ND, Solver, _, _, _>(
             model,
             &precomputed_states,
             rew,
             &dominated_by,
+            &mecs,
             eps,
         )
     } else {
@@ -324,6 +327,7 @@ fn value_iteration_internal<
             &precomputed_states,
             (),
             &dominated_by,
+            &Mecs::empty(),
             eps,
         )
     }

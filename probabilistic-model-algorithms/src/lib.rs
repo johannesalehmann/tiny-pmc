@@ -10,6 +10,7 @@
 pub mod attractor;
 pub mod buffer;
 mod dominated_by;
+pub mod mecs;
 pub mod nonstochastic_games;
 pub mod qualitative_reachability;
 pub mod sccs;

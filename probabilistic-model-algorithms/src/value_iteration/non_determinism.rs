@@ -1,5 +1,8 @@
+use crate::mecs::Mecs;
+use crate::sccs::ExcludeStatesAndChoices;
 use crate::state_description::StateDescription;
-use crate::value_iteration::precomputed_states::{S0S1, SInfinity};
+use crate::sub_model::RewardsSource;
+use crate::value_iteration::precomputed_states::{PrecomputedStates, S0S1, SInfinity};
 use probabilistic_models::traits::{ReadAtomicPropositions, ReadPredecessors, ReadStateSpace};
 use typed_index_collections::To1;
 
@@ -29,6 +32,20 @@ pub trait NonDeterminism {
         model: &M,
         goal: &StateDescription<M>,
     ) -> SInfinity<M::StateIndex>;
+
+    fn compute_reward_mecs<
+        M: ReadStateSpace
+            + ReadPredecessors<
+                StateIdx = M::StateIndex,
+                ChoiceIdx = M::ChoiceIndex,
+                BranchIdx = M::BranchIndex,
+            >,
+        Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>,
+    >(
+        model: &M,
+        s_inf: &SInfinity<M::StateIndex>,
+        rewards: &Rew,
+    ) -> Mecs<M::StateIndex, M::ChoiceIndex>;
 
     fn neutral_value() -> f64;
     fn is_better(before: f64, new: f64) -> bool;
@@ -69,6 +86,23 @@ impl NonDeterminism for Maximise {
         let s0 = crate::qualitative_reachability::s0_min(model, goal);
         let s1 = crate::qualitative_reachability::s1_min(model, goal, &s0);
         SInfinity::new(s1, goal_flags(model, goal))
+    }
+
+    fn compute_reward_mecs<
+        M: ReadStateSpace
+            + ReadPredecessors<
+                StateIdx = M::StateIndex,
+                ChoiceIdx = M::ChoiceIndex,
+                BranchIdx = M::BranchIndex,
+            >,
+        Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>,
+    >(
+        model: &M,
+        s_inf: &SInfinity<M::StateIndex>,
+        rewards: &Rew,
+    ) -> Mecs<M::StateIndex, M::ChoiceIndex> {
+        let _ = (model, s_inf, rewards);
+        Mecs::empty()
     }
 
     fn neutral_value() -> f64 {
@@ -116,6 +150,32 @@ impl NonDeterminism for Minimise {
         SInfinity::new(s1, goal_flags(model, goal))
     }
 
+    fn compute_reward_mecs<
+        M: ReadStateSpace
+            + ReadPredecessors<
+                StateIdx = M::StateIndex,
+                ChoiceIdx = M::ChoiceIndex,
+                BranchIdx = M::BranchIndex,
+            >,
+        Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>,
+    >(
+        model: &M,
+        s_inf: &SInfinity<M::StateIndex>,
+        rewards: &Rew,
+    ) -> Mecs<M::StateIndex, M::ChoiceIndex> {
+        Mecs::compute(
+            model,
+            ExcludeStatesAndChoices::new(
+                // TODO: We could avoid allocating here by instead internally storing that the value
+                //  needs to be reversed
+                non_maybe_states(model, s_inf),
+                // TODO: This currently builds a vector, but we could just read the information
+                //  from the model on the fly and avoid allocating.
+                rewarded_choices(model, rewards),
+            ),
+        )
+    }
+
     fn neutral_value() -> f64 {
         f64::INFINITY
     }
@@ -132,4 +192,38 @@ fn goal_flags<M: ReadStateSpace + ReadAtomicPropositions<StateIdx = M::StateInde
     let mut flags = To1::with_entries(vec![false; model.states().len()]);
     goal.write_flags(&mut flags);
     flags
+}
+
+fn non_maybe_states<M: ReadStateSpace>(
+    model: &M,
+    precomputed_states: &impl PrecomputedStates<StateIdx = M::StateIndex>,
+) -> To1<M::StateIndex, bool> {
+    let mut excluded = To1::with_capacity(model.states().len());
+    for state in model.states() {
+        excluded.add_checked(state, !precomputed_states.is_maybe_state(state));
+    }
+    excluded
+}
+
+fn rewarded_choices<M: ReadStateSpace, Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>>(
+    model: &M,
+    rewards: &Rew,
+) -> To1<M::ChoiceIndex, bool> {
+    let mut rewarded = To1::with_capacity(model.choices().len());
+    for state in model.states() {
+        let state_reward = if rewards.has_state_rewards() {
+            rewards.state_reward(state)
+        } else {
+            0.0
+        };
+        for choice in model.choices_of_state(state) {
+            let choice_reward = if rewards.has_choice_rewards() {
+                rewards.choice_reward(choice)
+            } else {
+                0.0
+            };
+            rewarded.add_checked(choice, state_reward + choice_reward != 0.0);
+        }
+    }
+    rewarded
 }

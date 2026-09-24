@@ -2,6 +2,7 @@ mod sub_model_rewards;
 pub use sub_model_rewards::{RewardsSource, StateAndChoiceRewards};
 
 use crate::dominated_by::DominatedByRelation;
+use crate::mecs::Mecs;
 use crate::sccs::Scc;
 use probabilistic_models::base_model::Mdp;
 use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
@@ -78,12 +79,21 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
         model: &M,
         scc: Scc<'_, ScI, ScEI, M::StateIndex>,
         dominated_by: &DominatedByRelation<M::StateIndex>,
+        mecs: &Mecs<M::StateIndex, M::ChoiceIndex>,
         values: &To1<M::StateIndex, f64>,
         rewards: &Rew,
     ) -> Self {
         let mut context = SubModelConstructionContext::new(model);
         let mut sub_model = SubModel::empty();
-        sub_model.rebuild_from_scc(model, scc, dominated_by, values, rewards, &mut context);
+        sub_model.rebuild_from_scc(
+            model,
+            scc,
+            dominated_by,
+            mecs,
+            values,
+            rewards,
+            &mut context,
+        );
         sub_model
     }
 
@@ -97,6 +107,7 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
         model: &M,
         scc: Scc<'_, ScI, ScEI, M::StateIndex>,
         dominated_by: &DominatedByRelation<M::StateIndex>,
+        mecs: &Mecs<M::StateIndex, M::ChoiceIndex>,
         values: &To1<M::StateIndex, f64>,
         rewards: &Rew,
         context: &mut SubModelConstructionContext<M::StateIndex>,
@@ -106,6 +117,7 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
             model,
             scc,
             dominated_by,
+            mecs,
             values,
             rewards,
             context,
@@ -117,57 +129,65 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
 
         for &state in &context.visitation_order {
             let Some(new_state) = context.to_new_state_index[state] else {
-                continue; // Skip dominated states
+                continue; // Skip dominated and merged states
             };
             let new_state = NewSI::from_raw(NewSI::RawType::from_usize(new_state));
             self.mdp.add_state(new_state);
-            let state_reward = if rewards.has_state_rewards() {
-                rewards.state_reward(state)
-            } else {
-                0.0
-            };
-            for choice in model.choices_of_state(state) {
-                let choice_index = self.mdp.add_choice();
-                let mut to_self = 0.0;
-                let mut exit_value = 0.0;
-                for branch in model.branches_of_choice(choice) {
-                    let mut destination = model.branch_destination(branch);
-                    if let Some(dominating_state) = dominated_by.dominated_by(destination) {
-                        destination = dominating_state;
-                    }
-                    let p = model.branch_probability(branch);
-
-                    if destination == state {
-                        to_self += p;
-                    } else if let Some(target) = context.to_new_state_index[destination] {
-                        // We first add the actual probability. After the loop, we then scale the
-                        // probability to account for removed self loops.
-                        let target = NewSI::from_raw(NewSI::RawType::from_usize(target));
-                        self.mdp.add_branch(p, target);
-                    } else {
-                        exit_value += p * values[destination];
-                    }
-                }
-
-                let reward = if rewards.has_choice_rewards() {
-                    state_reward + rewards.choice_reward(choice)
+            for member in mecs.states_merged_into(state) {
+                let state_reward = if rewards.has_state_rewards() {
+                    rewards.state_reward(member)
                 } else {
-                    state_reward
+                    0.0
                 };
-
-                // Preserve actions that are just a self-loop (relevant at least for minimum
-                //  reachability probability).
-                if to_self == 1.0 {
-                    self.mdp.add_branch(1.0, new_state);
-                    assert_eq!(exit_value, 0.0);
-                    self.choice_exit_values.add_checked(choice_index, reward);
-                } else {
-                    let scale_factor = 1.0 / (1.0 - to_self);
-                    for branch in self.mdp.branches_of_choice(choice_index) {
-                        self.mdp.branch_probabilities[branch] *= scale_factor;
+                for choice in model.choices_of_state(member) {
+                    if mecs.is_internal_choice(choice) {
+                        continue;
                     }
-                    self.choice_exit_values
-                        .add_checked(choice_index, (exit_value + reward) * scale_factor);
+                    let choice_index = self.mdp.add_choice();
+                    let mut to_self = 0.0;
+                    let mut exit_value = 0.0;
+                    for branch in model.branches_of_choice(choice) {
+                        let mut destination = model.branch_destination(branch);
+                        if let Some(representative) = mecs.representative(destination) {
+                            destination = representative;
+                        }
+                        if let Some(dominating_state) = dominated_by.dominated_by(destination) {
+                            destination = dominating_state;
+                        }
+                        let p = model.branch_probability(branch);
+
+                        if destination == state {
+                            to_self += p;
+                        } else if let Some(target) = context.to_new_state_index[destination] {
+                            // We first add the actual probability. After the loop, we then scale
+                            // the probability to account for removed self loops.
+                            let target = NewSI::from_raw(NewSI::RawType::from_usize(target));
+                            self.mdp.add_branch(p, target);
+                        } else {
+                            exit_value += p * values[destination];
+                        }
+                    }
+
+                    let reward = if rewards.has_choice_rewards() {
+                        state_reward + rewards.choice_reward(choice)
+                    } else {
+                        state_reward
+                    };
+
+                    // Preserve actions that are just a self-loop (relevant at least for minimum
+                    //  reachability probability).
+                    if to_self == 1.0 {
+                        self.mdp.add_branch(1.0, new_state);
+                        assert_eq!(exit_value, 0.0);
+                        self.choice_exit_values.add_checked(choice_index, reward);
+                    } else {
+                        let scale_factor = 1.0 / (1.0 - to_self);
+                        for branch in self.mdp.branches_of_choice(choice_index) {
+                            self.mdp.branch_probabilities[branch] *= scale_factor;
+                        }
+                        self.choice_exit_values
+                            .add_checked(choice_index, (exit_value + reward) * scale_factor);
+                    }
                 }
             }
         }
@@ -186,6 +206,7 @@ fn compute_order<
     model: &M,
     scc: Scc<'_, ScI, ScEI, M::StateIndex>,
     dominated_by: &DominatedByRelation<M::StateIndex>,
+    mecs: &Mecs<M::StateIndex, M::ChoiceIndex>,
     values: &To1<M::StateIndex, f64>,
     rewards: &Rew,
     context: &mut SubModelConstructionContext<M::StateIndex>,
@@ -216,9 +237,9 @@ fn compute_order<
     // Perform backwards BFS, visiting predecessors of visited states
     while let Some(state) = context.visited_open_list.pop_front() {
         context.visitation_order.push(state);
-        // Dominated states are not added to the sub-model, but they are traversed to visit their
-        // predecessors.
-        if dominated_by.dominated_by(state).is_none() {
+        // Dominated states and states merged into a MEC representative are not added to the
+        // sub-model, but they are traversed to visit their predecessors.
+        if dominated_by.dominated_by(state).is_none() && !mecs.is_merged_away(state) {
             let new_index = to_old_state_index.add(state);
             context.to_new_state_index[state] = Some(new_index.raw().as_usize());
         }
@@ -249,7 +270,8 @@ fn has_non_zero_reward<M: ReadStateSpace, Rew: RewardsSource<M::StateIndex, M::C
 mod tests {
     use super::{SubModel, SubModelConstructionContext};
     use crate::dominated_by::DominatedByRelation;
-    use crate::sccs::{SccEntryIndex, SccIndex, Sccs};
+    use crate::mecs::Mecs;
+    use crate::sccs::{ExcludeStatesAndChoices, SccEntryIndex, SccIndex, Sccs};
     use crate::value_iteration::precomputed_states::S0S1;
     use probabilistic_models::mdp;
     use probabilistic_models::{BranchIndex, ChoiceIndex, Model, PredecessorIndex, StateIndex};
@@ -281,6 +303,7 @@ mod tests {
             &model,
             sccs.scc_of_state(StateIndex::from_raw(0)).unwrap(),
             &DominatedByRelation::empty(),
+            &Mecs::empty(),
             &values,
             &(),
             &mut context,
@@ -338,6 +361,7 @@ mod tests {
             &model,
             sccs.scc_of_state(StateIndex::from_raw(0)).unwrap(),
             &DominatedByRelation::empty(),
+            &Mecs::empty(),
             &values,
             &(),
             &mut context,
@@ -394,6 +418,7 @@ mod tests {
             &model,
             sccs.scc_of_state(StateIndex::from_raw(0)).unwrap(),
             &dominated_by,
+            &Mecs::empty(),
             &values,
             &(),
             &mut context,
@@ -457,6 +482,7 @@ mod tests {
                 &model,
                 scc,
                 &DominatedByRelation::empty(),
+                &Mecs::empty(),
                 &values,
                 &(),
                 &mut context,
@@ -482,6 +508,63 @@ mod tests {
             sub_models[1].choice_exit_values,
             To1::with_entries(vec![0.5 * 0.6 * (1.0 / 0.5)])
         );
+    }
+
+    #[test]
+    fn collapsed_mec() {
+        // States 0 and 1 form a MEC whose only exit is the last choice of state 1.
+        mdp!(mdp = {
+            s0 -> 1.0: s1,
+            s1 -> 1.0: s0,
+            s1 -> 0.5: s0 & 0.5: s2,
+            s2 -> 1.0: s2
+        });
+        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
+
+        let precomputed_states = S0S1::new(
+            To1::with_entries(vec![false, false, false]),
+            To1::with_entries(vec![false, false, true]),
+        );
+        let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> =
+            Sccs::compute(&model, &precomputed_states);
+        let mecs = Mecs::compute(
+            &model,
+            ExcludeStatesAndChoices::new(
+                To1::with_entries(vec![false, false, true]),
+                To1::with_entries(vec![false; 4]),
+            ),
+        );
+        let representative = mecs.representative(StateIndex::from_raw(0)).unwrap();
+        let values = To1::with_entries(vec![0.0, 0.0, 1.0]);
+        let mut context = SubModelConstructionContext::new(&model);
+
+        let mut sub_model: SubModel<_, StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>> =
+            SubModel::empty();
+        sub_model.rebuild_from_scc(
+            &model,
+            sccs.scc_of_state(StateIndex::from_raw(0)).unwrap(),
+            &DominatedByRelation::empty(),
+            &mecs,
+            &values,
+            &(),
+            &mut context,
+        );
+
+        // The internal choices are dropped and the exit choice is moved to the representative.
+        // Its branch back into the MEC becomes a self-loop, which is removed by rescaling.
+        assert_eq!(
+            sub_model.to_old_state_index,
+            To1::with_entries(vec![representative])
+        );
+        assert_eq!(
+            sub_model.mdp.state_to_choice,
+            Csr::with_entries(vec![ChoiceIndex::from_raw(1)])
+        );
+        assert_eq!(
+            sub_model.mdp.choice_to_branch,
+            Csr::with_entries(vec![BranchIndex::from_raw(0)])
+        );
+        assert_eq!(sub_model.choice_exit_values, To1::with_entries(vec![1.0]));
     }
 
     // TODO: Test submodels with rewards!

@@ -8,6 +8,7 @@ pub use topological::{
 };
 
 use crate::dominated_by::DominatedByRelation;
+use crate::mecs::Mecs;
 use crate::sccs::Scc;
 use crate::sub_model::RewardsSource;
 use crate::value_iteration::non_determinism::NonDeterminism;
@@ -33,6 +34,7 @@ pub trait SolveOrder {
         precomputed_states: &P,
         rewards: Rew,
         dominated_by_relation: &DominatedByRelation<M::StateIndex>,
+        mecs: &Mecs<M::StateIndex, M::ChoiceIndex>,
         eps: f64,
     ) -> To1<M::StateIndex, f64>;
 }
