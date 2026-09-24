@@ -6,7 +6,7 @@ pub use scc_timings::{SccTimingOutput, SccTimings, TopoTiming};
 
 use crate::dominated_by::DominatedByRelation;
 use crate::sccs::{SccEntryIndex, SccIndex, Sccs};
-use crate::sub_model::{SubModel, SubModelConstructionContext};
+use crate::sub_model::{RewardsSource, SubModel, SubModelConstructionContext};
 use crate::value_iteration::non_determinism::NonDeterminism;
 use crate::value_iteration::precomputed_states::PrecomputedStates;
 use crate::value_iteration::solve_order::topological::eps_allocation::EpsAllocation;
@@ -39,16 +39,19 @@ impl<Timing: TopoTiming, EA: EpsAllocation<SccIndex<usize>>> SolveOrder
         Solver: SubGameSolver,
         M: ReadStateSpace + ReadPredecessors<StateIdx = M::StateIndex>,
         P: PrecomputedStates<StateIdx = M::StateIndex>,
+        Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>,
     >(
         self,
         model: &M,
         precomputed_states: &P,
+        rew: Rew,
         dom_by: &DominatedByRelation<M::StateIndex>,
         eps: f64,
     ) -> To1<M::StateIndex, f64> {
         let mut timings = self.timing;
 
         let mut values = create_value_vector(model.states(), precomputed_states);
+        let max = precomputed_states.max_value();
 
         let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> =
             Sccs::compute(model, precomputed_states);
@@ -64,7 +67,8 @@ impl<Timing: TopoTiming, EA: EpsAllocation<SccIndex<usize>>> SolveOrder
                 } else {
                     let mut best_value = ND::neutral_value();
                     for choice in model.choices_of_state(state) {
-                        let choice_value = evaluate_choice(model, &values, state, choice);
+                        let choice_value =
+                            evaluate_choice::<ND, _, _>(model, &values, &rew, state, choice);
                         if ND::is_better(best_value, choice_value) {
                             best_value = choice_value;
                         }
@@ -77,23 +81,28 @@ impl<Timing: TopoTiming, EA: EpsAllocation<SccIndex<usize>>> SolveOrder
                 let timing_entry = timings.start_entry(&size);
                 if size.fits_u8() {
                     let sm = &mut submodels.u8;
-                    sm.rebuild_from_scc(model, scc, &dom_by, &values, &mut submodel_context);
-                    let res = solver.solve::<ND, _, _, _>(&sm.mdp, &sm.choice_exit_values, scc_eps);
+                    sm.rebuild_from_scc(model, scc, &dom_by, &values, &rew, &mut submodel_context);
+                    let res =
+                        solver.solve::<ND, _, _, _>(&sm.mdp, &sm.choice_exit_values, scc_eps, max);
                     write_to_global_values(&mut values, sm, res);
                 } else if size.fits_u16() {
                     let sm = &mut submodels.u16;
-                    sm.rebuild_from_scc(model, scc, &dom_by, &values, &mut submodel_context);
-                    let res = solver.solve::<ND, _, _, _>(&sm.mdp, &sm.choice_exit_values, scc_eps);
+                    sm.rebuild_from_scc(model, scc, &dom_by, &values, &rew, &mut submodel_context);
+                    let res =
+                        solver.solve::<ND, _, _, _>(&sm.mdp, &sm.choice_exit_values, scc_eps, max);
+
                     write_to_global_values(&mut values, sm, res);
                 } else if size.fits_u32() {
                     let sm = &mut submodels.u32;
-                    sm.rebuild_from_scc(model, scc, &dom_by, &values, &mut submodel_context);
-                    let res = solver.solve::<ND, _, _, _>(&sm.mdp, &sm.choice_exit_values, scc_eps);
+                    sm.rebuild_from_scc(model, scc, &dom_by, &values, &rew, &mut submodel_context);
+                    let res =
+                        solver.solve::<ND, _, _, _>(&sm.mdp, &sm.choice_exit_values, scc_eps, max);
                     write_to_global_values(&mut values, sm, res);
                 } else {
                     let sm = &mut submodels.usize;
-                    sm.rebuild_from_scc(model, scc, &dom_by, &values, &mut submodel_context);
-                    let res = solver.solve::<ND, _, _, _>(&sm.mdp, &sm.choice_exit_values, scc_eps);
+                    sm.rebuild_from_scc(model, scc, &dom_by, &values, &rew, &mut submodel_context);
+                    let res =
+                        solver.solve::<ND, _, _, _>(&sm.mdp, &sm.choice_exit_values, scc_eps, max);
                     write_to_global_values(&mut values, sm, res);
                 };
                 timings.finish_entry(timing_entry);
@@ -127,14 +136,25 @@ fn create_value_vector<StateIdx: Index>(
     values
 }
 
-fn evaluate_choice<M: ReadStateSpace>(
+fn evaluate_choice<
+    ND: NonDeterminism,
+    M: ReadStateSpace,
+    Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>,
+>(
     model: &M,
     values: &To1<M::StateIndex, f64>,
+    rew: &Rew,
     state: M::StateIndex,
     choice: M::ChoiceIndex,
 ) -> f64 {
     let mut to_self = 0.0;
     let mut exit_value = 0.0;
+    if rew.has_state_rewards() {
+        exit_value += rew.state_reward(state);
+    }
+    if rew.has_choice_rewards() {
+        exit_value += rew.choice_reward(choice);
+    }
     for branch in model.branches_of_choice(choice) {
         let destination = model.branch_destination(branch);
         let p = model.branch_probability(branch);
@@ -145,7 +165,7 @@ fn evaluate_choice<M: ReadStateSpace>(
         }
     }
     if to_self == 1.0 {
-        0.0
+        ND::neutral_value()
     } else {
         exit_value / (1.0 - to_self)
     }

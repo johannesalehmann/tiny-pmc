@@ -15,5 +15,6 @@ pub trait SubGameSolver {
         mdp: &Mdp<SI, CI, BI>,
         choice_exit_values: &To1<CI, f64>,
         eps: f64,
+        max_value: f64,
     ) -> &'a [f64];
 }

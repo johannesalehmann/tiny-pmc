@@ -77,6 +77,7 @@ impl SubGameSolver for ValueIteration {
         mdp: &Mdp<SI, CI, BI>,
         choice_exit_values: &To1<CI, f64>,
         eps: f64,
+        _max_value: f64,
     ) -> &'a [f64] {
         // TODO: Only reset the part that was actually dirtied on the previous call?
         //  See also the comment for optimistic value iteration which found that only resetting the

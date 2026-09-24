@@ -10,6 +10,11 @@ pub trait PrecomputedStates {
 
     fn is_maybe_state(&self, state: Self::StateIdx) -> bool;
     fn initial_value(&self, state: Self::StateIdx) -> f64;
+    // The maximum that values can take during value iteration. This is 1 for
+    // reachability probabilities and infinity for rewards. It's placed here as
+    // this location already distinguishes between rewards and probabilities.
+    // Perhaps renaming the trait would be a good idea.
+    fn max_value(&self) -> f64;
 }
 
 impl<StateIdx: Index, P: PrecomputedStates<StateIdx = StateIdx>> ExclusionCriterion<StateIdx>
@@ -41,6 +46,10 @@ impl<StateIdx: Index> PrecomputedStates for S0S1<StateIdx> {
     fn initial_value(&self, state: StateIdx) -> f64 {
         if self.s1[state] { 1.0 } else { 0.0 }
     }
+
+    fn max_value(&self) -> f64 {
+        1.0
+    }
 }
 
 pub struct SInfinity<StateIdx: Index> {
@@ -63,5 +72,9 @@ impl<StateIdx: Index> PrecomputedStates for SInfinity<StateIdx> {
 
     fn initial_value(&self, state: StateIdx) -> f64 {
         if self.s1[state] { 0.0 } else { f64::INFINITY }
+    }
+
+    fn max_value(&self) -> f64 {
+        f64::INFINITY
     }
 }

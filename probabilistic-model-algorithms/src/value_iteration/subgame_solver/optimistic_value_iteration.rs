@@ -22,6 +22,7 @@ impl SubGameSolver for OptimisticValueIteration {
         mdp: &Mdp<SI, CI, BI>,
         choice_exit_values: &To1<CI, f64>,
         mut eps: f64,
+        max_value: f64,
     ) -> &'a [f64] {
         let initial_eps = eps;
         // TODO: Surprisingly, the following is slower than just zeroing out the entire buffer.
@@ -40,7 +41,7 @@ impl SubGameSolver for OptimisticValueIteration {
                 let value = values[state.raw().as_usize()];
                 let upper = match value {
                     0.0 => 0.0,
-                    v => (v * (1.0 + initial_eps)).min(1.0),
+                    v => (v * (1.0 + initial_eps)).min(max_value),
                 };
                 verification_bounds[state.raw().as_usize()] = (value, upper);
             }

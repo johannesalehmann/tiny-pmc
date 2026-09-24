@@ -1,4 +1,5 @@
 use crate::dominated_by::DominatedByRelation;
+use crate::sub_model::RewardsSource;
 use crate::value_iteration::non_determinism::NonDeterminism;
 use crate::value_iteration::precomputed_states::PrecomputedStates;
 use crate::value_iteration::subgame_solver::SubGameSolver;
@@ -13,14 +14,16 @@ impl super::SolveOrder for Monolithic {
         Solver: SubGameSolver,
         M: ReadStateSpace + ReadPredecessors<StateIdx = M::StateIndex>,
         P: PrecomputedStates<StateIdx = M::StateIndex>,
+        Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>,
     >(
         self,
         model: &M,
         precomputed_states: &P,
+        rew: Rew,
         dominated_by_relation: &DominatedByRelation<M::StateIndex>,
         eps: f64,
     ) -> To1<M::StateIndex, f64> {
-        let _ = (model, precomputed_states, dominated_by_relation, eps);
+        let _ = (model, precomputed_states, rew, dominated_by_relation, eps);
         todo!()
     }
 }

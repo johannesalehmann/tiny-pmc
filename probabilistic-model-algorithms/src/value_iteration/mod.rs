@@ -1,6 +1,8 @@
 use crate::dominated_by::DominatedByRelation;
 use crate::state_description::StateDescription;
-use probabilistic_models::traits::{ReadAtomicPropositions, ReadPredecessors, ReadStateSpace};
+use probabilistic_models::traits::{
+    ReadAtomicPropositions, ReadPredecessors, ReadRewards, ReadStateSpace,
+};
 use typed_index_collections::To1;
 
 mod non_determinism;
@@ -13,6 +15,8 @@ pub use solve_order::{EpsAllocationScheme, SccTimingOutput};
 use solve_order::{GlobalEpsForEachScc, Monolithic, SccTimings, Topological, UniformEpsAllocation};
 
 mod subgame_solver;
+
+use crate::sub_model;
 use subgame_solver::{OptimisticValueIteration, SubGameSolver, ValueIteration};
 
 #[derive(Clone, Copy, Debug)]
@@ -45,7 +49,40 @@ pub fn value_iteration<
     eps: f64,
     solve_order: SolveOrder,
 ) -> To1<M::StateIndex, f64> {
-    dispatch_non_determinism::<ValueIteration, _>(model, goal, non_determinism, eps, solve_order)
+    dispatch_non_determinism::<ValueIteration, _, ()>(
+        model,
+        goal,
+        non_determinism,
+        eps,
+        solve_order,
+        None,
+    )
+}
+
+pub fn value_iteration_rewards<
+    M: ReadStateSpace
+        + ReadPredecessors<
+            StateIdx = M::StateIndex,
+            ChoiceIdx = M::ChoiceIndex,
+            BranchIdx = M::BranchIndex,
+        > + ReadAtomicPropositions<StateIdx = M::StateIndex>
+        + ReadRewards<StateIdx = M::StateIndex, ChoiceIdx = M::ChoiceIndex>,
+>(
+    model: &M,
+    goal: &StateDescription<M>,
+    rewards: <M as ReadRewards>::RewardIdx,
+    non_determinism: NonDeterminism,
+    eps: f64,
+    solve_order: SolveOrder,
+) -> To1<M::StateIndex, f64> {
+    dispatch_non_determinism::<ValueIteration, _, _>(
+        model,
+        goal,
+        non_determinism,
+        eps,
+        solve_order,
+        Some(sub_model::StateAndChoiceRewards::new(model, rewards)),
+    )
 }
 
 pub fn optimistic_value_iteration<
@@ -62,12 +99,39 @@ pub fn optimistic_value_iteration<
     eps: f64,
     solve_order: SolveOrder,
 ) -> To1<M::StateIndex, f64> {
-    dispatch_non_determinism::<OptimisticValueIteration, _>(
+    dispatch_non_determinism::<OptimisticValueIteration, _, ()>(
         model,
         goal,
         non_determinism,
         eps,
         solve_order,
+        None,
+    )
+}
+
+pub fn optimistic_value_iteration_rewards<
+    M: ReadStateSpace
+        + ReadPredecessors<
+            StateIdx = M::StateIndex,
+            ChoiceIdx = M::ChoiceIndex,
+            BranchIdx = M::BranchIndex,
+        > + ReadAtomicPropositions<StateIdx = M::StateIndex>
+        + ReadRewards<StateIdx = M::StateIndex, ChoiceIdx = M::ChoiceIndex>,
+>(
+    model: &M,
+    goal: &StateDescription<M>,
+    rewards: <M as ReadRewards>::RewardIdx,
+    non_determinism: NonDeterminism,
+    eps: f64,
+    solve_order: SolveOrder,
+) -> To1<M::StateIndex, f64> {
+    dispatch_non_determinism::<OptimisticValueIteration, _, _>(
+        model,
+        goal,
+        non_determinism,
+        eps,
+        solve_order,
+        Some(sub_model::StateAndChoiceRewards::new(model, rewards)),
     )
 }
 
@@ -79,20 +143,30 @@ fn dispatch_non_determinism<
             ChoiceIdx = M::ChoiceIndex,
             BranchIdx = M::BranchIndex,
         > + ReadAtomicPropositions<StateIdx = M::StateIndex>,
+    Rew: sub_model::RewardsSource<M::StateIndex, M::ChoiceIndex>,
 >(
     model: &M,
     goal: &StateDescription<M>,
     non_determinism: NonDeterminism,
     eps: f64,
     solve_order: SolveOrder,
+    reward_source: Option<Rew>,
 ) -> To1<M::StateIndex, f64> {
     match non_determinism {
-        NonDeterminism::Minimise => {
-            dispatch_solve_order::<Minimise, Solver, _>(model, goal, eps, solve_order)
-        }
-        NonDeterminism::Maximise => {
-            dispatch_solve_order::<Maximise, Solver, _>(model, goal, eps, solve_order)
-        }
+        NonDeterminism::Minimise => dispatch_solve_order::<Minimise, Solver, _, _>(
+            model,
+            goal,
+            eps,
+            solve_order,
+            reward_source,
+        ),
+        NonDeterminism::Maximise => dispatch_solve_order::<Maximise, Solver, _, _>(
+            model,
+            goal,
+            eps,
+            solve_order,
+            reward_source,
+        ),
     }
 }
 
@@ -105,25 +179,32 @@ fn dispatch_solve_order<
             ChoiceIdx = M::ChoiceIndex,
             BranchIdx = M::BranchIndex,
         > + ReadAtomicPropositions<StateIdx = M::StateIndex>,
+    Rew: sub_model::RewardsSource<M::StateIndex, M::ChoiceIndex>,
 >(
     model: &M,
     goal: &StateDescription<M>,
     eps: f64,
     solve_order: SolveOrder,
+    reward_source: Option<Rew>,
 ) -> To1<M::StateIndex, f64> {
     match solve_order {
-        SolveOrder::Monolithic => {
-            value_iteration_internal::<ND, Monolithic, Solver, _>(Monolithic {}, model, goal, eps)
-        }
+        SolveOrder::Monolithic => value_iteration_internal::<ND, Monolithic, Solver, _, _>(
+            Monolithic {},
+            model,
+            goal,
+            eps,
+            reward_source,
+        ),
         SolveOrder::Topological {
             eps_allocation_scheme,
             write_scc_timing,
-        } => dispatch_scc_timing::<ND, Solver, _>(
+        } => dispatch_scc_timing::<ND, Solver, _, _>(
             model,
             goal,
             eps,
             eps_allocation_scheme,
             write_scc_timing,
+            reward_source,
         ),
     }
 }
@@ -137,24 +218,32 @@ fn dispatch_scc_timing<
             ChoiceIdx = M::ChoiceIndex,
             BranchIdx = M::BranchIndex,
         > + ReadAtomicPropositions<StateIdx = M::StateIndex>,
+    Rew: sub_model::RewardsSource<M::StateIndex, M::ChoiceIndex>,
 >(
     model: &M,
     goal: &StateDescription<M>,
     eps: f64,
     eps_allocation_scheme: EpsAllocationScheme,
     write_scc_timing: Option<SccTimingOutput>,
+    reward_source: Option<Rew>,
 ) -> To1<M::StateIndex, f64> {
     match write_scc_timing {
-        Some(output) => dispatch_eps_allocation::<ND, Solver, _, _>(
+        Some(output) => dispatch_eps_allocation::<ND, Solver, _, _, _>(
             SccTimings::new(output),
             model,
             goal,
             eps,
             eps_allocation_scheme,
+            reward_source,
         ),
-        None => {
-            dispatch_eps_allocation::<ND, Solver, _, _>((), model, goal, eps, eps_allocation_scheme)
-        }
+        None => dispatch_eps_allocation::<ND, Solver, _, _, _>(
+            (),
+            model,
+            goal,
+            eps,
+            eps_allocation_scheme,
+            reward_source,
+        ),
     }
 }
 
@@ -168,26 +257,32 @@ fn dispatch_eps_allocation<
             ChoiceIdx = M::ChoiceIndex,
             BranchIdx = M::BranchIndex,
         > + ReadAtomicPropositions<StateIdx = M::StateIndex>,
+    Rew: sub_model::RewardsSource<M::StateIndex, M::ChoiceIndex>,
 >(
     timing: Timing,
     model: &M,
     goal: &StateDescription<M>,
     eps: f64,
     eps_allocation_scheme: EpsAllocationScheme,
+    reward_source: Option<Rew>,
 ) -> To1<M::StateIndex, f64> {
     match eps_allocation_scheme {
-        EpsAllocationScheme::Uniform => value_iteration_internal::<
-            ND,
-            Topological<Timing, UniformEpsAllocation>,
-            Solver,
-            _,
-        >(Topological::new(timing), model, goal, eps),
-        EpsAllocationScheme::GlobalEpsForEach => {
-            value_iteration_internal::<ND, Topological<Timing, GlobalEpsForEachScc>, Solver, _>(
+        EpsAllocationScheme::Uniform => {
+            value_iteration_internal::<ND, Topological<Timing, UniformEpsAllocation>, Solver, _, _>(
                 Topological::new(timing),
                 model,
                 goal,
                 eps,
+                reward_source,
+            )
+        }
+        EpsAllocationScheme::GlobalEpsForEach => {
+            value_iteration_internal::<ND, Topological<Timing, GlobalEpsForEachScc>, Solver, _, _>(
+                Topological::new(timing),
+                model,
+                goal,
+                eps,
+                reward_source,
             )
         }
     }
@@ -203,18 +298,33 @@ fn value_iteration_internal<
             ChoiceIdx = M::ChoiceIndex,
             BranchIdx = M::BranchIndex,
         > + ReadAtomicPropositions<StateIdx = M::StateIndex>,
+    Rew: sub_model::RewardsSource<M::StateIndex, M::ChoiceIndex>,
 >(
     solve_order: SolveOrder,
     model: &M,
     goal: &StateDescription<M>,
     eps: f64,
+    rew: Option<Rew>,
 ) -> To1<M::StateIndex, f64> {
-    let precomputed_states = ND::compute_s0_s1(model, goal);
-    let dominated_by = DominatedByRelation::empty();
-    solve_order.find_and_solve_subgames::<ND, Solver, _, _>(
-        model,
-        &precomputed_states,
-        &dominated_by,
-        eps,
-    )
+    if let Some(rew) = rew {
+        let precomputed_states = ND::compute_s_inf(model, goal);
+        let dominated_by = DominatedByRelation::empty();
+        solve_order.find_and_solve_subgames::<ND, Solver, _, _, _>(
+            model,
+            &precomputed_states,
+            rew,
+            &dominated_by,
+            eps,
+        )
+    } else {
+        let precomputed_states = ND::compute_s0_s1(model, goal);
+        let dominated_by = DominatedByRelation::empty();
+        solve_order.find_and_solve_subgames::<ND, Solver, _, _, _>(
+            model,
+            &precomputed_states,
+            (),
+            &dominated_by,
+            eps,
+        )
+    }
 }

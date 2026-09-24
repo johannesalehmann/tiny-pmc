@@ -1,3 +1,6 @@
+mod sub_model_rewards;
+pub use sub_model_rewards::{RewardsSource, StateAndChoiceRewards};
+
 use crate::dominated_by::DominatedByRelation;
 use crate::sccs::Scc;
 use probabilistic_models::base_model::Mdp;
@@ -70,15 +73,17 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
         M: ReadStateSpace<StateIndex = StateIdx> + ReadPredecessors<StateIdx = StateIdx>,
         ScI: Index,
         ScEI: Index,
+        Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>,
     >(
         model: &M,
         scc: Scc<'_, ScI, ScEI, M::StateIndex>,
         dominated_by: &DominatedByRelation<M::StateIndex>,
         values: &To1<M::StateIndex, f64>,
+        rewards: &Rew,
     ) -> Self {
         let mut context = SubModelConstructionContext::new(model);
         let mut sub_model = SubModel::empty();
-        sub_model.rebuild_from_scc(model, scc, dominated_by, values, &mut context);
+        sub_model.rebuild_from_scc(model, scc, dominated_by, values, rewards, &mut context);
         sub_model
     }
 
@@ -86,12 +91,14 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
         M: ReadStateSpace<StateIndex = StateIdx> + ReadPredecessors<StateIdx = StateIdx>,
         ScI: Index,
         ScEI: Index,
+        Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>,
     >(
         &mut self,
         model: &M,
         scc: Scc<'_, ScI, ScEI, M::StateIndex>,
         dominated_by: &DominatedByRelation<M::StateIndex>,
         values: &To1<M::StateIndex, f64>,
+        rewards: &Rew,
         context: &mut SubModelConstructionContext<M::StateIndex>,
     ) {
         self.to_old_state_index.clear();
@@ -100,6 +107,7 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
             scc,
             dominated_by,
             values,
+            rewards,
             context,
             &mut self.to_old_state_index,
         );
@@ -113,6 +121,11 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
             };
             let new_state = NewSI::from_raw(NewSI::RawType::from_usize(new_state));
             self.mdp.add_state(new_state);
+            let state_reward = if rewards.has_state_rewards() {
+                rewards.state_reward(state)
+            } else {
+                0.0
+            };
             for choice in model.choices_of_state(state) {
                 let choice_index = self.mdp.add_choice();
                 let mut to_self = 0.0;
@@ -136,19 +149,25 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
                     }
                 }
 
+                let reward = if rewards.has_choice_rewards() {
+                    state_reward + rewards.choice_reward(choice)
+                } else {
+                    state_reward
+                };
+
                 // Preserve actions that are just a self-loop (relevant at least for minimum
                 //  reachability probability).
                 if to_self == 1.0 {
                     self.mdp.add_branch(1.0, new_state);
                     assert_eq!(exit_value, 0.0);
-                    self.choice_exit_values.add_checked(choice_index, 0.0);
+                    self.choice_exit_values.add_checked(choice_index, reward);
                 } else {
                     let scale_factor = 1.0 / (1.0 - to_self);
                     for branch in self.mdp.branches_of_choice(choice_index) {
                         self.mdp.branch_probabilities[branch] *= scale_factor;
                     }
                     self.choice_exit_values
-                        .add_checked(choice_index, exit_value * scale_factor);
+                        .add_checked(choice_index, (exit_value + reward) * scale_factor);
                 }
             }
         }
@@ -162,26 +181,30 @@ fn compute_order<
     ScI: Index,
     ScEI: Index,
     NewSI: Index,
+    Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>,
 >(
     model: &M,
     scc: Scc<'_, ScI, ScEI, M::StateIndex>,
     dominated_by: &DominatedByRelation<M::StateIndex>,
     values: &To1<M::StateIndex, f64>,
+    rewards: &Rew,
     context: &mut SubModelConstructionContext<M::StateIndex>,
     to_old_state_index: &mut To1<NewSI, M::StateIndex>,
 ) {
-    // Find states that can leave the SCC into a state with a non-zero value.
-    // If an SCC has no such exits, all states within it also have value zero, so the
+    // Find states that can leave the SCC into a state with a non-zero value or that have a non-zero
+    // reward. If an SCC has no such states, all states within it also have value zero, so the
     // sub-model will be empty.
     // TODO: A BFS is a good starting point, but there are probably algorithms that yield an even
     //  better result (e.g. something inspired by attractor computation or recursive SCC
     //  computation within the SCC)
     for state in scc.states() {
-        let mut non_zero_exit = false;
-        for successor in model.successors_of_state(state) {
-            if !scc.contains(successor) && values[successor] > 0.0 {
-                non_zero_exit = true;
-                break;
+        let mut non_zero_exit = has_non_zero_reward(model, rewards, state);
+        if !non_zero_exit {
+            for successor in model.successors_of_state(state) {
+                if !scc.contains(successor) && values[successor] > 0.0 {
+                    non_zero_exit = true;
+                    break;
+                }
             }
         }
         if non_zero_exit {
@@ -207,6 +230,19 @@ fn compute_order<
             }
         }
     }
+}
+
+fn has_non_zero_reward<M: ReadStateSpace, Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>>(
+    model: &M,
+    rewards: &Rew,
+    state: M::StateIndex,
+) -> bool {
+    (rewards.has_state_rewards() && rewards.state_reward(state) != 0.0)
+        || (rewards.has_choice_rewards()
+            && model
+                .choices_of_state(state)
+                .into_iter()
+                .any(|choice| rewards.choice_reward(choice) != 0.0))
 }
 
 #[cfg(test)]
@@ -246,6 +282,7 @@ mod tests {
             sccs.scc_of_state(StateIndex::from_raw(0)).unwrap(),
             &DominatedByRelation::empty(),
             &values,
+            &(),
             &mut context,
         );
 
@@ -302,6 +339,7 @@ mod tests {
             sccs.scc_of_state(StateIndex::from_raw(0)).unwrap(),
             &DominatedByRelation::empty(),
             &values,
+            &(),
             &mut context,
         );
 
@@ -357,6 +395,7 @@ mod tests {
             sccs.scc_of_state(StateIndex::from_raw(0)).unwrap(),
             &dominated_by,
             &values,
+            &(),
             &mut context,
         );
 
@@ -419,6 +458,7 @@ mod tests {
                 scc,
                 &DominatedByRelation::empty(),
                 &values,
+                &(),
                 &mut context,
             );
             sub_models.push(sub_model);
@@ -443,4 +483,6 @@ mod tests {
             To1::with_entries(vec![0.5 * 0.6 * (1.0 / 0.5)])
         );
     }
+
+    // TODO: Test submodels with rewards!
 }
