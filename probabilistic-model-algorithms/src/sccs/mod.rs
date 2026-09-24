@@ -232,11 +232,16 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
         Some(self.scc(self.scc_index_of_state(state)?))
     }
 
-    pub fn compute_dependencies<SccDependencyIdx: Index, M: ReadStateSpace<StateIndex = SI>>(
+    pub fn compute_dependencies<
+        SccDependencyIdx: Index,
+        M: ReadStateSpace<StateIndex = SI>,
+        Ex: ExclusionCriterion<SI, M::ChoiceIndex>,
+    >(
         &self,
         model: &M,
+        exclusion_criterion: &Ex,
     ) -> SccDependencies<ScI, SccDependencyIdx> {
-        SccDependencies::compute(model, self)
+        SccDependencies::compute(model, self, exclusion_criterion)
     }
 
     pub fn max_size(&self) -> usize {
@@ -325,9 +330,14 @@ pub struct SccDependencies<SccIdx: Index, SccDependencyIdx: Index> {
 }
 
 impl<SccIdx: Index, SccDependencyIdx: Index> SccDependencies<SccIdx, SccDependencyIdx> {
-    pub fn compute<M: ReadStateSpace, ScEI: Index>(
+    pub fn compute<
+        M: ReadStateSpace,
+        ScEI: Index,
+        Ex: ExclusionCriterion<M::StateIndex, M::ChoiceIndex>,
+    >(
         model: &M,
         sccs: &Sccs<SccIdx, ScEI, M::StateIndex>,
+        exclusion_criterion: &Ex,
     ) -> Self {
         let scc_count = sccs.sccs.keys().len();
         let mut scc_dependencies = Csr::with_capacity(scc_count);
@@ -342,13 +352,19 @@ impl<SccIdx: Index, SccDependencyIdx: Index> SccDependencies<SccIdx, SccDependen
         for scc in sccs.sccs.keys() {
             for entry in sccs.entries(scc) {
                 let state = sccs.state_of_entry(entry);
-                for successor in model.successors_of_state(state) {
-                    let Some(successor_scc) = sccs.state_to_scc[successor] else {
+                for choice in model.choices_of_state(state) {
+                    if exclusion_criterion.is_choice_excluded(choice) {
                         continue;
-                    };
-                    if successor_scc != scc && last_recorded_for[successor_scc] != Some(scc) {
-                        last_recorded_for[successor_scc] = Some(scc);
-                        depends_on.add(successor_scc);
+                    }
+                    for branch in model.branches_of_choice(choice) {
+                        let successor = model.branch_destination(branch);
+                        let Some(successor_scc) = sccs.state_to_scc[successor] else {
+                            continue;
+                        };
+                        if successor_scc != scc && last_recorded_for[successor_scc] != Some(scc) {
+                            last_recorded_for[successor_scc] = Some(scc);
+                            depends_on.add(successor_scc);
+                        }
                     }
                 }
             }
@@ -637,8 +653,11 @@ mod tests {
         let model = complex_model();
         let sccs =
             Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, &());
-        let dependencies =
-            SccDependencies::<SccIndex<usize>, SccDependencyIndex<usize>>::compute(&model, &sccs);
+        let dependencies = SccDependencies::<SccIndex<usize>, SccDependencyIndex<usize>>::compute(
+            &model,
+            &sccs,
+            &(),
+        );
 
         let deps_of = |scc: SccIndex<usize>| {
             dependencies
@@ -664,8 +683,11 @@ mod tests {
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
         let sccs =
             Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, &());
-        let dependencies =
-            SccDependencies::<SccIndex<usize>, SccDependencyIndex<usize>>::compute(&model, &sccs);
+        let dependencies = SccDependencies::<SccIndex<usize>, SccDependencyIndex<usize>>::compute(
+            &model,
+            &sccs,
+            &(),
+        );
 
         assert_eq!(dependencies.longest_chain(), 0);
     }
@@ -683,8 +705,11 @@ mod tests {
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
         let sccs =
             Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, &());
-        let dependencies =
-            SccDependencies::<SccIndex<usize>, SccDependencyIndex<usize>>::compute(&model, &sccs);
+        let dependencies = SccDependencies::<SccIndex<usize>, SccDependencyIndex<usize>>::compute(
+            &model,
+            &sccs,
+            &(),
+        );
 
         assert_eq!(dependencies.longest_chain(), 4);
     }
@@ -718,8 +743,11 @@ mod tests {
         assert!(sccs.is_trivial[scc0]);
         assert!(sccs.is_trivial[scc2]);
 
-        let dependencies =
-            SccDependencies::<SccIndex<usize>, SccDependencyIndex<usize>>::compute(&model, &sccs);
+        let dependencies = SccDependencies::<SccIndex<usize>, SccDependencyIndex<usize>>::compute(
+            &model,
+            &sccs,
+            &precomputed_states,
+        );
         let deps_of = |scc: SccIndex<usize>| {
             dependencies
                 .dependencies(scc)
@@ -786,6 +814,37 @@ mod tests {
     }
 
     #[test]
+    fn scc_dependencies_ignore_excluded_choices() {
+        mdp!(mdp = {
+            s0 -> 1.0: s1,
+            s0 -> 1.0: s2,
+            s1 ->,
+            s2 ->,
+        });
+
+        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
+        let exclusion = ExcludeStatesAndChoices::new(
+            To1::with_entries(vec![false, false, false]),
+            To1::with_entries(vec![true, false, false, false]),
+        );
+        let sccs = Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(
+            &model, &exclusion,
+        );
+        let dependencies = SccDependencies::<SccIndex<usize>, SccDependencyIndex<usize>>::compute(
+            &model, &sccs, &exclusion,
+        );
+
+        let scc0 = sccs.scc_index_of_state(StateIndex::from_raw(0)).unwrap();
+        let scc2 = sccs.scc_index_of_state(StateIndex::from_raw(2)).unwrap();
+        let deps = dependencies
+            .dependencies(scc0)
+            .into_iter()
+            .map(|d| dependencies.dependency_to_scc(d))
+            .collect::<Vec<_>>();
+        assert_eq!(deps, vec![scc2]);
+    }
+
+    #[test]
     fn scc_dependencies_deduplicates_parallel_edges() {
         // State 0 has two choices, one into each state of the 2-state SCC {1, 2}. Both edges
         // land in the same target SCC, so `dependencies` must report it only once rather than
@@ -800,8 +859,11 @@ mod tests {
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
         let sccs =
             Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, &());
-        let dependencies =
-            SccDependencies::<SccIndex<usize>, SccDependencyIndex<usize>>::compute(&model, &sccs);
+        let dependencies = SccDependencies::<SccIndex<usize>, SccDependencyIndex<usize>>::compute(
+            &model,
+            &sccs,
+            &(),
+        );
 
         let scc0 = sccs.state_to_scc[StateIndex::from_raw(0)].unwrap();
         let scc1 = sccs.state_to_scc[StateIndex::from_raw(1)].unwrap();
@@ -832,8 +894,11 @@ mod tests {
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
         let sccs =
             Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, &());
-        let dependencies =
-            SccDependencies::<SccIndex<usize>, SccDependencyIndex<usize>>::compute(&model, &sccs);
+        let dependencies = SccDependencies::<SccIndex<usize>, SccDependencyIndex<usize>>::compute(
+            &model,
+            &sccs,
+            &(),
+        );
 
         assert_eq!(dependencies.longest_chain(), 4);
     }
