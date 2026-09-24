@@ -62,6 +62,7 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
         s0: &To1<M::StateIndex, bool>,
         s1: &To1<M::StateIndex, bool>,
     ) -> Self {
+        let _ = (model, dominated_by, s0, s1);
         todo!()
     }
 
@@ -367,11 +368,13 @@ mod tests {
             sub_model.mdp.state_to_choice,
             Csr::with_entries(vec![ChoiceIndex::from_raw(2)])
         );
-        // Redirecting the branches to state 1 turns them into self loops, which are removed. The
-        // first choice thereby becomes a pure self loop, the second one keeps 0.5 self loop.
+        // The first action turns into a p=1 self loop. This is not removed by the self-loop
+        // removal (otherwise, it would produce incorrect probabilities for minimal reachability).
+        // The second action creates a p=0.5 self loop, with the other 0.5 leaving the sub-model.
+        // Thus, that action has no branches.
         assert_eq!(
             sub_model.mdp.choice_to_branch,
-            Csr::with_entries(vec![BranchIndex::from_raw(0), BranchIndex::from_raw(0)])
+            Csr::with_entries(vec![BranchIndex::from_raw(1), BranchIndex::from_raw(1)])
         );
         assert_eq!(
             sub_model.choice_exit_values,
@@ -380,7 +383,7 @@ mod tests {
     }
 
     #[test]
-    fn the_context_can_be_reused_for_every_scc() {
+    fn context_reuse() {
         // State 0 leaves its own SCC into the SCC of state 1, which is built first. State 1
         // leaves its SCC into the goal state 2, so that it is not pruned from its sub-model.
         mdp!(mdp = {
