@@ -9,6 +9,10 @@ impl SynchronisedActions {
     pub fn len(&self) -> usize {
         self.actions.len()
     }
+
+    pub fn index_of(&self, name: &str) -> Option<usize> {
+        self.actions.iter().position(|action| action.name == name)
+    }
 }
 
 impl std::ops::Index<usize> for SynchronisedActions {

@@ -39,6 +39,11 @@ pub use owners::ReadOwners;
 #[allow(unused)]
 pub(crate) use owners::derive_read_owners;
 
+mod rewards;
+pub use rewards::ReadRewards;
+#[allow(unused)]
+pub(crate) use rewards::derive_read_rewards;
+
 use typed_index_collections::{Index, IndexRange, IndexRangeIterator, SemiboundedIndexRange};
 
 pub trait ReadStateSpace {

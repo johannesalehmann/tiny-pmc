@@ -1,8 +1,10 @@
 use crate::choice_labels::Context;
 use crate::expression_context::ExpressionContext;
+use crate::expressions::ValuationSource;
 use crate::initial_states_source;
 use crate::initial_states_source::InitialStateSource;
 use crate::labels::Labels;
+use crate::rewards_builder::{RewardEntry, RewardStructures, RewardsBuilder};
 use crate::synchronised_actions::SynchronisedActions;
 use crate::variables::ModelVariableInfo;
 use crate::{ModelBuildingError, choice_labels};
@@ -27,14 +29,22 @@ pub struct StateBuilder<
     IniBuilder: crate::initial_states_builder::InitialStatesBuilder,
     APs: crate::atomic_propositions_builder::AtomicPropositionBuilder,
     CL: choice_labels::ChoiceLabelBuilder<ChoiceIdx = Base::ChoiceIdx>,
+    Rew: RewardsBuilder<StateIdx = Base::StateIdx, ChoiceIdx = Base::ChoiceIdx>,
 > {
     pub synchronising_action: SynchronisedActions,
     pub labels: &'a Labels<APs::APIdx, E>,
+    pub reward_structures: &'a RewardStructures<'a, Rew::RewardIdx, E>,
 
     pub base: &'a mut Base,
     pub initial_states_builder: &'a mut IniBuilder,
     pub atomic_propositions: &'a mut APs,
     pub choice_labels: &'a mut CL,
+    pub rewards: &'a mut Rew,
+
+    // Used to temporarily store the values for rewards:
+    pub unlabelled_rewards: Vec<f64>,
+    pub unlabelled_rewards_computed: bool,
+    pub synchronised_rewards: Vec<f64>,
 
     pub open_states: VecDeque<Base::StateIdx>,
 
@@ -62,7 +72,8 @@ impl<
     IniBuilder: crate::initial_states_builder::InitialStatesBuilder<StateIdx = Base::StateIdx>,
     APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = Base::StateIdx>,
     CL: choice_labels::ChoiceLabelBuilder<ChoiceIdx = Base::ChoiceIdx>,
-> initial_states_source::Context for StateBuilder<'a, S, E, EC, Base, IniBuilder, APs, CL>
+    Rew: RewardsBuilder<StateIdx = Base::StateIdx, ChoiceIdx = Base::ChoiceIdx>,
+> initial_states_source::Context for StateBuilder<'a, S, E, EC, Base, IniBuilder, APs, CL, Rew>
 {
     type Span = S;
     type Expression = E;
@@ -117,7 +128,8 @@ impl<
     IniBuilder: crate::initial_states_builder::InitialStatesBuilder<StateIdx = Base::StateIdx>,
     APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = Base::StateIdx>,
     CL: choice_labels::ChoiceLabelBuilder<ChoiceIdx = Base::ChoiceIdx>,
-> StateBuilder<'a, S, E, EC, Base, IniBuilder, APs, CL>
+    Rew: RewardsBuilder<StateIdx = Base::StateIdx, ChoiceIdx = Base::ChoiceIdx>,
+> StateBuilder<'a, S, E, EC, Base, IniBuilder, APs, CL, Rew>
 {
     pub fn create_initial_states<IniSource: InitialStateSource>(
         &mut self,
@@ -138,6 +150,8 @@ impl<
         self.base.add_state(state);
 
         self.evaluate_atomic_propositions(state);
+        self.evaluate_state_rewards(state);
+        self.unlabelled_rewards_computed = false;
 
         let mut choices_added = 0;
 
@@ -171,6 +185,14 @@ impl<
             let context = CL::ContextType::new_deadlock_fix();
             self.choice_labels
                 .label_choice(choice_index, &index, &context);
+
+            // As in PRISM, choices added to fix deadlocks receive no transition rewards
+            for structure in &self.reward_structures.structures {
+                if structure.has_choice_rewards {
+                    self.rewards
+                        .add_choice_reward(structure.index, choice_index, 0.0);
+                }
+            }
         }
 
         Ok(())
@@ -191,6 +213,16 @@ impl<
             .evaluate_bool(&command.guard, &val_source);
         if guard {
             let choice_index = self.base.start_choice();
+            if !self.unlabelled_rewards_computed {
+                self.evaluate_choice_rewards(state, None);
+                self.unlabelled_rewards_computed = true;
+            }
+            Self::add_choice_rewards(
+                self.rewards,
+                self.reward_structures,
+                &self.unlabelled_rewards,
+                choice_index,
+            );
             for update_index in 0..command.updates.len() {
                 let valuation = &self.base.state_valuations().entry(state);
                 let val_source = self.variables.info.get_valuation_source(valuation);
@@ -276,11 +308,19 @@ impl<
         let mut choices_added = 0;
 
         if all_satisfied {
+            self.evaluate_choice_rewards(state, Some(synchronised_action_index));
+            let synchronised_action = &self.synchronising_action[synchronised_action_index];
             let modules = &synchronised_action.participating_modules;
             let mut indices = vec![0; n];
             let mut choice_label_context = CL::ContextType::new_synchronised(n);
             while indices[0] < satisfied_guards_indices[0].len() {
                 let choice_index = self.base.start_choice();
+                Self::add_choice_rewards(
+                    self.rewards,
+                    self.reward_structures,
+                    &self.synchronised_rewards,
+                    choice_index,
+                );
 
                 let mut command_indices = Vec::with_capacity(n);
                 for i in 0..n {
@@ -414,6 +454,84 @@ impl<
                 .expr_context
                 .evaluate_bool(atomic_proposition, &val_source);
             self.atomic_propositions.set_value(i, state_index, is_true);
+        }
+    }
+
+    fn evaluate_state_rewards(&mut self, state_index: Base::StateIdx) {
+        let valuation = self.base.state_valuations().entry(state_index);
+        let val_source = self.variables.info.get_valuation_source(&valuation);
+        for structure in &self.reward_structures.structures {
+            if structure.state_entries.is_empty() {
+                continue;
+            }
+            let reward = Self::sum_rewards(
+                self.variables.expr_context,
+                &structure.state_entries,
+                &structure.name,
+                &val_source,
+            );
+            self.rewards
+                .add_state_reward(structure.index, state_index, reward);
+        }
+    }
+
+    fn evaluate_choice_rewards(
+        &mut self,
+        state_index: Base::StateIdx,
+        synchronised_action_index: Option<usize>,
+    ) {
+        let valuation = self.base.state_valuations().entry(state_index);
+        let val_source = self.variables.info.get_valuation_source(&valuation);
+        let values = match synchronised_action_index {
+            None => &mut self.unlabelled_rewards,
+            Some(_) => &mut self.synchronised_rewards,
+        };
+        values.clear();
+        for structure in &self.reward_structures.structures {
+            let entries = match synchronised_action_index {
+                None => &structure.unlabelled_entries,
+                Some(index) => &structure.synchronised_entries[index],
+            };
+            values.push(Self::sum_rewards(
+                self.variables.expr_context,
+                entries,
+                &structure.name,
+                &val_source,
+            ));
+        }
+    }
+
+    fn sum_rewards<V: ValuationSource>(
+        expr_context: &mut EC,
+        entries: &[RewardEntry<'a, E>],
+        name: &str,
+        val_source: &V,
+    ) -> f64 {
+        let mut sum = 0.0;
+        for entry in entries {
+            if expr_context.evaluate_bool(entry.condition, val_source) {
+                let value = expr_context.evaluate_float(entry.value, val_source);
+                if !value.is_finite() || value < 0.0 {
+                    panic!(
+                        "Reward structure `{name}` has invalid value {value}, rewards must be finite and non-negative"
+                    );
+                }
+                sum += value;
+            }
+        }
+        sum
+    }
+
+    fn add_choice_rewards(
+        rewards: &mut Rew,
+        reward_structures: &RewardStructures<'a, Rew::RewardIdx, E>,
+        values: &[f64],
+        choice_index: Base::ChoiceIdx,
+    ) {
+        for (structure, &value) in reward_structures.structures.iter().zip(values) {
+            if structure.has_choice_rewards {
+                rewards.add_choice_reward(structure.index, choice_index, value);
+            }
         }
     }
 

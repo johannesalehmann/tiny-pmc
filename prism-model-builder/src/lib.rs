@@ -11,6 +11,7 @@ pub mod initial_states_source;
 pub mod labels;
 mod map;
 pub mod queries;
+pub mod rewards_builder;
 mod state_builder;
 mod synchronised_actions;
 pub mod variables;
@@ -26,10 +27,13 @@ use crate::expressions::stack_based_expressions::{
 use crate::expressions::{TreeWalkingEvaluator, ValuationSource, VariableType};
 use crate::synchronised_actions::SynchronisedActions;
 use crate::variables::ModelVariableInfo;
-use prism_model::{Expression, Identifier, Model, Span, VariableRange, VariableReference};
+use prism_model::{
+    Expression, Identifier, Model, RewardsManager, Span, VariableRange, VariableReference,
+};
 use std::collections::{HashMap, VecDeque};
 
 use crate::expression_context::{ExpressionContext, SubExpressionExpressionContext};
+use crate::rewards_builder::RewardStructures;
 use crate::state_builder::{StateBuilder, StateBuilderVariables};
 pub use typed_index_collections::To1;
 
@@ -43,6 +47,7 @@ pub struct ModelBuilder<
     IniBuilder: initial_states_builder::InitialStatesBuilder<StateIdx = Base::StateIdx>,
     APs: atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = Base::StateIdx>,
     CL: choice_labels::ChoiceLabelBuilder<ChoiceIdx = Base::ChoiceIdx>,
+    Rew: rewards_builder::RewardsBuilder<StateIdx = Base::StateIdx, ChoiceIdx = Base::ChoiceIdx>,
 > {
     model: &'a mut Model<VariableReference, S, Expression<VariableReference, S>, Identifier<S>>,
     constants: HashMap<String, UserProvidedConstValue>,
@@ -55,6 +60,7 @@ pub struct ModelBuilder<
     initial_states_builder: IniBuilder,
     atomic_propositions: APs,
     choice_labels: CL,
+    rewards: Rew,
 }
 
 impl<
@@ -67,7 +73,8 @@ impl<
     IniBuilder: initial_states_builder::InitialStatesBuilder<StateIdx = Base::StateIdx>,
     APs: atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = Base::StateIdx>,
     CL: choice_labels::ChoiceLabelBuilder<ChoiceIdx = Base::ChoiceIdx>,
-> ModelBuilder<'a, S, Queries, Labels, IniSource, Base, IniBuilder, APs, CL>
+    Rew: rewards_builder::RewardsBuilder<StateIdx = Base::StateIdx, ChoiceIdx = Base::ChoiceIdx>,
+> ModelBuilder<'a, S, Queries, Labels, IniSource, Base, IniBuilder, APs, CL, Rew>
 {
     pub fn build_and_return_variable_info(
         mut self,
@@ -80,7 +87,7 @@ impl<
                 (),
                 (),
                 APs::AtomicPropositions,
-                (),
+                Rew::Rewards,
                 (),
                 Base::Valuation,
                 (),
@@ -109,7 +116,13 @@ impl<
         );
 
         let mut sub_exprs = SubExpressionManager::new();
+        // Reward expressions that are not built would otherwise enlarge the sub-expression cache
+        let unused_rewards = (!Rew::stores_rewards())
+            .then(|| std::mem::replace(&mut self.model.rewards, RewardsManager::new()));
         let model: Model<_, S, _, _> = self.model_with_sub_expressions(&mut sub_exprs);
+        if let Some(rewards) = unused_rewards {
+            self.model.rewards = rewards;
+        }
         let labels = labels.to_stack_based(&mut sub_exprs, &model.variable_manager);
 
         for (index, (name, _)) in labels.into_iter().enumerate() {
@@ -128,14 +141,21 @@ impl<
         };
 
         let synchronising_action = SynchronisedActions::from_prism(&model);
+        let reward_structures =
+            RewardStructures::new(&model, &synchronising_action, &mut self.rewards);
 
         let mut state_builder = StateBuilder {
             synchronising_action,
             labels: &labels,
+            reward_structures: &reward_structures,
             base: &mut self.base,
             initial_states_builder: &mut self.initial_states_builder,
             atomic_propositions: &mut self.atomic_propositions,
             choice_labels: &mut self.choice_labels,
+            rewards: &mut self.rewards,
+            unlabelled_rewards: Vec::new(),
+            unlabelled_rewards_computed: false,
+            synchronised_rewards: Vec::new(),
             open_states: VecDeque::new(),
 
             variables: StateBuilderVariables {
@@ -160,7 +180,7 @@ impl<
                     branch_labels: (),
                     observations: (),
                     atomic_propositions: self.atomic_propositions.into_atomic_propositions(),
-                    rewards: (),
+                    rewards: self.rewards.into_rewards(),
                     annotations: (),
                     state_valuations,
                     predecessors: (),
@@ -181,7 +201,7 @@ impl<
             (),
             (),
             APs::AtomicPropositions,
-            (),
+            Rew::Rewards,
             (),
             Base::Valuation,
             (),

@@ -64,11 +64,14 @@ impl<S: Span, E, A> RewardsManager<S, E, A> {
 
     /// Adds a new reward to this `RewardsManager`.
     ///
-    /// If a reward with the same name already exists, returns [`RewardsExist`].
+    /// If a reward with the same name already exists, returns [`RewardsExist`]. Any number of
+    /// unnamed rewards can be added.
     pub fn add(&mut self, rewards: Rewards<S, E, A>) -> Result<(), RewardsExist> {
-        for (index, other_rewards) in self.rewards.iter().enumerate() {
-            if other_rewards.name == rewards.name {
-                return Err(RewardsExist { index });
+        if let Some(name) = &rewards.name {
+            for (index, other_rewards) in self.rewards.iter().enumerate() {
+                if other_rewards.name.as_ref() == Some(name) {
+                    return Err(RewardsExist { index });
+                }
             }
         }
         self.rewards.push(rewards);
@@ -472,5 +475,29 @@ impl<Ctx, A: Display, E: Displayable<Ctx>, S: Span> Displayable<Ctx> for Rewards
             self.condition.displayable(context),
             self.value.displayable(context)
         )
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::{Identifier, Rewards, RewardsExist, RewardsManager};
+
+    #[test]
+    fn multiple_unnamed_rewards() {
+        let mut manager: RewardsManager = RewardsManager::new();
+        manager.add(Rewards::new(None)).unwrap();
+        manager.add(Rewards::new(None)).unwrap();
+        assert_eq!(manager.len(), 2);
+    }
+
+    #[test]
+    fn duplicate_named_rewards() {
+        let mut manager: RewardsManager = RewardsManager::new();
+        manager.add(Rewards::new(None)).unwrap();
+        manager
+            .add(Rewards::new(Some(Identifier::new("r").unwrap())))
+            .unwrap();
+        let result = manager.add(Rewards::new(Some(Identifier::new("r").unwrap())));
+        assert!(matches!(result, Err(RewardsExist { index: 1 })));
     }
 }

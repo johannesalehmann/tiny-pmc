@@ -2441,9 +2441,9 @@ dependencies = [
 name = "prism-model-builder"
 version = "0.1.0"
 dependencies = [
- "log",
  "paste",
  "prism-model",
+ "prism-parser",
  "probabilistic-models",
  "probabilistic-properties",
  "typed-index-collections",
@@ -3100,14 +3100,6 @@ dependencies = [
  "probabilistic-model-algorithms",
  "probabilistic-models",
  "probabilistic-properties",
-]
-
-[[package]]
-name = "tiny-pmc-benchmarking"
-version = "0.1.0"
-dependencies = [
- "prism-model-builder",
- "tiny-pmc",
 ]
 
 [[package]]

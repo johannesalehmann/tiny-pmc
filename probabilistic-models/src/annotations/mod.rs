@@ -126,3 +126,19 @@ pub struct Rewards<States, Choices, Branches> {
     pub choices: Choices,
     pub branches: Branches,
 }
+
+pub type EntityRewards<EntityIdx, AnnotationEntryIdx> = TypedAnnotation<
+    EntityIdx,
+    AnnotationEntryIdx,
+    IdentityDistribution<EntityIdx, AnnotationEntryIdx>,
+    f64,
+>;
+
+pub type StateChoiceRewards<StateIdx, ChoiceIdx, AnnotationEntryIdx> = Rewards<
+    Option<EntityRewards<StateIdx, AnnotationEntryIdx>>,
+    Option<EntityRewards<ChoiceIdx, AnnotationEntryIdx>>,
+    (),
+>;
+
+pub type RewardAnnotations<AnnotationIdx, StateIdx, ChoiceIdx, AnnotationEntryIdx> =
+    NamedTo1<AnnotationIdx, StateChoiceRewards<StateIdx, ChoiceIdx, AnnotationEntryIdx>>;

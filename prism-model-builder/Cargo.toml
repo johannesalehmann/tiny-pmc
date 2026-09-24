@@ -8,7 +8,7 @@ prism-model = { path = "../prism-model" }
 probabilistic-models = { path = "../probabilistic-models" }
 probabilistic-properties = { path = "../probabilistic-properties" }
 typed-index-collections = { path = "../typed-index-collections" }
-log = "0.4.29"
 
 [dev-dependencies]
 paste = "1.0.15"
+prism-parser = { path = "../prism-parser" }

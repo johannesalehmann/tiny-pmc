@@ -37,11 +37,12 @@ impl<
     IB: crate::initial_states_builder::InitialStatesBuilder<StateIdx = B::StateIdx>,
     APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = B::StateIdx>,
     CL: crate::choice_labels::ChoiceLabelBuilder<ChoiceIdx = B::ChoiceIdx>,
-> ModelBuilder<'a, S, Q, L, StartFromInitialStates, B, IB, APs, CL>
+    Rew: crate::rewards_builder::RewardsBuilder<StateIdx = B::StateIdx, ChoiceIdx = B::ChoiceIdx>,
+> ModelBuilder<'a, S, Q, L, StartFromInitialStates, B, IB, APs, CL, Rew>
 {
     pub fn with_full_state_space(
         self,
-    ) -> ModelBuilder<'a, S, Q, L, StartFromEveryState, B, IB, APs, CL> {
+    ) -> ModelBuilder<'a, S, Q, L, StartFromEveryState, B, IB, APs, CL, Rew> {
         self.map_initial_state_source(StartFromEveryState::default())
     }
 }

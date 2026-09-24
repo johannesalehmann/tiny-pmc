@@ -53,17 +53,28 @@ impl<
     IB: crate::initial_states_builder::InitialStatesBuilder<StateIdx = B::StateIdx>,
     APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = B::StateIdx>,
     ActionIdx: Index,
-> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CommandIndexLabels<B::ChoiceIdx, ActionIdx>>
+    Rew: crate::rewards_builder::RewardsBuilder<StateIdx = B::StateIdx, ChoiceIdx = B::ChoiceIdx>,
+> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CommandIndexLabels<B::ChoiceIdx, ActionIdx>, Rew>
 {
     pub fn without_choice_labels(
         self,
-    ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, NoChoiceLabels<B::ChoiceIdx>> {
+    ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, NoChoiceLabels<B::ChoiceIdx>, Rew> {
         self.map_choice_labels(NoChoiceLabels::default())
     }
     pub fn label_choices_with_action_names(
         self,
-    ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, ActionNameChoiceLabels<B::ChoiceIdx, ActionIdx>>
-    {
+    ) -> ModelBuilder<
+        'a,
+        S,
+        Q,
+        L,
+        IS,
+        B,
+        IB,
+        APs,
+        ActionNameChoiceLabels<B::ChoiceIdx, ActionIdx>,
+        Rew,
+    > {
         self.map_choice_labels(ActionNameChoiceLabels::default())
     }
 }

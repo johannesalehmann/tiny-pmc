@@ -56,7 +56,20 @@ impl<
     B: crate::bases::BaseModelBuilder,
     IB: crate::initial_states_builder::InitialStatesBuilder<StateIdx = B::StateIdx>,
     CL: crate::choice_labels::ChoiceLabelBuilder<ChoiceIdx = B::ChoiceIdx>,
-> ModelBuilder<'a, S, Q, L, IS, B, IB, UntrackedAtomicPropositionBuilder<API, B::StateIdx>, CL>
+    Rew: crate::rewards_builder::RewardsBuilder<StateIdx = B::StateIdx, ChoiceIdx = B::ChoiceIdx>,
+>
+    ModelBuilder<
+        'a,
+        S,
+        Q,
+        L,
+        IS,
+        B,
+        IB,
+        UntrackedAtomicPropositionBuilder<API, B::StateIdx>,
+        CL,
+        Rew,
+    >
 {
     pub fn with_atomic_proposition_vector<APEI: Index>(
         self,
@@ -70,6 +83,7 @@ impl<
         IB,
         AtomicPropositionVectorsBuilder<API, B::StateIdx, APEI>,
         CL,
+        Rew,
     > {
         self.map_atomic_propositions(AtomicPropositionVectorsBuilder::default())
     }
@@ -119,12 +133,35 @@ impl<
     B: crate::bases::BaseModelBuilder,
     IB: crate::initial_states_builder::InitialStatesBuilder<StateIdx = B::StateIdx>,
     CL: crate::choice_labels::ChoiceLabelBuilder<ChoiceIdx = B::ChoiceIdx>,
-> ModelBuilder<'a, S, Q, L, IS, B, IB, AtomicPropositionVectorsBuilder<API, B::StateIdx, APEI>, CL>
+    Rew: crate::rewards_builder::RewardsBuilder<StateIdx = B::StateIdx, ChoiceIdx = B::ChoiceIdx>,
+>
+    ModelBuilder<
+        'a,
+        S,
+        Q,
+        L,
+        IS,
+        B,
+        IB,
+        AtomicPropositionVectorsBuilder<API, B::StateIdx, APEI>,
+        CL,
+        Rew,
+    >
 {
     pub fn without_atomic_proposition_vector(
         self,
-    ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, UntrackedAtomicPropositionBuilder<API, B::StateIdx>, CL>
-    {
+    ) -> ModelBuilder<
+        'a,
+        S,
+        Q,
+        L,
+        IS,
+        B,
+        IB,
+        UntrackedAtomicPropositionBuilder<API, B::StateIdx>,
+        CL,
+        Rew,
+    > {
         self.map_atomic_propositions(UntrackedAtomicPropositionBuilder::default())
     }
 }
