@@ -4,6 +4,9 @@ pub use optimistic_value_iteration::OptimisticValueIteration;
 mod value_iteration;
 pub use value_iteration::ValueIteration;
 
+#[cfg(test)]
+mod tests;
+
 use crate::value_iteration::non_determinism::NonDeterminism;
 use probabilistic_models::base_model::Mdp;
 use typed_index_collections::{Index, To1};

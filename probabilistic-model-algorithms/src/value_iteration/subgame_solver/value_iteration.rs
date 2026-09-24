@@ -49,8 +49,10 @@ impl ValueIteration {
 
                 if converged {
                     let absolute_error = best_value - values[state];
-                    // The condition is equivalent to `absolute_error / best_value >= eps`:
-                    if absolute_error >= eps * best_value {
+                    // The condition is equivalent to `absolute_error / best_value >= eps`. We need
+                    // to handle absolute_error > 0.0 case separately. Otherwise, we'd incorrectly
+                    // set converged to false if best_value is 0.0.
+                    if absolute_error > 0.0 && absolute_error >= eps * best_value {
                         converged = false;
                     }
                 }
