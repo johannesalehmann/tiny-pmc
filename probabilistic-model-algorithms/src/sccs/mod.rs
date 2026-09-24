@@ -17,8 +17,9 @@ pub struct Sccs<SccIdx: Index, SccEntryIdx: Index, StateIdx: Index> {
 
 impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
     pub fn compute<
-        M: ReadStateSpace<StateIndex = SI> + ReadPredecessors<StateIdx = SI>,
-        Ex: ExclusionCriterion<SI>,
+        M: ReadStateSpace<StateIndex = SI>
+            + ReadPredecessors<StateIdx = SI, ChoiceIdx = M::ChoiceIndex, BranchIdx = M::BranchIndex>,
+        Ex: ExclusionCriterion<SI, M::ChoiceIndex>,
     >(
         model: &M,
         exclusion_criterion: &Ex,
@@ -28,7 +29,7 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
         let mut scc_entry_count = model.states().len();
 
         for state in model.states() {
-            if exclusion_criterion.is_excluded(state) {
+            if exclusion_criterion.is_state_excluded(state) {
                 visited[state] = true;
                 scc_entry_count -= 1;
             }
@@ -36,12 +37,12 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
 
         for i in model.states() {
             if !visited[i] {
-                Self::visit(model, &mut visited, &mut l, i);
+                Self::visit(model, exclusion_criterion, &mut visited, &mut l, i);
             }
         }
 
         for state in model.states() {
-            visited[state] = exclusion_criterion.is_excluded(state);
+            visited[state] = exclusion_criterion.is_state_excluded(state);
         }
 
         let mut sccs = Csr::new();
@@ -52,7 +53,13 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
         for &v in l.iter().rev() {
             if !visited[v] {
                 visited[v] = true;
-                let is_scc_trivial = Self::visit_reversed(model, &mut visited, v, &mut scc_entries);
+                let is_scc_trivial = Self::visit_reversed(
+                    model,
+                    exclusion_criterion,
+                    &mut visited,
+                    v,
+                    &mut scc_entries,
+                );
                 sccs.add_entry_unchecked(scc_entries.keys().end());
                 is_trivial.add(is_scc_trivial);
             }
@@ -83,8 +90,9 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
     /// To this end, it maintains a stack of cursors, where each cursor points to the next successor
     /// of a state that needs to be visited. Once all successors are visited, the cursor is popped
     /// from the stack.
-    fn visit<M: ReadStateSpace<StateIndex = SI>>(
+    fn visit<M: ReadStateSpace<StateIndex = SI>, Ex: ExclusionCriterion<SI, M::ChoiceIndex>>(
         model: &M,
+        exclusion_criterion: &Ex,
         visited: &mut To1<SI, bool>,
         l: &mut Vec<SI>,
         state: SI,
@@ -95,7 +103,8 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
         while let Some((i, choices, branches)) = stack.last_mut() {
             let i = *i;
 
-            let descend_into = Self::get_next_unvisited(model, visited, choices, branches);
+            let descend_into =
+                Self::get_next_unvisited(model, exclusion_criterion, visited, choices, branches);
 
             match descend_into {
                 Some(destination) => {
@@ -110,8 +119,12 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
         }
     }
 
-    fn get_next_unvisited<M: ReadStateSpace<StateIndex = SI>>(
+    fn get_next_unvisited<
+        M: ReadStateSpace<StateIndex = SI>,
+        Ex: ExclusionCriterion<SI, M::ChoiceIndex>,
+    >(
         model: &M,
+        exclusion_criterion: &Ex,
         visited: &mut To1<SI, bool>,
         choices: &mut IndexRangeIterator<M::ChoiceIndex>,
         branches: &mut IndexRangeIterator<M::BranchIndex>,
@@ -125,7 +138,9 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
                     break;
                 }
             } else if let Some(choice) = choices.next() {
-                *branches = model.branches_of_choice(choice).into_iter();
+                if !exclusion_criterion.is_choice_excluded(choice) {
+                    *branches = model.branches_of_choice(choice).into_iter();
+                }
             } else {
                 break;
             }
@@ -149,8 +164,12 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
         )
     }
 
-    fn visit_reversed<M: ReadPredecessors<StateIdx = SI>>(
+    fn visit_reversed<
+        M: ReadPredecessors<StateIdx = SI>,
+        Ex: ExclusionCriterion<SI, M::ChoiceIdx>,
+    >(
         model: &M,
+        exclusion_criterion: &Ex,
         visited: &mut To1<SI, bool>,
         state: SI,
         scc_entries: &mut To1<ScEI, SI>,
@@ -161,9 +180,11 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
         while let Some(state) = stack.pop() {
             scc_entries.add(state);
             for predecessor in model.predecessors_of_state(state) {
-                let destination = model.state_of_choice(
-                    model.choice_of_branch(model.branch_of_predecessor(predecessor)),
-                );
+                let choice = model.choice_of_predecessor(predecessor);
+                if exclusion_criterion.is_choice_excluded(choice) {
+                    continue;
+                }
+                let destination = model.state_of_choice(choice);
                 if !visited[destination] {
                     is_trivial = false;
                     visited[destination] = true;
@@ -376,11 +397,13 @@ impl<SccIdx: Index, SccDependencyIdx: Index> SccDependencies<SccIdx, SccDependen
 }
 #[cfg(test)]
 mod tests {
-    use super::{SccDependencies, SccDependencyIndex, SccEntryIndex, SccIndex, Sccs};
+    use super::{
+        ExcludeStatesAndChoices, SccDependencies, SccDependencyIndex, SccEntryIndex, SccIndex, Sccs,
+    };
     use crate::value_iteration::precomputed_states::S0S1;
     use probabilistic_models::mdp;
     use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
-    use probabilistic_models::{Model, PredecessorIndex, StateIndex};
+    use probabilistic_models::{BranchIndex, ChoiceIndex, Model, PredecessorIndex, StateIndex};
     use typed_index_collections::{Csr, Index, To1};
 
     #[test]
@@ -498,8 +521,15 @@ mod tests {
         assert_eq!(sccs.is_trivial, To1::with_entries(vec![false, true]));
     }
 
-    fn complex_model() -> impl ReadStateSpace<StateIndex = StateIndex<usize>>
-    + ReadPredecessors<StateIdx = StateIndex<usize>> {
+    fn complex_model() -> impl ReadStateSpace<
+        StateIndex = StateIndex<usize>,
+        ChoiceIndex = ChoiceIndex<usize>,
+        BranchIndex = BranchIndex<usize>,
+    > + ReadPredecessors<
+        StateIdx = StateIndex<usize>,
+        ChoiceIdx = ChoiceIndex<usize>,
+        BranchIdx = BranchIndex<usize>,
+    > {
         mdp!(mdp = {
             s0 -> 1.0: s1,
             s1 -> 1.0: s2,
@@ -700,6 +730,59 @@ mod tests {
 
         assert_eq!(deps_of(scc0), vec![]);
         assert_eq!(deps_of(scc2), vec![scc0]);
+    }
+
+    #[test]
+    fn excluded_choice_breaks_cycle() {
+        mdp!(mdp = {
+            s0 -> 1.0: s1,
+            s1 -> 1.0: s0,
+            s1 -> 1.0: s2,
+            s2 -> 1.0: s1
+        });
+
+        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
+        let exclusion = ExcludeStatesAndChoices::new(
+            To1::with_entries(vec![false, false, false]),
+            To1::with_entries(vec![false, true, false, false]),
+        );
+        let sccs = Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(
+            &model, &exclusion,
+        );
+
+        let scc0 = sccs.scc_index_of_state(StateIndex::from_raw(0)).unwrap();
+        let scc1 = sccs.scc_index_of_state(StateIndex::from_raw(1)).unwrap();
+        assert_eq!(sccs.scc_index_of_state(StateIndex::from_raw(2)), Some(scc1));
+        assert_ne!(scc0, scc1);
+        assert!(sccs.is_trivial[scc0]);
+        assert!(!sccs.is_trivial[scc1]);
+        assert!(
+            scc0 < scc1,
+            "the edge 0 -> 1 must be respected by the order"
+        );
+    }
+
+    #[test]
+    fn excluded_self_loop_is_trivial() {
+        mdp!(mdp = {
+            s0 -> 1.0: s0,
+            s0 -> 1.0: s1,
+            s1 -> 1.0: s1
+        });
+
+        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
+        let exclusion = ExcludeStatesAndChoices::new(
+            To1::with_entries(vec![false, false]),
+            To1::with_entries(vec![true, false, false]),
+        );
+        let sccs = Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(
+            &model, &exclusion,
+        );
+
+        let scc0 = sccs.scc_index_of_state(StateIndex::from_raw(0)).unwrap();
+        let scc1 = sccs.scc_index_of_state(StateIndex::from_raw(1)).unwrap();
+        assert!(sccs.is_trivial[scc0]);
+        assert!(!sccs.is_trivial[scc1]);
     }
 
     #[test]

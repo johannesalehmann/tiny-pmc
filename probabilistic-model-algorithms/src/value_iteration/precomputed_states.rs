@@ -17,11 +17,15 @@ pub trait PrecomputedStates {
     fn max_value(&self) -> f64;
 }
 
-impl<StateIdx: Index, P: PrecomputedStates<StateIdx = StateIdx>> ExclusionCriterion<StateIdx>
-    for P
+impl<StateIdx: Index, ChoiceIdx: Index, P: PrecomputedStates<StateIdx = StateIdx>>
+    ExclusionCriterion<StateIdx, ChoiceIdx> for P
 {
-    fn is_excluded(&self, state: StateIdx) -> bool {
+    fn is_state_excluded(&self, state: StateIdx) -> bool {
         !self.is_maybe_state(state)
+    }
+
+    fn is_choice_excluded(&self, _choice: ChoiceIdx) -> bool {
+        false
     }
 }
 

@@ -12,7 +12,12 @@ impl super::SolveOrder for Monolithic {
     fn find_and_solve_subgames<
         ND: NonDeterminism,
         Solver: SubGameSolver,
-        M: ReadStateSpace + ReadPredecessors<StateIdx = M::StateIndex>,
+        M: ReadStateSpace
+            + ReadPredecessors<
+                StateIdx = M::StateIndex,
+                ChoiceIdx = M::ChoiceIndex,
+                BranchIdx = M::BranchIndex,
+            >,
         P: PrecomputedStates<StateIdx = M::StateIndex>,
         Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>,
     >(

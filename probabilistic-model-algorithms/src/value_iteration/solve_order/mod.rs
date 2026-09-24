@@ -19,7 +19,12 @@ pub trait SolveOrder {
     fn find_and_solve_subgames<
         ND: NonDeterminism,
         Solver: super::subgame_solver::SubGameSolver,
-        M: ReadStateSpace + ReadPredecessors<StateIdx = M::StateIndex>,
+        M: ReadStateSpace
+            + ReadPredecessors<
+                StateIdx = M::StateIndex,
+                ChoiceIdx = M::ChoiceIndex,
+                BranchIdx = M::BranchIndex,
+            >,
         P: PrecomputedStates<StateIdx = M::StateIndex>,
         Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>,
     >(
