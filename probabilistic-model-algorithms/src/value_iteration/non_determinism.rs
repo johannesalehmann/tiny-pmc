@@ -1,6 +1,6 @@
+use crate::precomputed_states::S0S1;
 use crate::state_description::StateDescription;
 use probabilistic_models::traits::{ReadAtomicPropositions, ReadPredecessors, ReadStateSpace};
-use typed_index_collections::To1;
 
 pub trait NonDeterminism {
     fn compute_s0_s1<
@@ -14,7 +14,7 @@ pub trait NonDeterminism {
     >(
         model: &M,
         goal: &StateDescription<M>,
-    ) -> (To1<M::StateIndex, bool>, To1<M::StateIndex, bool>);
+    ) -> S0S1<M::StateIndex>;
 
     fn neutral_value() -> f64;
     fn is_better(before: f64, new: f64) -> bool;
@@ -34,10 +34,10 @@ impl NonDeterminism for Maximise {
     >(
         model: &M,
         goal: &StateDescription<M>,
-    ) -> (To1<M::StateIndex, bool>, To1<M::StateIndex, bool>) {
+    ) -> S0S1<M::StateIndex> {
         let s0 = crate::qualitative_reachability::s0_max(model, goal);
         let s1 = crate::qualitative_reachability::s1_max(model, goal);
-        (s0, s1)
+        S0S1::new(s0, s1)
     }
 
     fn neutral_value() -> f64 {
@@ -63,10 +63,10 @@ impl NonDeterminism for Minimise {
     >(
         model: &M,
         goal: &StateDescription<M>,
-    ) -> (To1<M::StateIndex, bool>, To1<M::StateIndex, bool>) {
+    ) -> S0S1<M::StateIndex> {
         let s0 = crate::qualitative_reachability::s0_min(model, goal);
         let s1 = crate::qualitative_reachability::s1_min(model, goal, &s0);
-        (s0, s1)
+        S0S1::new(s0, s1)
     }
 
     fn neutral_value() -> f64 {

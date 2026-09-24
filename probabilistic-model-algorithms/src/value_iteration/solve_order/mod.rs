@@ -8,6 +8,7 @@ pub use topological::{
 };
 
 use crate::dominated_by::DominatedByRelation;
+use crate::precomputed_states::PrecomputedStates;
 use crate::sccs::Scc;
 use crate::value_iteration::non_determinism::NonDeterminism;
 use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
@@ -18,11 +19,11 @@ pub trait SolveOrder {
         ND: NonDeterminism,
         Solver: super::subgame_solver::SubGameSolver,
         M: ReadStateSpace + ReadPredecessors<StateIdx = M::StateIndex>,
+        P: PrecomputedStates<StateIdx = M::StateIndex>,
     >(
         self,
         model: &M,
-        s0: &To1<M::StateIndex, bool>,
-        s1: &To1<M::StateIndex, bool>,
+        precomputed_states: &P,
         dominated_by_relation: &DominatedByRelation<M::StateIndex>,
         eps: f64,
     ) -> To1<M::StateIndex, f64>;

@@ -207,7 +207,12 @@ fn value_iteration_internal<
     goal: &StateDescription<M>,
     eps: f64,
 ) -> To1<M::StateIndex, f64> {
-    let (s0, s1) = ND::compute_s0_s1(model, goal);
+    let precomputed_states = ND::compute_s0_s1(model, goal);
     let dominated_by = DominatedByRelation::empty();
-    solve_order.find_and_solve_subgames::<ND, Solver, _>(model, &s0, &s1, &dominated_by, eps)
+    solve_order.find_and_solve_subgames::<ND, Solver, _, _>(
+        model,
+        &precomputed_states,
+        &dominated_by,
+        eps,
+    )
 }

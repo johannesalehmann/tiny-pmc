@@ -213,6 +213,7 @@ fn compute_order<
 mod tests {
     use super::{SubModel, SubModelConstructionContext};
     use crate::dominated_by::DominatedByRelation;
+    use crate::precomputed_states::S0S1;
     use crate::sccs::{SccEntryIndex, SccIndex, Sccs};
     use probabilistic_models::mdp;
     use probabilistic_models::{BranchIndex, ChoiceIndex, Model, PredecessorIndex, StateIndex};
@@ -230,9 +231,9 @@ mod tests {
 
         let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> = Sccs::compute(
             &model,
-            Some((
-                &To1::with_entries(vec![false, false, false]),
-                &To1::with_entries(vec![false, false, true]),
+            Some(&S0S1::new(
+                To1::with_entries(vec![false, false, false]),
+                To1::with_entries(vec![false, false, true]),
             )),
         );
         let values = To1::with_entries(vec![0.0, 0.0, 1.0]);
@@ -286,9 +287,9 @@ mod tests {
 
         let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> = Sccs::compute(
             &model,
-            Some((
-                &To1::with_entries(vec![false, false, false]),
-                &To1::with_entries(vec![false, false, true]),
+            Some(&S0S1::new(
+                To1::with_entries(vec![false, false, false]),
+                To1::with_entries(vec![false, false, true]),
             )),
         );
         let values = To1::with_entries(vec![0.0, 0.6, 1.0]);
@@ -336,9 +337,9 @@ mod tests {
 
         let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> = Sccs::compute(
             &model,
-            Some((
-                &To1::with_entries(vec![false, false, false]),
-                &To1::with_entries(vec![false, false, true]),
+            Some(&S0S1::new(
+                To1::with_entries(vec![false, false, false]),
+                To1::with_entries(vec![false, false, true]),
             )),
         );
         let values = To1::with_entries(vec![0.0, 0.0, 1.0]);
@@ -395,9 +396,9 @@ mod tests {
 
         let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> = Sccs::compute(
             &model,
-            Some((
-                &To1::with_entries(vec![false, false, false]),
-                &To1::with_entries(vec![false, false, true]),
+            Some(&S0S1::new(
+                To1::with_entries(vec![false, false, false]),
+                To1::with_entries(vec![false, false, true]),
             )),
         );
         let values = To1::with_entries(vec![0.0, 0.6, 1.0]);

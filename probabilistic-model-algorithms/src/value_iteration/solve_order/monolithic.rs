@@ -1,4 +1,5 @@
 use crate::dominated_by::DominatedByRelation;
+use crate::precomputed_states::PrecomputedStates;
 use crate::value_iteration::non_determinism::NonDeterminism;
 use crate::value_iteration::subgame_solver::SubGameSolver;
 use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
@@ -11,15 +12,15 @@ impl super::SolveOrder for Monolithic {
         ND: NonDeterminism,
         Solver: SubGameSolver,
         M: ReadStateSpace + ReadPredecessors<StateIdx = M::StateIndex>,
+        P: PrecomputedStates<StateIdx = M::StateIndex>,
     >(
         self,
         model: &M,
-        s0: &To1<M::StateIndex, bool>,
-        s1: &To1<M::StateIndex, bool>,
+        precomputed_states: &P,
         dominated_by_relation: &DominatedByRelation<M::StateIndex>,
         eps: f64,
     ) -> To1<M::StateIndex, f64> {
-        let _ = (model, s0, s1, dominated_by_relation, eps);
+        let _ = (model, precomputed_states, dominated_by_relation, eps);
         todo!()
     }
 }

@@ -1,3 +1,4 @@
+use crate::precomputed_states::PrecomputedStates;
 use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
 use probabilistic_models::typed_index_collections::{Csr, To1, ValuePerIndexSource, index};
 use probabilistic_models::{Index, RawIndex};
@@ -12,21 +13,21 @@ pub struct Sccs<SccIdx: Index, SccEntryIdx: Index, StateIdx: Index> {
     sccs: Csr<SccIdx, SccEntryIdx>,
     scc_entries: To1<SccEntryIdx, StateIdx>,
     is_trivial: To1<SccIdx, bool>,
-    state_to_scc: To1<StateIdx, Option<SccIdx>>, // This maps to None for states in s0 or s1
+    state_to_scc: To1<StateIdx, Option<SccIdx>>, // This maps to None for excluded states
 }
 
 impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
     pub fn compute<M: ReadStateSpace<StateIndex = SI> + ReadPredecessors<StateIdx = SI>>(
         model: &M,
-        s0_s1_states: Option<(&To1<SI, bool>, &To1<SI, bool>)>,
+        precomputed_states: Option<&dyn PrecomputedStates<StateIdx = SI>>, // TODO: Benchmark the cost of &dyn here
     ) -> Self {
         let mut visited = To1::with_entries(vec![false; model.states().len()]);
         let mut l = Vec::with_capacity(model.states().len());
         let mut scc_entry_count = model.states().len();
 
-        if let Some((s0_states, s1_states)) = s0_s1_states {
+        if let Some(precomputed_states) = precomputed_states {
             for state in model.states() {
-                if s0_states[state] || s1_states[state] {
+                if !precomputed_states.is_maybe_state(state) {
                     visited[state] = true;
                     scc_entry_count -= 1;
                 }
@@ -39,9 +40,9 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
             }
         }
 
-        if let Some((s0_states, s1_states)) = &s0_s1_states {
+        if let Some(precomputed_states) = precomputed_states {
             for state in model.states() {
-                visited[state] = s0_states[state] || s1_states[state];
+                visited[state] = !precomputed_states.is_maybe_state(state);
             }
         } else {
             for v in &mut visited {
@@ -382,6 +383,7 @@ impl<SccIdx: Index, SccDependencyIdx: Index> SccDependencies<SccIdx, SccDependen
 #[cfg(test)]
 mod tests {
     use super::{SccDependencies, SccDependencyIndex, SccEntryIndex, SccIndex, Sccs};
+    use crate::precomputed_states::S0S1;
     use probabilistic_models::mdp;
     use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
     use probabilistic_models::{Model, PredecessorIndex, StateIndex};
@@ -673,11 +675,13 @@ mod tests {
 
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
 
-        let s0_states = To1::with_entries(vec![false, true, false]);
-        let s1_states = To1::with_entries(vec![false, false, false]);
+        let precomputed_states = S0S1::new(
+            To1::with_entries(vec![false, true, false]),
+            To1::with_entries(vec![false, false, false]),
+        );
         let sccs = Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(
             &model,
-            Some((&s0_states, &s1_states)),
+            Some(&precomputed_states),
         );
 
         assert_eq!(sccs.state_to_scc[StateIndex::from_raw(1)], None);

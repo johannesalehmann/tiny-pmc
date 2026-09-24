@@ -5,6 +5,7 @@ mod scc_timings;
 pub use scc_timings::{SccTimingOutput, SccTimings, TopoTiming};
 
 use crate::dominated_by::DominatedByRelation;
+use crate::precomputed_states::PrecomputedStates;
 use crate::sccs::{SccEntryIndex, SccIndex, Sccs};
 use crate::sub_model::{SubModel, SubModelConstructionContext};
 use crate::value_iteration::non_determinism::NonDeterminism;
@@ -37,20 +38,20 @@ impl<Timing: TopoTiming, EA: EpsAllocation<SccIndex<usize>>> SolveOrder
         ND: NonDeterminism,
         Solver: SubGameSolver,
         M: ReadStateSpace + ReadPredecessors<StateIdx = M::StateIndex>,
+        P: PrecomputedStates<StateIdx = M::StateIndex>,
     >(
         self,
         model: &M,
-        s0: &To1<M::StateIndex, bool>,
-        s1: &To1<M::StateIndex, bool>,
+        precomputed_states: &P,
         dom_by: &DominatedByRelation<M::StateIndex>,
         eps: f64,
     ) -> To1<M::StateIndex, f64> {
         let mut timings = self.timing;
 
-        let mut values = create_value_vector(model.states(), &s1);
+        let mut values = create_value_vector(model.states(), precomputed_states);
 
         let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> =
-            Sccs::compute(model, Some((s0, s1)));
+            Sccs::compute(model, Some(precomputed_states));
         let eps_allocation = EA::create(eps, model, &sccs);
         let max_size = sccs.max_size();
         let mut solver = Solver::create(max_size);
@@ -117,11 +118,11 @@ fn write_to_global_values<OldSI: Index, SI: Index, CI: Index, BI: Index>(
 
 fn create_value_vector<StateIdx: Index>(
     states: SemiboundedIndexRange<StateIdx>,
-    s1: &To1<StateIdx, bool>,
+    precomputed_states: &impl PrecomputedStates<StateIdx = StateIdx>,
 ) -> To1<StateIdx, f64> {
     let mut values = To1::with_capacity(states.len());
     for state in states {
-        values.add_checked(state, if s1[state] { 1.0 } else { 0.0 });
+        values.add_checked(state, precomputed_states.initial_value(state));
     }
     values
 }
