@@ -1,3 +1,6 @@
+mod context;
+pub use context::SubModelConstructionContext;
+
 mod sub_model_rewards;
 pub use sub_model_rewards::{RewardsSource, StateAndChoiceRewards};
 
@@ -6,38 +9,14 @@ use crate::mecs::Mecs;
 use crate::sccs::Scc;
 use probabilistic_models::base_model::Mdp;
 use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
-use std::collections::VecDeque;
 use typed_index_collections::{Index, RawIndex, To1};
 
-pub struct SubModelConstructionContext<StateIdx: Index> {
-    // For the same model, different sub-models may use different new index types (usually the
-    // narrowest-possible type). To support all these in a single buffer, we use usize instead of a
-    // specific state index type here.
-    to_new_state_index: To1<StateIdx, Option<usize>>,
-    // Which states were visited in the BFS that is used to determine the order within the sub-model
-    visited: To1<StateIdx, bool>,
-    visitation_order: Vec<StateIdx>,
-    visited_open_list: VecDeque<StateIdx>,
-}
-
-impl<StateIdx: Index> SubModelConstructionContext<StateIdx> {
-    pub fn new<M: ReadStateSpace<StateIndex = StateIdx>>(model: &M) -> Self {
-        Self {
-            to_new_state_index: To1::with_entries(vec![None; model.states().len()]),
-            visited: To1::with_entries(vec![false; model.states().len()]),
-            visitation_order: Vec::new(),
-            visited_open_list: VecDeque::new(),
-        }
-    }
-
-    pub fn reset<NewSI: Index>(&mut self, to_old_state_index: &To1<NewSI, StateIdx>) {
-        for &state in to_old_state_index {
-            self.to_new_state_index[state] = None;
-            self.visited[state] = false;
-        }
-        self.visitation_order.clear();
-        self.visited_open_list.clear();
-    }
+#[derive(Debug, PartialEq, Clone, Copy)]
+pub enum SubModelOrder {
+    BackToFront,
+    FrontToBack,
+    AttractorStyle,
+    Legacy,
 }
 
 pub struct SubModel<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index> {
@@ -82,6 +61,7 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
         mecs: &Mecs<M::StateIndex, M::ChoiceIndex>,
         values: &To1<M::StateIndex, f64>,
         rewards: &Rew,
+        order: SubModelOrder,
     ) -> Self {
         let mut context = SubModelConstructionContext::new(model);
         let mut sub_model = SubModel::empty();
@@ -92,6 +72,7 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
             mecs,
             values,
             rewards,
+            order,
             &mut context,
         );
         sub_model
@@ -110,9 +91,9 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
         mecs: &Mecs<M::StateIndex, M::ChoiceIndex>,
         values: &To1<M::StateIndex, f64>,
         rewards: &Rew,
+        order: SubModelOrder,
         context: &mut SubModelConstructionContext<M::StateIndex>,
     ) {
-        self.to_old_state_index.clear();
         compute_order(
             model,
             scc,
@@ -120,6 +101,7 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
             mecs,
             values,
             rewards,
+            order,
             context,
             &mut self.to_old_state_index,
         );
@@ -127,11 +109,7 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
         self.mdp.clear();
         self.choice_exit_values.clear();
 
-        for &state in &context.visitation_order {
-            let Some(new_state) = context.to_new_state_index[state] else {
-                continue; // Skip dominated and merged states
-            };
-            let new_state = NewSI::from_raw(NewSI::RawType::from_usize(new_state));
+        for (new_state, &state) in self.to_old_state_index.enumerate() {
             self.mdp.add_state(new_state);
             for member in mecs.states_merged_into(state) {
                 let state_reward = if rewards.has_state_rewards() {
@@ -209,15 +187,79 @@ fn compute_order<
     mecs: &Mecs<M::StateIndex, M::ChoiceIndex>,
     values: &To1<M::StateIndex, f64>,
     rewards: &Rew,
+    order: SubModelOrder,
     context: &mut SubModelConstructionContext<M::StateIndex>,
     to_old_state_index: &mut To1<NewSI, M::StateIndex>,
 ) {
+    match order {
+        SubModelOrder::BackToFront | SubModelOrder::FrontToBack => compute_index_based_order(
+            scc,
+            dominated_by,
+            mecs,
+            order == SubModelOrder::BackToFront,
+            context,
+            to_old_state_index,
+        ),
+        SubModelOrder::AttractorStyle => {
+            todo!()
+        }
+        SubModelOrder::Legacy => compute_order_bfs(
+            model,
+            scc,
+            dominated_by,
+            mecs,
+            values,
+            rewards,
+            context,
+            to_old_state_index,
+        ),
+    }
+}
+
+fn compute_index_based_order<SI: Index, CI: Index, ScI: Index, ScEI: Index, NewSI: Index>(
+    scc: Scc<'_, ScI, ScEI, SI>,
+    dominated_by: &DominatedByRelation<SI>,
+    mecs: &Mecs<SI, CI>,
+    reverse: bool,
+    context: &mut SubModelConstructionContext<SI>,
+    to_old_state_index: &mut To1<NewSI, SI>,
+) {
+    to_old_state_index.clear();
+    for state in scc.states() {
+        if dominated_by.dominated_by(state).is_none() && !mecs.is_merged_away(state) {
+            to_old_state_index.add(state);
+        }
+    }
+    let states = to_old_state_index.entries_mut();
+    states.sort_unstable();
+    if reverse {
+        states.reverse();
+    }
+    for (new_index, &state) in to_old_state_index.enumerate() {
+        context.to_new_state_index[state] = Some(new_index.raw().as_usize());
+    }
+}
+
+fn compute_order_bfs<
+    M: ReadStateSpace + ReadPredecessors<StateIdx = M::StateIndex>,
+    ScI: Index,
+    ScEI: Index,
+    NewSI: Index,
+    Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>,
+>(
+    model: &M,
+    scc: Scc<'_, ScI, ScEI, M::StateIndex>,
+    dominated_by: &DominatedByRelation<M::StateIndex>,
+    mecs: &Mecs<M::StateIndex, M::ChoiceIndex>,
+    values: &To1<M::StateIndex, f64>,
+    rewards: &Rew,
+    context: &mut SubModelConstructionContext<M::StateIndex>,
+    to_old_state_index: &mut To1<NewSI, M::StateIndex>,
+) {
+    to_old_state_index.clear();
     // Find states that can leave the SCC into a state with a non-zero value or that have a non-zero
     // reward. If an SCC has no such states, all states within it also have value zero, so the
     // sub-model will be empty.
-    // TODO: A BFS is a good starting point, but there are probably algorithms that yield an even
-    //  better result (e.g. something inspired by attractor computation or recursive SCC
-    //  computation within the SCC)
     for state in scc.states() {
         let mut non_zero_exit = has_non_zero_reward(model, rewards, state);
         if !non_zero_exit {
@@ -268,7 +310,7 @@ fn has_non_zero_reward<M: ReadStateSpace, Rew: RewardsSource<M::StateIndex, M::C
 
 #[cfg(test)]
 mod tests {
-    use super::{SubModel, SubModelConstructionContext};
+    use super::{SubModel, SubModelConstructionContext, SubModelOrder};
     use crate::dominated_by::DominatedByRelation;
     use crate::mecs::Mecs;
     use crate::sccs::{ExcludeStatesAndChoices, SccEntryIndex, SccIndex, Sccs};
@@ -306,12 +348,13 @@ mod tests {
             &Mecs::empty(),
             &values,
             &(),
+            SubModelOrder::BackToFront,
             &mut context,
         );
 
         assert_eq!(
             sub_model.to_old_state_index,
-            To1::with_entries(vec![StateIndex::from_raw(0), StateIndex::from_raw(1)])
+            To1::with_entries(vec![StateIndex::from_raw(1), StateIndex::from_raw(0)])
         );
         assert_eq!(
             sub_model.mdp.state_to_choice,
@@ -327,11 +370,11 @@ mod tests {
         );
         assert_eq!(
             sub_model.mdp.branch_probabilities,
-            To1::with_entries(vec![0.25 * (1.0 / 0.75), 1.0])
+            To1::with_entries(vec![1.0, 0.25 * (1.0 / 0.75)])
         );
         assert_eq!(
             sub_model.choice_exit_values,
-            To1::with_entries(vec![0.5 * 1.0 * (1.0 / 0.75), 0.0])
+            To1::with_entries(vec![0.0, 0.5 * 1.0 * (1.0 / 0.75)])
         );
     }
 
@@ -364,6 +407,7 @@ mod tests {
             &Mecs::empty(),
             &values,
             &(),
+            SubModelOrder::BackToFront,
             &mut context,
         );
 
@@ -421,6 +465,7 @@ mod tests {
             &Mecs::empty(),
             &values,
             &(),
+            SubModelOrder::BackToFront,
             &mut context,
         );
 
@@ -450,7 +495,7 @@ mod tests {
     #[test]
     fn context_reuse() {
         // State 0 leaves its own SCC into the SCC of state 1, which is built first. State 1
-        // leaves its SCC into the goal state 2, so that it is not pruned from its sub-model.
+        // leaves its SCC into the goal state 2.
         mdp!(mdp = {
             s0 -> 0.5: s0 & 0.5: s1,
             s1 -> 0.5: s1 & 0.5: s2,
@@ -485,6 +530,7 @@ mod tests {
                 &Mecs::empty(),
                 &values,
                 &(),
+                SubModelOrder::BackToFront,
                 &mut context,
             );
             sub_models.push(sub_model);
@@ -547,6 +593,7 @@ mod tests {
             &mecs,
             &values,
             &(),
+            SubModelOrder::BackToFront,
             &mut context,
         );
 

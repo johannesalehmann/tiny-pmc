@@ -1,8 +1,10 @@
+use crate::sub_model::SubModelOrder;
 use crate::value_iteration::{EpsAllocationScheme, SccTimingOutput};
 
 pub struct ValueIterationConfig {
     pub collapse_mecs: CollapseMecs,
     pub solve_order: SolveOrder,
+    pub sub_model_order: SubModelOrder,
     pub eps: f64,
     // Can be used for benchmarking. Prints how long each sub_mdp (i.e. each SCC for topological VI)
     //  took to solve

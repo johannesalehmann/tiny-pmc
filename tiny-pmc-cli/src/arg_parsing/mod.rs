@@ -2,7 +2,7 @@ use clap::{Args, Parser, ValueEnum};
 use probabilistic_models::SuccessorOrder;
 use std::path::PathBuf;
 use tiny_pmc::checking::{
-    CheckerOptions, CollapseMecs, EpsAllocationScheme, SccTimingOutput, SolveOrder,
+    CheckerOptions, CollapseMecs, EpsAllocationScheme, SccTimingOutput, SolveOrder, SubModelOrder,
 };
 
 #[derive(Parser)]
@@ -41,6 +41,8 @@ pub struct ValueIterationArguments {
     pub scc_timings: Option<Option<PathBuf>>,
     #[arg(long, value_enum, default_value_t = CollapseMecsArg::WhenNecessary)]
     pub collapse_mecs: CollapseMecsArg,
+    #[arg(long, value_enum, default_value_t = StateOrderArg::BackToFront)]
+    pub state_order: StateOrderArg,
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -68,6 +70,14 @@ pub enum CollapseMecsArg {
 pub enum SolveOrderArg {
     Monolithic,
     Topological,
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+pub enum StateOrderArg {
+    BackToFront,
+    FrontToBack,
+    AttractorStyle,
+    Legacy,
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -108,6 +118,12 @@ impl ValueIterationArguments {
             collapse_mecs: match self.collapse_mecs {
                 CollapseMecsArg::WhenNecessary => CollapseMecs::WhenNecessary,
                 CollapseMecsArg::WheneverPossible => CollapseMecs::WheneverPossible,
+            },
+            sub_model_order: match self.state_order {
+                StateOrderArg::BackToFront => SubModelOrder::BackToFront,
+                StateOrderArg::FrontToBack => SubModelOrder::FrontToBack,
+                StateOrderArg::AttractorStyle => SubModelOrder::AttractorStyle,
+                StateOrderArg::Legacy => SubModelOrder::Legacy,
             },
             write_scc_timing,
         })

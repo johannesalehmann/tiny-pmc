@@ -15,6 +15,7 @@ use probabilistic_models::traits::StateSet;
 // pub use nonstochastic_games::check_nonstochastic_game;
 
 use crate::CheckerError;
+pub use probabilistic_model_algorithms::sub_model::SubModelOrder;
 use probabilistic_model_algorithms::value_iteration::ValueIterationConfig;
 pub use probabilistic_model_algorithms::value_iteration::{
     CollapseMecs, EpsAllocationScheme, SccTimingOutput, SolveOrder,
@@ -29,6 +30,7 @@ pub struct CheckerOptions {
     pub sound: bool,
     pub solve_order: SolveOrder,
     pub collapse_mecs: CollapseMecs,
+    pub sub_model_order: SubModelOrder,
     pub write_scc_timing: Option<SccTimingOutput>,
 }
 
@@ -37,6 +39,7 @@ impl CheckerOptions {
         ValueIterationConfig {
             collapse_mecs: self.collapse_mecs,
             solve_order: self.solve_order.clone(),
+            sub_model_order: self.sub_model_order,
             eps: self.eps,
             write_sub_mdp_timing: self.write_scc_timing.clone(),
         }

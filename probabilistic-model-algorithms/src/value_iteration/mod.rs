@@ -172,7 +172,11 @@ fn dispatch_solve_order<
         SolveOrder::Topological {
             eps_allocation_scheme,
         } => value_iteration_internal::<ND, Topological, Solver, _, _>(
-            Topological::new(config.write_sub_mdp_timing.clone(), eps_allocation_scheme),
+            Topological::new(
+                config.write_sub_mdp_timing.clone(),
+                eps_allocation_scheme,
+                config.sub_model_order,
+            ),
             model,
             goal,
             config,

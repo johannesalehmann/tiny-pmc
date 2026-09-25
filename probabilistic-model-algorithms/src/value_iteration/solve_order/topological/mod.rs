@@ -7,7 +7,7 @@ pub use scc_timings::{SccTimingOutput, SccTimings, TopoTiming};
 use crate::dominated_by::DominatedByRelation;
 use crate::mecs::Mecs;
 use crate::sccs::{SccEntryIndex, SccIndex, Sccs};
-use crate::sub_model::{RewardsSource, SubModel, SubModelConstructionContext};
+use crate::sub_model::{RewardsSource, SubModel, SubModelConstructionContext, SubModelOrder};
 use crate::value_iteration::non_determinism::NonDeterminism;
 use crate::value_iteration::precomputed_states::PrecomputedStates;
 use crate::value_iteration::solve_order::topological::eps_allocation::EpsAllocation;
@@ -20,16 +20,19 @@ use typed_index_collections::{Index, RawIndex, SemiboundedIndexRange, To1};
 pub struct Topological {
     timing: Option<SccTimingOutput>,
     eps_allocation_scheme: EpsAllocationScheme,
+    sub_model_order: SubModelOrder,
 }
 
 impl Topological {
     pub fn new(
         timing: Option<SccTimingOutput>,
         eps_allocation_scheme: EpsAllocationScheme,
+        sub_model_order: SubModelOrder,
     ) -> Self {
         Self {
             timing,
             eps_allocation_scheme,
+            sub_model_order,
         }
     }
 }
@@ -171,6 +174,7 @@ impl Topological {
                         mecs,
                         &values,
                         &rew,
+                        self.sub_model_order,
                         &mut submodel_context,
                     );
                     let res =
@@ -185,6 +189,7 @@ impl Topological {
                         mecs,
                         &values,
                         &rew,
+                        self.sub_model_order,
                         &mut submodel_context,
                     );
                     let res =
@@ -200,6 +205,7 @@ impl Topological {
                         mecs,
                         &values,
                         &rew,
+                        self.sub_model_order,
                         &mut submodel_context,
                     );
                     let res =
@@ -214,6 +220,7 @@ impl Topological {
                         mecs,
                         &values,
                         &rew,
+                        self.sub_model_order,
                         &mut submodel_context,
                     );
                     let res =
