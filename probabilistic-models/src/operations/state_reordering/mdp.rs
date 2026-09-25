@@ -41,19 +41,6 @@ mod tests {
 
     type TestMdp = Mdp<StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>>;
 
-    /// Builds an MDP from `states[state][choice] = [(probability, destination)]`.
-    fn mdp_from(states: &[&[&[(f64, usize)]]]) -> TestMdp {
-        let mut mdp = Mdp::with_default_types();
-        for (index, choices) in states.iter().enumerate() {
-            mdp.add_state(state(index));
-            for branches in *choices {
-                let branches: Vec<_> = branches.iter().map(|&(p, d)| (p, state(d))).collect();
-                mdp.add_choice_from_slice(&branches);
-            }
-        }
-        mdp
-    }
-
     /// The choices of the state with the given index as a list of branches `(probability, destination)`.
     fn choices_of(mdp: &TestMdp, index: usize) -> Vec<Vec<(f64, usize)>> {
         mdp.choices_of_state(state(index))
@@ -153,16 +140,18 @@ mod tests {
 
     #[test]
     fn state_without_choices() {
-        let input = mdp_from(&[
-            &[&[(0.5, 1), (0.5, 2)], &[(1.0, 2)]], // s0
-            &[],                                   // s1
-            &[&[(1.0, 0)]],                        // s2
-        ]);
-        let expected = mdp_from(&[
-            &[],                                   // s1
-            &[&[(1.0, 2)]],                        // s2
-            &[&[(0.5, 0), (0.5, 1)], &[(1.0, 1)]], // s0
-        ]);
+        mdp!(input = {
+            s0 -> 0.5: s1 & 0.5: s2,
+            s0 -> 1.0: s2,
+            s1 -> deadlock,
+            s2 -> 1.0: s0
+        });
+        mdp!(expected = {
+            s1 -> deadlock,
+            s2 -> 1.0: s0,
+            s0 -> 0.5: s1 & 0.5: s2,
+            s0 -> 1.0: s2
+        });
         let permuted = input.permute_states(&state_ordering(vec![2, 0, 1]));
         assert_eq!(permuted, expected);
     }
@@ -207,7 +196,7 @@ mod tests {
             s0 -> 0.5: s1 & 0.5: s3,
             s0 -> 1.0: s0,
             s1 -> 0.25: s0 & 0.25: s2 & 0.5: s3,
-            s2 -> 1.0: s2,
+            s2 -> deadlock,
             s3 -> 0.9: s1 & 0.1: s2,
             s3 -> 1.0: s0
         });
@@ -262,7 +251,9 @@ mod tests {
 
     #[test]
     fn no_states() {
-        let permuted = mdp_from(&[]).permute_states(&state_ordering(vec![]));
-        assert_eq!(permuted, mdp_from(&[]));
+        mdp!(input = {});
+        mdp!(expected = {});
+        let permuted = input.permute_states(&state_ordering(vec![]));
+        assert_eq!(permuted, expected);
     }
 }

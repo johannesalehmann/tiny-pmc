@@ -436,7 +436,7 @@ mod tests {
 
     #[test]
     fn single() {
-        mdp!(mdp = { s0 ->, });
+        mdp!(mdp = { s0 -> deadlock });
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
         let sccs =
             Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(&model, &());
@@ -479,7 +479,7 @@ mod tests {
     #[test]
     fn two_unconnected() {
         mdp!(mdp = {
-            s0 ->,
+            s0 -> deadlock,
             s1 -> 1.0: s1
         });
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
@@ -506,7 +506,7 @@ mod tests {
     #[test]
     fn two_state_loop() {
         mdp!(mdp = {
-            s0 ->,
+            s0 -> deadlock,
             s1 -> 1.0: s2,
             s2 -> 1.0: s2,
             s2 -> 0.5: s2 & 0.5: s1
@@ -699,7 +699,7 @@ mod tests {
             s0 -> 1.0: s1,
             s1 -> 1.0: s2,
             s2 -> 1.0: s3,
-            s3 ->,
+            s3 -> deadlock
         });
 
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
@@ -818,14 +818,14 @@ mod tests {
         mdp!(mdp = {
             s0 -> 1.0: s1,
             s0 -> 1.0: s2,
-            s1 ->,
-            s2 ->,
+            s1 -> deadlock,
+            s2 -> deadlock
         });
 
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
         let exclusion = ExcludeStatesAndChoices::new(
             To1::with_entries(vec![false, false, false]),
-            To1::with_entries(vec![true, false, false, false]),
+            To1::with_entries(vec![true, false]),
         );
         let sccs = Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(
             &model, &exclusion,
@@ -885,10 +885,10 @@ mod tests {
         mdp!(mdp = {
             s0 -> 1.0: s1,
             s0 -> 1.0: s2,
-            s1 ->,
+            s1 -> deadlock,
             s2 -> 1.0: s3,
             s3 -> 1.0: s4,
-            s4 ->,
+            s4 -> deadlock,
         });
 
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
@@ -911,7 +911,7 @@ mod tests {
         mdp!(mdp = {
             s0 -> 1.0: s1,
             s0 -> 1.0: s2,
-            s1 ->,
+            s1 -> deadlock,
             s2 -> 1.0: s1,
         });
 
