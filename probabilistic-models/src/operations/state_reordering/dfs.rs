@@ -1,5 +1,4 @@
-use super::{PermuteStates, PermuteStatesWithContext, StateOrdering};
-use crate::Model;
+use super::StateOrdering;
 use crate::traits::{ReadInitialStates, ReadStateSpace, StateSet};
 use num_traits::Bounded;
 use typed_index_collections::{Index, RawIndex, To1};
@@ -13,84 +12,7 @@ pub enum SuccessorOrder {
     HighestProbabilityFirst,
 }
 
-impl<
-    SI: Index,
-    CI: Index,
-    M: PermuteStates<StateIndex = SI>
-        + ReadStateSpace<StateIndex = SI, ChoiceIndex = CI>
-        + ReadInitialStates<StateIdx = SI>,
-    Ini: PermuteStatesWithContext<SI, CI>,
-    ChLabel: PermuteStatesWithContext<SI, CI>,
-    BrLabel: PermuteStatesWithContext<SI, CI>,
-    Obs: PermuteStatesWithContext<SI, CI>,
-    APs: PermuteStatesWithContext<SI, CI>,
-    Rew: PermuteStatesWithContext<SI, CI>,
-    Ann: PermuteStatesWithContext<SI, CI>,
-    StateVals: PermuteStatesWithContext<SI, CI>,
-    Preds: PermuteStatesWithContext<SI, CI>,
-> Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>
-{
-    #[must_use]
-    pub fn reorder_dfs(&self, successor_order: SuccessorOrder) -> Self {
-        assert!(
-            self.states().len() < SI::RawType::max_value().as_usize(),
-            "dfs reordering needs the maximal value of the state index type to be larger than the number of states of the model"
-        );
-        let state_ordering = compute_dfs_state_ordering(&self.base, successor_order);
-
-        let base_model = self.base.permute_states(&state_ordering);
-        Model {
-            initial: self.initial.permute_states_with_context(
-                &state_ordering,
-                &self.base,
-                &base_model,
-            ),
-            choice_labels: self.choice_labels.permute_states_with_context(
-                &state_ordering,
-                &self.base,
-                &base_model,
-            ),
-            branch_labels: self.branch_labels.permute_states_with_context(
-                &state_ordering,
-                &self.base,
-                &base_model,
-            ),
-            observations: self.observations.permute_states_with_context(
-                &state_ordering,
-                &self.base,
-                &base_model,
-            ),
-            atomic_propositions: self.atomic_propositions.permute_states_with_context(
-                &state_ordering,
-                &self.base,
-                &base_model,
-            ),
-            rewards: self.rewards.permute_states_with_context(
-                &state_ordering,
-                &self.base,
-                &base_model,
-            ),
-            annotations: self.annotations.permute_states_with_context(
-                &state_ordering,
-                &self.base,
-                &base_model,
-            ),
-            state_valuations: self.state_valuations.permute_states_with_context(
-                &state_ordering,
-                &self.base,
-                &base_model,
-            ),
-            predecessors: self.predecessors.permute_states_with_context(
-                &state_ordering,
-                &self.base,
-                &base_model,
-            ),
-            base: base_model,
-        }
-    }
-}
-
-fn compute_dfs_state_ordering<
+pub fn compute_dfs_state_ordering<
     SI: Index,
     M: ReadStateSpace<StateIndex = SI> + ReadInitialStates<StateIdx = SI>,
 >(
