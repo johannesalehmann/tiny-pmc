@@ -26,6 +26,14 @@ impl<EntityIdx: Index, AnnotationEntryIdx: Index, Val>
         Val,
     >
 {
+    pub fn with_identity_distribution_and_entries(values: To1<AnnotationEntryIdx, Val>) -> Self {
+        Self {
+            distribution: Default::default(),
+            values,
+            phantom_data: PhantomData,
+        }
+    }
+
     pub fn add_value(&mut self, entity: EntityIdx, value: Val) {
         let annotation_index = self.distribution.annotation_index(entity);
         self.values.add_checked(annotation_index, value);

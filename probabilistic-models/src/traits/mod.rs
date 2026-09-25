@@ -65,6 +65,7 @@ pub trait ReadStateSpace {
 
     fn branch_probability(&self, branch: Self::BranchIndex) -> f64;
     fn branch_destination(&self, branch: Self::BranchIndex) -> Self::StateIndex;
+    // TODO: a branch(BI) -> (f64, SI) might be a nice quality-of-life improvement.
 
     fn successors_of_state(&self, state: Self::StateIndex) -> impl Iterator<Item = Self::StateIndex>
     where
