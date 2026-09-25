@@ -57,9 +57,7 @@ impl<SI: Index, CI: Index> PermuteStatesWithContext<SI, CI> for () {
 impl<
     SI: Index,
     CI: Index,
-    M: PermuteStates<StateIndex = SI>
-        + ReadStateSpace<StateIndex = SI, ChoiceIndex = CI>
-        + ReadInitialStates<StateIdx = SI>,
+    M: PermuteStates<StateIndex = SI> + ReadStateSpace<StateIndex = SI, ChoiceIndex = CI>,
     Ini: PermuteStatesWithContext<SI, CI>,
     ChLabel: PermuteStatesWithContext<SI, CI>,
     BrLabel: PermuteStatesWithContext<SI, CI>,
@@ -72,12 +70,15 @@ impl<
 > Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>
 {
     #[must_use]
-    pub fn reorder_dfs(&self, successor_order: SuccessorOrder) -> Self {
+    pub fn reorder_dfs(&self, successor_order: SuccessorOrder) -> Self
+    where
+        Self: ReadStateSpace<StateIndex = SI> + ReadInitialStates<StateIdx = SI>,
+    {
         assert!(
             self.states().len() < SI::RawType::max_value().as_usize(),
             "dfs reordering needs the maximal value of the state index type to be larger than the number of states of the model"
         );
-        let state_ordering = dfs::compute_dfs_state_ordering(&self.base, successor_order);
+        let state_ordering = dfs::compute_dfs_state_ordering(self, successor_order);
         self.reorder(state_ordering)
     }
 

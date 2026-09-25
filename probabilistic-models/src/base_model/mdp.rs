@@ -207,7 +207,7 @@ macro_rules! mdp {
             $(
                 let branches: Vec<(f64, StateIndex<usize>)> =
                     vec![$( ($p, state_indices[stringify!($dest)]) ),*];
-                #[allow(unused_mut)]
+                #[allow(unused_mut, unused_assignments)]
                 let mut is_deadlock = false;
                 $(
                     assert_eq!(
