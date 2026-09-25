@@ -7,6 +7,7 @@ use crate::valuations::bits::SetBits;
 use bits::GetBits;
 
 mod class;
+mod state_valuations;
 pub use class::{Type, ValuationClass, ValuationClassEntry, ValuationEntryDescription};
 
 #[derive(Default)]

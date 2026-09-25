@@ -54,6 +54,20 @@ fn checker() -> Result<(), ModelCheckerError> {
 
     println!("Model has {} states", model.states().len());
 
+    // Drop labels and valuations, as dfs reordering does not yet support them. In the future,
+    // it would be nice to add support for those.
+    let model = model.without_choice_labels().without_valuations();
+
+    let model = match arguments.dfs {
+        None => model,
+        Some(dfs) => {
+            let start_reorder = std::time::Instant::now();
+            let model = model.reorder_dfs(dfs.into());
+            println!("Reordered states (dfs) in {:?}", start_reorder.elapsed());
+            model
+        }
+    };
+
     // model.tra_file().write_to_file("model.tra").unwrap();
     // model.sta_file().write_to_file("model.sta").unwrap();
     // model.lab_file().write_to_file("model.lab").unwrap();

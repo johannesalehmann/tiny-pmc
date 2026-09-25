@@ -1,4 +1,5 @@
 use clap::{Args, Parser, ValueEnum};
+use probabilistic_models::SuccessorOrder;
 use std::path::PathBuf;
 use tiny_pmc::checking::{
     CheckerOptions, CollapseMecs, EpsAllocationScheme, SccTimingOutput, SolveOrder,
@@ -13,6 +14,14 @@ pub struct Arguments {
     pub property: String,
     #[arg(short, long, default_value_t = String::new())]
     pub constants: String,
+    #[arg(
+        long,
+        value_enum,
+        num_args = 0..=1,
+        default_missing_value = "preserve",
+        value_name = "SUCCESSOR_ORDER"
+    )]
+    pub dfs: Option<DfsArg>,
     #[command(flatten)]
     pub value_iteration: ValueIterationArguments,
 }
@@ -32,6 +41,21 @@ pub struct ValueIterationArguments {
     pub scc_timings: Option<Option<PathBuf>>,
     #[arg(long, value_enum, default_value_t = CollapseMecsArg::WhenNecessary)]
     pub collapse_mecs: CollapseMecsArg,
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+pub enum DfsArg {
+    Preserve,
+    ByProbability,
+}
+
+impl From<DfsArg> for SuccessorOrder {
+    fn from(value: DfsArg) -> Self {
+        match value {
+            DfsArg::Preserve => SuccessorOrder::Preserve,
+            DfsArg::ByProbability => SuccessorOrder::HighestProbabilityFirst,
+        }
+    }
 }
 
 #[derive(Clone, Copy, ValueEnum)]
