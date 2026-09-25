@@ -2,6 +2,7 @@ use crate::to1::To1;
 use crate::{Index, RawIndex, SemiboundedIndexRange, ValuePerIndexSource};
 use std::collections::HashMap;
 
+#[derive(Debug)]
 pub struct NamedTo1<InternalIndex: Index, E> {
     store: To1<InternalIndex, E>,
     names: To1<InternalIndex, String>,
@@ -14,6 +15,27 @@ impl<InternalIndex: Index, E> Default for NamedTo1<InternalIndex, E> {
         Self::new()
     }
 }
+
+// Two collections are equal if they contain the same names mapped to equal entries, independent of
+// the order in which the entries were added.
+impl<InternalIndex: Index, E: PartialEq> PartialEq for NamedTo1<InternalIndex, E> {
+    fn eq(&self, other: &Self) -> bool {
+        if self.names == other.names {
+            // If the order of names matches, we can do a cheap comparison
+            return self.store == other.store;
+        }
+        // Otherwise, we need to check whether the collections are equal, but names are not ordered
+        //  in the same way.
+        self.len() == other.len()
+            && self.into_iter().all(|(name, entry)| {
+                other
+                    .entry_by_name(name)
+                    .is_some_and(|other_entry| entry == other_entry)
+            })
+    }
+}
+
+impl<InternalIndex: Index, E: Eq> Eq for NamedTo1<InternalIndex, E> {}
 
 impl<InternalIndex: Index, E> NamedTo1<InternalIndex, E> {
     pub fn new() -> Self {
@@ -185,5 +207,93 @@ impl<'a, InternalIndex: Index, E> Iterator for EnumeratingNamedTo1Iterator<'a, I
     fn next(&mut self) -> Option<Self::Item> {
         let index = self.iterator.index;
         self.iterator.next().map(|val| (index, val))
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate as typed_index_collections;
+    use crate::NamedTo1;
+
+    crate::index!(EntryIndex);
+
+    fn collection(entries: &[(&str, i32)]) -> NamedTo1<EntryIndex<u32>, i32> {
+        let mut collection = NamedTo1::new();
+        for &(name, entry) in entries {
+            collection.add_entry(name.to_string(), entry);
+        }
+        collection
+    }
+
+    #[test]
+    fn equal_same_order() {
+        let entries = [("a", 1), ("b", 2), ("c", 3)];
+        assert_eq!(collection(&entries), collection(&entries));
+    }
+
+    #[test]
+    fn equal_different_order() {
+        assert_eq!(
+            collection(&[("a", 1), ("b", 2), ("c", 3)]),
+            collection(&[("c", 3), ("a", 1), ("b", 2)])
+        );
+    }
+
+    #[test]
+    fn equal_empty() {
+        assert_eq!(collection(&[]), collection(&[]));
+    }
+
+    #[test]
+    fn different_entry_same_order() {
+        assert_ne!(
+            collection(&[("a", 1), ("b", 2)]),
+            collection(&[("a", 1), ("b", 3)])
+        );
+    }
+
+    #[test]
+    fn different_entry_different_order() {
+        assert_ne!(
+            collection(&[("a", 1), ("b", 2)]),
+            collection(&[("b", 3), ("a", 1)])
+        );
+    }
+
+    #[test]
+    fn entries_attached_to_swapped_names() {
+        assert_ne!(
+            collection(&[("a", 1), ("b", 2)]),
+            collection(&[("a", 2), ("b", 1)])
+        );
+        assert_ne!(
+            collection(&[("a", 1), ("b", 2)]),
+            collection(&[("b", 1), ("a", 2)])
+        );
+    }
+
+    #[test]
+    fn different_names() {
+        assert_ne!(
+            collection(&[("a", 1), ("b", 2)]),
+            collection(&[("a", 1), ("c", 2)])
+        );
+        assert_ne!(
+            collection(&[("a", 1), ("b", 2)]),
+            collection(&[("c", 2), ("a", 1)])
+        );
+    }
+
+    #[test]
+    fn different_length() {
+        assert_ne!(
+            collection(&[("a", 1), ("b", 2)]),
+            collection(&[("a", 1), ("b", 2), ("c", 3)])
+        );
+        assert_ne!(
+            collection(&[("a", 1), ("b", 2), ("c", 3)]),
+            collection(&[("b", 2), ("a", 1)])
+        );
+        assert_ne!(collection(&[("a", 1)]), collection(&[]));
     }
 }

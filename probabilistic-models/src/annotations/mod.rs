@@ -6,7 +6,7 @@ use crate::annotations::distributions::IdentityDistribution;
 use std::marker::PhantomData;
 use typed_index_collections::{Index, MappedIndices, NamedTo1, To1, To1BoolValues};
 
-#[derive(Default)]
+#[derive(Default, Debug, PartialEq)]
 pub struct TypedAnnotation<
     EntityIdx: Index,
     AnnotationEntryIdx: Index,

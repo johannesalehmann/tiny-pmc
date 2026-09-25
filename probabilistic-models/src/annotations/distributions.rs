@@ -23,7 +23,7 @@ impl<From: Index, To: Index> Distribution<From, To> for ProbabilisticDistributio
     }
 }
 
-#[derive(Default)]
+#[derive(Default, Debug, PartialEq, Eq)]
 pub struct IdentityDistribution<From: Index, To: Index> {
     phantom_data: PhantomData<(From, To)>,
 }
