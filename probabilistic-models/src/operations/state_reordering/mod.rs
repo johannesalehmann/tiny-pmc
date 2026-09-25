@@ -4,6 +4,8 @@ mod initial_states;
 mod mdp;
 mod ordering;
 mod rewards;
+#[cfg(test)]
+mod test_utils;
 
 pub use dfs::SuccessorOrder;
 pub use ordering::StateOrdering;

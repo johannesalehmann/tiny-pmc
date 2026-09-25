@@ -129,6 +129,7 @@ pub type AtomicPropositions<AnnotationIdx, StateIdx, AnnotationEntryIdx> = Typed
     bool,
 >;
 
+#[derive(Debug, PartialEq)]
 pub struct Rewards<States, Choices, Branches> {
     pub states: States,
     pub choices: Choices,

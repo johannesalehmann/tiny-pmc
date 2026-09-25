@@ -35,20 +35,59 @@ impl<SI: Index> StateOrdering<SI> {
             new_to_old,
         }
     }
+
+    pub fn len(&self) -> usize {
+        assert_eq!(
+            self.old_to_new.len(),
+            self.new_to_old.len(),
+            "Inconsistent `StateOrdering`: `old_to_new` covers {} states, but `new_to_old` covers {}.",
+            self.old_to_new.len(),
+            self.new_to_old.len()
+        );
+        self.old_to_new.len()
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use crate::StateIndex;
     use crate::operations::state_reordering::StateOrdering;
-    use typed_index_collections::{Index, RawIndex, To1};
+    use crate::operations::state_reordering::test_utils::{ordering, state};
+    use typed_index_collections::To1;
 
-    fn state<I: RawIndex>(index: I) -> StateIndex<I> {
-        StateIndex::from_raw(index)
+    #[test]
+    fn len() {
+        for len in [0usize, 1, 2, 7] {
+            let ordering = StateOrdering::new(ordering((0..len).rev().collect::<Vec<usize>>()));
+            assert_eq!(ordering.len(), len);
+            assert_eq!(ordering.is_empty(), len == 0);
+        }
     }
-    fn ordering<I: RawIndex>(entries: Vec<I>) -> To1<StateIndex<I>, StateIndex<I>> {
-        To1::with_entries(entries.into_iter().map(|i| state(i)).collect::<Vec<_>>())
+
+    #[test]
+    #[should_panic(expected = "`old_to_new` covers 3 states, but `new_to_old` covers 2")]
+    fn len_inconsistent_shorter_new_to_old() {
+        let ordering = StateOrdering {
+            old_to_new: ordering(vec![0usize, 1, 2]),
+            new_to_old: ordering(vec![0usize, 1]),
+        };
+        ordering.len();
     }
+
+    #[test]
+    #[should_panic(expected = "`old_to_new` covers 2 states, but `new_to_old` covers 3")]
+    fn len_inconsistent_shorter_old_to_new() {
+        let ordering = StateOrdering {
+            old_to_new: ordering(vec![0usize, 1]),
+            new_to_old: ordering(vec![0usize, 1, 2]),
+        };
+        ordering.len();
+    }
+
     #[test]
     fn identity() {
         for i in 0..10 {

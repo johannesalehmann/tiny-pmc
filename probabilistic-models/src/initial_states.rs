@@ -2,6 +2,7 @@ use crate::base_model::BaseModel;
 use crate::{InitialStates, Model};
 use typed_index_collections::Index;
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SingleInitialState<StateIdx: Index> {
     pub index: StateIdx,
 }
