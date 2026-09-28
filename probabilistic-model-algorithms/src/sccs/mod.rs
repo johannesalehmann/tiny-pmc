@@ -16,6 +16,33 @@ pub struct Sccs<SccIdx: Index, SccEntryIdx: Index, StateIdx: Index> {
 }
 
 impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
+    pub fn new<Inner: IntoIterator<Item = SI>, Outer: IntoIterator<Item = Inner>>(
+        scc_iter: Outer,
+        state_count: usize,
+    ) -> Self {
+        let mut sccs = Csr::new();
+        let mut scc_entries = To1::new();
+        let mut is_trivial = To1::new();
+        let mut state_to_scc = To1::with_entries(vec![None; state_count]);
+        for scc in scc_iter {
+            let scc_index = sccs.add_empty_entry();
+            for state in scc {
+                let entry_index = scc_entries.add(state);
+                sccs.extend_last_entry(entry_index + ScEI::RawType::one());
+                state_to_scc[state] = Some(scc_index);
+            }
+            // This function cannot determine which SCCs are trivial. Even a singleton SCC may be
+            // non-trivial if it has a self loop
+            is_trivial.add(false);
+        }
+        Self {
+            sccs,
+            scc_entries,
+            is_trivial,
+            state_to_scc,
+        }
+    }
+
     pub fn compute<
         M: ReadStateSpace<StateIndex = SI>
             + ReadPredecessors<StateIdx = SI, ChoiceIdx = M::ChoiceIndex, BranchIdx = M::BranchIndex>,

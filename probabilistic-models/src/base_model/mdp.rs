@@ -4,7 +4,7 @@ use typed_index_collections::{
     ChainedCsrIter, Csr, CsrIterator, Index, IndexRange, RawIndex, SemiboundedIndexRange, To1,
 };
 
-#[derive(Default, Debug, PartialEq)]
+#[derive(Default, Debug, PartialEq, Clone)]
 pub struct Mdp<StateIdx: Index, ChoiceIdx: Index, BranchIdx: Index> {
     pub state_to_choice: StateToChoice<StateIdx, ChoiceIdx>,
     pub choice_to_branch: ChoiceToBranch<ChoiceIdx, BranchIdx>,

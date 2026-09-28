@@ -34,6 +34,12 @@ impl<From: Index, To: Index> Csr<From, To> {
         }
     }
 
+    pub fn add_empty_entry(&mut self) -> From {
+        let index = From::from_raw(From::RawType::from_usize(self.entries.len()));
+        self.entries.push(self.end());
+        index
+    }
+
     pub fn add_entry(&mut self, from: From, start_to: To, end_to: To) {
         let last_end_index = self.end();
         assert_eq!(
@@ -53,6 +59,7 @@ impl<From: Index, To: Index> Csr<From, To> {
         index
     }
 
+    // TODO: This should likely add +1 to `new_to`, which is currently done at every call site.
     pub fn extend_last_entry(&mut self, new_to: To) {
         if self.entries.len() == 0 {
             panic!("Cannot extend last entry of `Csr` without entries.")
