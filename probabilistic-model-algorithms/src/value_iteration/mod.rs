@@ -17,6 +17,7 @@ mod config;
 pub use config::*;
 
 mod subgame_solver;
+mod until;
 
 use crate::sub_model;
 use subgame_solver::{OptimisticValueIteration, SubGameSolver, ValueIteration};
