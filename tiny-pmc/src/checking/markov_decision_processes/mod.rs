@@ -152,7 +152,16 @@ pub fn compute_path_value<
     options: &CheckerOptions,
 ) -> Result<To1<M::StateIndex, f64>, CheckerError> {
     match formula {
-        PathFormula::Until { .. } => Err(CheckerError::NoSuitableAlgorithm),
+        PathFormula::Until { .. } => {
+            // TODO: Currently, we only support top-level until queries. To this fix, do the
+            //  following:
+            //  - allow building restricted models for the entire state space, not just for the
+            //    fragment reachable from the initial states
+            //  - Use this to evaluate the until path formula here here
+            //  - Separately handle top-level properties (for which we are only interested in the
+            //    reachable fragment) to achieve good performance
+            Err(CheckerError::NoSuitableAlgorithm)
+        }
         PathFormula::Eventually { condition } => {
             let condition_values = compute_state_value(model, condition, options)?;
             let non_determinism = match non_determinism {
