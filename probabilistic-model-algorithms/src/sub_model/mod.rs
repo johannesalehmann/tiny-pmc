@@ -2,18 +2,16 @@ mod context;
 mod orderings;
 mod sub_model_rewards;
 
+use crate::mecs::Mecs;
+use crate::sccs::Scc;
 pub use context::SubModelConstructionContext;
 pub use orderings::{
     Attractor, AttractorChoiceMode, IndexBased, IndexOrderDirection, Legacy, StateOrdering,
     SubModelOrder,
 };
-pub use sub_model_rewards::{RewardsSource, StateAndChoiceRewards};
-
-use crate::dominated_by::DominatedByRelation;
-use crate::mecs::Mecs;
-use crate::sccs::Scc;
 use probabilistic_models::base_model::Mdp;
 use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
+pub use sub_model_rewards::{RewardsSource, StateAndChoiceRewards};
 use typed_index_collections::{Index, RawIndex, To1};
 
 pub struct SubModel<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index> {
@@ -38,11 +36,10 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
         M: ReadStateSpace<StateIndex = StateIdx> + ReadPredecessors<StateIdx = StateIdx>,
     >(
         model: &M,
-        dominated_by: &DominatedByRelation<M::StateIndex>,
         s0: &To1<M::StateIndex, bool>,
         s1: &To1<M::StateIndex, bool>,
     ) -> Self {
-        let _ = (model, dominated_by, s0, s1);
+        let _ = (model, s0, s1);
         todo!()
     }
 
@@ -60,7 +57,6 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
     >(
         model: &M,
         scc: Scc<'_, ScI, ScEI, M::StateIndex>,
-        dominated_by: &DominatedByRelation<M::StateIndex>,
         mecs: &Mecs<M::StateIndex, M::ChoiceIndex>,
         values: &To1<M::StateIndex, f64>,
         rewards: &Rew,
@@ -68,16 +64,7 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
     ) -> Self {
         let mut context = SubModelConstructionContext::new(model, ordering);
         let mut sub_model = SubModel::empty();
-        sub_model.rebuild_from_scc(
-            model,
-            scc,
-            dominated_by,
-            mecs,
-            values,
-            rewards,
-            ordering,
-            &mut context,
-        );
+        sub_model.rebuild_from_scc(model, scc, mecs, values, rewards, ordering, &mut context);
         sub_model
     }
 
@@ -96,7 +83,6 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
         &mut self,
         model: &M,
         scc: Scc<'_, ScI, ScEI, M::StateIndex>,
-        dominated_by: &DominatedByRelation<M::StateIndex>,
         mecs: &Mecs<M::StateIndex, M::ChoiceIndex>,
         values: &To1<M::StateIndex, f64>,
         rewards: &Rew,
@@ -110,7 +96,6 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
         ordering.compute_ordering(
             model,
             scc,
-            dominated_by,
             mecs,
             values,
             rewards,
@@ -143,9 +128,6 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
                         let mut destination = model.branch_destination(branch);
                         if let Some(representative) = mecs.representative(destination) {
                             destination = representative;
-                        }
-                        if let Some(dominating_state) = dominated_by.dominated_by(destination) {
-                            destination = dominating_state;
                         }
                         let p = model.branch_probability(branch);
 
@@ -192,7 +174,6 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
 #[cfg(test)]
 mod tests {
     use super::{IndexBased, IndexOrderDirection, SubModel, SubModelConstructionContext};
-    use crate::dominated_by::DominatedByRelation;
     use crate::mecs::Mecs;
     use crate::sccs::{ExcludeStatesAndChoices, SccEntryIndex, SccIndex, Sccs};
     use crate::value_iteration::precomputed_states::S0S1;
@@ -226,7 +207,6 @@ mod tests {
         sub_model.rebuild_from_scc(
             &model,
             sccs.scc_of_state(StateIndex::from_raw(0)).unwrap(),
-            &DominatedByRelation::empty(),
             &Mecs::empty(),
             &values,
             &(),
@@ -286,7 +266,6 @@ mod tests {
         sub_model.rebuild_from_scc(
             &model,
             sccs.scc_of_state(StateIndex::from_raw(0)).unwrap(),
-            &DominatedByRelation::empty(),
             &Mecs::empty(),
             &values,
             &(),
@@ -314,10 +293,9 @@ mod tests {
     }
 
     #[test]
-    fn dominating_states() {
-        // States 0 and 1 form an SCC, state 2 is the goal state.
+    fn full_self_loop_preserved() {
         mdp!(mdp = {
-            s0 -> 0.5: s0 & 0.5: s1,
+            s0 -> 1.0: s0,
             s0 -> 0.25: s0 & 0.25: s1 & 0.5: s2,
             s1 -> 1.0: s0,
             s2 -> 1.0: s2
@@ -332,11 +310,6 @@ mod tests {
             ),
         );
         let values = To1::with_entries(vec![0.0, 0.0, 1.0]);
-        let dominated_by = DominatedByRelation::with_entries(To1::with_entries(vec![
-            None,
-            Some(StateIndex::from_raw(0)),
-            None,
-        ]));
         let ordering = IndexBased::new(IndexOrderDirection::BackToFront);
         let mut context = SubModelConstructionContext::new(&model, &ordering);
 
@@ -345,7 +318,6 @@ mod tests {
         sub_model.rebuild_from_scc(
             &model,
             sccs.scc_of_state(StateIndex::from_raw(0)).unwrap(),
-            &dominated_by,
             &Mecs::empty(),
             &values,
             &(),
@@ -353,26 +325,39 @@ mod tests {
             &mut context,
         );
 
-        // State 1 is dominated by state 0 and thus neither contributes a state nor its choice.
         assert_eq!(
             sub_model.to_old_state_index,
-            To1::with_entries(vec![StateIndex::from_raw(0)])
+            To1::with_entries(vec![StateIndex::from_raw(1), StateIndex::from_raw(0)])
         );
         assert_eq!(
             sub_model.mdp.state_to_choice,
-            Csr::with_entries(vec![ChoiceIndex::from_raw(2)])
+            Csr::with_entries(vec![ChoiceIndex::from_raw(1), ChoiceIndex::from_raw(3)])
         );
-        // The first action turns into a p=1 self loop. This is not removed by the self-loop
-        // removal (otherwise, it would produce incorrect probabilities for minimal reachability).
-        // The second action creates a p=0.5 self loop, with the other 0.5 leaving the sub-model.
-        // Thus, that action has no branches.
+        // The p=1 self loop is not removed by the self-loop removal (otherwise, it would produce
+        // incorrect probabilities for minimal reachability).
         assert_eq!(
             sub_model.mdp.choice_to_branch,
-            Csr::with_entries(vec![BranchIndex::from_raw(1), BranchIndex::from_raw(1)])
+            Csr::with_entries(vec![
+                BranchIndex::from_raw(1),
+                BranchIndex::from_raw(2),
+                BranchIndex::from_raw(3)
+            ])
+        );
+        assert_eq!(
+            sub_model.mdp.branch_destinations,
+            To1::with_entries(vec![
+                StateIndex::from_raw(1),
+                StateIndex::from_raw(1),
+                StateIndex::from_raw(0)
+            ])
+        );
+        assert_eq!(
+            sub_model.mdp.branch_probabilities,
+            To1::with_entries(vec![1.0, 1.0, 0.25 * (1.0 / 0.75)])
         );
         assert_eq!(
             sub_model.choice_exit_values,
-            To1::with_entries(vec![0.0, 0.5 * 1.0 * (1.0 / 0.5)])
+            To1::with_entries(vec![0.0, 0.0, 0.5 * 1.0 * (1.0 / 0.75)])
         );
     }
 
@@ -411,7 +396,6 @@ mod tests {
             sub_model.rebuild_from_scc(
                 &model,
                 scc,
-                &DominatedByRelation::empty(),
                 &Mecs::empty(),
                 &values,
                 &(),
@@ -475,7 +459,6 @@ mod tests {
         sub_model.rebuild_from_scc(
             &model,
             sccs.scc_of_state(StateIndex::from_raw(0)).unwrap(),
-            &DominatedByRelation::empty(),
             &mecs,
             &values,
             &(),

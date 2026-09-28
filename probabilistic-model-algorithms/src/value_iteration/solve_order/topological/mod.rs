@@ -2,9 +2,6 @@ mod eps_allocation;
 pub use eps_allocation::{EpsAllocationScheme, GlobalEpsForEachScc, UniformEpsAllocation};
 
 mod scc_timings;
-pub use scc_timings::{SccTimingOutput, SccTimings, TopoTiming};
-
-use crate::dominated_by::DominatedByRelation;
 use crate::mecs::Mecs;
 use crate::sccs::{SccEntryIndex, SccIndex, Sccs};
 use crate::sub_model::{
@@ -18,6 +15,7 @@ use crate::value_iteration::solve_order::{ModelSize, SolveOrder};
 use crate::value_iteration::subgame_solver::SubGameSolver;
 use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
 use probabilistic_models::{BranchIndex, ChoiceIndex, StateIndex};
+pub use scc_timings::{SccTimingOutput, SccTimings, TopoTiming};
 use typed_index_collections::{Index, RawIndex, SemiboundedIndexRange, To1};
 
 pub struct Topological {
@@ -57,7 +55,6 @@ impl SolveOrder for Topological {
         model: &M,
         precomputed_states: &P,
         rew: Rew,
-        dom_by: &DominatedByRelation<M::StateIndex>,
         mecs: &Mecs<M::StateIndex, M::ChoiceIndex>,
         eps: f64,
     ) -> To1<M::StateIndex, f64> {
@@ -66,7 +63,6 @@ impl SolveOrder for Topological {
                 model,
                 precomputed_states,
                 rew,
-                dom_by,
                 mecs,
                 eps,
                 (),
@@ -75,7 +71,6 @@ impl SolveOrder for Topological {
                 model,
                 precomputed_states,
                 rew,
-                dom_by,
                 mecs,
                 eps,
                 SccTimings::new(output),
@@ -102,17 +97,16 @@ impl Topological {
         model: &M,
         precomputed_states: &P,
         rew: Rew,
-        dom_by: &DominatedByRelation<M::StateIndex>,
         mecs: &Mecs<M::StateIndex, M::ChoiceIndex>,
         eps: f64,
         timing: Timing,
     ) -> To1<M::StateIndex, f64> {
         match self.eps_allocation_scheme {
             EpsAllocationScheme::Uniform => {
-                self.find_and_solve_subgames_with_timing_and_eps_allocation::<ND, Solver, M, P, Rew, Timing, UniformEpsAllocation>(model, precomputed_states, rew, dom_by, mecs, eps, timing)
+                self.find_and_solve_subgames_with_timing_and_eps_allocation::<ND, Solver, M, P, Rew, Timing, UniformEpsAllocation>(model, precomputed_states, rew, mecs, eps, timing)
             }
             EpsAllocationScheme::GlobalEpsForEach => {
-                self.find_and_solve_subgames_with_timing_and_eps_allocation::<ND, Solver, M, P, Rew, Timing, GlobalEpsForEachScc>(model, precomputed_states, rew, dom_by, mecs, eps, timing)
+                self.find_and_solve_subgames_with_timing_and_eps_allocation::<ND, Solver, M, P, Rew, Timing, GlobalEpsForEachScc>(model, precomputed_states, rew, mecs, eps, timing)
             }
         }
     }
@@ -134,7 +128,6 @@ impl Topological {
         model: &M,
         precomputed_states: &P,
         rew: Rew,
-        dom_by: &DominatedByRelation<M::StateIndex>,
         mecs: &Mecs<M::StateIndex, M::ChoiceIndex>,
         eps: f64,
         timings: Timing,
@@ -145,7 +138,6 @@ impl Topological {
                     model,
                     precomputed_states,
                     rew,
-                    dom_by,
                     mecs,
                     eps,
                     timings,
@@ -156,7 +148,6 @@ impl Topological {
                     model,
                     precomputed_states,
                     rew,
-                    dom_by,
                     mecs,
                     eps,
                     timings,
@@ -167,7 +158,6 @@ impl Topological {
                     model,
                     precomputed_states,
                     rew,
-                    dom_by,
                     mecs,
                     eps,
                     timings,
@@ -178,7 +168,6 @@ impl Topological {
                     model,
                     precomputed_states,
                     rew,
-                    dom_by,
                     mecs,
                     eps,
                     timings,
@@ -206,7 +195,6 @@ impl Topological {
         model: &M,
         precomputed_states: &P,
         rew: Rew,
-        dom_by: &DominatedByRelation<M::StateIndex>,
         mecs: &Mecs<M::StateIndex, M::ChoiceIndex>,
         eps: f64,
         mut timings: Timing,
@@ -246,7 +234,6 @@ impl Topological {
                     sm.rebuild_from_scc(
                         model,
                         scc,
-                        &dom_by,
                         mecs,
                         &values,
                         &rew,
@@ -261,7 +248,6 @@ impl Topological {
                     sm.rebuild_from_scc(
                         model,
                         scc,
-                        &dom_by,
                         mecs,
                         &values,
                         &rew,
@@ -277,7 +263,6 @@ impl Topological {
                     sm.rebuild_from_scc(
                         model,
                         scc,
-                        &dom_by,
                         mecs,
                         &values,
                         &rew,
@@ -292,7 +277,6 @@ impl Topological {
                     sm.rebuild_from_scc(
                         model,
                         scc,
-                        &dom_by,
                         mecs,
                         &values,
                         &rew,

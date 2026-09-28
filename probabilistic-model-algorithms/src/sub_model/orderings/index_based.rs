@@ -1,5 +1,4 @@
 use super::StateOrdering;
-use crate::dominated_by::DominatedByRelation;
 use crate::mecs::Mecs;
 use crate::sccs::Scc;
 use crate::sub_model::RewardsSource;
@@ -45,7 +44,6 @@ impl StateOrdering for IndexBased {
         &self,
         _model: &M,
         scc: Scc<'_, ScI, ScEI, SI>,
-        dominated_by: &DominatedByRelation<SI>,
         mecs: &Mecs<SI, CI>,
         _values: &To1<SI, f64>,
         _rewards: &Rew,
@@ -53,7 +51,7 @@ impl StateOrdering for IndexBased {
         to_old_state_index: &mut To1<NewSI, SI>,
     ) {
         for state in scc.states() {
-            if dominated_by.dominated_by(state).is_none() && !mecs.is_merged_away(state) {
+            if !mecs.is_merged_away(state) {
                 to_old_state_index.add(state);
             }
         }

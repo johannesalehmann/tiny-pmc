@@ -1,4 +1,3 @@
-use crate::dominated_by::DominatedByRelation;
 use crate::mecs::Mecs;
 use crate::sccs::Scc;
 use crate::sub_model::{RewardsSource, StateOrdering};
@@ -95,7 +94,6 @@ impl StateOrdering for Attractor {
         &self,
         model: &M,
         scc: Scc<'_, ScI, ScEI, SI>,
-        dominated_by: &DominatedByRelation<SI>,
         mecs: &Mecs<SI, CI>,
         values: &To1<SI, f64>,
         rewards: &Rew,
@@ -108,7 +106,6 @@ impl StateOrdering for Attractor {
                 let mut to_self = 0.0;
                 for branch in model.branches_of_choice(choice) {
                     let dest = model.branch_destination(branch);
-                    // No need to handle dominated states, as they would never cause a self loop
                     if dest == state
                         || mecs
                             .representative(dest)

@@ -2,14 +2,12 @@ mod attractor;
 mod index_based;
 mod legacy;
 
-pub use attractor::{Attractor, AttractorChoiceMode};
-pub use index_based::{IndexBased, IndexOrderDirection};
-pub use legacy::Legacy;
-
-use crate::dominated_by::DominatedByRelation;
 use crate::mecs::Mecs;
 use crate::sccs::Scc;
 use crate::sub_model::RewardsSource;
+pub use attractor::{Attractor, AttractorChoiceMode};
+pub use index_based::{IndexBased, IndexOrderDirection};
+pub use legacy::Legacy;
 use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
 use typed_index_collections::{Index, To1};
 
@@ -44,7 +42,6 @@ pub trait StateOrdering {
         &self,
         model: &M,
         scc: Scc<'_, ScI, ScEI, SI>,
-        dominated_by: &DominatedByRelation<SI>,
         mecs: &Mecs<SI, CI>,
         values: &To1<SI, f64>,
         rewards: &Rew,

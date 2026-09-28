@@ -1,5 +1,4 @@
 use super::StateOrdering;
-use crate::dominated_by::DominatedByRelation;
 use crate::mecs::Mecs;
 use crate::sccs::Scc;
 use crate::sub_model::RewardsSource;
@@ -41,7 +40,6 @@ impl StateOrdering for Legacy {
         &self,
         model: &M,
         scc: Scc<'_, ScI, ScEI, SI>,
-        dominated_by: &DominatedByRelation<SI>,
         mecs: &Mecs<SI, CI>,
         values: &To1<SI, f64>,
         rewards: &Rew,
@@ -69,9 +67,9 @@ impl StateOrdering for Legacy {
 
         // Perform backwards BFS, visiting predecessors of visited states
         while let Some(state) = context.open_list.pop_front() {
-            // Dominated states and states merged into a MEC representative are not added to the
-            // sub-model, but they are traversed to visit their predecessors.
-            if dominated_by.dominated_by(state).is_none() && !mecs.is_merged_away(state) {
+            // States merged into a MEC representative are not added to the sub-model, but they are
+            // traversed to visit their predecessors.
+            if !mecs.is_merged_away(state) {
                 to_old_state_index.add(state);
             }
             for predecessor in model.predecessors_of_state(state) {

@@ -2,18 +2,16 @@ mod monolithic;
 pub use monolithic::Monolithic;
 
 mod topological;
-pub use topological::{
-    EpsAllocationScheme, GlobalEpsForEachScc, SccTimingOutput, SccTimings, TopoTiming, Topological,
-    UniformEpsAllocation,
-};
-
-use crate::dominated_by::DominatedByRelation;
 use crate::mecs::Mecs;
 use crate::sccs::Scc;
 use crate::sub_model::RewardsSource;
 use crate::value_iteration::non_determinism::NonDeterminism;
 use crate::value_iteration::precomputed_states::PrecomputedStates;
 use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
+pub use topological::{
+    EpsAllocationScheme, GlobalEpsForEachScc, SccTimingOutput, SccTimings, TopoTiming, Topological,
+    UniformEpsAllocation,
+};
 use typed_index_collections::{Index, To1};
 
 pub trait SolveOrder {
@@ -33,7 +31,6 @@ pub trait SolveOrder {
         model: &M,
         precomputed_states: &P,
         rewards: Rew,
-        dominated_by_relation: &DominatedByRelation<M::StateIndex>,
         mecs: &Mecs<M::StateIndex, M::ChoiceIndex>,
         eps: f64,
     ) -> To1<M::StateIndex, f64>;
