@@ -11,7 +11,7 @@ pub use orderings::{
 };
 use probabilistic_models::base_model::Mdp;
 use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
-pub use sub_model_rewards::{RewardsSource, StateAndChoiceRewards};
+pub use sub_model_rewards::{RewardsSource, StateAndChoiceRewards, UnitStateRewards};
 use typed_index_collections::{Index, RawIndex, To1};
 
 pub struct SubModel<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index> {

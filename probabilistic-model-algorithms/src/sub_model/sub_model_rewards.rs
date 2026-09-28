@@ -58,3 +58,23 @@ impl<'a, M: ReadRewards> RewardsSource<M::StateIdx, M::ChoiceIdx> for StateAndCh
         self.model.choice_reward(self.rewards_index, choice)
     }
 }
+
+pub struct UnitStateRewards;
+
+impl<StateIdx: Index, ChoiceIdx: Index> RewardsSource<StateIdx, ChoiceIdx> for UnitStateRewards {
+    fn has_state_rewards(&self) -> bool {
+        true
+    }
+
+    fn has_choice_rewards(&self) -> bool {
+        false
+    }
+
+    fn state_reward(&self, _state: StateIdx) -> f64 {
+        1.0
+    }
+
+    fn choice_reward(&self, _choice: ChoiceIdx) -> f64 {
+        panic!("The model does not have choice rewards")
+    }
+}
