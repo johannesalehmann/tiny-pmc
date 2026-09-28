@@ -1,7 +1,12 @@
 mod context;
-pub use context::SubModelConstructionContext;
-
+mod orderings;
 mod sub_model_rewards;
+
+pub use context::SubModelConstructionContext;
+pub use orderings::{
+    Attractor, AttractorChoiceMode, IndexBased, IndexOrderDirection, Legacy, StateOrdering,
+    SubModelOrder,
+};
 pub use sub_model_rewards::{RewardsSource, StateAndChoiceRewards};
 
 use crate::dominated_by::DominatedByRelation;
@@ -10,14 +15,6 @@ use crate::sccs::Scc;
 use probabilistic_models::base_model::Mdp;
 use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
 use typed_index_collections::{Index, RawIndex, To1};
-
-#[derive(Debug, PartialEq, Clone, Copy)]
-pub enum SubModelOrder {
-    BackToFront,
-    FrontToBack,
-    AttractorStyle,
-    Legacy,
-}
 
 pub struct SubModel<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index> {
     pub mdp: Mdp<NewSI, NewCI, NewBI>,
@@ -50,10 +47,16 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
     }
 
     pub fn from_scc<
-        M: ReadStateSpace<StateIndex = StateIdx> + ReadPredecessors<StateIdx = StateIdx>,
+        M: ReadStateSpace<StateIndex = StateIdx>
+            + ReadPredecessors<
+                StateIdx = StateIdx,
+                ChoiceIdx = M::ChoiceIndex,
+                BranchIdx = M::BranchIndex,
+            >,
         ScI: Index,
         ScEI: Index,
         Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>,
+        O: StateOrdering,
     >(
         model: &M,
         scc: Scc<'_, ScI, ScEI, M::StateIndex>,
@@ -61,9 +64,9 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
         mecs: &Mecs<M::StateIndex, M::ChoiceIndex>,
         values: &To1<M::StateIndex, f64>,
         rewards: &Rew,
-        order: SubModelOrder,
+        ordering: &O,
     ) -> Self {
-        let mut context = SubModelConstructionContext::new(model);
+        let mut context = SubModelConstructionContext::new(model, ordering);
         let mut sub_model = SubModel::empty();
         sub_model.rebuild_from_scc(
             model,
@@ -72,17 +75,23 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
             mecs,
             values,
             rewards,
-            order,
+            ordering,
             &mut context,
         );
         sub_model
     }
 
     pub fn rebuild_from_scc<
-        M: ReadStateSpace<StateIndex = StateIdx> + ReadPredecessors<StateIdx = StateIdx>,
+        M: ReadStateSpace<StateIndex = StateIdx>
+            + ReadPredecessors<
+                StateIdx = StateIdx,
+                ChoiceIdx = M::ChoiceIndex,
+                BranchIdx = M::BranchIndex,
+            >,
         ScI: Index,
         ScEI: Index,
         Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>,
+        O: StateOrdering,
     >(
         &mut self,
         model: &M,
@@ -91,20 +100,26 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
         mecs: &Mecs<M::StateIndex, M::ChoiceIndex>,
         values: &To1<M::StateIndex, f64>,
         rewards: &Rew,
-        order: SubModelOrder,
-        context: &mut SubModelConstructionContext<M::StateIndex>,
+        ordering: &O,
+        context: &mut SubModelConstructionContext<
+            M::StateIndex,
+            O::Context<M::StateIndex, M::ChoiceIndex>,
+        >,
     ) {
-        compute_order(
+        self.to_old_state_index.clear();
+        ordering.compute_ordering(
             model,
             scc,
             dominated_by,
             mecs,
             values,
             rewards,
-            order,
-            context,
+            &mut context.ordering,
             &mut self.to_old_state_index,
         );
+        for (new_state, &state) in self.to_old_state_index.enumerate() {
+            context.to_new_state_index[state] = Some(new_state.raw().as_usize());
+        }
 
         self.mdp.clear();
         self.choice_exit_values.clear();
@@ -174,143 +189,9 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
     }
 }
 
-fn compute_order<
-    M: ReadStateSpace + ReadPredecessors<StateIdx = M::StateIndex>,
-    ScI: Index,
-    ScEI: Index,
-    NewSI: Index,
-    Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>,
->(
-    model: &M,
-    scc: Scc<'_, ScI, ScEI, M::StateIndex>,
-    dominated_by: &DominatedByRelation<M::StateIndex>,
-    mecs: &Mecs<M::StateIndex, M::ChoiceIndex>,
-    values: &To1<M::StateIndex, f64>,
-    rewards: &Rew,
-    order: SubModelOrder,
-    context: &mut SubModelConstructionContext<M::StateIndex>,
-    to_old_state_index: &mut To1<NewSI, M::StateIndex>,
-) {
-    match order {
-        SubModelOrder::BackToFront | SubModelOrder::FrontToBack => compute_index_based_order(
-            scc,
-            dominated_by,
-            mecs,
-            order == SubModelOrder::BackToFront,
-            context,
-            to_old_state_index,
-        ),
-        SubModelOrder::AttractorStyle => {
-            todo!()
-        }
-        SubModelOrder::Legacy => compute_order_bfs(
-            model,
-            scc,
-            dominated_by,
-            mecs,
-            values,
-            rewards,
-            context,
-            to_old_state_index,
-        ),
-    }
-}
-
-fn compute_index_based_order<SI: Index, CI: Index, ScI: Index, ScEI: Index, NewSI: Index>(
-    scc: Scc<'_, ScI, ScEI, SI>,
-    dominated_by: &DominatedByRelation<SI>,
-    mecs: &Mecs<SI, CI>,
-    reverse: bool,
-    context: &mut SubModelConstructionContext<SI>,
-    to_old_state_index: &mut To1<NewSI, SI>,
-) {
-    to_old_state_index.clear();
-    for state in scc.states() {
-        if dominated_by.dominated_by(state).is_none() && !mecs.is_merged_away(state) {
-            to_old_state_index.add(state);
-        }
-    }
-    let states = to_old_state_index.entries_mut();
-    states.sort_unstable();
-    if reverse {
-        states.reverse();
-    }
-    for (new_index, &state) in to_old_state_index.enumerate() {
-        context.to_new_state_index[state] = Some(new_index.raw().as_usize());
-    }
-}
-
-fn compute_order_bfs<
-    M: ReadStateSpace + ReadPredecessors<StateIdx = M::StateIndex>,
-    ScI: Index,
-    ScEI: Index,
-    NewSI: Index,
-    Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>,
->(
-    model: &M,
-    scc: Scc<'_, ScI, ScEI, M::StateIndex>,
-    dominated_by: &DominatedByRelation<M::StateIndex>,
-    mecs: &Mecs<M::StateIndex, M::ChoiceIndex>,
-    values: &To1<M::StateIndex, f64>,
-    rewards: &Rew,
-    context: &mut SubModelConstructionContext<M::StateIndex>,
-    to_old_state_index: &mut To1<NewSI, M::StateIndex>,
-) {
-    to_old_state_index.clear();
-    // Find states that can leave the SCC into a state with a non-zero value or that have a non-zero
-    // reward. If an SCC has no such states, all states within it also have value zero, so the
-    // sub-model will be empty.
-    for state in scc.states() {
-        let mut non_zero_exit = has_non_zero_reward(model, rewards, state);
-        if !non_zero_exit {
-            for successor in model.successors_of_state(state) {
-                if !scc.contains(successor) && values[successor] > 0.0 {
-                    non_zero_exit = true;
-                    break;
-                }
-            }
-        }
-        if non_zero_exit {
-            context.visited[state] = true;
-            context.visited_open_list.push_back(state);
-        }
-    }
-
-    // Perform backwards BFS, visiting predecessors of visited states
-    while let Some(state) = context.visited_open_list.pop_front() {
-        context.visitation_order.push(state);
-        // Dominated states and states merged into a MEC representative are not added to the
-        // sub-model, but they are traversed to visit their predecessors.
-        if dominated_by.dominated_by(state).is_none() && !mecs.is_merged_away(state) {
-            let new_index = to_old_state_index.add(state);
-            context.to_new_state_index[state] = Some(new_index.raw().as_usize());
-        }
-        for predecessor in model.predecessors_of_state(state) {
-            let predecessor_state = model.source_state_of_predecessor(predecessor);
-            if !context.visited[predecessor_state] && scc.contains(predecessor_state) {
-                context.visited[predecessor_state] = true;
-                context.visited_open_list.push_back(predecessor_state);
-            }
-        }
-    }
-}
-
-fn has_non_zero_reward<M: ReadStateSpace, Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>>(
-    model: &M,
-    rewards: &Rew,
-    state: M::StateIndex,
-) -> bool {
-    (rewards.has_state_rewards() && rewards.state_reward(state) != 0.0)
-        || (rewards.has_choice_rewards()
-            && model
-                .choices_of_state(state)
-                .into_iter()
-                .any(|choice| rewards.choice_reward(choice) != 0.0))
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{SubModel, SubModelConstructionContext, SubModelOrder};
+    use super::{IndexBased, IndexOrderDirection, SubModel, SubModelConstructionContext};
     use crate::dominated_by::DominatedByRelation;
     use crate::mecs::Mecs;
     use crate::sccs::{ExcludeStatesAndChoices, SccEntryIndex, SccIndex, Sccs};
@@ -337,7 +218,8 @@ mod tests {
             ),
         );
         let values = To1::with_entries(vec![0.0, 0.0, 1.0]);
-        let mut context = SubModelConstructionContext::new(&model);
+        let ordering = IndexBased::new(IndexOrderDirection::BackToFront);
+        let mut context = SubModelConstructionContext::new(&model, &ordering);
 
         let mut sub_model: SubModel<_, StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>> =
             SubModel::empty();
@@ -348,7 +230,7 @@ mod tests {
             &Mecs::empty(),
             &values,
             &(),
-            SubModelOrder::BackToFront,
+            &ordering,
             &mut context,
         );
 
@@ -396,7 +278,8 @@ mod tests {
             ),
         );
         let values = To1::with_entries(vec![0.0, 0.6, 1.0]);
-        let mut context = SubModelConstructionContext::new(&model);
+        let ordering = IndexBased::new(IndexOrderDirection::BackToFront);
+        let mut context = SubModelConstructionContext::new(&model, &ordering);
 
         let mut sub_model: SubModel<_, StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>> =
             SubModel::empty();
@@ -407,7 +290,7 @@ mod tests {
             &Mecs::empty(),
             &values,
             &(),
-            SubModelOrder::BackToFront,
+            &ordering,
             &mut context,
         );
 
@@ -454,7 +337,8 @@ mod tests {
             Some(StateIndex::from_raw(0)),
             None,
         ]));
-        let mut context = SubModelConstructionContext::new(&model);
+        let ordering = IndexBased::new(IndexOrderDirection::BackToFront);
+        let mut context = SubModelConstructionContext::new(&model, &ordering);
 
         let mut sub_model: SubModel<_, StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>> =
             SubModel::empty();
@@ -465,7 +349,7 @@ mod tests {
             &Mecs::empty(),
             &values,
             &(),
-            SubModelOrder::BackToFront,
+            &ordering,
             &mut context,
         );
 
@@ -511,7 +395,8 @@ mod tests {
             ),
         );
         let values = To1::with_entries(vec![0.0, 0.6, 1.0]);
-        let mut context = SubModelConstructionContext::new(&model);
+        let ordering = IndexBased::new(IndexOrderDirection::BackToFront);
+        let mut context = SubModelConstructionContext::new(&model, &ordering);
 
         let mut sub_models: Vec<
             SubModel<StateIndex<usize>, StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>>,
@@ -530,7 +415,7 @@ mod tests {
                 &Mecs::empty(),
                 &values,
                 &(),
-                SubModelOrder::BackToFront,
+                &ordering,
                 &mut context,
             );
             sub_models.push(sub_model);
@@ -582,7 +467,8 @@ mod tests {
         );
         let representative = mecs.representative(StateIndex::from_raw(0)).unwrap();
         let values = To1::with_entries(vec![0.0, 0.0, 1.0]);
-        let mut context = SubModelConstructionContext::new(&model);
+        let ordering = IndexBased::new(IndexOrderDirection::BackToFront);
+        let mut context = SubModelConstructionContext::new(&model, &ordering);
 
         let mut sub_model: SubModel<_, StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>> =
             SubModel::empty();
@@ -593,7 +479,7 @@ mod tests {
             &mecs,
             &values,
             &(),
-            SubModelOrder::BackToFront,
+            &ordering,
             &mut context,
         );
 

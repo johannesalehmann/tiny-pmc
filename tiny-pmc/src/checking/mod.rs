@@ -15,7 +15,7 @@ use probabilistic_models::traits::StateSet;
 // pub use nonstochastic_games::check_nonstochastic_game;
 
 use crate::CheckerError;
-pub use probabilistic_model_algorithms::sub_model::SubModelOrder;
+pub use probabilistic_model_algorithms::sub_model::{AttractorChoiceMode, SubModelOrder};
 use probabilistic_model_algorithms::value_iteration::ValueIterationConfig;
 pub use probabilistic_model_algorithms::value_iteration::{
     CollapseMecs, EpsAllocationScheme, SccTimingOutput, SolveOrder,

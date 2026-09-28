@@ -7,7 +7,10 @@ pub use scc_timings::{SccTimingOutput, SccTimings, TopoTiming};
 use crate::dominated_by::DominatedByRelation;
 use crate::mecs::Mecs;
 use crate::sccs::{SccEntryIndex, SccIndex, Sccs};
-use crate::sub_model::{RewardsSource, SubModel, SubModelConstructionContext, SubModelOrder};
+use crate::sub_model::{
+    Attractor, IndexBased, IndexOrderDirection, Legacy, RewardsSource, StateOrdering, SubModel,
+    SubModelConstructionContext, SubModelOrder,
+};
 use crate::value_iteration::non_determinism::NonDeterminism;
 use crate::value_iteration::precomputed_states::PrecomputedStates;
 use crate::value_iteration::solve_order::topological::eps_allocation::EpsAllocation;
@@ -134,7 +137,80 @@ impl Topological {
         dom_by: &DominatedByRelation<M::StateIndex>,
         mecs: &Mecs<M::StateIndex, M::ChoiceIndex>,
         eps: f64,
+        timings: Timing,
+    ) -> To1<M::StateIndex, f64> {
+        match self.sub_model_order {
+            SubModelOrder::BackToFront => self
+                .find_and_solve_subgames_with_ordering::<ND, Solver, M, P, Rew, Timing, EA, _>(
+                    model,
+                    precomputed_states,
+                    rew,
+                    dom_by,
+                    mecs,
+                    eps,
+                    timings,
+                    IndexBased::new(IndexOrderDirection::BackToFront),
+                ),
+            SubModelOrder::FrontToBack => self
+                .find_and_solve_subgames_with_ordering::<ND, Solver, M, P, Rew, Timing, EA, _>(
+                    model,
+                    precomputed_states,
+                    rew,
+                    dom_by,
+                    mecs,
+                    eps,
+                    timings,
+                    IndexBased::new(IndexOrderDirection::FrontToBack),
+                ),
+            SubModelOrder::Attractor(choice_mode) => self
+                .find_and_solve_subgames_with_ordering::<ND, Solver, M, P, Rew, Timing, EA, _>(
+                    model,
+                    precomputed_states,
+                    rew,
+                    dom_by,
+                    mecs,
+                    eps,
+                    timings,
+                    Attractor::new(choice_mode),
+                ),
+            SubModelOrder::Legacy => self
+                .find_and_solve_subgames_with_ordering::<ND, Solver, M, P, Rew, Timing, EA, _>(
+                    model,
+                    precomputed_states,
+                    rew,
+                    dom_by,
+                    mecs,
+                    eps,
+                    timings,
+                    Legacy,
+                ),
+        }
+    }
+
+    fn find_and_solve_subgames_with_ordering<
+        ND: NonDeterminism,
+        Solver: SubGameSolver,
+        M: ReadStateSpace
+            + ReadPredecessors<
+                StateIdx = M::StateIndex,
+                ChoiceIdx = M::ChoiceIndex,
+                BranchIdx = M::BranchIndex,
+            >,
+        P: PrecomputedStates<StateIdx = M::StateIndex>,
+        Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>,
+        Timing: TopoTiming,
+        EA: EpsAllocation<SccIndex<usize>>,
+        O: StateOrdering,
+    >(
+        self,
+        model: &M,
+        precomputed_states: &P,
+        rew: Rew,
+        dom_by: &DominatedByRelation<M::StateIndex>,
+        mecs: &Mecs<M::StateIndex, M::ChoiceIndex>,
+        eps: f64,
         mut timings: Timing,
+        ordering: O,
     ) -> To1<M::StateIndex, f64> {
         let mut values = create_value_vector(model.states(), precomputed_states);
         let max = precomputed_states.max_value();
@@ -145,7 +221,7 @@ impl Topological {
         let max_size = sccs.max_size();
         let mut solver = Solver::create(max_size);
         let mut submodels = SubModelCollection::new();
-        let mut submodel_context = SubModelConstructionContext::new(model);
+        let mut submodel_context = SubModelConstructionContext::new(model, &ordering);
         for scc in sccs.reverse_topological_ordering() {
             if let Some(state) = scc.as_singleton() {
                 values[state] = if model.choices_of_state(state).len() == 0 {
@@ -174,7 +250,7 @@ impl Topological {
                         mecs,
                         &values,
                         &rew,
-                        self.sub_model_order,
+                        &ordering,
                         &mut submodel_context,
                     );
                     let res =
@@ -189,7 +265,7 @@ impl Topological {
                         mecs,
                         &values,
                         &rew,
-                        self.sub_model_order,
+                        &ordering,
                         &mut submodel_context,
                     );
                     let res =
@@ -205,7 +281,7 @@ impl Topological {
                         mecs,
                         &values,
                         &rew,
-                        self.sub_model_order,
+                        &ordering,
                         &mut submodel_context,
                     );
                     let res =
@@ -220,7 +296,7 @@ impl Topological {
                         mecs,
                         &values,
                         &rew,
-                        self.sub_model_order,
+                        &ordering,
                         &mut submodel_context,
                     );
                     let res =

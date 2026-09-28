@@ -2,7 +2,8 @@ use clap::{Args, Parser, ValueEnum};
 use probabilistic_models::SuccessorOrder;
 use std::path::PathBuf;
 use tiny_pmc::checking::{
-    CheckerOptions, CollapseMecs, EpsAllocationScheme, SccTimingOutput, SolveOrder, SubModelOrder,
+    AttractorChoiceMode, CheckerOptions, CollapseMecs, EpsAllocationScheme, SccTimingOutput,
+    SolveOrder, SubModelOrder,
 };
 
 #[derive(Parser)]
@@ -76,7 +77,9 @@ pub enum SolveOrderArg {
 pub enum StateOrderArg {
     BackToFront,
     FrontToBack,
-    AttractorStyle,
+    AttractorBest,
+    AttractorWorst,
+    AttractorAverage,
     Legacy,
 }
 
@@ -122,7 +125,15 @@ impl ValueIterationArguments {
             sub_model_order: match self.state_order {
                 StateOrderArg::BackToFront => SubModelOrder::BackToFront,
                 StateOrderArg::FrontToBack => SubModelOrder::FrontToBack,
-                StateOrderArg::AttractorStyle => SubModelOrder::AttractorStyle,
+                StateOrderArg::AttractorBest => {
+                    SubModelOrder::Attractor(AttractorChoiceMode::BestChoice)
+                }
+                StateOrderArg::AttractorWorst => {
+                    SubModelOrder::Attractor(AttractorChoiceMode::WorstChoice)
+                }
+                StateOrderArg::AttractorAverage => {
+                    SubModelOrder::Attractor(AttractorChoiceMode::AverageChoice)
+                }
                 StateOrderArg::Legacy => SubModelOrder::Legacy,
             },
             write_scc_timing,
