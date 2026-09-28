@@ -1,3 +1,4 @@
+use crate::state_description::StateDescription;
 use probabilistic_models::annotations::{AtomicPropositions, TypedAnnotation};
 use probabilistic_models::base_model::Mdp;
 use probabilistic_models::traits::StateSet;
@@ -16,8 +17,8 @@ pub fn rebuild_model_for_until<
         + ReadInitialStates<StateIdx = SI>,
 >(
     model: &M,
-    restriction: M::APIdx,
-    goal: M::APIdx,
+    restriction: &StateDescription<M>,
+    goal: &StateDescription<M>,
     goal_name: &str,
 ) -> (
     Model<
@@ -34,10 +35,7 @@ pub fn rebuild_model_for_until<
     >,
     M::APIdx,
 ) {
-    let is_maybe_state = |state: SI| {
-        model.is_atomic_proposition_set(state, restriction)
-            && !model.is_atomic_proposition_set(state, goal)
-    };
+    let is_maybe_state = |state: SI| restriction.is_set(state) && !goal.is_set(state);
 
     // Explore all states that satisfy `restriction` but not `goal` depth-first.
     let mut old_to_new: To1<SI, Option<SI>> = To1::with_entries(vec![None; model.states().len()]);
@@ -73,12 +71,12 @@ pub fn rebuild_model_for_until<
                 let probability = model.branch_probability(branch);
                 if let Some(target) = old_to_new[destination] {
                     mdp.add_branch(probability, target);
-                } else if model.is_atomic_proposition_set(destination, goal) {
+                } else if goal.is_set(destination) {
                     *to_goal.get_or_insert(0.0) += probability;
                 } else {
                     // If destination is not in old_to_new, it is guaranteed not to satisfy
                     // `restriction`.
-                    debug_assert!(!model.is_atomic_proposition_set(destination, restriction));
+                    debug_assert!(!restriction.is_set(destination));
                     *to_sink.get_or_insert(0.0) += probability;
                 }
             }
@@ -108,7 +106,7 @@ pub fn rebuild_model_for_until<
     for state in model.initial_states().iter() {
         let new_state = match old_to_new[state] {
             Some(new_state) => new_state,
-            None if model.is_atomic_proposition_set(state, goal) => goal_state,
+            None if goal.is_set(state) => goal_state,
             None => sink_state,
         };
         initial[new_state] = true;
@@ -134,6 +132,7 @@ pub fn rebuild_model_for_until<
 #[cfg(test)]
 mod tests {
     use super::rebuild_model_for_until;
+    use crate::state_description::StateDescription;
     use probabilistic_models::annotations::{AtomicPropositions, TypedAnnotation};
     use probabilistic_models::base_model::Mdp;
     use probabilistic_models::traits::ReadStateSpace;
@@ -192,8 +191,14 @@ mod tests {
 
         let (result, result_goal_ap) = rebuild_model_for_until::<_, AnnotationEntryIndex<usize>, _>(
             &model,
-            restriction_ap,
-            goal_ap,
+            &StateDescription::AtomicProposition {
+                ap_index: restriction_ap,
+                model: &model,
+            },
+            &StateDescription::AtomicProposition {
+                ap_index: goal_ap,
+                model: &model,
+            },
             "target",
         );
 
@@ -209,13 +214,15 @@ mod tests {
                 .change_key_type(),
             ),
         );
-        let expected_initial: InitialStates<SI> =
-            state_set(expected_state_count, expected_initial);
+        let expected_initial: InitialStates<SI> = state_set(expected_state_count, expected_initial);
 
         assert_eq!(result.base, expected);
         assert_eq!(result.initial, expected_initial);
         assert_eq!(result.atomic_propositions, expected_aps);
-        assert_eq!(result.atomic_propositions.name(result_goal_ap), Some("target"));
+        assert_eq!(
+            result.atomic_propositions.name(result_goal_ap),
+            Some("target")
+        );
     }
 
     #[test]

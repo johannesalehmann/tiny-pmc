@@ -18,6 +18,7 @@ pub use config::*;
 
 mod subgame_solver;
 mod until;
+pub use until::rebuild_model_for_until;
 
 use crate::sub_model;
 use subgame_solver::{OptimisticValueIteration, SubGameSolver, ValueIteration};

@@ -1,11 +1,13 @@
 use crate::CheckerError;
 use crate::checking::CheckerOptions;
 use probabilistic_model_algorithms::state_description::StateDescription;
-use probabilistic_model_algorithms::value_iteration::NonDeterminism;
+use probabilistic_model_algorithms::value_iteration::{NonDeterminism, rebuild_model_for_until};
 use probabilistic_models::traits::{
     ReadAtomicPropositions, ReadInitialStates, ReadPredecessors, ReadRewards, ReadStateSpace,
+    StateSet,
 };
 use probabilistic_models::typed_index_collections::To1;
+use probabilistic_models::{AnnotationEntryIndex, PredecessorIndex};
 use probabilistic_properties::{
     NonDeterminismKind, PathFormula, Query, RewardFormula, StateFormula,
 };
@@ -26,6 +28,10 @@ pub fn check_mdp<
     options: &CheckerOptions,
 ) -> Result<f64, CheckerError> {
     match query {
+        Query::ProbabilityValue {
+            non_determinism,
+            path: PathFormula::Until { before, after },
+        } => compute_until_value(model, non_determinism, &before, &after, state, options),
         Query::ProbabilityValue {
             non_determinism,
             path,
@@ -65,6 +71,69 @@ pub fn check_mdp<
         Query::TimeBound { .. } => Err(CheckerError::NoSuitableAlgorithm),
         Query::TimeValue { .. } => Err(CheckerError::NoSuitableAlgorithm),
     }
+}
+
+// Note: This rebuilds the reachable fragment of the model (from the initial states). Thus, `state`
+// must be an initial state of the model.
+fn compute_until_value<
+    M: ReadStateSpace
+        + ReadAtomicPropositions<StateIdx = M::StateIndex>
+        + ReadPredecessors<
+            StateIdx = M::StateIndex,
+            ChoiceIdx = M::ChoiceIndex,
+            BranchIdx = M::BranchIndex,
+        > + ReadInitialStates<StateIdx = M::StateIndex>
+        + ReadRewards<StateIdx = M::StateIndex, ChoiceIdx = M::ChoiceIndex>,
+>(
+    model: &M,
+    non_determinism: Option<NonDeterminismKind>,
+    before: &StateFormula<i64, f64, M::APIdx>,
+    after: &StateFormula<i64, f64, M::APIdx>,
+    state: M::StateIndex,
+    options: &CheckerOptions,
+) -> Result<f64, CheckerError> {
+    assert!(
+        model.is_initial(state),
+        "Until formulas can only be checked in initial states"
+    );
+    let before = compute_state_value(model, before, options)?;
+    let after = compute_state_value(model, after, options)?;
+    let (restricted, goal) = rebuild_model_for_until::<_, AnnotationEntryIndex<usize>, _>(
+        model, &before, &after, "goal",
+    );
+    let restricted = restricted.compute_predecessors::<PredecessorIndex<usize>>();
+    let initial_states = restricted.initial_states().iter().collect::<Vec<_>>();
+    assert_eq!(
+        initial_states.len(),
+        1,
+        "The model checker does not yet support models with multiple initial states"
+    );
+    let goal = StateDescription::AtomicProposition {
+        ap_index: goal,
+        model: &restricted,
+    };
+    let non_determinism = match non_determinism {
+        None => {
+            panic!("Must specify non-determinism explicitly!")
+        }
+        Some(NonDeterminismKind::Maximise) => NonDeterminism::Maximise,
+        Some(NonDeterminismKind::Minimise) => NonDeterminism::Minimise,
+    };
+    let result = match options.sound {
+        true => probabilistic_model_algorithms::value_iteration::optimistic_value_iteration(
+            &restricted,
+            &goal,
+            non_determinism,
+            options.value_iteration_config(),
+        ),
+        false => probabilistic_model_algorithms::value_iteration::value_iteration(
+            &restricted,
+            &goal,
+            non_determinism,
+            options.value_iteration_config(),
+        ),
+    };
+    Ok(result[initial_states[0]])
 }
 
 pub fn compute_path_value<
