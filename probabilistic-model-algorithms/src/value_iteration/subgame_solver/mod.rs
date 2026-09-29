@@ -20,4 +20,5 @@ pub trait SubGameSolver {
         eps: f64,
         max_value: f64,
     ) -> &'a [f64];
+    fn requires_unique_fixed_point() -> bool;
 }

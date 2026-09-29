@@ -77,6 +77,10 @@ impl SubGameSolver for OptimisticValueIteration {
             }
         }
     }
+
+    fn requires_unique_fixed_point() -> bool {
+        true
+    }
 }
 
 fn verify_subgame_optimistic<ND: NonDeterminism, NewSI: Index, NewCI: Index, NewBI: Index>(

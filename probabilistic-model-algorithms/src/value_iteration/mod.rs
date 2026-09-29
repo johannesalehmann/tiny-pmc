@@ -260,7 +260,12 @@ fn value_iteration_internal<
         )
     } else {
         let precomputed_states = ND::compute_s0_s1(model, goal);
-        let mecs = ND::compute_probability_mecs(model, &precomputed_states, config.collapse_mecs);
+        let mecs = ND::compute_probability_mecs(
+            model,
+            &precomputed_states,
+            config.collapse_mecs,
+            Solver::requires_unique_fixed_point(),
+        );
         solve_order.find_and_solve_subgames::<ND, Solver, _, _, _>(
             model,
             &precomputed_states,

@@ -87,4 +87,8 @@ impl SubGameSolver for ValueIteration {
         self.values.fill(0.0);
         self.solve_raw::<ND, _, _, _>(mdp, choice_exit_values, eps)
     }
+
+    fn requires_unique_fixed_point() -> bool {
+        false
+    }
 }

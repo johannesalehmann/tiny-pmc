@@ -45,6 +45,7 @@ pub trait NonDeterminism {
         model: &M,
         s0_s1: &S0S1<M::StateIndex>,
         collapse_mecs: CollapseMecs,
+        unique_fixed_point_required: bool,
     ) -> Mecs<M::StateIndex, M::ChoiceIndex>;
 
     fn compute_reward_mecs<
@@ -113,16 +114,16 @@ impl NonDeterminism for Maximise {
         model: &M,
         s0_s1: &S0S1<M::StateIndex>,
         collapse_mecs: CollapseMecs,
+        unique_fixed_point_required: bool,
     ) -> Mecs<M::StateIndex, M::ChoiceIndex> {
-        match collapse_mecs {
-            CollapseMecs::WhenNecessary => Mecs::empty(),
-            CollapseMecs::WheneverPossible => {
-                let excluded_choices = To1::with_entries(vec![false; model.choices().len()]);
-                Mecs::compute(
-                    model,
-                    ExcludeStatesAndChoices::new(non_maybe_states(model, s0_s1), excluded_choices),
-                )
-            }
+        if unique_fixed_point_required || collapse_mecs == CollapseMecs::WheneverPossible {
+            let excluded_choices = To1::with_entries(vec![false; model.choices().len()]);
+            Mecs::compute(
+                model,
+                ExcludeStatesAndChoices::new(non_maybe_states(model, s0_s1), excluded_choices),
+            )
+        } else {
+            Mecs::empty()
         }
     }
 
@@ -199,9 +200,10 @@ impl NonDeterminism for Minimise {
         model: &M,
         s0_s1: &S0S1<M::StateIndex>,
         collapse_mecs: CollapseMecs,
+        unique_fixed_point_required: bool,
     ) -> Mecs<M::StateIndex, M::ChoiceIndex> {
         // All ECs among maybe states have been removed by the qualitative precomputation
-        let _ = (model, s0_s1, collapse_mecs);
+        let _ = (model, s0_s1, collapse_mecs, unique_fixed_point_required);
         Mecs::empty()
     }
 

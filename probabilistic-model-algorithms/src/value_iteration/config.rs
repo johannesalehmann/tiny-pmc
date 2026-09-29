@@ -11,7 +11,7 @@ pub struct ValueIterationConfig {
     pub write_sub_mdp_timing: Option<SccTimingOutput>,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum CollapseMecs {
     WhenNecessary,
     WheneverPossible,
