@@ -12,6 +12,7 @@ pub trait RawIndex:
 {
     fn as_usize(self) -> usize;
     fn from_usize(val: usize) -> Self;
+    fn try_from_usize(val: usize) -> Option<Self>;
     fn zero() -> Self {
         <Self as num_traits::Zero>::zero()
     }
@@ -27,6 +28,14 @@ impl RawIndex for u8 {
     fn from_usize(val: usize) -> Self {
         val as Self
     }
+
+    fn try_from_usize(val: usize) -> Option<Self> {
+        if val <= Self::MAX as usize {
+            Some(val as Self)
+        } else {
+            None
+        }
+    }
 }
 impl RawIndex for u16 {
     fn as_usize(self) -> usize {
@@ -35,6 +44,14 @@ impl RawIndex for u16 {
 
     fn from_usize(val: usize) -> Self {
         val as Self
+    }
+
+    fn try_from_usize(val: usize) -> Option<Self> {
+        if val <= Self::MAX as usize {
+            Some(val as Self)
+        } else {
+            None
+        }
     }
 }
 impl RawIndex for u32 {
@@ -45,6 +62,14 @@ impl RawIndex for u32 {
     fn from_usize(val: usize) -> Self {
         val as Self
     }
+
+    fn try_from_usize(val: usize) -> Option<Self> {
+        if val <= Self::MAX as usize {
+            Some(val as Self)
+        } else {
+            None
+        }
+    }
 }
 impl RawIndex for u64 {
     fn as_usize(self) -> usize {
@@ -54,6 +79,10 @@ impl RawIndex for u64 {
     fn from_usize(val: usize) -> Self {
         val as Self
     }
+
+    fn try_from_usize(val: usize) -> Option<Self> {
+        Some(val as Self)
+    }
 }
 impl RawIndex for usize {
     fn as_usize(self) -> usize {
@@ -62,6 +91,10 @@ impl RawIndex for usize {
 
     fn from_usize(val: usize) -> Self {
         val
+    }
+
+    fn try_from_usize(val: usize) -> Option<Self> {
+        Some(val)
     }
 }
 

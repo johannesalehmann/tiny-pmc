@@ -1,3 +1,4 @@
+mod csr;
 mod file_input;
 mod index;
 
