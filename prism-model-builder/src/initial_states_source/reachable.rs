@@ -26,6 +26,10 @@ impl InitialStateSource for StartFromInitialStates {
         }
         state_creator.add_state(valuation.bare(), true);
     }
+
+    fn compatible_with_state_space_restriction(&self) -> bool {
+        true
+    }
 }
 
 impl<

@@ -36,6 +36,7 @@ impl<
             atomic_propositions: self.atomic_propositions,
             choice_labels: self.choice_labels,
             rewards: self.rewards,
+            state_space_restriction: self.state_space_restriction,
         }
     }
     pub(crate) fn map_queries_with<Q2: QueryCollection>(
@@ -53,6 +54,7 @@ impl<
             atomic_propositions: self.atomic_propositions,
             choice_labels: self.choice_labels,
             rewards: self.rewards,
+            state_space_restriction: self.state_space_restriction,
         }
     }
     pub(crate) fn map_labels<L2: LabelSource>(
@@ -70,6 +72,7 @@ impl<
             atomic_propositions: self.atomic_propositions,
             choice_labels: self.choice_labels,
             rewards: self.rewards,
+            state_space_restriction: self.state_space_restriction,
         }
     }
 
@@ -88,6 +91,7 @@ impl<
             atomic_propositions: self.atomic_propositions,
             choice_labels: self.choice_labels,
             rewards: self.rewards,
+            state_space_restriction: self.state_space_restriction,
         }
     }
 
@@ -106,6 +110,7 @@ impl<
             atomic_propositions: self.atomic_propositions,
             choice_labels: self.choice_labels,
             rewards: self.rewards,
+            state_space_restriction: self.state_space_restriction,
         }
     }
 
@@ -124,6 +129,7 @@ impl<
             atomic_propositions,
             choice_labels: self.choice_labels,
             rewards: self.rewards,
+            state_space_restriction: self.state_space_restriction,
         }
     }
 
@@ -144,6 +150,7 @@ impl<
             atomic_propositions: self.atomic_propositions,
             choice_labels,
             rewards: self.rewards,
+            state_space_restriction: self.state_space_restriction,
         }
     }
 
@@ -164,6 +171,7 @@ impl<
             atomic_propositions: self.atomic_propositions,
             choice_labels: self.choice_labels,
             rewards,
+            state_space_restriction: self.state_space_restriction,
         }
     }
 }

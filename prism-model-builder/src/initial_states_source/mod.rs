@@ -180,4 +180,5 @@ pub trait Context {
 
 pub trait InitialStateSource {
     fn mark_initial_states<'a, IniCreator: Context>(&self, state_creator: &mut IniCreator);
+    fn compatible_with_state_space_restriction(&self) -> bool;
 }

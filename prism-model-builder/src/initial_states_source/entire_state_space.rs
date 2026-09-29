@@ -39,6 +39,10 @@ impl InitialStateSource for StartFromEveryState {
             more_values = state_creator.inc_values(&mut values);
         }
     }
+
+    fn compatible_with_state_space_restriction(&self) -> bool {
+        false
+    }
 }
 
 impl<

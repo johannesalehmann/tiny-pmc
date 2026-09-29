@@ -169,6 +169,7 @@ impl<'a, S: Span>
             labels: Default::default(),
             choice_labels: Default::default(),
             rewards: Default::default(),
+            state_space_restriction: Default::default(),
         }
     }
 }

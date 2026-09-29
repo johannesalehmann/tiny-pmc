@@ -13,6 +13,7 @@ mod map;
 pub mod queries;
 pub mod rewards_builder;
 mod state_builder;
+mod state_space_restriction;
 mod synchronised_actions;
 pub mod variables;
 
@@ -61,6 +62,8 @@ pub struct ModelBuilder<
     atomic_propositions: APs,
     choice_labels: CL,
     rewards: Rew,
+
+    state_space_restriction: Option<Expression<VariableReference, S>>,
 }
 
 impl<
@@ -124,6 +127,14 @@ impl<
             self.model.rewards = rewards;
         }
         let labels = labels.to_stack_based(&mut sub_exprs, &model.variable_manager);
+        let expand_state_condition = match &self.state_space_restriction {
+            None => None,
+            Some(condition) => {
+                let stack =
+                    StackBasedExpression::from_expression(condition, &model.variable_manager);
+                Some(sub_exprs.add_sub_expression(stack))
+            }
+        };
 
         for (index, (name, _)) in labels.into_iter().enumerate() {
             let new_index = self
@@ -157,6 +168,7 @@ impl<
             unlabelled_rewards_computed: false,
             synchronised_rewards: Vec::new(),
             open_states: VecDeque::new(),
+            expand_state_condition,
 
             variables: StateBuilderVariables {
                 info: variable_info,
@@ -164,6 +176,15 @@ impl<
                 expr_context: &mut expr_context,
             },
         };
+        if self.state_space_restriction.is_some()
+            && !self
+                .initial_state_source
+                .compatible_with_state_space_restriction()
+        {
+            panic!(
+                "Cannot use a state space restriction when building the entire state space of the model"
+            );
+        }
         state_builder
             .create_initial_states(self.initial_state_source)
             .unwrap();

@@ -48,6 +48,8 @@ pub struct StateBuilder<
 
     pub open_states: VecDeque<Base::StateIdx>,
 
+    pub expand_state_condition: Option<E>,
+
     pub variables: StateBuilderVariables<'a, S, E, EC, Base>,
 }
 
@@ -155,25 +157,35 @@ impl<
 
         let mut choices_added = 0;
 
-        for (module_index, module) in self.variables.model.modules.iter().enumerate() {
-            for command_index in 0..module.commands.len() {
-                let command = &module.commands[command_index];
-                // TODO: We could handle commands with actions here, as long as they only occur in
-                //  a single module.
-                if command.action.is_some() {
-                    continue; // Synchronising actions are handled separately
+        let valuation = &self.base.state_valuations().entry(state);
+        let val_source = self.variables.info.get_valuation_source(valuation);
+        let restriction = self
+            .expand_state_condition
+            .as_ref()
+            .map(|c| self.variables.expr_context.evaluate_bool(&c, &val_source))
+            .unwrap_or(true);
+        // Only expand states that satisfy the restriction.
+        if restriction {
+            for (module_index, module) in self.variables.model.modules.iter().enumerate() {
+                for command_index in 0..module.commands.len() {
+                    let command = &module.commands[command_index];
+                    // TODO: We could handle commands with actions here, as long as they only occur in
+                    //  a single module.
+                    if command.action.is_some() {
+                        continue; // Synchronising actions are handled separately
+                    }
+                    choices_added += self.process_nonsynchronised_command(
+                        state,
+                        module_index,
+                        command_index,
+                        &command,
+                    );
                 }
-                choices_added += self.process_nonsynchronised_command(
-                    state,
-                    module_index,
-                    command_index,
-                    &command,
-                );
             }
-        }
 
-        for i in 0..self.synchronising_action.len() {
-            choices_added += self.process_synchronising_action(state, i);
+            for i in 0..self.synchronising_action.len() {
+                choices_added += self.process_synchronising_action(state, i);
+            }
         }
         if choices_added == 0 {
             // Fix deadlocks: // TODO: Make this configurable
