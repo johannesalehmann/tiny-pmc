@@ -1,0 +1,10 @@
+[package]
+name = "umb-parser"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+probabilistic-models = { path = "../probabilistic-models" }
+tar = "0.4"
+xz2 = "0.1.7"
+flate2 = "1.1.10"
