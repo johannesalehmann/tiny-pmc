@@ -40,12 +40,19 @@ fn checker() -> Result<(), ModelCheckerError> {
         Some((prism_model, properties)) => (prism_model, properties),
     };
 
+    let state_space_restriction = if properties.len() == 1 {
+        tiny_pmc::state_space_restriction::get_state_space_restriction(&properties[0])
+    } else {
+        None
+    };
+
     let start_build = std::time::Instant::now();
 
     let builder = prism_model_builder::ModelBuilder::new_mdp_builder(&mut prism_model)
         .with_necessary_labels()
         .with_queries(properties)
-        .with_constants(constants);
+        .with_constants(constants)
+        .with_state_space_restriction_maybe(state_space_restriction);
 
     let builder_output = builder.build();
     println!("Built model in {:?}", start_build.elapsed());

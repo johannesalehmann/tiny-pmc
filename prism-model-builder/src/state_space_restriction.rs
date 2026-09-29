@@ -20,9 +20,16 @@ impl<
     Rew: RewardsBuilder<StateIdx = B::StateIdx, ChoiceIdx = B::ChoiceIdx>,
 > ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CL, Rew>
 {
-    pub fn with_restricted_state_space(
+    pub fn with_state_space_restriction(
         self,
         condition: Expression<VariableReference, S>,
+    ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CL, Rew> {
+        self.with_state_space_restriction_maybe(Some(condition))
+    }
+
+    pub fn with_state_space_restriction_maybe(
+        self,
+        condition: Option<Expression<VariableReference, S>>,
     ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CL, Rew> {
         ModelBuilder {
             model: self.model,
@@ -35,7 +42,7 @@ impl<
             atomic_propositions: self.atomic_propositions,
             choice_labels: self.choice_labels,
             rewards: self.rewards,
-            state_space_restriction: Some(condition),
+            state_space_restriction: condition,
         }
     }
 }
@@ -62,7 +69,7 @@ mod tests {
         let x = prism.variable_manager.get_reference_by_str("x").unwrap();
         let restriction = Expression::var_or_const(x).less_than(Expression::int(2));
         let model = ModelBuilder::new_mdp_builder(&mut prism)
-            .with_restricted_state_space(restriction)
+            .with_state_space_restriction(restriction)
             .build();
         assert_eq!(model.states().len(), 3);
         for i in 0..2 {
@@ -94,7 +101,7 @@ mod tests {
         let x = prism.variable_manager.get_reference_by_str("x").unwrap();
         let restriction = Expression::bool(true);
         let model = ModelBuilder::new_mdp_builder(&mut prism)
-            .with_restricted_state_space(restriction)
+            .with_state_space_restriction(restriction)
             .build();
         assert_eq!(model.states().len(), 5);
         for i in 0..=4 {
@@ -112,7 +119,7 @@ mod tests {
         let x = prism.variable_manager.get_reference_by_str("x").unwrap();
         let restriction = Expression::var_or_const(x).greater_or_equal(Expression::int(2));
         let model = ModelBuilder::new_mdp_builder(&mut prism)
-            .with_restricted_state_space(restriction)
+            .with_state_space_restriction(restriction)
             .build();
         assert_eq!(model.states().len(), 1);
         assert_eq!(
@@ -139,7 +146,7 @@ mod tests {
         let y = prism.variable_manager.get_reference_by_str("y").unwrap();
         let restriction = Expression::var_or_const(y).less_than(Expression::int(2));
         let model = ModelBuilder::new_mdp_builder(&mut prism)
-            .with_restricted_state_space(restriction)
+            .with_state_space_restriction(restriction)
             .build();
         assert_eq!(model.states().len(), 3);
         for i in 0..=2 {
@@ -170,7 +177,7 @@ mod tests {
             .unwrap();
         let restriction = Expression::var_or_const(x).less_than(Expression::var_or_const(c));
         let model = ModelBuilder::new_mdp_builder(&mut prism)
-            .with_restricted_state_space(restriction)
+            .with_state_space_restriction(restriction)
             .build();
         assert_eq!(model.states().len(), 3);
         for i in 0..=2 {
@@ -191,7 +198,7 @@ mod tests {
         let x = prism.variable_manager.get_reference_by_str("x").unwrap();
         let restriction = Expression::var_or_const(x).less_than(Expression::int(2));
         let model = ModelBuilder::new_mdp_builder(&mut prism)
-            .with_restricted_state_space(restriction)
+            .with_state_space_restriction(restriction)
             .with_full_state_space()
             .build();
     }

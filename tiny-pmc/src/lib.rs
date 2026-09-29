@@ -3,6 +3,7 @@ use std::fmt::Formatter;
 
 pub mod checking;
 pub mod parsing;
+pub mod state_space_restriction;
 
 pub type PrismModel = prism_model::Model<
     VariableReference,
