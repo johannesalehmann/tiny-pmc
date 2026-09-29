@@ -4,6 +4,11 @@ use probabilistic_models::base_model::Mdp;
 use probabilistic_models::traits::ReadStateSpace;
 use typed_index_collections::{Index, RawIndex, To1};
 
+// Relative amount by which an upper bound may increase (or fall below the corresponding lower
+// bound) during verification before this is attributed to the bound being too small rather than
+// to floating-point rounding.
+const ROUNDING_TOLERANCE: f64 = 4.0 * f64::EPSILON;
+
 pub struct OptimisticValueIteration {
     base_vi: ValueIteration,
     verification_bounds: Vec<(f64, f64)>,
@@ -38,7 +43,9 @@ impl SubGameSolver for OptimisticValueIteration {
 
             let verification_bounds = &mut self.verification_bounds[..mdp.states().len()];
             for state in mdp.states() {
-                let value = values[state.raw().as_usize()];
+                // Rounding can push the lower bound slightly above `max_value`. We clamp it to
+                // ensure that it does not exceed the upper bound.
+                let value = values[state.raw().as_usize()].min(max_value);
                 let upper = match value {
                     0.0 => 0.0,
                     v => (v * (1.0 + initial_eps)).min(max_value),
@@ -50,28 +57,45 @@ impl SubGameSolver for OptimisticValueIteration {
                 mdp,
                 choice_exit_values,
                 (1.0 / (2.0 * eps)).max(1.0) as usize,
+                max_value,
                 verification_bounds,
             ) {
                 OptimisticValueIterationResult::UpperBoundVerified => {
-                    for (_, (value, (lower, upper))) in mdp.states().into_iter().zip(
-                        self.base_vi
-                            .values
-                            .iter_mut()
-                            .zip(verification_bounds.iter()),
-                    ) {
-                        *value = 0.5 * (lower + upper);
-                    }
+                    write_midpoints(&mut self.base_vi.values, verification_bounds);
                     break &self.base_vi.values[..mdp.states().len()];
                 }
                 OptimisticValueIterationResult::UpperBoundRefuted { error } => {
-                    eps = error * 0.5;
-                    for (_, (value, (lower, _))) in mdp.states().into_iter().zip(
-                        self.base_vi
-                            .values
-                            .iter_mut()
-                            .zip(verification_bounds.iter()),
-                    ) {
-                        *value = *lower;
+                    if error > f64::EPSILON {
+                        eps = error * 0.5;
+                        write_lower_bounds(&mut self.base_vi.values, verification_bounds);
+                    } else {
+                        // The lower bound no longer improves, so further iterations would not change
+                        // anything. Check whether it is a fixed point by checking whether it
+                        // verifies as its own upper bound.
+                        for (lower, upper) in verification_bounds.iter_mut() {
+                            *upper = *lower;
+                        }
+                        match verify_subgame_optimistic::<ND, _, _, _>(
+                            mdp,
+                            choice_exit_values,
+                            1,
+                            max_value,
+                            verification_bounds,
+                        ) {
+                            OptimisticValueIterationResult::UpperBoundVerified => {
+                                write_midpoints(&mut self.base_vi.values, verification_bounds);
+                            }
+                            OptimisticValueIterationResult::UpperBoundRefuted { .. } => {
+                                println!(
+                                    "Warning: Optimistic value iteration failed to verify the \
+                                upper bound for a sub-model with {} states due to floating-point \
+                                rounding. The provided values might not be epsilon-correct.",
+                                    mdp.states().len()
+                                );
+                                write_lower_bounds(&mut self.base_vi.values, verification_bounds);
+                            }
+                        }
+                        break &self.base_vi.values[..mdp.states().len()];
                     }
                 }
             }
@@ -87,6 +111,7 @@ fn verify_subgame_optimistic<ND: NonDeterminism, NewSI: Index, NewCI: Index, New
     mdp: &Mdp<NewSI, NewCI, NewBI>,
     choice_exit_values: &To1<NewCI, f64>,
     max_steps: usize,
+    max_value: f64,
     verification_bounds: &mut [(f64, f64)],
 ) -> OptimisticValueIterationResult {
     let mut error: f64 = 0.0;
@@ -127,6 +152,7 @@ fn verify_subgame_optimistic<ND: NonDeterminism, NewSI: Index, NewCI: Index, New
                 current_choice += NewCI::RawType::one();
             }
 
+            let new_lower_value = new_lower_value.min(max_value); // .max to guard against floating-point round-ups
             let (lower, upper) = verification_bounds[state];
             if new_lower_value > 0.0 {
                 error = error.max((new_lower_value - lower) / new_lower_value);
@@ -135,11 +161,13 @@ fn verify_subgame_optimistic<ND: NonDeterminism, NewSI: Index, NewCI: Index, New
             if new_upper_value < upper {
                 all_up = false;
                 verification_bounds[state].1 = new_upper_value;
-            } else if new_upper_value > upper {
+            } else if new_upper_value > upper * (1.0 + ROUNDING_TOLERANCE) {
                 all_down = false;
             }
 
-            if new_upper_value < new_lower_value {
+            // Increases of the upper bound within the tolerance are ignored above, so the lower
+            // bound may exceed the upper bound by the same tolerance.
+            if new_upper_value < new_lower_value * (1.0 - ROUNDING_TOLERANCE) {
                 return OptimisticValueIterationResult::UpperBoundRefuted { error };
             }
         }
@@ -151,6 +179,18 @@ fn verify_subgame_optimistic<ND: NonDeterminism, NewSI: Index, NewCI: Index, New
         }
     }
     OptimisticValueIterationResult::UpperBoundRefuted { error }
+}
+
+fn write_midpoints(values: &mut [f64], verification_bounds: &[(f64, f64)]) {
+    for (value, &(lower, upper)) in values.iter_mut().zip(verification_bounds) {
+        *value = 0.5 * (lower + upper);
+    }
+}
+
+fn write_lower_bounds(values: &mut [f64], verification_bounds: &[(f64, f64)]) {
+    for (value, &(lower, _)) in values.iter_mut().zip(verification_bounds) {
+        *value = lower;
+    }
 }
 
 enum OptimisticValueIterationResult {

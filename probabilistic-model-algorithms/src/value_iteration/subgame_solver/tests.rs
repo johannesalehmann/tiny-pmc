@@ -44,3 +44,23 @@ fn value_iteration_eps_zero() {
         assert!((value - 1.0).abs() < 1e-15, "Expected 1, got {value}");
     }
 }
+
+// In floating point, the exit value and the probability of the choice of `s` sum to slightly more
+// than 1 (0.34 + 0.56 + 0.1 = 1.0000000000000002). Thus, rounding pushes the lower bound above
+// `max_value`. This text checks that OVI still terminates.
+#[test]
+fn optimistic_value_iteration_rounding_above_max_value() {
+    mdp!(mdp = {
+        s -> 0.1: t,
+        t -> 1.0: s
+    });
+    let exit_values = To1::with_entries(vec![0.34 + 0.56, 0.0]);
+    let mut solver = OptimisticValueIteration::create(2);
+    let values = solver.solve::<Maximise, _, _, _>(&mdp, &exit_values, 1e-6, 1.0);
+    for &value in values {
+        assert!(
+            (1.0 - 1e-6..=1.0).contains(&value),
+            "Expected value in [1 - 1e-6, 1], got {value}"
+        );
+    }
+}
