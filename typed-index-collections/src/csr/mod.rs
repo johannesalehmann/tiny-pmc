@@ -175,7 +175,6 @@ impl<'a, From: Index, To: Index> Iterator for CsrIterator<'a, From, To> {
 
 #[cfg(test)]
 mod test {
-    use crate as typed_index_collections;
     use crate::csr::Csr;
     use crate::{Index, IndexRange};
 
@@ -203,7 +202,7 @@ mod test {
 
     macro_rules! check_iters {
         ($iter: ident, $enum_iter: ident, $from: expr, $to_start: expr, $to_end: expr) => {{
-            let mut entry = $iter.next().unwrap();
+            let entry = $iter.next().unwrap();
             let (index, enum_entry) = $enum_iter.next().unwrap();
             assert_eq!(
                 index,

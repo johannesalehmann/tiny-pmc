@@ -212,7 +212,6 @@ impl<'a, InternalIndex: Index, E> Iterator for EnumeratingNamedTo1Iterator<'a, I
 
 #[cfg(test)]
 mod test {
-    use crate as typed_index_collections;
     use crate::NamedTo1;
 
     crate::index!(EntryIndex);

@@ -98,7 +98,6 @@ impl<
 
 #[cfg(test)]
 mod tests {
-    use crate as typed_index_collections;
     use crate::{Csr, Index, index};
 
     index!(A);
