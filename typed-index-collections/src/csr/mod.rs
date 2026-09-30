@@ -34,6 +34,15 @@ impl<From: Index, To: Index> Csr<From, To> {
         }
     }
 
+    pub fn identity(len: usize) -> Self {
+        Self {
+            entries: (1..=len)
+                .map(|i| To::from_raw(To::RawType::from_usize(i)))
+                .collect(),
+            phantom_data: PhantomData,
+        }
+    }
+
     pub fn add_empty_entry(&mut self) -> From {
         let index = From::from_raw(From::RawType::from_usize(self.entries.len()));
         self.entries.push(self.end());
