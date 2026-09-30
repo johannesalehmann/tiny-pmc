@@ -149,5 +149,57 @@ pub type StateChoiceRewards<StateIdx, ChoiceIdx, AnnotationEntryIdx> = Rewards<
     (),
 >;
 
+impl<StateIdx: Index, ChoiceIdx: Index, AnnotationEntryIdx: Index>
+    StateChoiceRewards<StateIdx, ChoiceIdx, AnnotationEntryIdx>
+{
+    pub fn new() -> Self {
+        Self {
+            states: None,
+            choices: None,
+            branches: (),
+        }
+    }
+    pub fn with_state_rewards(state_rewards: EntityRewards<StateIdx, AnnotationEntryIdx>) -> Self {
+        Self {
+            states: Some(state_rewards),
+            choices: None,
+            branches: (),
+        }
+    }
+    pub fn with_choice_rewards(
+        choice_rewards: EntityRewards<ChoiceIdx, AnnotationEntryIdx>,
+    ) -> Self {
+        Self {
+            states: None,
+            choices: Some(choice_rewards),
+            branches: (),
+        }
+    }
+    pub fn with_state_and_choice_rewards(
+        state_rewards: EntityRewards<StateIdx, AnnotationEntryIdx>,
+        choice_rewards: EntityRewards<ChoiceIdx, AnnotationEntryIdx>,
+    ) -> Self {
+        Self {
+            states: Some(state_rewards),
+            choices: Some(choice_rewards),
+            branches: (),
+        }
+    }
+
+    pub fn add_state_rewards(
+        &mut self,
+        state_rewards: EntityRewards<StateIdx, AnnotationEntryIdx>,
+    ) {
+        self.states = Some(state_rewards);
+    }
+
+    pub fn add_choice_rewards(
+        &mut self,
+        choice_rewards: EntityRewards<ChoiceIdx, AnnotationEntryIdx>,
+    ) {
+        self.choices = Some(choice_rewards);
+    }
+}
+
 pub type RewardAnnotations<AnnotationIdx, StateIdx, ChoiceIdx, AnnotationEntryIdx> =
     NamedTo1<AnnotationIdx, StateChoiceRewards<StateIdx, ChoiceIdx, AnnotationEntryIdx>>;
