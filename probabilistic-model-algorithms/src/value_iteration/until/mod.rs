@@ -166,15 +166,14 @@ mod tests {
         let mut aps = TestAps::new();
         let restriction_ap = aps.add_entry(
             "restriction".to_string(),
-            TypedAnnotation::with_identity_distribution_and_entries(
-                state_set(state_count, restriction).change_key_type(),
-            ),
+            TypedAnnotation::with_identity_distribution_and_entries(state_set(
+                state_count,
+                restriction,
+            )),
         );
         let goal_ap = aps.add_entry(
             "goal".to_string(),
-            TypedAnnotation::with_identity_distribution_and_entries(
-                state_set(state_count, goal).change_key_type(),
-            ),
+            TypedAnnotation::with_identity_distribution_and_entries(state_set(state_count, goal)),
         );
         let model = Model {
             base: mdp,
@@ -206,13 +205,10 @@ mod tests {
         let mut expected_aps = TestAps::new();
         expected_aps.add_entry(
             "target".to_string(),
-            TypedAnnotation::with_identity_distribution_and_entries(
-                state_set(
-                    expected_state_count,
-                    &[SI::from_raw(expected_state_count - 2)],
-                )
-                .change_key_type(),
-            ),
+            TypedAnnotation::with_identity_distribution_and_entries(state_set(
+                expected_state_count,
+                &[SI::from_raw(expected_state_count - 2)],
+            )),
         );
         let expected_initial: InitialStates<SI> = state_set(expected_state_count, expected_initial);
 

@@ -26,10 +26,10 @@ impl<EntityIdx: Index, AnnotationEntryIdx: Index, Val>
         Val,
     >
 {
-    pub fn with_identity_distribution_and_entries(values: To1<AnnotationEntryIdx, Val>) -> Self {
+    pub fn with_identity_distribution_and_entries(values: To1<EntityIdx, Val>) -> Self {
         Self {
             distribution: Default::default(),
-            values,
+            values: values.change_key_type(),
             phantom_data: PhantomData,
         }
     }
