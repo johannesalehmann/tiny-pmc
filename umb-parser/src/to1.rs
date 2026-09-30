@@ -62,6 +62,16 @@ pub enum BoolTo1Error {
     NonZeroPadding,
 }
 
+impl From<BoolTo1Error> for To1Error<BoolTo1Error> {
+    fn from(value: BoolTo1Error) -> Self {
+        match value {
+            BoolTo1Error::IoError(io) => To1Error::IoError(io),
+            BoolTo1Error::SizeMismatch { .. } => To1Error::InvalidElement(value),
+            BoolTo1Error::NonZeroPadding => To1Error::InvalidElement(value),
+        }
+    }
+}
+
 impl From<std::io::Error> for BoolTo1Error {
     fn from(value: std::io::Error) -> Self {
         BoolTo1Error::IoError(value)

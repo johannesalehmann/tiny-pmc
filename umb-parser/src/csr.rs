@@ -40,7 +40,9 @@ impl From<std::io::Error> for CsrError {
     }
 }
 
-fn parse_csr<From: Index, To: Index, R: Read>(mut reader: R) -> Result<Csr<From, To>, CsrError> {
+pub fn parse_csr<From: Index, To: Index, R: Read>(
+    mut reader: R,
+) -> Result<Csr<From, To>, CsrError> {
     let mut u8_buffer = [0u8; 8];
     let mut values = Vec::new();
     let mut previous = 0;

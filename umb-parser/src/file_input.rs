@@ -5,7 +5,7 @@ use tar::Archive;
 use xz2::read::XzDecoder;
 
 #[derive(Clone, Debug, PartialEq)]
-enum DecompressionMethod {
+pub enum DecompressionMethod {
     Gzip,
     Xz,
     NotCompressed,
