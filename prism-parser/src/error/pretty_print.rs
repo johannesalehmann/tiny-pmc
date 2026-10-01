@@ -322,6 +322,15 @@ impl<'a> ParserError<'a, ParserSpan, String> {
 
                 builder
             }
+            ValidationError::DuplicateQueryName {
+                name,
+                previous_index: _previous_index,
+            } => {
+                let mut builder = MaybeReportBuilder::new_error(&Span::empty());
+                builder.set_message(format!("Duplicate query name `{name}`"));
+                // TODO: Add a more helpful message once we have access to spans
+                builder
+            }
         }
     }
 }

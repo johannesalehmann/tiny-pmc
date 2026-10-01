@@ -187,6 +187,44 @@ pub enum ValidationError<S: prism_model::Span> {
         /// The identifier of the unknown variable, constant or formula.
         identifier: Identifier<S>,
     },
+
+    /// Two queries have the same name.
+    ///
+    /// `previous_index` is of type `Option<usize>`, as this may not always be available. For
+    /// example, consider the following property specification:
+    ///
+    /// ```prism
+    /// "prop_a": Pmax=? [F target_reached];
+    /// "prop_b": Pmin=? [F tagred_reached];
+    /// "prop_b": Pmax=? [F x=20];
+    /// ```
+    ///
+    /// When using e.g. `parse_unprocessed_props()`[crate::parse_unprocessed_props], this produces
+    /// `DuplicateQueryName { name: "prob_b", previous_index: Some(1) }`. The output contains the
+    /// properties
+    /// * `"prop_a": Pmax=? [F target_reached];`
+    /// * `"prop_b": Pmin=? [F tagred_reached];`
+    ///
+    /// However, there is a typo in `tagred_reached`. Therefore,
+    /// `parse_model_and_props()`[crate::parse_model_and_props] removes `prob_b` from the output and
+    /// only returns
+    /// * `"prop_a": Pmax=? [F target_reached];`
+    ///
+    /// Thus, `DuplicateQueryName` can no longer point to index `1`. Thus, the output now has errors
+    /// * `DuplicateQueryName { name: "prob_b", previous_index: None }`
+    /// * `UnknownVariable { name: `tagred_reached`}
+    // TODO: This currently does not use the `DuplicateElement` variant because properties aren't
+    //  spanned. Once properties are spanned and spans support distinguishing between files, this
+    //  variant can be merged into `DuplicateElement`
+    DuplicateQueryName {
+        /// The name that is duplicate
+        name: String,
+        /// The index of the first property with this name.
+        ///
+        /// May be `None` if this first occurrence contained an error and was thus removed during
+        /// processing of the property.
+        previous_index: Option<usize>,
+    },
 }
 
 /// A type of component of a PRISM model (used by [`ValidationError::DuplicateElement`]).

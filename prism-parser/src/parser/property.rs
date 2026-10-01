@@ -1,13 +1,62 @@
-use super::{expression_parser, identifier_parser, E};
+use super::{E, expression_parser, identifier_parser};
 use crate::{ParserSpan, Token};
 use chumsky::input::ValueInput;
-use chumsky::prelude::{just, Recursive};
-use chumsky::Parser;
+use chumsky::prelude::{Recursive, just};
+use chumsky::{IterParser, Parser};
 use prism_model::{Expression, Identifier};
 use probabilistic_properties::{
-    Bound, BoundOperator, NonDeterminismKind, PathFormula, Query, RewardFormula, StateFormula,
+    Bound, BoundOperator, NamedQuery, NonDeterminismKind, PathFormula, Query, RewardFormula,
+    StateFormula,
 };
 
+// TODO: Support property-file constants
+// TODO: Support property-file labels
+
+// We don't return NamedQueries here, as the name deduplication happens at a later stage (because
+// there could be multiple query files that will be parsed separately).
+pub fn named_queries_parser<'a, 'b, I>() -> impl Parser<
+    'a,
+    I,
+    Vec<
+        NamedQuery<
+            Expression<Identifier<ParserSpan>, ParserSpan>,
+            Expression<Identifier<ParserSpan>, ParserSpan>,
+            Expression<Identifier<ParserSpan>, ParserSpan>,
+        >,
+    >,
+    E<'a>,
+> + Clone
+where
+    I: ValueInput<'a, Token = Token, Span = ParserSpan>,
+{
+    named_query_parser()
+        .separated_by(just(Token::Semicolon))
+        .collect()
+        .then_ignore(just(Token::Semicolon).or_not())
+}
+pub fn named_query_parser<'a, 'b, I>() -> impl Parser<
+    'a,
+    I,
+    NamedQuery<
+        Expression<Identifier<ParserSpan>, ParserSpan>,
+        Expression<Identifier<ParserSpan>, ParserSpan>,
+        Expression<Identifier<ParserSpan>, ParserSpan>,
+    >,
+    E<'a>,
+> + Clone
+where
+    I: ValueInput<'a, Token = Token, Span = ParserSpan>,
+{
+    let name = just(Token::Quote)
+        .ignore_then(identifier_parser())
+        .then_ignore(just(Token::Quote))
+        .then_ignore(just(Token::Colon));
+
+    name.map(|n| n.name)
+        .or_not()
+        .then(query_parser())
+        .map(|(n, q)| NamedQuery::new(n, q))
+}
 pub fn query_parser<'a, 'b, I>() -> impl Parser<
     'a,
     I,

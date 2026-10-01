@@ -1,3 +1,5 @@
+mod multiple_properties;
+
 #[macro_export]
 macro_rules! parse_maybe {
     ($source: expr, $parser: expr, $output: ident, $errors: ident) => {

@@ -56,9 +56,9 @@
 //!
 //!
 //! To parse a model with a single property, use [`parse_model_and_prop()`]. To parse a model
-//! without properties, use [`parse_model()`].
+//! without properties, use [`parse_model()`]. Properties can be parsed with
+//! [`parse_unprocessed_props()`].
 //!
-//! A property cannot be parsed without a model. This limitation will be lifted in future versions.
 //! # Processed and unprocessed models
 //!
 //! After parsing, the following operations are applied:
@@ -132,7 +132,7 @@
 //! The output is *spanned*: Every component has a span that stores which section of source code
 //! corresponds to this section of the program.
 //!
-//! Continuing the above example:
+//! Continuing the initial example:
 //!
 //! ```
 //! # use prism_parser::{parse_model_and_props, Query};
@@ -177,9 +177,12 @@
 //!       successfully parsed property.
 
 // TODO: Support property parsing without model:
-//  - unprocessed properties can be parsed stand-alone
+//  - unprocessed properties can be parsed stand-alone [DONE]
 //  - processing properties requires the model to preserve its list of formulas
 //  - then they can be processed given a model as context
+
+// TODO: Use consistent name for the property inputs. Currently, they're sometimes called input
+//  files, sometimes property inputs, etc. in documentation.
 
 mod character_to_line;
 mod error;
@@ -202,7 +205,9 @@ use chumsky::prelude::*;
 pub use error::{ElementKind, ParserError, ValidationError};
 pub use lexer::{ParserSpan, Token};
 use prism_model::{FullSpan, Span};
+use probabilistic_properties::NamedQueries;
 use std::borrow::Cow;
+use std::collections::HashMap;
 
 fn lex(
     source: &str,
@@ -257,25 +262,76 @@ fn parse_and_lex<'b, O>(
 
 /// Parses a model and list of properties, without [doing processing](self#processed-and-unprocessed-models).
 ///
+/// Each entry of `property_sources` may be a single property or a property file with multiple
+/// semicolon-concatenated properties.
+///
 /// To get a processed model, use [`parse_model_and_props()`].
 /// If you only want to parse a single property, use [`parse_unprocessed_model_and_prop()`].
 /// To parse the model without any properties, use [`parse_unprocessed_model()`].
 ///
-/// The output contains a separate `Result` for the model and each property. Use
+/// The output contains a separate `Result` for the model and each property file. Use
 /// [`.all_ok()`](UnprocessedModelAndPropsResult::all_ok) to get a single result.
-// TODO: Support parsing property files with multiple entries. This requires
-//  - a new parser function that repeatedly calls the property parser
-//  - more complex property-to-source maps as there is no longer a one-to-one correspondence
 pub fn parse_unprocessed_model_and_props<'a>(
     source: &'a str,
-    properties: &'a [&'a str],
+    property_sources: &'a [&'a str],
 ) -> UnprocessedModelAndPropsResult<'a> {
     let model = parse_and_lex(source, |_| parser::program_parser().boxed());
-    let properties = properties
-        .iter()
-        .map(|p| parse_and_lex(p.as_ref(), |_| parser::query_parser().boxed()))
-        .collect::<Vec<_>>();
+    let properties = parse_unprocessed_props(property_sources);
     UnprocessedModelAndPropsResult { model, properties }
+}
+
+/// Parses the given properties. Each entry of `property_sources` may contain any number of named
+/// or unnamed properties.
+///
+/// The output contains a separate `Result` for the property file. Use
+/// [`.all_ok()`](UnprocessedPropsResult::all_ok) to get a single result.
+///
+/// *There is no parse_props*, i.e. properties cannot be processed without a model. To process
+/// properties, you must parse and process a model at the same time. This is because processing
+/// properties relies on the model's formulas, labels and variable manager.
+pub fn parse_unprocessed_props<'a>(property_sources: &'a [&'a str]) -> UnprocessedPropsResult<'a> {
+    let mut properties = NamedQueries::new();
+    let mut errors = Vec::new();
+    let mut input_source_to_properties = Vec::new();
+    for prop_source_result in property_sources
+        .iter()
+        .map(|p| parse_and_lex(p.as_ref(), |_| parser::named_queries_parser().boxed()))
+        .collect::<Vec<_>>()
+    {
+        match prop_source_result {
+            Ok(props) => {
+                let mut duplicate_errors = Vec::new();
+                let start_index = properties.len();
+                for prop in props {
+                    if let Err(err) = properties.add(prop) {
+                        duplicate_errors.push(
+                            ValidationError::DuplicateQueryName {
+                                name: err.name,
+                                previous_index: Some(err.existing_index),
+                            }
+                            .into(),
+                        )
+                    }
+                }
+                let end_index = properties.len();
+                input_source_to_properties.push(start_index..end_index);
+                if duplicate_errors.is_empty() {
+                    errors.push(Ok(()))
+                } else {
+                    errors.push(Err(duplicate_errors))
+                }
+            }
+            Err(errs) => {
+                input_source_to_properties.push(properties.len()..properties.len());
+                errors.push(Err(errs))
+            }
+        }
+    }
+    UnprocessedPropsResult {
+        properties,
+        input_source_to_properties,
+        errors,
+    }
 }
 
 /// Parses a model and a single property, without [doing processing](self#processed-and-unprocessed-models).
@@ -291,7 +347,7 @@ pub fn parse_unprocessed_model_and_prop<'a>(
     property: &'a str,
 ) -> UnprocessedModelAndPropResult<'a> {
     let model = parse_and_lex(source, |_| parser::program_parser().boxed());
-    let property = parse_and_lex(property, |_| parser::query_parser().boxed());
+    let property = parse_and_lex(property, |_| parser::named_query_parser().boxed());
     UnprocessedModelAndPropResult { model, property }
 }
 
@@ -314,19 +370,121 @@ pub fn parse_unprocessed_model<'a>(source: &'a str) -> Result<UnprocessedModel, 
 /// [`.all_ok()`](ModelAndPropsResult::all_ok) to get a single result.
 pub fn parse_model_and_props<'a>(
     source: &'a str,
-    properties: &'a [&'a str],
+    property_sources: &'a [&'a str],
 ) -> ModelAndPropsResult<'a> {
-    let unprocessed = parse_unprocessed_model_and_props(source, properties);
-    let properties: Vec<_> = unprocessed
+    let unprocessed = parse_unprocessed_model_and_props(source, property_sources);
+
+    // Build vector that stores source_file_index for each property
+    let mut source_file_indices = Vec::new();
+    for (source_file_index, range) in unprocessed
         .properties
+        .input_source_to_properties
         .into_iter()
-        .map(|p| substitute_labels_and_formulas_in_property(&unprocessed.model, p))
+        .enumerate()
+    {
+        for prop_index in range {
+            // We assume that input_source_to_properties contains consecutive ranges
+            assert_eq!(prop_index, source_file_indices.len());
+            source_file_indices.push(source_file_index);
+        }
+    }
+
+    // Build vector that stores (source_file_index, query) tuples
+    let mut unprocessed_properties = Vec::new();
+    for (source_file_index, prop) in source_file_indices
+        .into_iter()
+        .zip(unprocessed.properties.properties.into_iter())
+    {
+        unprocessed_properties.push((source_file_index, prop))
+    }
+
+    // Substitute labels and formulas
+    let partially_processed_properties: Vec<_> = unprocessed_properties
+        .into_iter()
+        .map(|(i, p)| {
+            (
+                i,
+                substitute_labels_and_formulas_in_property(&unprocessed.model, Ok(p)),
+            )
+        })
         .collect();
+
+    // Process the model
     let model = process_model(unprocessed.model);
-    let properties = properties
+
+    // Replace identifiers by variable indices
+    let processed_properties: Vec<_> = partially_processed_properties
         .into_iter()
-        .map(|p| replace_identifiers_by_variable_indices_in_property(&model, p))
+        .map(|(i, p)| {
+            (
+                i,
+                replace_identifiers_by_variable_indices_in_property(&model, p),
+            )
+        })
         .collect();
+
+    // Separate queries and errors and rebuild the input_source_to_properties map.
+    let mut old_to_new_index = HashMap::new();
+    let mut properties = NamedQueries::new();
+    let mut input_source_to_properties = Vec::new();
+    let mut new_errors = Vec::new(); // Collects new errors and which input_source they occurred in
+    for (old_index, (input_source_index, prop)) in processed_properties.into_iter().enumerate() {
+        match prop {
+            Ok(prop) => {
+                let new_index = properties.len();
+                old_to_new_index.insert(old_index, new_index);
+                properties.add(prop).unwrap(); // We can unwrap here, as name conflicts are handled in `parse_unprocessed_model_and_props` already
+                while input_source_to_properties.len() <= input_source_index {
+                    input_source_to_properties.push(new_index..new_index);
+                }
+                input_source_to_properties.last_mut().unwrap().end = new_index + 1;
+            }
+            Err(errs) => {
+                for err in errs {
+                    new_errors.push((input_source_index, err));
+                }
+            }
+        }
+    }
+    // Make sure input_source_to_properties has the right length. This loop will run when the last
+    // input source(s) did not contain any (valid) properties
+    while input_source_to_properties.len() < property_sources.len() {
+        input_source_to_properties.push(properties.len()..properties.len());
+    }
+
+    let mut errors = unprocessed.properties.errors;
+    // Update the indices of DuplicateQueryName errors
+    for result in &mut errors {
+        if let Err(errors) = result {
+            for error in errors {
+                if let Error::Validation(ValidationError::DuplicateQueryName {
+                    previous_index,
+                    ..
+                }) = error
+                {
+                    if let Some(i) = previous_index {
+                        *previous_index = old_to_new_index.get(i).cloned();
+                    }
+                }
+            }
+        }
+    }
+
+    // Add new errors to the existing errors of the right input source
+    for (input_source_index, new_error) in new_errors {
+        let errors = &mut errors[input_source_index];
+        if let Err(errs) = errors {
+            errs.push(new_error);
+        } else {
+            *errors = Err(vec![new_error]);
+        }
+    }
+    let properties = PropsResult {
+        properties,
+        input_source_to_properties,
+        errors,
+    };
+
     ModelAndPropsResult { model, properties }
 }
 
@@ -387,8 +545,8 @@ fn substitute_labels_and_formulas_in_property<'a>(
         (Err(_), _) => return Err(Vec::new()),
     };
 
-    property.substitute_labels(&model.labels);
-    match property.substitute_formulas(&model.formulas) {
+    property.query.substitute_labels(&model.labels);
+    match property.query.substitute_formulas(&model.formulas) {
         Ok(_) => Ok(property),
         Err(err) => return Err(vec![err.into()]),
     }
@@ -404,8 +562,14 @@ fn replace_identifiers_by_variable_indices_in_property<'a>(
         (Err(_), _) => return Err(Vec::new()),
     };
 
-    match property.replace_identifiers_by_variable_indices(&model.variable_manager) {
-        Ok(property) => Ok(property),
+    match property
+        .query
+        .replace_identifiers_by_variable_indices(&model.variable_manager)
+    {
+        Ok(query) => Ok(Query {
+            name: property.name,
+            query,
+        }),
         Err(err) => Err(err.into_iter().map(|e| e.into()).collect()),
     }
 }
