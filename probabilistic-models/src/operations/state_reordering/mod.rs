@@ -54,6 +54,20 @@ impl<SI: Index, CI: Index> PermuteStatesWithContext<SI, CI> for () {
     }
 }
 
+impl<SI: Index, CI: Index, T: PermuteStatesWithContext<SI, CI>> PermuteStatesWithContext<SI, CI>
+    for Option<T>
+{
+    fn permute_states_with_context<Base: ReadStateSpace<StateIndex = SI, ChoiceIndex = CI>>(
+        &self,
+        ordering: &StateOrdering<SI>,
+        old_base: &Base,
+        new_base: &Base,
+    ) -> Self {
+        self.as_ref()
+            .map(|t| t.permute_states_with_context(ordering, old_base, new_base))
+    }
+}
+
 impl<
     SI: Index,
     CI: Index,
