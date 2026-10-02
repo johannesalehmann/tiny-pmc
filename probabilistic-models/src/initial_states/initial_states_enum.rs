@@ -6,8 +6,8 @@ use typed_index_collections::Index;
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum InitialStatesEnum<
     StateIdx: Index,
-    Single: ReadInitialStates<StateIdx = StateIdx>,
-    Multiple: ReadInitialStates<StateIdx = StateIdx>,
+    Single: ReadInitialStates<StateIdx = StateIdx> = SingleInitialState<StateIdx>,
+    Multiple: ReadInitialStates<StateIdx = StateIdx> = InitialStates<StateIdx>,
 > {
     Single(Single),
     Multiple(Multiple),
