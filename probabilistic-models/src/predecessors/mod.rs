@@ -66,8 +66,53 @@ impl<M: BaseModel, I, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val>
     }
 }
 
-impl<M: BaseModel, I, CL, BL, Obs, APs, Rew, Ann, Val, SI: Index, CI: Index, BI: Index, PI: Index>
-    Model<M, I, CL, BL, Obs, APs, Rew, Ann, Val, Predecessors<SI, CI, BI, PI>>
+impl<PI: Index, M: BaseModel, I, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val>
+    Model<
+        M,
+        I,
+        ChLabel,
+        BrLabel,
+        Obs,
+        APs,
+        Rew,
+        Ann,
+        Val,
+        Option<Predecessors<M::StateIndex, M::ChoiceIndex, M::BranchIndex, PI>>,
+    >
+{
+    pub fn unwrap_or_compute_predecessors(
+        self,
+    ) -> Model<
+        M,
+        I,
+        ChLabel,
+        BrLabel,
+        Obs,
+        APs,
+        Rew,
+        Ann,
+        Val,
+        Predecessors<M::StateIndex, M::ChoiceIndex, M::BranchIndex, PI>,
+    > {
+        let predecessors = match self.predecessors {
+            Some(p) => p,
+            None => Predecessors::compute(&self.base),
+        };
+        Model {
+            base: self.base,
+            initial: self.initial,
+            choice_labels: self.choice_labels,
+            branch_labels: self.branch_labels,
+            observations: self.observations,
+            atomic_propositions: self.atomic_propositions,
+            rewards: self.rewards,
+            annotations: self.annotations,
+            state_valuations: self.state_valuations,
+            predecessors,
+        }
+    }
+}
+
 impl<M: BaseModel, I, CL, BL, Obs, APs, Rew, Ann, Val, Pred: OptionalComponent>
     Model<M, I, CL, BL, Obs, APs, Rew, Ann, Val, Pred>
 {
