@@ -3,8 +3,7 @@ use crate::{
     queries,
 };
 use prism_model::Span;
-use probabilistic_models::InitialStates;
-use probabilistic_models::initial_states::SingleInitialState;
+use probabilistic_models::initial_states::{InitialStates, SingleInitialState};
 use std::marker::PhantomData;
 use typed_index_collections::{Index, To1};
 

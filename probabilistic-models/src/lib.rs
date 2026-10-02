@@ -79,8 +79,6 @@ index!(BranchLabelIndex);
 //     }
 // }
 
-pub type InitialStates<StateIdx> = To1<StateIdx, bool>;
-
 pub struct Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds> {
     pub base: M,
     pub initial: Ini,

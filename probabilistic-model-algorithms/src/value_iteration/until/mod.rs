@@ -1,9 +1,10 @@
 use crate::state_description::StateDescription;
+use probabilistic_models::Model;
 use probabilistic_models::annotations::{AtomicPropositions, TypedAnnotation};
 use probabilistic_models::base_model::Mdp;
+use probabilistic_models::initial_states::InitialStates;
 use probabilistic_models::traits::StateSet;
 use probabilistic_models::traits::{ReadAtomicPropositions, ReadInitialStates, ReadStateSpace};
-use probabilistic_models::{InitialStates, Model};
 use typed_index_collections::{Index, RawIndex, To1};
 
 /// Builds a restricted model for checking `restriction U goal`. It contains only the reachable
@@ -135,10 +136,10 @@ mod tests {
     use crate::state_description::StateDescription;
     use probabilistic_models::annotations::{AtomicPropositions, TypedAnnotation};
     use probabilistic_models::base_model::Mdp;
+    use probabilistic_models::initial_states::InitialStates;
     use probabilistic_models::traits::ReadStateSpace;
     use probabilistic_models::{
-        AnnotationEntryIndex, AnnotationIndex, BranchIndex, ChoiceIndex, InitialStates, Model,
-        StateIndex, mdp,
+        AnnotationEntryIndex, AnnotationIndex, BranchIndex, ChoiceIndex, Model, StateIndex, mdp,
     };
     use typed_index_collections::{Index, To1};
 
