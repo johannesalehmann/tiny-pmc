@@ -4,6 +4,9 @@ use prism_model::{Expression, Identifier, Model, Span, VariableManager, Variable
 use std::collections::HashSet;
 use typed_index_collections::{Index, NamedTo1};
 
+// TODO: Rename everything in here to use AtomicPropositions instead of Labels? Might be less
+//  confusing, because there are also choice and branch labels.
+
 pub struct Labels<APIdx: Index, E> {
     labels: NamedTo1<APIdx, E>,
     sealed: bool,

@@ -92,11 +92,13 @@ impl<
     ) -> ModelBuilder<'a, S, SingleQuery<S>, L, IS, B, IB, APs, CL, Rew> {
         self.map_queries(SingleQuery { query })
     }
-    pub fn with_queries(
+    pub fn with_queries<Q: Into<Vec<UnprocessedQuery<S>>>>(
         self,
-        queries: Vec<UnprocessedQuery<S>>,
+        queries: Q,
     ) -> ModelBuilder<'a, S, QueryVector<S>, L, IS, B, IB, APs, CL, Rew> {
-        self.map_queries(QueryVector { queries })
+        self.map_queries(QueryVector {
+            queries: queries.into(),
+        })
     }
 }
 
