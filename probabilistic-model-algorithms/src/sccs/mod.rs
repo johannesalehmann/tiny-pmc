@@ -11,7 +11,6 @@ index!(SccEntryIndex);
 pub struct Sccs<SccIdx: Index, SccEntryIdx: Index, StateIdx: Index> {
     sccs: Csr<SccIdx, SccEntryIdx>,
     scc_entries: To1<SccEntryIdx, StateIdx>,
-    is_trivial: To1<SccIdx, bool>,
     state_to_scc: To1<StateIdx, Option<SccIdx>>, // This maps to None for excluded states
 }
 
@@ -22,7 +21,6 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
     ) -> Self {
         let mut sccs = Csr::new();
         let mut scc_entries = To1::new();
-        let mut is_trivial = To1::new();
         let mut state_to_scc = To1::with_entries(vec![None; state_count]);
         for scc in scc_iter {
             let scc_index = sccs.add_empty_entry();
@@ -31,14 +29,10 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
                 sccs.extend_last_entry(entry_index + ScEI::RawType::one());
                 state_to_scc[state] = Some(scc_index);
             }
-            // This function cannot determine which SCCs are trivial. Even a singleton SCC may be
-            // non-trivial if it has a self loop
-            is_trivial.add(false);
         }
         Self {
             sccs,
             scc_entries,
-            is_trivial,
             state_to_scc,
         }
     }
@@ -74,13 +68,12 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
 
         let mut sccs = Csr::new();
         let mut scc_entries = To1::with_capacity(scc_entry_count);
-        let mut is_trivial = To1::new();
         let mut state_to_scc = To1::with_capacity(model.states().len());
 
         for &v in l.iter().rev() {
             if !visited[v] {
                 visited[v] = true;
-                let is_scc_trivial = Self::visit_reversed(
+                Self::visit_reversed(
                     model,
                     exclusion_criterion,
                     &mut visited,
@@ -88,7 +81,6 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
                     &mut scc_entries,
                 );
                 sccs.add_entry_unchecked(scc_entries.keys().end());
-                is_trivial.add(is_scc_trivial);
             }
         }
 
@@ -106,7 +98,6 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
         Self {
             sccs,
             scc_entries,
-            is_trivial,
             state_to_scc,
         }
     }
@@ -458,7 +449,6 @@ mod tests {
         assert!(sccs.sccs.is_empty());
         assert_eq!(sccs.state_to_scc.len(), 0);
         assert!(sccs.scc_entries.is_empty());
-        assert!(sccs.is_trivial.is_empty());
     }
 
     #[test]
@@ -479,7 +469,6 @@ mod tests {
             sccs.scc_entries,
             To1::with_entries(vec![StateIndex::from_raw(0)])
         );
-        assert_eq!(sccs.is_trivial, To1::with_entries(vec![true]));
     }
 
     #[test]
@@ -500,7 +489,6 @@ mod tests {
             sccs.scc_entries,
             To1::with_entries(vec![StateIndex::from_raw(0)])
         );
-        assert_eq!(sccs.is_trivial, To1::with_entries(vec![false]));
     }
 
     #[test]
@@ -527,7 +515,6 @@ mod tests {
             sccs.scc_entries,
             To1::with_entries(vec![StateIndex::from_raw(1), StateIndex::from_raw(0)])
         );
-        assert_eq!(sccs.is_trivial, To1::with_entries(vec![false, true]));
     }
 
     #[test]
@@ -561,7 +548,6 @@ mod tests {
                 StateIndex::from_raw(0)
             ])
         );
-        assert_eq!(sccs.is_trivial, To1::with_entries(vec![false, true]));
     }
 
     fn complex_model() -> impl ReadStateSpace<
@@ -621,10 +607,6 @@ mod tests {
                 StateIndex::from_raw(2),
                 StateIndex::from_raw(5)
             ])
-        );
-        assert_eq!(
-            sccs.is_trivial,
-            To1::with_entries(vec![false, true, false, false])
         );
 
         let order: Vec<Vec<StateIndex<usize>>> = sccs
@@ -767,8 +749,6 @@ mod tests {
             scc0, scc2,
             "excluding state 1 must prevent 0 and 2 from merging into one SCC"
         );
-        assert!(sccs.is_trivial[scc0]);
-        assert!(sccs.is_trivial[scc2]);
 
         let dependencies = SccDependencies::<SccIndex<usize>, SccDependencyIndex<usize>>::compute(
             &model,
@@ -809,35 +789,10 @@ mod tests {
         let scc1 = sccs.scc_index_of_state(StateIndex::from_raw(1)).unwrap();
         assert_eq!(sccs.scc_index_of_state(StateIndex::from_raw(2)), Some(scc1));
         assert_ne!(scc0, scc1);
-        assert!(sccs.is_trivial[scc0]);
-        assert!(!sccs.is_trivial[scc1]);
         assert!(
             scc0 < scc1,
             "the edge 0 -> 1 must be respected by the order"
         );
-    }
-
-    #[test]
-    fn excluded_self_loop_is_trivial() {
-        mdp!(mdp = {
-            s0 -> 1.0: s0,
-            s0 -> 1.0: s1,
-            s1 -> 1.0: s1
-        });
-
-        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
-        let exclusion = ExcludeStatesAndChoices::new(
-            To1::with_entries(vec![false, false]),
-            To1::with_entries(vec![true, false, false]),
-        );
-        let sccs = Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute(
-            &model, &exclusion,
-        );
-
-        let scc0 = sccs.scc_index_of_state(StateIndex::from_raw(0)).unwrap();
-        let scc1 = sccs.scc_index_of_state(StateIndex::from_raw(1)).unwrap();
-        assert!(sccs.is_trivial[scc0]);
-        assert!(!sccs.is_trivial[scc1]);
     }
 
     #[test]
@@ -953,9 +908,6 @@ mod tests {
         assert_ne!(scc1, scc2, "states 1 and 2 are not strongly connected");
         assert_ne!(scc0, scc1, "states 0 and 1 are not strongly connected");
         assert_ne!(scc0, scc2, "states 0 and 2 are not strongly connected");
-        assert!(sccs.is_trivial[scc0]);
-        assert!(sccs.is_trivial[scc1]);
-        assert!(sccs.is_trivial[scc2]);
 
         assert!(
             scc0 < scc2,
@@ -1004,10 +956,6 @@ mod tests {
                 .into_iter()
                 .collect::<std::collections::BTreeSet<_>>()
         );
-
-        assert!(sccs.is_trivial[scc0]);
-        assert!(!sccs.is_trivial[scc1]);
-        assert!(sccs.is_trivial[scc2]);
 
         assert!(
             scc0 < scc2,
