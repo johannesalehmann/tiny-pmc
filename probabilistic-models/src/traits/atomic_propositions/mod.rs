@@ -30,6 +30,7 @@ macro_rules! derive_read_atomic_propositions {
         }
     };
 }
+use crate::traits::{ReadInitialStates, StateSet};
 pub(crate) use derive_read_atomic_propositions;
 
 impl<AI: Index, SI: Index, AEI: Index> ReadAtomicPropositions for AtomicPropositions<AI, SI, AEI> {
@@ -57,4 +58,36 @@ impl<M, Ini, ChLabel, BrLabel, Obs, APs: ReadAtomicPropositions, Rew, Ann, State
     type APIdx = APs::APIdx;
 
     derive_read_atomic_propositions!(atomic_propositions);
+}
+
+impl<T: ReadAtomicPropositions> ReadAtomicPropositions for &T {
+    type StateIdx = T::StateIdx;
+    type APIdx = T::APIdx;
+
+    fn is_atomic_proposition_set(
+        &self,
+        state: Self::StateIdx,
+        atomic_proposition: Self::APIdx,
+    ) -> bool {
+        (**self).is_atomic_proposition_set(state, atomic_proposition)
+    }
+    fn atomic_proposition_by_name(&self, name: &str) -> Option<Self::APIdx> {
+        (**self).atomic_proposition_by_name(name)
+    }
+}
+
+impl<T: ReadAtomicPropositions> ReadAtomicPropositions for &mut T {
+    type StateIdx = T::StateIdx;
+    type APIdx = T::APIdx;
+
+    fn is_atomic_proposition_set(
+        &self,
+        state: Self::StateIdx,
+        atomic_proposition: Self::APIdx,
+    ) -> bool {
+        (**self).is_atomic_proposition_set(state, atomic_proposition)
+    }
+    fn atomic_proposition_by_name(&self, name: &str) -> Option<Self::APIdx> {
+        (**self).atomic_proposition_by_name(name)
+    }
 }

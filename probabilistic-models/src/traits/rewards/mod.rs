@@ -88,3 +88,47 @@ impl<M, Ini, ChLabel, BrLabel, Obs, APs, Rew: ReadRewards, Ann, StateVals, Preds
 
     derive_read_rewards!(rewards);
 }
+
+impl<T: ReadRewards> ReadRewards for &T {
+    type StateIdx = T::StateIdx;
+    type ChoiceIdx = T::ChoiceIdx;
+    type RewardIdx = T::RewardIdx;
+
+    fn reward_structure(&self, name: Option<&str>) -> Option<Self::RewardIdx> {
+        (**self).reward_structure(name)
+    }
+    fn has_state_rewards(&self, rewards: Self::RewardIdx) -> bool {
+        (**self).has_state_rewards(rewards)
+    }
+    fn has_choice_rewards(&self, rewards: Self::RewardIdx) -> bool {
+        (**self).has_choice_rewards(rewards)
+    }
+    fn state_reward(&self, rewards: Self::RewardIdx, state: Self::StateIdx) -> f64 {
+        (**self).state_reward(rewards, state)
+    }
+    fn choice_reward(&self, rewards: Self::RewardIdx, choice: Self::ChoiceIdx) -> f64 {
+        (**self).choice_reward(rewards, choice)
+    }
+}
+
+impl<T: ReadRewards> ReadRewards for &mut T {
+    type StateIdx = T::StateIdx;
+    type ChoiceIdx = T::ChoiceIdx;
+    type RewardIdx = T::RewardIdx;
+
+    fn reward_structure(&self, name: Option<&str>) -> Option<Self::RewardIdx> {
+        (**self).reward_structure(name)
+    }
+    fn has_state_rewards(&self, rewards: Self::RewardIdx) -> bool {
+        (**self).has_state_rewards(rewards)
+    }
+    fn has_choice_rewards(&self, rewards: Self::RewardIdx) -> bool {
+        (**self).has_choice_rewards(rewards)
+    }
+    fn state_reward(&self, rewards: Self::RewardIdx, state: Self::StateIdx) -> f64 {
+        (**self).state_reward(rewards, state)
+    }
+    fn choice_reward(&self, rewards: Self::RewardIdx, choice: Self::ChoiceIdx) -> f64 {
+        (**self).choice_reward(rewards, choice)
+    }
+}

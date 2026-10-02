@@ -48,3 +48,35 @@ impl<M, Ini, ChLabel: ReadLabels, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>
         self.choice_labels.label_of_action(action)
     }
 }
+
+impl<T: ReadChoiceLabels> ReadChoiceLabels for &T {
+    type ChoiceIdx = T::ChoiceIdx;
+    type ChoiceActionIdx = T::ChoiceActionIdx;
+    type E = T::E;
+
+    fn choice_label(&self, entity: Self::ChoiceIdx) -> &Self::E {
+        (**self).choice_label(entity)
+    }
+    fn choice_action_index(&self, entity: Self::ChoiceIdx) -> Self::ChoiceActionIdx {
+        (**self).choice_action_index(entity)
+    }
+    fn label_of_choice_action(&self, action: Self::ChoiceActionIdx) -> &Self::E {
+        (**self).label_of_choice_action(action)
+    }
+}
+
+impl<T: ReadChoiceLabels> ReadChoiceLabels for &mut T {
+    type ChoiceIdx = T::ChoiceIdx;
+    type ChoiceActionIdx = T::ChoiceActionIdx;
+    type E = T::E;
+
+    fn choice_label(&self, entity: Self::ChoiceIdx) -> &Self::E {
+        (**self).choice_label(entity)
+    }
+    fn choice_action_index(&self, entity: Self::ChoiceIdx) -> Self::ChoiceActionIdx {
+        (**self).choice_action_index(entity)
+    }
+    fn label_of_choice_action(&self, action: Self::ChoiceActionIdx) -> &Self::E {
+        (**self).label_of_choice_action(action)
+    }
+}

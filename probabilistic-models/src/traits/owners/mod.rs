@@ -24,3 +24,20 @@ impl<M: ReadOwners, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>
 
     derive_read_owners!(base);
 }
+
+impl<T: ReadOwners> ReadOwners for &T {
+    type OwnerType = T::OwnerType;
+    type StateIdx = T::StateIdx;
+
+    fn state_owner(&self, state: Self::StateIdx) -> Self::OwnerType {
+        (**self).state_owner(state)
+    }
+}
+impl<T: ReadOwners> ReadOwners for &mut T {
+    type OwnerType = T::OwnerType;
+    type StateIdx = T::StateIdx;
+
+    fn state_owner(&self, state: Self::StateIdx) -> Self::OwnerType {
+        (**self).state_owner(state)
+    }
+}

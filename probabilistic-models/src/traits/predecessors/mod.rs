@@ -107,3 +107,67 @@ impl<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds: ReadPredece
 
     derive_read_predecessors!(predecessors);
 }
+
+impl<T: ReadPredecessors> ReadPredecessors for &T {
+    type StateIdx = T::StateIdx;
+    type ChoiceIdx = T::ChoiceIdx;
+    type BranchIdx = T::BranchIdx;
+    type PredecessorIdx = T::PredecessorIdx;
+
+    fn predecessor_states(&self) -> SemiboundedIndexRange<Self::StateIdx> {
+        (**self).predecessor_states()
+    }
+    fn predecessors(&self) -> SemiboundedIndexRange<Self::PredecessorIdx> {
+        (**self).predecessors()
+    }
+    fn predecessors_of_state(&self, state: Self::StateIdx) -> IndexRange<Self::PredecessorIdx> {
+        (**self).predecessors_of_state(state)
+    }
+    fn branch_of_predecessor(&self, predecessor: Self::PredecessorIdx) -> Self::BranchIdx {
+        (**self).branch_of_predecessor(predecessor)
+    }
+    fn choice_of_branch(&self, branch: Self::BranchIdx) -> Self::ChoiceIdx {
+        (**self).choice_of_branch(branch)
+    }
+    fn state_of_choice(&self, choice: Self::ChoiceIdx) -> Self::StateIdx {
+        (**self).state_of_choice(choice)
+    }
+    fn choice_of_predecessor(&self, predecessor: Self::PredecessorIdx) -> Self::ChoiceIdx {
+        (**self).choice_of_predecessor(predecessor)
+    }
+    fn source_state_of_predecessor(&self, predecessor: Self::PredecessorIdx) -> Self::StateIdx {
+        (**self).source_state_of_predecessor(predecessor)
+    }
+}
+
+impl<T: ReadPredecessors> ReadPredecessors for &mut T {
+    type StateIdx = T::StateIdx;
+    type ChoiceIdx = T::ChoiceIdx;
+    type BranchIdx = T::BranchIdx;
+    type PredecessorIdx = T::PredecessorIdx;
+
+    fn predecessor_states(&self) -> SemiboundedIndexRange<Self::StateIdx> {
+        (**self).predecessor_states()
+    }
+    fn predecessors(&self) -> SemiboundedIndexRange<Self::PredecessorIdx> {
+        (**self).predecessors()
+    }
+    fn predecessors_of_state(&self, state: Self::StateIdx) -> IndexRange<Self::PredecessorIdx> {
+        (**self).predecessors_of_state(state)
+    }
+    fn branch_of_predecessor(&self, predecessor: Self::PredecessorIdx) -> Self::BranchIdx {
+        (**self).branch_of_predecessor(predecessor)
+    }
+    fn choice_of_branch(&self, branch: Self::BranchIdx) -> Self::ChoiceIdx {
+        (**self).choice_of_branch(branch)
+    }
+    fn state_of_choice(&self, choice: Self::ChoiceIdx) -> Self::StateIdx {
+        (**self).state_of_choice(choice)
+    }
+    fn choice_of_predecessor(&self, predecessor: Self::PredecessorIdx) -> Self::ChoiceIdx {
+        (**self).choice_of_predecessor(predecessor)
+    }
+    fn source_state_of_predecessor(&self, predecessor: Self::PredecessorIdx) -> Self::StateIdx {
+        (**self).source_state_of_predecessor(predecessor)
+    }
+}

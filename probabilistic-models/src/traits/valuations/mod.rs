@@ -57,3 +57,31 @@ impl<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals: ReadValuations, Pr
 
     derive_read_valuations!(state_valuations);
 }
+
+impl<T: ReadValuations> ReadValuations for &T {
+    type StateIdx = T::StateIdx;
+    type ClassIdx = T::ClassIdx;
+    type ClassEntryIdx = T::ClassEntryIdx;
+    type ValuationIdx = T::ValuationIdx;
+
+    fn state_valuation(
+        &self,
+        state: Self::StateIdx,
+    ) -> ValuationEntry<'_, Self::ClassIdx, Self::ClassEntryIdx, Self::ValuationIdx> {
+        (**self).state_valuation(state)
+    }
+}
+
+impl<T: ReadValuations> ReadValuations for &mut T {
+    type StateIdx = T::StateIdx;
+    type ClassIdx = T::ClassIdx;
+    type ClassEntryIdx = T::ClassEntryIdx;
+    type ValuationIdx = T::ValuationIdx;
+
+    fn state_valuation(
+        &self,
+        state: Self::StateIdx,
+    ) -> ValuationEntry<'_, Self::ClassIdx, Self::ClassEntryIdx, Self::ValuationIdx> {
+        (**self).state_valuation(state)
+    }
+}

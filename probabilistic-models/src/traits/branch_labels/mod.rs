@@ -48,3 +48,35 @@ impl<M, Ini, ChLabel, BrLabel: ReadLabels, Obs, APs, Rew, Ann, StateVals, Preds>
         self.branch_labels.label_of_action(action)
     }
 }
+
+impl<T: ReadBranchLabels> ReadBranchLabels for &T {
+    type BranchIdx = T::BranchIdx;
+    type BranchActionIdx = T::BranchActionIdx;
+    type E = T::E;
+
+    fn branch_label(&self, entity: Self::BranchIdx) -> &Self::E {
+        (**self).branch_label(entity)
+    }
+    fn branch_action_index(&self, entity: Self::BranchIdx) -> Self::BranchActionIdx {
+        (**self).branch_action_index(entity)
+    }
+    fn label_of_branch_action(&self, action: Self::BranchActionIdx) -> &Self::E {
+        (**self).label_of_branch_action(action)
+    }
+}
+
+impl<T: ReadBranchLabels> ReadBranchLabels for &mut T {
+    type BranchIdx = T::BranchIdx;
+    type BranchActionIdx = T::BranchActionIdx;
+    type E = T::E;
+
+    fn branch_label(&self, entity: Self::BranchIdx) -> &Self::E {
+        (**self).branch_label(entity)
+    }
+    fn branch_action_index(&self, entity: Self::BranchIdx) -> Self::BranchActionIdx {
+        (**self).branch_action_index(entity)
+    }
+    fn label_of_branch_action(&self, action: Self::BranchActionIdx) -> &Self::E {
+        (**self).label_of_branch_action(action)
+    }
+}
