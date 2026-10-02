@@ -259,17 +259,6 @@ macro_rules! mdp {
     };
 }
 
-fn test() {
-    mdp!(model = {
-        s1 -> 0.4: s1 & 0.6: s2,
-        s2 -> 0.4: s1 & 0.6: s2,
-        a -> 0.4: s1 & 0.6: s2,
-        b -> 0.4: s1 & 0.6: s2,
-        c -> 0.4: s1 & 0.6: s2,
-        d -> 0.4: s1 & 0.6: s2
-    });
-}
-
 #[cfg(test)]
 mod tests {
     use crate::traits::ReadStateSpace;
@@ -319,24 +308,24 @@ mod tests {
     #[test]
     #[should_panic(expected = "`s0` cannot be a deadlock state")]
     fn deadlock_state_with_choices() {
-        mdp!(model = { s0 -> 1.0: s0, s0 -> deadlock });
+        mdp!(_model = { s0 -> 1.0: s0, s0 -> deadlock });
     }
 
     #[test]
     #[should_panic(expected = "`s0` cannot be a deadlock state")]
     fn deadlock_state_with_choices_after() {
-        mdp!(model = { s0 -> deadlock, s0 -> 1.0: s0 });
+        mdp!(_model = { s0 -> deadlock, s0 -> 1.0: s0 });
     }
 
     #[test]
     #[should_panic(expected = "Expected `deadlock` or a list of branches after `s0 ->`")]
     fn misspelled_deadlock() {
-        mdp!(model = { s0 -> deadlok });
+        mdp!(_model = { s0 -> deadlok });
     }
 
     #[test]
     #[should_panic(expected = "`s1` is a deadlock state and cannot have branches")]
     fn deadlock_with_branches() {
-        mdp!(model = { s0 -> deadlock, s1 -> 1.0: s0 deadlock });
+        mdp!(_model = { s0 -> deadlock, s1 -> 1.0: s0 deadlock });
     }
 }

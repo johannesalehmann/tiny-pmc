@@ -167,6 +167,9 @@ pub fn parse_umb<P: AsRef<Path>>(
         }
     }
 
+    // Temporarily suppress the "value is never read" warnings until we get around to using these
+    let _ = (state_to_player, state_is_markovian, state_to_exit_rate);
+
     assert_eq!(
         index.transition_system.num_players, 1,
         "The UMB parser currently only supports 1-player games"

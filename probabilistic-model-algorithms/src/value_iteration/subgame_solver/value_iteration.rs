@@ -17,7 +17,7 @@ impl ValueIteration {
         choice_exit_values: &To1<CI, f64>,
         eps: f64,
     ) -> &'a [f64] {
-        let mut values = &mut self.values[0..mdp.states().len()];
+        let values = &mut self.values[0..mdp.states().len()];
         loop {
             let mut converged = true;
             // Iterate states manually instead of relying on built-in functions such as

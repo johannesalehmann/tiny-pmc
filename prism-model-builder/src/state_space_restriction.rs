@@ -98,7 +98,6 @@ mod tests {
     fn true_restriction() {
         let source = SIMPLE_MODEL;
         let mut prism = prism_parser::parse_model(source).unwrap();
-        let x = prism.variable_manager.get_reference_by_str("x").unwrap();
         let restriction = Expression::bool(true);
         let model = ModelBuilder::new_mdp_builder(&mut prism)
             .with_state_space_restriction(restriction)
@@ -197,7 +196,7 @@ mod tests {
         let mut prism = prism_parser::parse_model(source).unwrap();
         let x = prism.variable_manager.get_reference_by_str("x").unwrap();
         let restriction = Expression::var_or_const(x).less_than(Expression::int(2));
-        let model = ModelBuilder::new_mdp_builder(&mut prism)
+        ModelBuilder::new_mdp_builder(&mut prism)
             .with_state_space_restriction(restriction)
             .with_full_state_space()
             .build();

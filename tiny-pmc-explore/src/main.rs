@@ -1,6 +1,6 @@
 use iced::widget::container::background;
 use iced::widget::pane_grid::Pane;
-use iced::widget::{button, column, pane_grid, row, text, text_editor, Container, Row};
+use iced::widget::{Container, Row, button, column, pane_grid, row, text, text_editor};
 use iced::{Element, Padding, Theme};
 
 fn main() -> iced::Result {
@@ -112,7 +112,7 @@ impl MdpGraph {
     }
 
     fn main_window<'a>(&'a self) -> Element<'a, Message> {
-        pane_grid::PaneGrid::new(&self.pane_grid, |id, state, maximised| {
+        pane_grid::PaneGrid::new(&self.pane_grid, |id, state, _maximised| {
             pane_grid::Content::new(self.tabbed_window(id, state))
         })
         .on_resize(2, |resize| Message::PaneResized(resize))
@@ -121,7 +121,7 @@ impl MdpGraph {
 
     fn tabbed_window<'a>(&'a self, pane: Pane, state: &'a TabView) -> Element<'a, Message> {
         let mut tab_bar = Row::new();
-        for (tab_index, tab) in state.tabs.iter().enumerate() {
+        for (tab_index, _tab) in state.tabs.iter().enumerate() {
             tab_bar = tab_bar.push(button("tab").on_press(Message::SelectTab { pane, tab_index }));
         }
         tab_bar = tab_bar.push(button("+").on_press(Message::OpenText { pane }));

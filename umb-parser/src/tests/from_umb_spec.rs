@@ -1,4 +1,4 @@
-use probabilistic_models::{StateIndex, mdp};
+use probabilistic_models::mdp;
 
 #[test]
 fn parse_from_umb_spec() {
