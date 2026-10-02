@@ -3,6 +3,9 @@ mod choice_labels;
 
 use typed_index_collections::{Index, To1};
 
+// TODO: Typedefs for branch labels (you could still give a branch index to a choice label, but
+//  it would make it easier to find them)
+
 pub trait ReadLabels {
     type EntityIdx: Index;
     type ActionIdx: Index;

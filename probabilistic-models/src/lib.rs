@@ -7,6 +7,7 @@ mod component;
 pub mod export;
 pub mod initial_states;
 pub mod labels;
+mod observations;
 mod operations;
 mod optional;
 pub mod owners;
@@ -14,7 +15,7 @@ pub mod predecessors;
 pub mod traits;
 pub mod valuations;
 
-pub use component::Component;
+pub use component::{Component, OptionalComponent};
 pub use operations::SuccessorOrder;
 pub use typed_index_collections;
 pub use typed_index_collections::{Index, RawIndex};

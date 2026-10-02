@@ -1,8 +1,9 @@
 mod distributions;
-
 pub use distributions::Distribution;
 
 use crate::annotations::distributions::IdentityDistribution;
+use crate::base_model::BaseModel;
+use crate::{Model, OptionalComponent};
 use std::marker::PhantomData;
 use typed_index_collections::{Index, MappedIndices, NamedTo1, To1, To1BoolValues};
 
@@ -115,12 +116,32 @@ pub enum Annotation<
     String(TypedAnnotation<From, AnnotationEntryIdx, Dist, String>),
 }
 
+impl<M: BaseModel, I, CL, BL, Obs, APs, Rew, Ann: OptionalComponent, Val, Pred>
+    Model<M, I, CL, BL, Obs, APs, Rew, Ann, Val, Pred>
+{
+    pub fn without_annotations(self) -> Model<M, I, CL, BL, Obs, APs, Rew, (), Val, Pred> {
+        Model {
+            base: self.base,
+            initial: self.initial,
+            choice_labels: self.choice_labels,
+            branch_labels: self.branch_labels,
+            observations: self.observations,
+            atomic_propositions: self.atomic_propositions,
+            rewards: self.rewards,
+            annotations: (),
+            state_valuations: self.state_valuations,
+            predecessors: self.predecessors,
+        }
+    }
+}
+
 pub type AnnotationGroup<AnnotationIdx, EntityIdx, AnnotationEntryIdx, Dist> =
     NamedTo1<AnnotationIdx, Annotation<EntityIdx, AnnotationEntryIdx, Dist>>;
 
 pub type TypedAnnotationGroup<AnnotationIdx, EntityIdx, AnnotationEntryIdx, Dist, Val> =
     NamedTo1<AnnotationIdx, TypedAnnotation<EntityIdx, AnnotationEntryIdx, Dist, Val>>;
 
+// TODO: Move atomic propositions to their own module
 pub type AtomicPropositions<AnnotationIdx, StateIdx, AnnotationEntryIdx> = TypedAnnotationGroup<
     AnnotationIdx,
     StateIdx,
@@ -128,7 +149,9 @@ pub type AtomicPropositions<AnnotationIdx, StateIdx, AnnotationEntryIdx> = Typed
     IdentityDistribution<StateIdx, AnnotationEntryIdx>,
     bool,
 >;
+impl<AI: Index, SI: Index, AEI: Index> crate::Component for AtomicPropositions<AI, SI, AEI> {}
 
+// TODO: Move Rewards to their own module
 #[derive(Debug, PartialEq)]
 pub struct Rewards<States, Choices, Branches> {
     pub states: States,
@@ -203,3 +226,7 @@ impl<StateIdx: Index, ChoiceIdx: Index, AnnotationEntryIdx: Index>
 
 pub type RewardAnnotations<AnnotationIdx, StateIdx, ChoiceIdx, AnnotationEntryIdx> =
     NamedTo1<AnnotationIdx, StateChoiceRewards<StateIdx, ChoiceIdx, AnnotationEntryIdx>>;
+impl<AI: Index, SI: Index, CI: Index, AEI: Index> crate::Component
+    for RewardAnnotations<AI, SI, CI, AEI>
+{
+}

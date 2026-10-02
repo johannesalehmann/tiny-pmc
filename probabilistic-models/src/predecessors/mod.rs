@@ -1,5 +1,6 @@
 use crate::Model;
 use crate::base_model::BaseModel;
+use crate::component::OptionalComponent;
 use crate::traits::ReadStateSpace;
 use typed_index_collections::{Csr, Index, RawIndex, To1};
 
@@ -67,6 +68,8 @@ impl<M: BaseModel, I, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val>
 
 impl<M: BaseModel, I, CL, BL, Obs, APs, Rew, Ann, Val, SI: Index, CI: Index, BI: Index, PI: Index>
     Model<M, I, CL, BL, Obs, APs, Rew, Ann, Val, Predecessors<SI, CI, BI, PI>>
+impl<M: BaseModel, I, CL, BL, Obs, APs, Rew, Ann, Val, Pred: OptionalComponent>
+    Model<M, I, CL, BL, Obs, APs, Rew, Ann, Val, Pred>
 {
     pub fn without_predecessors(self) -> Model<M, I, CL, BL, Obs, APs, Rew, Ann, Val, ()> {
         Model {
