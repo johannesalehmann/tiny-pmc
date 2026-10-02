@@ -152,6 +152,74 @@ impl<M: ReadStateSpace, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Pr
     derive_read_state_space!(base);
 }
 
+impl<T: ReadStateSpace> ReadStateSpace for &T {
+    type StateIndex = T::StateIndex;
+    type ChoiceIndex = T::ChoiceIndex;
+    type BranchIndex = T::BranchIndex;
+
+    fn states(&self) -> SemiboundedIndexRange<Self::StateIndex> {
+        (**self).states()
+    }
+    fn choices(&self) -> SemiboundedIndexRange<Self::ChoiceIndex> {
+        (**self).choices()
+    }
+    fn branches(&self) -> SemiboundedIndexRange<Self::BranchIndex> {
+        (**self).branches()
+    }
+    fn choices_of_state(&self, state: Self::StateIndex) -> IndexRange<Self::ChoiceIndex> {
+        (**self).choices_of_state(state)
+    }
+    fn branches_of_choice(&self, choice: Self::ChoiceIndex) -> IndexRange<Self::BranchIndex> {
+        (**self).branches_of_choice(choice)
+    }
+    fn branch_probability(&self, branch: Self::BranchIndex) -> f64 {
+        (**self).branch_probability(branch)
+    }
+    fn branch_destination(&self, branch: Self::BranchIndex) -> Self::StateIndex {
+        (**self).branch_destination(branch)
+    }
+    fn successors_of_state(&self, state: Self::StateIndex) -> impl Iterator<Item = Self::StateIndex>
+    where
+        Self: Sized,
+    {
+        (**self).successors_of_state(state)
+    }
+}
+
+impl<T: ReadStateSpace> ReadStateSpace for &mut T {
+    type StateIndex = T::StateIndex;
+    type ChoiceIndex = T::ChoiceIndex;
+    type BranchIndex = T::BranchIndex;
+
+    fn states(&self) -> SemiboundedIndexRange<Self::StateIndex> {
+        (**self).states()
+    }
+    fn choices(&self) -> SemiboundedIndexRange<Self::ChoiceIndex> {
+        (**self).choices()
+    }
+    fn branches(&self) -> SemiboundedIndexRange<Self::BranchIndex> {
+        (**self).branches()
+    }
+    fn choices_of_state(&self, state: Self::StateIndex) -> IndexRange<Self::ChoiceIndex> {
+        (**self).choices_of_state(state)
+    }
+    fn branches_of_choice(&self, choice: Self::ChoiceIndex) -> IndexRange<Self::BranchIndex> {
+        (**self).branches_of_choice(choice)
+    }
+    fn branch_probability(&self, branch: Self::BranchIndex) -> f64 {
+        (**self).branch_probability(branch)
+    }
+    fn branch_destination(&self, branch: Self::BranchIndex) -> Self::StateIndex {
+        (**self).branch_destination(branch)
+    }
+    fn successors_of_state(&self, state: Self::StateIndex) -> impl Iterator<Item = Self::StateIndex>
+    where
+        Self: Sized,
+    {
+        (**self).successors_of_state(state)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use crate::mdp;
