@@ -18,6 +18,8 @@ pub struct Labels<EntityIdx: Index, ActionIdx: Index, E> {
     action_to_label: To1<ActionIdx, E>,
 }
 
+impl<EI: Index, AI: Index, E> crate::Component for Labels<EI, AI, E> {}
+
 impl<EntityIdx: Index, ActionIdx: Index, E> Labels<EntityIdx, ActionIdx, E> {
     pub fn new() -> Self {
         Self {

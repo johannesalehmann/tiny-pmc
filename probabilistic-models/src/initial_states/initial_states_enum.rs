@@ -12,6 +12,10 @@ pub enum InitialStatesEnum<
     Single(Single),
     Multiple(Multiple),
 }
+impl<SI: Index, S: ReadInitialStates<StateIdx = SI>, M: ReadInitialStates<StateIdx = SI>>
+    crate::Component for InitialStatesEnum<SI, S, M>
+{
+}
 
 impl<
     StateIdx: Index,

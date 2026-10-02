@@ -18,6 +18,7 @@ pub struct Valuations<EntityIdx: Index, ClassIdx: Index, ClassEntryIdx: Index, V
     entity_to_class: To1<EntityIdx, ClassIdx>,
     entity_to_index: To1<EntityIdx, ValuationIdx>,
 }
+impl<EI: Index, CI: Index, CEI: Index, VI: Index> crate::Component for Valuations<EI, CI, CEI, VI> {}
 
 impl<EntityIdx: Index, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index>
     Valuations<EntityIdx, ClassIdx, ClassEntryIdx, ValuationIdx>

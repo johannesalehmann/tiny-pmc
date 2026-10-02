@@ -92,6 +92,8 @@ pub struct Predecessors<StateIdx: Index, ChoiceIdx: Index, BranchIdx: Index, Pre
     pub choice_to_state: To1<ChoiceIdx, StateIdx>,
 }
 
+impl<SI: Index, CI: Index, BI: Index, PI: Index> crate::Component for Predecessors<SI, CI, BI, PI> {}
+
 impl<StateIdx: Index, ChoiceIdx: Index, BranchIdx: Index, PredecessorIdx: Index>
     Predecessors<StateIdx, ChoiceIdx, BranchIdx, PredecessorIdx>
 {

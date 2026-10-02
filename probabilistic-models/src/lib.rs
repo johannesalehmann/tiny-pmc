@@ -3,20 +3,23 @@ mod as_mut;
 mod as_ref;
 pub mod base_model;
 pub mod choices;
+mod component;
 pub mod export;
 pub mod initial_states;
 pub mod labels;
 mod operations;
+mod optional;
 pub mod owners;
 pub mod predecessors;
 pub mod traits;
 pub mod valuations;
 
+pub use component::Component;
 pub use operations::SuccessorOrder;
 pub use typed_index_collections;
 pub use typed_index_collections::{Index, RawIndex};
 
-use typed_index_collections::{To1, index};
+use typed_index_collections::index;
 
 index!(StateIndex);
 index!(ChoiceIndex);
