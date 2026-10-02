@@ -4,7 +4,7 @@ use typed_index_collections::{Index, To1};
 
 pub trait BackwardReachability {
     type StateIdx: Index;
-    fn backward_reachable_states<S: StateSet<Self::StateIdx>>(
+    fn backward_reachable_states<S: StateSet<StateIdx = Self::StateIdx>>(
         &self,
         from: S,
     ) -> To1<Self::StateIdx, bool>;
@@ -12,7 +12,7 @@ pub trait BackwardReachability {
 
 impl<M: ReadPredecessors> BackwardReachability for M {
     type StateIdx = M::StateIdx;
-    fn backward_reachable_states<S: StateSet<Self::StateIdx>>(
+    fn backward_reachable_states<S: StateSet<StateIdx = Self::StateIdx>>(
         &self,
         from: S,
     ) -> To1<Self::StateIdx, bool> {
@@ -42,7 +42,7 @@ impl<M: ReadPredecessors> BackwardReachability for M {
 #[cfg(test)]
 mod tests {
     use crate::base_model::Mdp;
-    use crate::traits::BackwardReachability;
+    use crate::traits::{AsStateSet, BackwardReachability};
     use crate::{Model, PredecessorIndex, StateIndex};
     use typed_index_collections::Index;
 
@@ -70,7 +70,8 @@ mod tests {
                 let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
 
                 for check in 0..states {
-                    let reachable = model.backward_reachable_states(StateIndex::from_raw(check));
+                    let reachable =
+                        model.backward_reachable_states(StateIndex::from_raw(check).as_state_set());
                     for i in 0..states {
                         assert_eq!(
                             reachable[StateIndex::from_raw(i)],

@@ -22,7 +22,7 @@ pub use initial_state::ReadInitialStates;
 pub(crate) use initial_state::derive_read_initial_states;
 
 mod state_specifier;
-pub use state_specifier::StateSet;
+pub use state_specifier::{AsStateSet, BoxedStateSet, SingleState, StateSet};
 
 mod atomic_propositions;
 pub use atomic_propositions::ReadAtomicPropositions;

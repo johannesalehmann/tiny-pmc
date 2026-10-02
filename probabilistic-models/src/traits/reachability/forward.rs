@@ -6,13 +6,19 @@ pub trait Reachability {
     type StateIdx: Index;
     // TODO: Allow user to provide reusable buffer and open state list to reduce allocations (and
     //  do the same for backward reachability
-    fn reachable_states<S: StateSet<Self::StateIdx>>(&self, from: S) -> To1<Self::StateIdx, bool>;
+    fn reachable_states<S: StateSet<StateIdx = Self::StateIdx>>(
+        &self,
+        from: S,
+    ) -> To1<Self::StateIdx, bool>;
 }
 
 impl<M: ReadStateSpace> Reachability for M {
     type StateIdx = M::StateIndex;
 
-    fn reachable_states<S: StateSet<Self::StateIdx>>(&self, from: S) -> To1<Self::StateIdx, bool> {
+    fn reachable_states<S: StateSet<StateIdx = Self::StateIdx>>(
+        &self,
+        from: S,
+    ) -> To1<Self::StateIdx, bool> {
         let mut open_states = from.iter().collect::<Vec<_>>();
         let mut buffer = To1::with_entries(vec![false; self.states().len()]);
 
@@ -42,6 +48,7 @@ impl<M: ReadStateSpace> Reachability for M {
 mod tests {
     use crate::base_model::Mdp;
     use crate::mdp;
+    use crate::traits::AsStateSet;
     use crate::traits::reachability::Reachability;
     use crate::{BranchIndex, ChoiceIndex, StateIndex};
     use typed_index_collections::To1;
@@ -77,7 +84,7 @@ mod tests {
     #[test]
     fn single_state() {
         let (mdp, s0, s1, s2, s3, s4, s5, s6, _s7) = create_mdp();
-        let reachable_states = mdp.reachable_states(s0);
+        let reachable_states = mdp.reachable_states(s0.as_state_set());
         assert_eq!(true, reachable_states[s0]);
         assert_eq!(true, reachable_states[s1]);
         assert_eq!(false, reachable_states[s2]);
@@ -90,7 +97,7 @@ mod tests {
     #[test]
     fn single_state_non_zero_start() {
         let (mdp, s0, s1, s2, s3, s4, s5, s6, s7) = create_mdp();
-        let reachable_states = mdp.reachable_states(s6);
+        let reachable_states = mdp.reachable_states(s6.as_state_set());
         assert_eq!(false, reachable_states[s0]);
         assert_eq!(false, reachable_states[s1]);
         assert_eq!(false, reachable_states[s2]);
