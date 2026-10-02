@@ -11,6 +11,8 @@ pub trait ReadAtomicPropositions {
         state: Self::StateIdx,
         atomic_proposition: Self::APIdx,
     ) -> bool;
+
+    fn atomic_proposition_by_name(&self, name: &str) -> Option<Self::APIdx>;
 }
 
 macro_rules! derive_read_atomic_propositions {
@@ -22,6 +24,9 @@ macro_rules! derive_read_atomic_propositions {
         ) -> bool {
             self.$subcomponent
                 .is_atomic_proposition_set(state, atomic_proposition)
+        }
+        fn atomic_proposition_by_name(&self, name: &str) -> Option<Self::APIdx> {
+            self.$subcomponent.atomic_proposition_by_name(name)
         }
     };
 }
@@ -37,6 +42,10 @@ impl<AI: Index, SI: Index, AEI: Index> ReadAtomicPropositions for AtomicProposit
         atomic_proposition: Self::APIdx,
     ) -> bool {
         self.entries()[atomic_proposition][state]
+    }
+
+    fn atomic_proposition_by_name(&self, name: &str) -> Option<Self::APIdx> {
+        self.index_by_name(name)
     }
 }
 
