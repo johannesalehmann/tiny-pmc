@@ -19,8 +19,8 @@ pub enum CollapseMecs {
 
 #[derive(Clone, Debug)]
 pub enum SolveOrder {
-    Monolithic,
     Topological {
         eps_allocation_scheme: EpsAllocationScheme,
     },
+    Monolithic,
 }

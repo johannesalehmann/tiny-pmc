@@ -1,6 +1,7 @@
 use clap::{Args, Parser, ValueEnum};
 use probabilistic_models::SuccessorOrder;
 use std::path::PathBuf;
+use tiny_pmc::ProcessingOptions;
 use tiny_pmc::checking::{
     AttractorChoiceMode, CheckerOptions, CollapseMecs, EpsAllocationScheme, SccTimingOutput,
     SolveOrder, SubModelOrder,
@@ -9,10 +10,9 @@ use tiny_pmc::checking::{
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 pub struct Arguments {
-    #[arg(short, long)]
-    pub model: String,
-    #[arg(short, long)]
-    pub property: String,
+    /// The model file and the properties (or property files) to check
+    #[arg(value_name = "MODEL_OR_PROPERTY", num_args = 1.., required = true)]
+    pub files: Vec<String>,
     #[arg(short, long, default_value_t = String::new())]
     pub constants: String,
     #[arg(
@@ -25,6 +25,14 @@ pub struct Arguments {
     pub dfs: Option<DfsArg>,
     #[command(flatten)]
     pub value_iteration: ValueIterationArguments,
+}
+
+impl Arguments {
+    pub fn processing_options(&self) -> ProcessingOptions {
+        ProcessingOptions {
+            dfs: self.dfs.map(|dfs| dfs.into()),
+        }
+    }
 }
 
 #[derive(Args)]

@@ -108,6 +108,47 @@ impl<I, F, E> NamedQueries<I, F, E> {
     pub fn iter(&self) -> <&Self as IntoIterator>::IntoIter {
         (&self).into_iter()
     }
+
+    /// Returns the subset of queries that fulfil the given predicate.
+    ///
+    /// The predicate has form `pred(i, q)`, where `i` is the index of query `q`.
+    pub fn filtered_enumerated<Pred: FnMut(usize, &NamedQuery<I, F, E>) -> bool>(
+        self,
+        mut predicate: Pred,
+    ) -> Self {
+        let mut queries = Vec::new();
+        let mut name_to_query = HashMap::new();
+        for (index, query) in self.queries.into_iter().enumerate() {
+            if predicate(index, &query) {
+                if let Some(name) = &query.name {
+                    name_to_query.insert(name.clone(), queries.len());
+                }
+                queries.push(query);
+            }
+        }
+        Self {
+            queries,
+            name_to_query,
+        }
+    }
+
+    /// Returns the subset of queries that fulfil the given predicate.
+    pub fn filtered<Pred: FnMut(&NamedQuery<I, F, E>) -> bool>(self, mut predicate: Pred) -> Self {
+        self.filtered_enumerated(|_, q| predicate(q))
+    }
+
+    /// Returns the subset of queries that have a name that fulfils the given predicate.
+    ///
+    /// Queries without names are removed.
+    pub fn filtered_by_name<Pred: FnMut(&str) -> bool>(self, mut predicate: Pred) -> Self {
+        self.filtered(|q| q.name.is_some() && predicate(&q.name.as_ref().unwrap()))
+    }
+}
+
+impl<I, F, E> From<NamedQueries<I, F, E>> for Vec<Query<I, F, E>> {
+    fn from(value: NamedQueries<I, F, E>) -> Self {
+        value.queries.into_iter().map(|q| q.query).collect()
+    }
 }
 
 impl<I, F, E> Default for NamedQueries<I, F, E> {

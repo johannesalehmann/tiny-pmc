@@ -1,7 +1,7 @@
 use prism_model::{Expression, FullSpan, Identifier, VariableReference};
 use probabilistic_models::annotations::{AtomicPropositions, RewardAnnotations};
 use probabilistic_models::base_model::Mdp;
-use probabilistic_models::initial_states::{InitialStates, InitialStatesEnum};
+use probabilistic_models::initial_states::InitialStates;
 use probabilistic_models::labels::Labels;
 use probabilistic_models::predecessors::Predecessors;
 use probabilistic_models::valuations::Valuations;

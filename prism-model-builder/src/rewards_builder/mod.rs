@@ -273,7 +273,7 @@ mod tests {
     use probabilistic_models::traits::{ReadRewards, ReadStateSpace};
     use probabilistic_models::{Index, StateIndex};
 
-    fn state(index: u32) -> StateIndex<u32> {
+    fn state(index: usize) -> StateIndex<usize> {
         StateIndex::from_raw(index)
     }
 

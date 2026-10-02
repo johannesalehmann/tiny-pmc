@@ -25,6 +25,7 @@ use typed_index_collections::index;
 index!(StateIndex);
 index!(ChoiceIndex);
 index!(BranchIndex);
+index!(ActionIndex);
 index!(PlayerIndex);
 index!(AnnotationIndex);
 index!(AnnotationEntryIndex);

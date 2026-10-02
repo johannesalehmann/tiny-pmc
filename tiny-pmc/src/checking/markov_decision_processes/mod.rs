@@ -1,5 +1,4 @@
-use crate::CheckerError;
-use crate::checking::CheckerOptions;
+use crate::checking::{CheckerError, CheckerOptions};
 use probabilistic_model_algorithms::state_description::StateDescription;
 use probabilistic_model_algorithms::value_iteration::{NonDeterminism, rebuild_model_for_until};
 use probabilistic_models::traits::{

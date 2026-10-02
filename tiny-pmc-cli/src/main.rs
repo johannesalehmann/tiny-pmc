@@ -1,15 +1,9 @@
 use clap::Parser;
 use prism_model_builder::ModelBuildingError;
-use probabilistic_models::PredecessorIndex;
-use probabilistic_models::traits::ReadStateSpace;
-use tiny_pmc::CheckerError;
-use tiny_pmc::parsing::ConstParsingError;
-
-mod input;
+use tiny_pmc::parsing::{ConstParsingError, Inputs, ModelAndPropArgs};
+use tiny_pmc::{CheckerError, OutputPrinter};
 
 mod arg_parsing;
-#[cfg(test)]
-mod tests;
 
 fn main() {
     let exit_code = match checker() {
@@ -23,104 +17,55 @@ fn checker() -> Result<(), ModelCheckerError> {
     let start_time = std::time::Instant::now();
 
     let arguments = arg_parsing::Arguments::parse();
+    let processing_options = arguments.processing_options();
     let checker_options = arguments
         .value_iteration
         .to_checker_options()
         .map_err(ModelCheckerError::InvalidArguments)?;
-    let source = read_model_file(&arguments.model)?;
     let constants = tiny_pmc::parsing::parse_const_assignments(&arguments.constants)?;
+    let model_and_prop_args = ModelAndPropArgs::from_cli_args(&arguments.files);
+    let inputs = Inputs::new(model_and_prop_args)?;
 
-    let parsed_model_and_objectives = tiny_pmc::parsing::parse_prism_and_print_errors(
-        Some(&arguments.model),
-        &source,
-        &[&arguments.property],
-    );
-    let (mut prism_model, properties) = match parsed_model_and_objectives {
-        None => return Err(ModelCheckerError::ModelAndPropertyParsingError),
-        Some((prism_model, properties)) => (prism_model, properties),
-    };
-
-    let state_space_restriction = if properties.len() == 1 {
-        tiny_pmc::state_space_restriction::get_state_space_restriction(&properties[0])
-    } else {
-        None
-    };
-
-    let start_build = std::time::Instant::now();
-
-    let builder = prism_model_builder::ModelBuilder::new_mdp_builder(&mut prism_model)
-        .with_necessary_labels()
-        .with_queries(properties)
-        .with_constants(constants)
-        .with_state_space_restriction_maybe(state_space_restriction);
-
-    let builder_output = builder.build();
-    println!("Built model in {:?}", start_build.elapsed());
-    let model = builder_output.model;
-    let properties = builder_output.queries;
-
-    println!("Model has {} states", model.states().len());
-
-    // Drop labels and valuations, as dfs reordering does not yet support them. In the future,
-    // it would be nice to add support for those.
-    let model = model.without_choice_labels().without_valuations();
-
-    let model = match arguments.dfs {
-        None => model,
-        Some(dfs) => {
-            let start_reorder = std::time::Instant::now();
-            let model = model.reorder_dfs(dfs.into());
-            println!("Reordered states (dfs) in {:?}", start_reorder.elapsed());
-            model
-        }
-    };
-
-    // model.tra_file().write_to_file("model.tra").unwrap();
-    // model.sta_file().write_to_file("model.sta").unwrap();
-    // model.lab_file().write_to_file("model.lab").unwrap();
-    // println!("Wrote files to `model.tra`, `model.sta` and `model.lab`");
-
-    let model = model.compute_predecessors::<PredecessorIndex<usize>>();
-
-    if properties.len() > 1 {
-        panic!("Checking multiple properties is temporarily unsupported");
-    }
-    for (i, property) in properties.iter().enumerate() {
-        println!("Checking property {} of {}", i + 1, properties.len());
-        let check_start = std::time::Instant::now();
-        let result = tiny_pmc::checking::check(&model, property.clone(), &checker_options)?; // TODO: Avoid cloning property here?
-        println!("    Result: {result} (in {:?})", check_start.elapsed());
-    }
-
+    tiny_pmc::build_and_check_model(
+        inputs,
+        constants,
+        &processing_options,
+        &checker_options,
+        OutputPrinter::new(),
+    )?;
     println!("Finished in {:?}", start_time.elapsed());
     Ok(())
 }
 
-fn read_model_file(path: &str) -> Result<String, std::io::Error> {
-    std::fs::read_to_string(path)
-}
-
 enum ModelCheckerError {
     InvalidArguments(String),
-    InputFileError(std::io::Error),
+    InputError(tiny_pmc::parsing::InputError),
     ConstParsingError(ConstParsingError),
-    ModelAndPropertyParsingError,
     ModelBuildingError(ModelBuildingError),
     ModelCheckingError(CheckerError),
+}
+
+impl From<tiny_pmc::parsing::InputError> for ModelCheckerError {
+    fn from(value: tiny_pmc::parsing::InputError) -> Self {
+        Self::InputError(value)
+    }
 }
 
 impl ModelCheckerError {
     pub fn print_and_get_error_code(self) -> i32 {
         match self {
-            ModelCheckerError::InputFileError(err) => {
-                println!("Could not read input file: {err}");
+            ModelCheckerError::InvalidArguments(err) => {
+                println!("Invalid arguments: {err}");
                 1
+            }
+            ModelCheckerError::InputError(err) => {
+                println!("Input error: {err}");
+                2
             }
             ModelCheckerError::ConstParsingError(err) => {
                 println!("{err}");
-                2
+                3
             }
-            ModelCheckerError::ModelAndPropertyParsingError => 3, // This error is already printed when it is produced
             ModelCheckerError::ModelBuildingError(err) => {
                 println!("Error during model building: {:?}", err);
                 4
@@ -129,17 +74,7 @@ impl ModelCheckerError {
                 println!("Error during model checking: {:?}", err);
                 5
             }
-            ModelCheckerError::InvalidArguments(err) => {
-                println!("Invalid arguments: {err}");
-                6
-            }
         }
-    }
-}
-
-impl From<std::io::Error> for ModelCheckerError {
-    fn from(value: std::io::Error) -> Self {
-        ModelCheckerError::InputFileError(value)
     }
 }
 

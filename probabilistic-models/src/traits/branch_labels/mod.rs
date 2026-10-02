@@ -12,6 +12,7 @@ pub trait ReadBranchLabels {
     fn label_of_branch_action(&self, action: Self::BranchActionIdx) -> &Self::E;
 }
 
+#[allow(unused)]
 macro_rules! derive_read_branch_labels {
     ($subcomponent:ident) => {
         fn branch_label(&self, entity: Self::BranchIdx) -> &Self::E {

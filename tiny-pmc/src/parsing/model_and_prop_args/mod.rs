@@ -1,16 +1,17 @@
 pub struct ModelAndPropArgs {
-    prism_files: Vec<String>,
-    umb_files: Vec<String>,
-    property_sources: Vec<PropertySource>,
-    property_names: Vec<String>,
+    pub prism_files: Vec<String>,
+    pub umb_files: Vec<String>,
+    pub property_sources: Vec<PropertySource>,
+    pub property_names: Vec<String>,
 }
 
-enum PropertySource {
+pub enum PropertySource {
     File(String),
     String(String),
 }
 
 impl ModelAndPropArgs {
+    // TODO: Accept other types, e.g. &[&str]
     pub fn from_cli_args(arguments: &[String]) -> Self {
         let mut prism_files = Vec::new();
         let mut umb_files = Vec::new();

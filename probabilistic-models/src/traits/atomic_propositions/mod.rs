@@ -30,7 +30,7 @@ macro_rules! derive_read_atomic_propositions {
         }
     };
 }
-use crate::traits::{ReadInitialStates, StateSet};
+
 pub(crate) use derive_read_atomic_propositions;
 
 impl<AI: Index, SI: Index, AEI: Index> ReadAtomicPropositions for AtomicPropositions<AI, SI, AEI> {

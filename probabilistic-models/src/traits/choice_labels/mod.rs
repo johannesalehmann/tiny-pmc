@@ -12,6 +12,7 @@ pub trait ReadChoiceLabels {
     fn label_of_choice_action(&self, action: Self::ChoiceActionIdx) -> &Self::E;
 }
 
+#[allow(unused)]
 macro_rules! derive_read_choice_labels {
     ($subcomponent:ident) => {
         fn choice_label(&self, entity: Self::ChoiceIdx) -> &Self::E {

@@ -8,13 +8,14 @@
 // pub use transition_systems::check_transition_system;
 
 mod markov_decision_processes;
+
 pub use markov_decision_processes::check_mdp;
+use std::fmt::Formatter;
 
 use probabilistic_models::traits::StateSet;
 // mod nonstochastic_games;
 // pub use nonstochastic_games::check_nonstochastic_game;
 
-use crate::CheckerError;
 pub use probabilistic_model_algorithms::sub_model::{AttractorChoiceMode, SubModelOrder};
 use probabilistic_model_algorithms::value_iteration::ValueIterationConfig;
 pub use probabilistic_model_algorithms::value_iteration::{
@@ -24,6 +25,25 @@ use probabilistic_models::traits::{
     ReadAtomicPropositions, ReadInitialStates, ReadPredecessors, ReadRewards, ReadStateSpace,
 };
 
+pub enum CheckerError {
+    NoSuitableAlgorithm,
+    UnknownRewardStructure { name: Option<String> },
+}
+impl std::fmt::Debug for CheckerError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CheckerError::NoSuitableAlgorithm => write!(f, "No suitable model-checking algorithm"),
+            CheckerError::UnknownRewardStructure { name } => {
+                let name = match name {
+                    Some(name) => format!(" named \"{name}\""),
+                    None => "".to_string(),
+                };
+                write!(f, "The model has no reward structure{name}")
+            }
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub struct CheckerOptions {
     pub eps: f64,
@@ -32,6 +52,21 @@ pub struct CheckerOptions {
     pub collapse_mecs: CollapseMecs,
     pub sub_model_order: SubModelOrder,
     pub write_scc_timing: Option<SccTimingOutput>,
+}
+
+impl Default for CheckerOptions {
+    fn default() -> Self {
+        Self {
+            eps: 0.000001,
+            sound: true,
+            solve_order: SolveOrder::Topological {
+                eps_allocation_scheme: EpsAllocationScheme::Uniform,
+            },
+            collapse_mecs: CollapseMecs::WhenNecessary,
+            sub_model_order: SubModelOrder::BackToFront,
+            write_scc_timing: None,
+        }
+    }
 }
 
 impl CheckerOptions {
