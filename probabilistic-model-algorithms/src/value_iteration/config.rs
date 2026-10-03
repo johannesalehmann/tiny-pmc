@@ -1,5 +1,8 @@
 use crate::sub_model::SubModelOrder;
+use crate::value_iteration::solve_order::SubModelHook;
 use crate::value_iteration::{EpsAllocationScheme, SccTimingOutput};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub struct ValueIterationConfig {
     pub collapse_mecs: CollapseMecs,
@@ -21,6 +24,7 @@ pub enum CollapseMecs {
 pub enum SolveOrder {
     Topological {
         eps_allocation_scheme: EpsAllocationScheme,
+        hook: Option<Rc<RefCell<dyn SubModelHook>>>,
     },
     Monolithic,
 }

@@ -201,7 +201,7 @@ fn dispatch_solve_order<
     config: ValueIterationConfig,
     reward_source: Option<Rew>,
 ) -> To1<M::StateIndex, f64> {
-    match config.solve_order {
+    match &config.solve_order {
         SolveOrder::Monolithic => {
             if config.write_sub_mdp_timing.is_some() {
                 println!("Warning: Monolithic solver does not print per-SCC timing");
@@ -216,11 +216,13 @@ fn dispatch_solve_order<
         }
         SolveOrder::Topological {
             eps_allocation_scheme,
+            hook,
         } => value_iteration_internal::<ND, Topological, Solver, _, _>(
             Topological::new(
                 config.write_sub_mdp_timing.clone(),
-                eps_allocation_scheme,
+                *eps_allocation_scheme,
                 config.sub_model_order,
+                hook.as_ref().map(|h| h.clone()),
             ),
             model,
             goal,

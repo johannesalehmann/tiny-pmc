@@ -61,6 +61,7 @@ impl Default for CheckerOptions {
             sound: true,
             solve_order: SolveOrder::Topological {
                 eps_allocation_scheme: EpsAllocationScheme::Uniform,
+                hook: None,
             },
             collapse_mecs: CollapseMecs::WhenNecessary,
             sub_model_order: SubModelOrder::BackToFront,

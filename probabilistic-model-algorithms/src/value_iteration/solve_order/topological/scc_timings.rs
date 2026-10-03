@@ -23,6 +23,8 @@ impl TopoTiming for () {
     fn write_topo_timings(&self) {}
 }
 
+// TODO: Perhaps we can remove this? The benchmark that needed it ultimately took a different
+//  approach
 #[derive(Clone, Debug)]
 pub enum SccTimingOutput {
     Stdout,

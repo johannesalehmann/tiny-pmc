@@ -8,7 +8,7 @@ use crate::sub_model::RewardsSource;
 use crate::value_iteration::non_determinism::NonDeterminism;
 use crate::value_iteration::precomputed_states::PrecomputedStates;
 use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
-pub use topological::{EpsAllocationScheme, SccTimingOutput, Topological};
+pub use topological::{EpsAllocationScheme, SccTimingOutput, SubModelHook, Topological};
 use typed_index_collections::{Index, To1};
 
 pub trait SolveOrder {

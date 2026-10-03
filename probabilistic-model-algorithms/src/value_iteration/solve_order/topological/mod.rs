@@ -1,5 +1,9 @@
 mod eps_allocation;
+
 pub use eps_allocation::{EpsAllocationScheme, GlobalEpsForEachScc, UniformEpsAllocation};
+use std::cell::RefCell;
+use std::fmt::Debug;
+use std::rc::Rc;
 
 mod scc_timings;
 use crate::mecs::Mecs;
@@ -13,6 +17,7 @@ use crate::value_iteration::precomputed_states::PrecomputedStates;
 use crate::value_iteration::solve_order::topological::eps_allocation::EpsAllocation;
 use crate::value_iteration::solve_order::{ModelSize, SolveOrder};
 use crate::value_iteration::sub_model_solver::SubModelSolver;
+use probabilistic_models::base_model::Mdp;
 use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
 use probabilistic_models::{BranchIndex, ChoiceIndex, StateIndex};
 pub use scc_timings::{SccTimingOutput, SccTimings, TopoTiming};
@@ -22,6 +27,7 @@ pub struct Topological {
     timing: Option<SccTimingOutput>,
     eps_allocation_scheme: EpsAllocationScheme,
     sub_model_order: SubModelOrder,
+    hook: Option<Rc<RefCell<dyn SubModelHook>>>,
 }
 
 impl Topological {
@@ -29,11 +35,13 @@ impl Topological {
         timing: Option<SccTimingOutput>,
         eps_allocation_scheme: EpsAllocationScheme,
         sub_model_order: SubModelOrder,
+        hook: Option<Rc<RefCell<dyn SubModelHook>>>,
     ) -> Self {
         Self {
             timing,
             eps_allocation_scheme,
             sub_model_order,
+            hook,
         }
     }
 }
@@ -191,7 +199,7 @@ impl Topological {
         EA: EpsAllocation<SccIndex<usize>>,
         O: StateOrdering,
     >(
-        self,
+        mut self,
         model: &M,
         precomputed_states: &P,
         rew: Rew,
@@ -240,6 +248,10 @@ impl Topological {
                         &ordering,
                         &mut submodel_context,
                     );
+                    if let Some(hook) = &mut self.hook {
+                        hook.borrow_mut()
+                            .handle_sub_model_u8(&sm.mdp, &sm.choice_exit_values);
+                    }
                     let res =
                         solver.solve::<ND, _, _, _>(&sm.mdp, &sm.choice_exit_values, scc_eps, max);
                     write_to_global_values(&mut values, sm, res);
@@ -254,6 +266,10 @@ impl Topological {
                         &ordering,
                         &mut submodel_context,
                     );
+                    if let Some(hook) = &mut self.hook {
+                        hook.borrow_mut()
+                            .handle_sub_model_u16(&sm.mdp, &sm.choice_exit_values);
+                    }
                     let res =
                         solver.solve::<ND, _, _, _>(&sm.mdp, &sm.choice_exit_values, scc_eps, max);
 
@@ -269,6 +285,10 @@ impl Topological {
                         &ordering,
                         &mut submodel_context,
                     );
+                    if let Some(hook) = &mut self.hook {
+                        hook.borrow_mut()
+                            .handle_sub_model_u32(&sm.mdp, &sm.choice_exit_values);
+                    }
                     let res =
                         solver.solve::<ND, _, _, _>(&sm.mdp, &sm.choice_exit_values, scc_eps, max);
                     write_to_global_values(&mut values, sm, res);
@@ -283,6 +303,10 @@ impl Topological {
                         &ordering,
                         &mut submodel_context,
                     );
+                    if let Some(hook) = &mut self.hook {
+                        hook.borrow_mut()
+                            .handle_sub_model_usize(&sm.mdp, &sm.choice_exit_values);
+                    }
                     let res =
                         solver.solve::<ND, _, _, _>(&sm.mdp, &sm.choice_exit_values, scc_eps, max);
                     write_to_global_values(&mut values, sm, res);
@@ -374,4 +398,32 @@ impl<OldStateIdx: Index> SubModelCollection<OldStateIdx> {
             usize: SubModel::empty(),
         }
     }
+}
+
+// Trait that can be used to exfiltrate arbitrary information about the sub-model. In particular,
+// this is currently used by a benchmark that needs access to each individual SCC of a model for
+// further analysis
+// For other tasks, it might be required to pass additional values into the functions, e.g.
+// the values computed by VI, how long it took to solve the model, etc.
+pub trait SubModelHook: Debug {
+    fn handle_sub_model_u8(
+        &mut self,
+        sub_model: &Mdp<StateIndex<u8>, ChoiceIndex<u8>, BranchIndex<u8>>,
+        choice_exit_values: &To1<ChoiceIndex<u8>, f64>,
+    );
+    fn handle_sub_model_u16(
+        &mut self,
+        sub_model: &Mdp<StateIndex<u16>, ChoiceIndex<u16>, BranchIndex<u16>>,
+        choice_exit_values: &To1<ChoiceIndex<u16>, f64>,
+    );
+    fn handle_sub_model_u32(
+        &mut self,
+        sub_model: &Mdp<StateIndex<u32>, ChoiceIndex<u32>, BranchIndex<u32>>,
+        choice_exit_values: &To1<ChoiceIndex<u32>, f64>,
+    );
+    fn handle_sub_model_usize(
+        &mut self,
+        sub_model: &Mdp<StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>>,
+        choice_exit_values: &To1<ChoiceIndex<usize>, f64>,
+    );
 }
