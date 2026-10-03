@@ -36,15 +36,17 @@ impl ModelAndPropArgs {
         let mut property_names = Vec::new();
 
         for argument in arguments {
-            if argument.ends_with(".umb") {
+            // File extensions are matched case-insensitively
+            let lowercase = argument.to_lowercase();
+            if lowercase.ends_with(".umb") {
                 umb_files.push(argument.clone());
-            } else if argument.ends_with(".nm") // Deprecated file extension for MDPs
-                || argument.ends_with(".pm") // Deprecated file extension for DTMCs
-                || argument.ends_with(".sm") // Deprecated file extension for CTMCs
-                || argument.ends_with(".prism")
+            } else if lowercase.ends_with(".nm") // Deprecated file extension for MDPs
+                || lowercase.ends_with(".pm") // Deprecated file extension for DTMCs
+                || lowercase.ends_with(".sm") // Deprecated file extension for CTMCs
+                || lowercase.ends_with(".prism")
             {
                 prism_files.push(argument.clone());
-            } else if argument.ends_with(".props") {
+            } else if lowercase.ends_with(".props") {
                 property_sources.push(PropertySource::File(argument.clone()));
             } else {
                 // Distinguish between property names (referring to some property file) and an
@@ -125,6 +127,10 @@ mod tests {
         "my model.prism",
         "crowds[N=5].pm",
         "model.props.prism",
+        "MODEL.PRISM",
+        "Brp.Pm",
+        "consensus.NM",
+        "embedded.Sm",
     ];
 
     const UMB_FILES: &[&str] = &[
@@ -132,6 +138,8 @@ mod tests {
         "out/brp.umb",
         "zeroconf-N=1000.umb",
         "model.prism.umb",
+        "MODEL.UMB",
+        "out/brp.Umb",
     ];
 
     const PROPERTY_FILES: &[&str] = &[
@@ -139,6 +147,8 @@ mod tests {
         "coin[K=2].props",
         "my properties.props",
         "model.prism.props",
+        "PROPS.PROPS",
+        "coin.Props",
     ];
 
     const PROPERTY_NAMES: &[&str] = &[
@@ -153,7 +163,6 @@ mod tests {
     const UNKNOWN_EXTENSION_FILES: &[&str] = &[
         "models/model.txt",
         "../models/coin2",
-        "./model.PRISM",
         r"C:\models\die.pm.bak",
         "out/model.umb.gz",
     ];
