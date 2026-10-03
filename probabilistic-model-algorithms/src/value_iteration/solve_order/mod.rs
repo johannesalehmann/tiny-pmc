@@ -12,9 +12,9 @@ pub use topological::{EpsAllocationScheme, SccTimingOutput, Topological};
 use typed_index_collections::{Index, To1};
 
 pub trait SolveOrder {
-    fn find_and_solve_subgames<
+    fn find_and_solve_submodels<
         ND: NonDeterminism,
-        Solver: super::subgame_solver::SubGameSolver,
+        Solver: super::sub_model_solver::SubModelSolver,
         M: ReadStateSpace
             + ReadPredecessors<
                 StateIdx = M::StateIndex,

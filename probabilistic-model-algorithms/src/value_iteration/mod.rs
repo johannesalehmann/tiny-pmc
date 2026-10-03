@@ -16,12 +16,12 @@ use solve_order::{Monolithic, Topological};
 mod config;
 pub use config::*;
 
-mod subgame_solver;
+mod sub_model_solver;
 mod until;
 pub use until::rebuild_model_for_until;
 
 use crate::sub_model;
-use subgame_solver::{OptimisticValueIteration, SubGameSolver, ValueIteration};
+use sub_model_solver::{OptimisticValueIteration, SubModelSolver, ValueIteration};
 
 #[derive(Clone, Copy, Debug)]
 pub enum NonDeterminism {
@@ -160,7 +160,7 @@ pub fn optimistic_value_iteration_time<
 }
 
 fn dispatch_non_determinism<
-    Solver: SubGameSolver,
+    Solver: SubModelSolver,
     M: ReadStateSpace
         + ReadPredecessors<
             StateIdx = M::StateIndex,
@@ -187,7 +187,7 @@ fn dispatch_non_determinism<
 
 fn dispatch_solve_order<
     ND: non_determinism::NonDeterminism,
-    Solver: SubGameSolver,
+    Solver: SubModelSolver,
     M: ReadStateSpace
         + ReadPredecessors<
             StateIdx = M::StateIndex,
@@ -233,7 +233,7 @@ fn dispatch_solve_order<
 fn value_iteration_internal<
     ND: non_determinism::NonDeterminism,
     SolveOrder: solve_order::SolveOrder,
-    Solver: SubGameSolver,
+    Solver: SubModelSolver,
     M: ReadStateSpace
         + ReadPredecessors<
             StateIdx = M::StateIndex,
@@ -251,7 +251,7 @@ fn value_iteration_internal<
     if let Some(rew) = rew {
         let precomputed_states = ND::compute_s_inf(model, goal);
         let mecs = ND::compute_reward_mecs(model, &precomputed_states, &rew);
-        solve_order.find_and_solve_subgames::<ND, Solver, _, _, _>(
+        solve_order.find_and_solve_submodels::<ND, Solver, _, _, _>(
             model,
             &precomputed_states,
             rew,
@@ -266,7 +266,7 @@ fn value_iteration_internal<
             config.collapse_mecs,
             Solver::requires_unique_fixed_point(),
         );
-        solve_order.find_and_solve_subgames::<ND, Solver, _, _, _>(
+        solve_order.find_and_solve_submodels::<ND, Solver, _, _, _>(
             model,
             &precomputed_states,
             (),

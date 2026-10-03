@@ -11,7 +11,7 @@ use crate::value_iteration::non_determinism::NonDeterminism;
 use probabilistic_models::base_model::Mdp;
 use typed_index_collections::{Index, To1};
 
-pub trait SubGameSolver {
+pub trait SubModelSolver {
     fn create(max_size: usize) -> Self;
     fn solve<'a, ND: NonDeterminism, SI: Index, CI: Index, BI: Index>(
         &'a mut self,

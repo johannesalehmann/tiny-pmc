@@ -1,4 +1,4 @@
-use super::{OptimisticValueIteration, SubGameSolver, ValueIteration};
+use super::{OptimisticValueIteration, SubModelSolver, ValueIteration};
 use crate::value_iteration::non_determinism::{Maximise, Minimise};
 use probabilistic_models::mdp;
 use typed_index_collections::To1;

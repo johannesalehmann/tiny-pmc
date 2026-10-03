@@ -1,4 +1,4 @@
-use super::{SubGameSolver, ValueIteration};
+use super::{SubModelSolver, ValueIteration};
 use crate::value_iteration::non_determinism::NonDeterminism;
 use probabilistic_models::base_model::Mdp;
 use probabilistic_models::traits::ReadStateSpace;
@@ -14,7 +14,7 @@ pub struct OptimisticValueIteration {
     verification_bounds: Vec<(f64, f64)>,
 }
 
-impl SubGameSolver for OptimisticValueIteration {
+impl SubModelSolver for OptimisticValueIteration {
     fn create(max_size: usize) -> Self {
         Self {
             base_vi: ValueIteration::create(max_size),
@@ -53,7 +53,7 @@ impl SubGameSolver for OptimisticValueIteration {
                 verification_bounds[state.raw().as_usize()] = (value, upper);
             }
 
-            match verify_subgame_optimistic::<ND, _, _, _>(
+            match verify_submodel_optimistic::<ND, _, _, _>(
                 mdp,
                 choice_exit_values,
                 (1.0 / (2.0 * eps)).max(1.0) as usize,
@@ -75,7 +75,7 @@ impl SubGameSolver for OptimisticValueIteration {
                         for (lower, upper) in verification_bounds.iter_mut() {
                             *upper = *lower;
                         }
-                        match verify_subgame_optimistic::<ND, _, _, _>(
+                        match verify_submodel_optimistic::<ND, _, _, _>(
                             mdp,
                             choice_exit_values,
                             1,
@@ -107,7 +107,7 @@ impl SubGameSolver for OptimisticValueIteration {
     }
 }
 
-fn verify_subgame_optimistic<ND: NonDeterminism, NewSI: Index, NewCI: Index, NewBI: Index>(
+fn verify_submodel_optimistic<ND: NonDeterminism, NewSI: Index, NewCI: Index, NewBI: Index>(
     mdp: &Mdp<NewSI, NewCI, NewBI>,
     choice_exit_values: &To1<NewCI, f64>,
     max_steps: usize,

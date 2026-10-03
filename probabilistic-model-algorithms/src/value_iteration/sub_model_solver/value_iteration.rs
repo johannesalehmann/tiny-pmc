@@ -1,4 +1,4 @@
-use super::SubGameSolver;
+use super::SubModelSolver;
 use crate::value_iteration::non_determinism::NonDeterminism;
 use probabilistic_models::base_model::Mdp;
 use probabilistic_models::traits::ReadStateSpace;
@@ -67,7 +67,7 @@ impl ValueIteration {
     }
 }
 
-impl SubGameSolver for ValueIteration {
+impl SubModelSolver for ValueIteration {
     fn create(max_size: usize) -> Self {
         Self {
             values: vec![0.0; max_size],

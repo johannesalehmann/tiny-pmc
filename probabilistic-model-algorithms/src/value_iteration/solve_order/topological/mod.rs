@@ -12,7 +12,7 @@ use crate::value_iteration::non_determinism::NonDeterminism;
 use crate::value_iteration::precomputed_states::PrecomputedStates;
 use crate::value_iteration::solve_order::topological::eps_allocation::EpsAllocation;
 use crate::value_iteration::solve_order::{ModelSize, SolveOrder};
-use crate::value_iteration::subgame_solver::SubGameSolver;
+use crate::value_iteration::sub_model_solver::SubModelSolver;
 use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
 use probabilistic_models::{BranchIndex, ChoiceIndex, StateIndex};
 pub use scc_timings::{SccTimingOutput, SccTimings, TopoTiming};
@@ -39,9 +39,9 @@ impl Topological {
 }
 
 impl SolveOrder for Topological {
-    fn find_and_solve_subgames<
+    fn find_and_solve_submodels<
         ND: NonDeterminism,
-        Solver: SubGameSolver,
+        Solver: SubModelSolver,
         M: ReadStateSpace
             + ReadPredecessors<
                 StateIdx = M::StateIndex,
@@ -59,7 +59,7 @@ impl SolveOrder for Topological {
         eps: f64,
     ) -> To1<M::StateIndex, f64> {
         match self.timing.clone() {
-            None => self.find_and_solve_subgames_with_timing::<ND, Solver, M, P, Rew, _>(
+            None => self.find_and_solve_submodels_with_timing::<ND, Solver, M, P, Rew, _>(
                 model,
                 precomputed_states,
                 rew,
@@ -67,7 +67,7 @@ impl SolveOrder for Topological {
                 eps,
                 (),
             ),
-            Some(output) => self.find_and_solve_subgames_with_timing::<ND, Solver, M, P, Rew, _>(
+            Some(output) => self.find_and_solve_submodels_with_timing::<ND, Solver, M, P, Rew, _>(
                 model,
                 precomputed_states,
                 rew,
@@ -80,9 +80,9 @@ impl SolveOrder for Topological {
 }
 
 impl Topological {
-    fn find_and_solve_subgames_with_timing<
+    fn find_and_solve_submodels_with_timing<
         ND: NonDeterminism,
-        Solver: SubGameSolver,
+        Solver: SubModelSolver,
         M: ReadStateSpace
             + ReadPredecessors<
                 StateIdx = M::StateIndex,
@@ -103,16 +103,16 @@ impl Topological {
     ) -> To1<M::StateIndex, f64> {
         match self.eps_allocation_scheme {
             EpsAllocationScheme::Uniform => {
-                self.find_and_solve_subgames_with_timing_and_eps_allocation::<ND, Solver, M, P, Rew, Timing, UniformEpsAllocation>(model, precomputed_states, rew, mecs, eps, timing)
+                self.find_and_solve_submodels_with_timing_and_eps_allocation::<ND, Solver, M, P, Rew, Timing, UniformEpsAllocation>(model, precomputed_states, rew, mecs, eps, timing)
             }
             EpsAllocationScheme::GlobalEpsForEach => {
-                self.find_and_solve_subgames_with_timing_and_eps_allocation::<ND, Solver, M, P, Rew, Timing, GlobalEpsForEachScc>(model, precomputed_states, rew, mecs, eps, timing)
+                self.find_and_solve_submodels_with_timing_and_eps_allocation::<ND, Solver, M, P, Rew, Timing, GlobalEpsForEachScc>(model, precomputed_states, rew, mecs, eps, timing)
             }
         }
     }
-    fn find_and_solve_subgames_with_timing_and_eps_allocation<
+    fn find_and_solve_submodels_with_timing_and_eps_allocation<
         ND: NonDeterminism,
-        Solver: SubGameSolver,
+        Solver: SubModelSolver,
         M: ReadStateSpace
             + ReadPredecessors<
                 StateIdx = M::StateIndex,
@@ -134,7 +134,7 @@ impl Topological {
     ) -> To1<M::StateIndex, f64> {
         match self.sub_model_order {
             SubModelOrder::BackToFront => self
-                .find_and_solve_subgames_with_ordering::<ND, Solver, M, P, Rew, Timing, EA, _>(
+                .find_and_solve_submodels_with_ordering::<ND, Solver, M, P, Rew, Timing, EA, _>(
                     model,
                     precomputed_states,
                     rew,
@@ -144,7 +144,7 @@ impl Topological {
                     IndexBased::new(IndexOrderDirection::BackToFront),
                 ),
             SubModelOrder::FrontToBack => self
-                .find_and_solve_subgames_with_ordering::<ND, Solver, M, P, Rew, Timing, EA, _>(
+                .find_and_solve_submodels_with_ordering::<ND, Solver, M, P, Rew, Timing, EA, _>(
                     model,
                     precomputed_states,
                     rew,
@@ -154,7 +154,7 @@ impl Topological {
                     IndexBased::new(IndexOrderDirection::FrontToBack),
                 ),
             SubModelOrder::Attractor(choice_mode) => self
-                .find_and_solve_subgames_with_ordering::<ND, Solver, M, P, Rew, Timing, EA, _>(
+                .find_and_solve_submodels_with_ordering::<ND, Solver, M, P, Rew, Timing, EA, _>(
                     model,
                     precomputed_states,
                     rew,
@@ -164,7 +164,7 @@ impl Topological {
                     Attractor::new(choice_mode),
                 ),
             SubModelOrder::Legacy => self
-                .find_and_solve_subgames_with_ordering::<ND, Solver, M, P, Rew, Timing, EA, _>(
+                .find_and_solve_submodels_with_ordering::<ND, Solver, M, P, Rew, Timing, EA, _>(
                     model,
                     precomputed_states,
                     rew,
@@ -176,9 +176,9 @@ impl Topological {
         }
     }
 
-    fn find_and_solve_subgames_with_ordering<
+    fn find_and_solve_submodels_with_ordering<
         ND: NonDeterminism,
-        Solver: SubGameSolver,
+        Solver: SubModelSolver,
         M: ReadStateSpace
             + ReadPredecessors<
                 StateIdx = M::StateIndex,
