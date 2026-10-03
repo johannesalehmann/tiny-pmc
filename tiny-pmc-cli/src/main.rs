@@ -23,8 +23,7 @@ fn checker() -> Result<(), ModelCheckerError> {
         .to_checker_options()
         .map_err(ModelCheckerError::InvalidArguments)?;
     let constants = tiny_pmc::parsing::parse_const_assignments(&arguments.constants)?;
-    let model_and_prop_args = ModelAndPropArgs::from_cli_args(&arguments.files);
-    let inputs = Inputs::new(model_and_prop_args)?;
+    let inputs = Inputs::from_cli_args(&arguments.files)?;
 
     tiny_pmc::build_and_check_model(
         inputs,

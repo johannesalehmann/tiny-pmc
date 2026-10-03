@@ -1,3 +1,5 @@
+use std::fmt::{Display, Formatter};
+
 pub struct ModelAndPropArgs {
     pub prism_files: Vec<String>,
     pub umb_files: Vec<String>,
@@ -10,9 +12,24 @@ pub enum PropertySource {
     String(String),
 }
 
+#[derive(Debug)]
+pub struct UnknownExtension {
+    pub file: String,
+}
+
+impl Display for UnknownExtension {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Unknown extension for file `{}`. Supported endings are `.umb` (for Universal Markov Binaries), `.props` (for property files) `.prism`, `.nm`, `.pm` and `.sm` (all for PRISM models)",
+            self.file
+        )
+    }
+}
+
 impl ModelAndPropArgs {
     // TODO: Accept other types, e.g. &[&str]
-    pub fn from_cli_args(arguments: &[String]) -> Self {
+    pub fn from_cli_args(arguments: &[String]) -> Result<Self, UnknownExtension> {
         let mut prism_files = Vec::new();
         let mut umb_files = Vec::new();
         let mut property_sources = Vec::new();
@@ -30,8 +47,6 @@ impl ModelAndPropArgs {
             } else if argument.ends_with(".props") {
                 property_sources.push(PropertySource::File(argument.clone()));
             } else {
-                // TODO: Check whether it might be a path to a file with non-standard file extension
-
                 // Distinguish between property names (referring to some property file) and an
                 // in-line property specification.
                 if argument.contains('[')
@@ -42,24 +57,30 @@ impl ModelAndPropArgs {
                     || argument.contains('=')
                 {
                     property_sources.push(PropertySource::String(argument.clone()));
+                } else if argument.contains("/") || argument.contains("\\") {
+                    // Note that it is important that this check comes after the previous check.
+                    // After all, properties could easily contain `/` in expressions.
+                    return Err(UnknownExtension {
+                        file: argument.clone(),
+                    });
                 } else {
                     property_names.push(argument.clone());
                 }
             }
         }
 
-        Self {
+        Ok(Self {
             prism_files,
             umb_files,
             property_sources,
             property_names,
-        }
+        })
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{ModelAndPropArgs, PropertySource};
+    use super::{ModelAndPropArgs, PropertySource, UnknownExtension};
 
     const VALID_PROPERTIES: &[&str] = &[
         r#"P=? [ F "goal" ]"#,
@@ -129,6 +150,14 @@ mod tests {
         "props",
     ];
 
+    const UNKNOWN_EXTENSION_FILES: &[&str] = &[
+        "models/model.txt",
+        "../models/coin2",
+        "./model.PRISM",
+        r"C:\models\die.pm.bak",
+        "out/model.umb.gz",
+    ];
+
     #[derive(Debug, Default, PartialEq)]
     struct Classification<'a> {
         prism_files: Vec<&'a str>,
@@ -146,7 +175,15 @@ mod tests {
 
     fn parse(arguments: &[&str]) -> ModelAndPropArgs {
         let arguments: Vec<String> = arguments.iter().map(|a| a.to_string()).collect();
-        ModelAndPropArgs::from_cli_args(&arguments)
+        ModelAndPropArgs::from_cli_args(&arguments).unwrap()
+    }
+
+    fn parse_err(arguments: &[&str]) -> UnknownExtension {
+        let arguments: Vec<String> = arguments.iter().map(|a| a.to_string()).collect();
+        match ModelAndPropArgs::from_cli_args(&arguments) {
+            Ok(_) => panic!("expected an error for arguments {arguments:?}"),
+            Err(err) => err,
+        }
     }
 
     fn classify(args: &ModelAndPropArgs) -> Classification<'_> {
@@ -237,6 +274,19 @@ mod tests {
             property_names: vec![input],
             ..Default::default()
         });
+    }
+
+    #[test]
+    fn single_unknown_extension_file() {
+        for &input in UNKNOWN_EXTENSION_FILES {
+            assert_eq!(parse_err(&[input]).file, input, "input: {input:?}");
+        }
+    }
+
+    #[test]
+    fn unknown_extension_file_among_valid_arguments() {
+        let err = parse_err(&["brp.pm", "brp.props", "models/brp.txt", "reach_goal"]);
+        assert_eq!(err.file, "models/brp.txt");
     }
 
     #[test]

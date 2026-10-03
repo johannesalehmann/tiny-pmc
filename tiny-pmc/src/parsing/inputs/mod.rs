@@ -1,4 +1,4 @@
-use super::model_and_prop_args::ModelAndPropArgs;
+use super::model_and_prop_args::{ModelAndPropArgs, UnknownExtension};
 use crate::parsing::PropertySource;
 use crate::{ExplicitModel, ExplicitQueries, PrismModel, PrismQueries};
 use probabilistic_properties::NamedQueries;
@@ -17,10 +17,16 @@ pub enum Inputs {
 
 #[derive(Debug)]
 pub enum InputError {
+    UnknownExtension(UnknownExtension),
     InputFileError { path: String, error: std::io::Error },
     NoModelFile,
     MultipleInputFiles(Vec<String>),
     ModelAndPropertyParsingError,
+}
+impl From<UnknownExtension> for InputError {
+    fn from(value: UnknownExtension) -> Self {
+        Self::UnknownExtension(value)
+    }
 }
 
 trait WithPath<T> {
@@ -63,13 +69,16 @@ impl Display for InputError {
                 // This error is already printed when it is produced
                 Ok(())
             }
+            InputError::UnknownExtension(ex) => {
+                write!(f, "{ex}")
+            }
         }
     }
 }
 
 impl Inputs {
     pub fn from_cli_args(args: &[String]) -> Result<Inputs, InputError> {
-        let args = ModelAndPropArgs::from_cli_args(args);
+        let args = ModelAndPropArgs::from_cli_args(args)?;
         Self::new(args)
     }
 
