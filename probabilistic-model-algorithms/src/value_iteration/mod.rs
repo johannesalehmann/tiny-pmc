@@ -10,7 +10,7 @@ use non_determinism::{Maximise, Minimise};
 pub(crate) mod precomputed_states;
 
 mod solve_order;
-pub use solve_order::{EpsAllocationScheme, SccTimingOutput};
+pub use solve_order::{EpsAllocationScheme, SccTimingOutput, SubModelHook};
 use solve_order::{Monolithic, Topological};
 
 mod config;

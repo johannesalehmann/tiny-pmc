@@ -115,6 +115,7 @@ impl ValueIterationArguments {
                         EpsAllocationScheme::GlobalEpsForEach
                     }
                 },
+                hook: None,
             },
         };
         let write_scc_timing = match &self.scc_timings {
