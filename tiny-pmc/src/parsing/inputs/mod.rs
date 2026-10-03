@@ -17,22 +17,30 @@ pub enum Inputs {
 
 #[derive(Debug)]
 pub enum InputError {
-    InputFileError(std::io::Error),
+    InputFileError { path: String, error: std::io::Error },
     NoModelFile,
     MultipleInputFiles(Vec<String>),
     ModelAndPropertyParsingError,
 }
-impl From<std::io::Error> for InputError {
-    fn from(value: std::io::Error) -> Self {
-        InputError::InputFileError(value)
+
+trait WithPath<T> {
+    fn with_path(self, path: &str) -> Result<T, InputError>;
+}
+
+impl<T> WithPath<T> for Result<T, std::io::Error> {
+    fn with_path(self, path: &str) -> Result<T, InputError> {
+        self.map_err(|error| InputError::InputFileError {
+            path: path.to_string(),
+            error,
+        })
     }
 }
 
 impl Display for InputError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
-            InputError::InputFileError(e) => {
-                write!(f, "Could not read file ({e})")
+            InputError::InputFileError { path, error } => {
+                write!(f, "Could not read file `{path}`: {error}")
             }
             InputError::NoModelFile => {
                 write!(
@@ -153,6 +161,6 @@ impl Inputs {
     }
 }
 
-fn read_input_file(path: &str) -> Result<String, std::io::Error> {
-    std::fs::read_to_string(path)
+fn read_input_file(path: &str) -> Result<String, InputError> {
+    std::fs::read_to_string(path).with_path(path)
 }
