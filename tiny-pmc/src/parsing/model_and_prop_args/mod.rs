@@ -21,7 +21,7 @@ impl Display for UnknownExtension {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(
             f,
-            "Unknown extension for file `{}`. Supported endings are `.umb` (for Universal Markov Binaries), `.props` (for property files) `.prism`, `.nm`, `.pm` and `.sm` (all for PRISM models)",
+            "Unknown extension for file `{}`. Supported endings are `.umb` (for Universal Markov Binaries), `.props`, `.pctl`, `.csl` and `.prctl` (for property files) and `.prism`, `.nm`, `.pm` and `.sm` (all for PRISM models)",
             self.file
         )
     }
@@ -46,7 +46,11 @@ impl ModelAndPropArgs {
                 || lowercase.ends_with(".prism")
             {
                 prism_files.push(argument.clone());
-            } else if lowercase.ends_with(".props") {
+            } else if lowercase.ends_with(".prctl") // Found in some benchmarks, not sure where it comes from
+                || lowercase.ends_with(".pctl") // Legacy file extension for DTMC, MDP and PTA properties
+                || lowercase.ends_with(".csl")// Legacy file extension for DTMCs
+                || lowercase.ends_with(".props")
+            {
                 property_sources.push(PropertySource::File(argument.clone()));
             } else {
                 // Distinguish between property names (referring to some property file) and an
@@ -149,6 +153,12 @@ mod tests {
         "model.prism.props",
         "PROPS.PROPS",
         "coin.Props",
+        "brp.pctl",
+        "embedded.csl",
+        "wlan.prctl",
+        "BRP.PCTL",
+        "embedded.Csl",
+        "wlan.PrCtl",
     ];
 
     const PROPERTY_NAMES: &[&str] = &[
