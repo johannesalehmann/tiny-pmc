@@ -2,7 +2,9 @@ use crate::sub_model::SubModelOrder;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-pub use super::solve_order::{EpsAllocationScheme, SccTimingOutput, SubModelHook};
+pub use super::solve_order::{
+    EpsAllocationScheme, SccTimingOutput, SubModelHook, SubModelSolveInfo,
+};
 
 pub struct ValueIterationConfig {
     pub collapse_mecs: CollapseMecs,
