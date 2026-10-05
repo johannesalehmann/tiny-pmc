@@ -451,7 +451,7 @@ pub trait SubModelHook: Debug {
 }
 
 pub struct SubModelSolveInfo {
-    eps: f64,
-    non_determinism: NonDeterminism,
-    max_value: f64,
+    pub eps: f64,
+    pub non_determinism: NonDeterminism,
+    pub max_value: f64,
 }
