@@ -171,3 +171,60 @@ impl<T: ReadPredecessors> ReadPredecessors for &mut T {
         (**self).source_state_of_predecessor(predecessor)
     }
 }
+
+pub trait ReadPredecessorsMaybe {
+    type WithPredecessors: ReadPredecessors;
+
+    fn has_predecessors(&self) -> bool;
+    fn try_with_predecessors(self) -> Option<Self::WithPredecessors>;
+}
+
+impl<T: ReadPredecessors> ReadPredecessorsMaybe for T {
+    type WithPredecessors = T;
+
+    fn has_predecessors(&self) -> bool {
+        true
+    }
+
+    fn try_with_predecessors(self) -> Option<Self::WithPredecessors> {
+        Some(self)
+    }
+}
+
+impl<T: ReadPredecessors> ReadPredecessorsMaybe for Option<T> {
+    type WithPredecessors = T;
+
+    fn has_predecessors(&self) -> bool {
+        self.is_some()
+    }
+
+    fn try_with_predecessors(self) -> Option<Self::WithPredecessors> {
+        self
+    }
+}
+
+impl<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds: ReadPredecessors>
+    ReadPredecessorsMaybe
+    for Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Option<Preds>>
+{
+    type WithPredecessors = Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>;
+
+    fn has_predecessors(&self) -> bool {
+        self.predecessors.is_some()
+    }
+
+    fn try_with_predecessors(self) -> Option<Self::WithPredecessors> {
+        Some(Model {
+            base: self.base,
+            initial: self.initial,
+            choice_labels: self.choice_labels,
+            branch_labels: self.branch_labels,
+            observations: self.observations,
+            atomic_propositions: self.atomic_propositions,
+            rewards: self.rewards,
+            annotations: self.annotations,
+            state_valuations: self.state_valuations,
+            predecessors: self.predecessors?,
+        })
+    }
+}

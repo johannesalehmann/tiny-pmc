@@ -91,3 +91,61 @@ impl<T: ReadAtomicPropositions> ReadAtomicPropositions for &mut T {
         (**self).atomic_proposition_by_name(name)
     }
 }
+
+pub trait ReadAtomicPropositionsMaybe {
+    type WithAtomicPropositions: ReadAtomicPropositions;
+
+    fn has_atomic_propositions(&self) -> bool;
+    fn try_with_atomic_propositions(self) -> Option<Self::WithAtomicPropositions>;
+}
+
+impl<T: ReadAtomicPropositions> ReadAtomicPropositionsMaybe for T {
+    type WithAtomicPropositions = T;
+
+    fn has_atomic_propositions(&self) -> bool {
+        true
+    }
+
+    fn try_with_atomic_propositions(self) -> Option<Self::WithAtomicPropositions> {
+        Some(self)
+    }
+}
+
+impl<T: ReadAtomicPropositions> ReadAtomicPropositionsMaybe for Option<T> {
+    type WithAtomicPropositions = T;
+
+    fn has_atomic_propositions(&self) -> bool {
+        self.is_some()
+    }
+
+    fn try_with_atomic_propositions(self) -> Option<Self::WithAtomicPropositions> {
+        self
+    }
+}
+
+impl<M, Ini, ChLabel, BrLabel, Obs, APs: ReadAtomicPropositions, Rew, Ann, StateVals, Preds>
+    ReadAtomicPropositionsMaybe
+    for Model<M, Ini, ChLabel, BrLabel, Obs, Option<APs>, Rew, Ann, StateVals, Preds>
+{
+    type WithAtomicPropositions =
+        Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>;
+
+    fn has_atomic_propositions(&self) -> bool {
+        self.atomic_propositions.is_some()
+    }
+
+    fn try_with_atomic_propositions(self) -> Option<Self::WithAtomicPropositions> {
+        Some(Model {
+            base: self.base,
+            initial: self.initial,
+            choice_labels: self.choice_labels,
+            branch_labels: self.branch_labels,
+            observations: self.observations,
+            atomic_propositions: self.atomic_propositions?,
+            rewards: self.rewards,
+            annotations: self.annotations,
+            state_valuations: self.state_valuations,
+            predecessors: self.predecessors,
+        })
+    }
+}

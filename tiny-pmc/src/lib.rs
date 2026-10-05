@@ -1,7 +1,9 @@
 use prism_model_builder::UserProvidedConstValue;
 use prism_model_builder::queries::ProcessedQuery;
 use probabilistic_models::AtomicPropositionIndex;
-use probabilistic_models::traits::ReadStateSpace;
+use probabilistic_models::traits::{
+    ReadAtomicPropositionsMaybe, ReadInitialStatesMaybe, ReadRewardsMaybe, ReadStateSpace,
+};
 
 pub mod checking;
 pub mod parsing;
@@ -92,7 +94,7 @@ pub fn build_model(
                 .without_predecessors()
                 .without_observations()
                 .without_annotations();
-            if let Some(model) = model.initial_states_unwrapped() {
+            if let Some(model) = model.try_with_initial_states() {
                 let start_reorder = std::time::Instant::now();
                 let model = model.reorder_dfs(dfs.into());
                 println!("Reordered states (dfs) in {:?}", start_reorder.elapsed());
@@ -120,15 +122,12 @@ pub fn check_model<Out: CheckerOutput>(
 
     // TODO: This unwrapping should not happen here. Instead, pass the optional model to the check
     //  function and let it dynamically decide which features it needs.
-    // TODO: The call to _unwrapped().unwrap() reads poorly. Probably, the _unwrapped function
-    //  should be renamed and a new _unwrapped() function that returns the bare model should be
-    //  created.
     let model = model
-        .initial_states_unwrapped()
+        .try_with_initial_states()
         .unwrap()
-        .atomic_propositions_unwrapped()
+        .try_with_atomic_propositions()
         .unwrap()
-        .rewards_unwrapped()
+        .try_with_rewards()
         .unwrap();
 
     for property in queries {

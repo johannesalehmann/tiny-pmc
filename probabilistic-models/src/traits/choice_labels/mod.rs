@@ -81,3 +81,60 @@ impl<T: ReadChoiceLabels> ReadChoiceLabels for &mut T {
         (**self).label_of_choice_action(action)
     }
 }
+
+pub trait ReadChoiceLabelsMaybe {
+    type WithChoiceLabels: ReadChoiceLabels;
+
+    fn has_choice_labels(&self) -> bool;
+    fn try_with_choice_labels(self) -> Option<Self::WithChoiceLabels>;
+}
+
+impl<T: ReadChoiceLabels> ReadChoiceLabelsMaybe for T {
+    type WithChoiceLabels = T;
+
+    fn has_choice_labels(&self) -> bool {
+        true
+    }
+
+    fn try_with_choice_labels(self) -> Option<Self::WithChoiceLabels> {
+        Some(self)
+    }
+}
+
+impl<T: ReadChoiceLabels> ReadChoiceLabelsMaybe for Option<T> {
+    type WithChoiceLabels = T;
+
+    fn has_choice_labels(&self) -> bool {
+        self.is_some()
+    }
+
+    fn try_with_choice_labels(self) -> Option<Self::WithChoiceLabels> {
+        self
+    }
+}
+
+impl<M, Ini, ChLabel: ReadLabels, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>
+    ReadChoiceLabelsMaybe
+    for Model<M, Ini, Option<ChLabel>, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>
+{
+    type WithChoiceLabels = Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>;
+
+    fn has_choice_labels(&self) -> bool {
+        self.choice_labels.is_some()
+    }
+
+    fn try_with_choice_labels(self) -> Option<Self::WithChoiceLabels> {
+        Some(Model {
+            base: self.base,
+            initial: self.initial,
+            choice_labels: self.choice_labels?,
+            branch_labels: self.branch_labels,
+            observations: self.observations,
+            atomic_propositions: self.atomic_propositions,
+            rewards: self.rewards,
+            annotations: self.annotations,
+            state_valuations: self.state_valuations,
+            predecessors: self.predecessors,
+        })
+    }
+}

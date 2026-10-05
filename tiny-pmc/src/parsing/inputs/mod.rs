@@ -1,6 +1,7 @@
 use super::model_and_prop_args::{ModelAndPropArgs, UnknownExtension};
 use crate::parsing::PropertySource;
 use crate::{ExplicitModel, ExplicitQueries, PrismModel, PrismQueries};
+use probabilistic_models::traits::ReadAtomicPropositionsMaybe;
 use probabilistic_properties::NamedQueries;
 use std::fmt::{Display, Formatter};
 
@@ -134,7 +135,7 @@ impl Inputs {
             ) else {
                 return Err(InputError::ModelAndPropertyParsingError);
             };
-            let queries = if let Some(ap_model) = model.as_ref().atomic_propositions_unwrapped() {
+            let queries = if let Some(ap_model) = model.as_ref().try_with_atomic_propositions() {
                 crate::parsing::from_unprocessed_to_explicit_properties(
                     unprocessed_queries,
                     &ap_model,

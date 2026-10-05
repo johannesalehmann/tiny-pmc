@@ -132,3 +132,59 @@ impl<T: ReadRewards> ReadRewards for &mut T {
         (**self).choice_reward(rewards, choice)
     }
 }
+
+pub trait ReadRewardsMaybe {
+    type WithRewards: ReadRewards;
+
+    fn has_rewards(&self) -> bool;
+    fn try_with_rewards(self) -> Option<Self::WithRewards>;
+}
+
+impl<T: ReadRewards> ReadRewardsMaybe for T {
+    type WithRewards = T;
+
+    fn has_rewards(&self) -> bool {
+        true
+    }
+
+    fn try_with_rewards(self) -> Option<Self::WithRewards> {
+        Some(self)
+    }
+}
+
+impl<T: ReadRewards> ReadRewardsMaybe for Option<T> {
+    type WithRewards = T;
+
+    fn has_rewards(&self) -> bool {
+        self.is_some()
+    }
+
+    fn try_with_rewards(self) -> Option<Self::WithRewards> {
+        self
+    }
+}
+
+impl<M, Ini, ChLabel, BrLabel, Obs, APs, Rew: ReadRewards, Ann, StateVals, Preds> ReadRewardsMaybe
+    for Model<M, Ini, ChLabel, BrLabel, Obs, APs, Option<Rew>, Ann, StateVals, Preds>
+{
+    type WithRewards = Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>;
+
+    fn has_rewards(&self) -> bool {
+        self.rewards.is_some()
+    }
+
+    fn try_with_rewards(self) -> Option<Self::WithRewards> {
+        Some(Model {
+            base: self.base,
+            initial: self.initial,
+            choice_labels: self.choice_labels,
+            branch_labels: self.branch_labels,
+            observations: self.observations,
+            atomic_propositions: self.atomic_propositions,
+            rewards: self.rewards?,
+            annotations: self.annotations,
+            state_valuations: self.state_valuations,
+            predecessors: self.predecessors,
+        })
+    }
+}

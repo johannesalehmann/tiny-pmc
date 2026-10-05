@@ -81,3 +81,60 @@ impl<T: ReadBranchLabels> ReadBranchLabels for &mut T {
         (**self).label_of_branch_action(action)
     }
 }
+
+pub trait ReadBranchLabelsMaybe {
+    type WithBranchLabels: ReadBranchLabels;
+
+    fn has_branch_labels(&self) -> bool;
+    fn try_with_branch_labels(self) -> Option<Self::WithBranchLabels>;
+}
+
+impl<T: ReadBranchLabels> ReadBranchLabelsMaybe for T {
+    type WithBranchLabels = T;
+
+    fn has_branch_labels(&self) -> bool {
+        true
+    }
+
+    fn try_with_branch_labels(self) -> Option<Self::WithBranchLabels> {
+        Some(self)
+    }
+}
+
+impl<T: ReadBranchLabels> ReadBranchLabelsMaybe for Option<T> {
+    type WithBranchLabels = T;
+
+    fn has_branch_labels(&self) -> bool {
+        self.is_some()
+    }
+
+    fn try_with_branch_labels(self) -> Option<Self::WithBranchLabels> {
+        self
+    }
+}
+
+impl<M, Ini, ChLabel, BrLabel: ReadLabels, Obs, APs, Rew, Ann, StateVals, Preds>
+    ReadBranchLabelsMaybe
+    for Model<M, Ini, ChLabel, Option<BrLabel>, Obs, APs, Rew, Ann, StateVals, Preds>
+{
+    type WithBranchLabels = Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>;
+
+    fn has_branch_labels(&self) -> bool {
+        self.branch_labels.is_some()
+    }
+
+    fn try_with_branch_labels(self) -> Option<Self::WithBranchLabels> {
+        Some(Model {
+            base: self.base,
+            initial: self.initial,
+            choice_labels: self.choice_labels,
+            branch_labels: self.branch_labels?,
+            observations: self.observations,
+            atomic_propositions: self.atomic_propositions,
+            rewards: self.rewards,
+            annotations: self.annotations,
+            state_valuations: self.state_valuations,
+            predecessors: self.predecessors,
+        })
+    }
+}

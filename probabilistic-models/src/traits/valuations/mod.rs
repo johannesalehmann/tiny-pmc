@@ -85,3 +85,60 @@ impl<T: ReadValuations> ReadValuations for &mut T {
         (**self).state_valuation(state)
     }
 }
+
+pub trait ReadValuationsMaybe {
+    type WithValuations: ReadValuations;
+
+    fn has_valuations(&self) -> bool;
+    fn try_with_valuations(self) -> Option<Self::WithValuations>;
+}
+
+impl<T: ReadValuations> ReadValuationsMaybe for T {
+    type WithValuations = T;
+
+    fn has_valuations(&self) -> bool {
+        true
+    }
+
+    fn try_with_valuations(self) -> Option<Self::WithValuations> {
+        Some(self)
+    }
+}
+
+impl<T: ReadValuations> ReadValuationsMaybe for Option<T> {
+    type WithValuations = T;
+
+    fn has_valuations(&self) -> bool {
+        self.is_some()
+    }
+
+    fn try_with_valuations(self) -> Option<Self::WithValuations> {
+        self
+    }
+}
+
+impl<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals: ReadValuations, Preds>
+    ReadValuationsMaybe
+    for Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, Option<StateVals>, Preds>
+{
+    type WithValuations = Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>;
+
+    fn has_valuations(&self) -> bool {
+        self.state_valuations.is_some()
+    }
+
+    fn try_with_valuations(self) -> Option<Self::WithValuations> {
+        Some(Model {
+            base: self.base,
+            initial: self.initial,
+            choice_labels: self.choice_labels,
+            branch_labels: self.branch_labels,
+            observations: self.observations,
+            atomic_propositions: self.atomic_propositions,
+            rewards: self.rewards,
+            annotations: self.annotations,
+            state_valuations: self.state_valuations?,
+            predecessors: self.predecessors,
+        })
+    }
+}

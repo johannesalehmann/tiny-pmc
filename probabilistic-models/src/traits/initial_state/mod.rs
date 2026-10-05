@@ -77,3 +77,60 @@ impl<M, Ini: ReadInitialStates, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals,
 
     derive_read_initial_states!(initial);
 }
+
+pub trait ReadInitialStatesMaybe {
+    type WithInitialStates: ReadInitialStates;
+
+    fn has_initial_states(&self) -> bool;
+    fn try_with_initial_states(self) -> Option<Self::WithInitialStates>;
+}
+
+impl<T: ReadInitialStates> ReadInitialStatesMaybe for T {
+    type WithInitialStates = T;
+
+    fn has_initial_states(&self) -> bool {
+        true
+    }
+
+    fn try_with_initial_states(self) -> Option<Self::WithInitialStates> {
+        Some(self)
+    }
+}
+
+impl<T: ReadInitialStates> ReadInitialStatesMaybe for Option<T> {
+    type WithInitialStates = T;
+
+    fn has_initial_states(&self) -> bool {
+        self.is_some()
+    }
+
+    fn try_with_initial_states(self) -> Option<Self::WithInitialStates> {
+        self
+    }
+}
+
+impl<M, Ini: ReadInitialStates, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>
+    ReadInitialStatesMaybe
+    for Model<M, Option<Ini>, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>
+{
+    type WithInitialStates = Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>;
+
+    fn has_initial_states(&self) -> bool {
+        self.initial.is_some()
+    }
+
+    fn try_with_initial_states(self) -> Option<Self::WithInitialStates> {
+        Some(Model {
+            base: self.base,
+            initial: self.initial?,
+            choice_labels: self.choice_labels,
+            branch_labels: self.branch_labels,
+            observations: self.observations,
+            atomic_propositions: self.atomic_propositions,
+            rewards: self.rewards,
+            annotations: self.annotations,
+            state_valuations: self.state_valuations,
+            predecessors: self.predecessors,
+        })
+    }
+}

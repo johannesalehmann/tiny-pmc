@@ -2,37 +2,37 @@ mod reachability;
 pub use reachability::{BackwardReachability, Reachability};
 
 mod predecessors;
-pub use predecessors::ReadPredecessors;
 #[allow(unused)]
 pub(crate) use predecessors::derive_read_predecessors;
+pub use predecessors::{ReadPredecessors, ReadPredecessorsMaybe};
 
 mod branch_labels;
-pub use branch_labels::ReadBranchLabels;
 #[allow(unused)]
 pub(crate) use branch_labels::derive_read_branch_labels;
+pub use branch_labels::{ReadBranchLabels, ReadBranchLabelsMaybe};
 
 mod choice_labels;
-pub use choice_labels::ReadChoiceLabels;
 #[allow(unused)]
 pub(crate) use choice_labels::derive_read_choice_labels;
+pub use choice_labels::{ReadChoiceLabels, ReadChoiceLabelsMaybe};
 
 mod initial_state;
-pub use initial_state::ReadInitialStates;
 #[allow(unused)]
 pub(crate) use initial_state::derive_read_initial_states;
+pub use initial_state::{ReadInitialStates, ReadInitialStatesMaybe};
 
 mod state_specifier;
 pub use state_specifier::{AsStateSet, BoxedStateSet, SingleState, StateSet};
 
 mod atomic_propositions;
-pub use atomic_propositions::ReadAtomicPropositions;
 #[allow(unused)]
 pub(crate) use atomic_propositions::derive_read_atomic_propositions;
+pub use atomic_propositions::{ReadAtomicPropositions, ReadAtomicPropositionsMaybe};
 
 mod valuations;
-pub use valuations::ReadValuations;
 #[allow(unused)]
 pub(crate) use valuations::derive_read_valuations;
+pub use valuations::{ReadValuations, ReadValuationsMaybe};
 
 mod owners;
 pub use owners::ReadOwners;
@@ -40,9 +40,9 @@ pub use owners::ReadOwners;
 pub(crate) use owners::derive_read_owners;
 
 mod rewards;
-pub use rewards::ReadRewards;
 #[allow(unused)]
 pub(crate) use rewards::derive_read_rewards;
+pub use rewards::{ReadRewards, ReadRewardsMaybe};
 
 use typed_index_collections::{Index, IndexRange, IndexRangeIterator, SemiboundedIndexRange};
 
