@@ -5,15 +5,15 @@ mod topological;
 use crate::mecs::Mecs;
 use crate::sccs::Scc;
 use crate::sub_model::RewardsSource;
-use crate::value_iteration::non_determinism::NonDeterminism;
+use crate::value_iteration::non_determinism::NonDeterminismResolver;
 use crate::value_iteration::precomputed_states::PrecomputedStates;
 use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
 pub use topological::{EpsAllocationScheme, SccTimingOutput, SubModelHook, Topological};
 use typed_index_collections::{Index, To1};
 
-pub trait SolveOrder {
+pub trait OrderedSolver {
     fn find_and_solve_submodels<
-        ND: NonDeterminism,
+        ND: NonDeterminismResolver,
         Solver: super::sub_model_solver::SubModelSolver,
         M: ReadStateSpace
             + ReadPredecessors<

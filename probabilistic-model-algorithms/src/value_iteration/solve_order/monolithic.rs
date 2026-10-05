@@ -1,6 +1,6 @@
 use crate::mecs::Mecs;
 use crate::sub_model::RewardsSource;
-use crate::value_iteration::non_determinism::NonDeterminism;
+use crate::value_iteration::non_determinism::NonDeterminismResolver;
 use crate::value_iteration::precomputed_states::PrecomputedStates;
 use crate::value_iteration::sub_model_solver::SubModelSolver;
 use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
@@ -8,9 +8,9 @@ use typed_index_collections::To1;
 
 pub struct Monolithic {}
 
-impl super::SolveOrder for Monolithic {
+impl super::OrderedSolver for Monolithic {
     fn find_and_solve_submodels<
-        ND: NonDeterminism,
+        ND: NonDeterminismResolver,
         Solver: SubModelSolver,
         M: ReadStateSpace
             + ReadPredecessors<

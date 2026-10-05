@@ -1,5 +1,5 @@
 use super::{SubModelSolver, ValueIteration};
-use crate::value_iteration::non_determinism::NonDeterminism;
+use crate::value_iteration::non_determinism::NonDeterminismResolver;
 use probabilistic_models::base_model::Mdp;
 use probabilistic_models::traits::ReadStateSpace;
 use typed_index_collections::{Index, RawIndex, To1};
@@ -22,7 +22,7 @@ impl SubModelSolver for OptimisticValueIteration {
         }
     }
 
-    fn solve<'a, ND: NonDeterminism, SI: Index, CI: Index, BI: Index>(
+    fn solve<'a, ND: NonDeterminismResolver, SI: Index, CI: Index, BI: Index>(
         &'a mut self,
         mdp: &Mdp<SI, CI, BI>,
         choice_exit_values: &To1<CI, f64>,
@@ -107,7 +107,12 @@ impl SubModelSolver for OptimisticValueIteration {
     }
 }
 
-fn verify_submodel_optimistic<ND: NonDeterminism, NewSI: Index, NewCI: Index, NewBI: Index>(
+fn verify_submodel_optimistic<
+    ND: NonDeterminismResolver,
+    NewSI: Index,
+    NewCI: Index,
+    NewBI: Index,
+>(
     mdp: &Mdp<NewSI, NewCI, NewBI>,
     choice_exit_values: &To1<NewCI, f64>,
     max_steps: usize,

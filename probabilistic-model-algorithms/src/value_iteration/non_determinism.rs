@@ -2,12 +2,12 @@ use crate::mecs::Mecs;
 use crate::sccs::ExcludeStatesAndChoices;
 use crate::state_description::StateDescription;
 use crate::sub_model::RewardsSource;
-use crate::value_iteration::CollapseMecs;
+use crate::value_iteration::config::CollapseMecs;
 use crate::value_iteration::precomputed_states::{PrecomputedStates, S0S1, SInfinity};
 use probabilistic_models::traits::{ReadAtomicPropositions, ReadPredecessors, ReadStateSpace};
 use typed_index_collections::To1;
 
-pub trait NonDeterminism {
+pub trait NonDeterminismResolver {
     fn compute_s0_s1<
         M: ReadStateSpace
             + ReadAtomicPropositions<StateIdx = M::StateIndex>
@@ -68,7 +68,7 @@ pub trait NonDeterminism {
 
 pub struct Maximise {}
 
-impl NonDeterminism for Maximise {
+impl NonDeterminismResolver for Maximise {
     fn compute_s0_s1<
         M: ReadStateSpace
             + ReadAtomicPropositions<StateIdx = M::StateIndex>
@@ -155,7 +155,7 @@ impl NonDeterminism for Maximise {
 
 pub struct Minimise {}
 
-impl NonDeterminism for Minimise {
+impl NonDeterminismResolver for Minimise {
     fn compute_s0_s1<
         M: ReadStateSpace
             + ReadAtomicPropositions<StateIdx = M::StateIndex>

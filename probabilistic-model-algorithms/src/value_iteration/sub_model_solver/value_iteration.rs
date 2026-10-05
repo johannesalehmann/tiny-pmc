@@ -1,5 +1,5 @@
 use super::SubModelSolver;
-use crate::value_iteration::non_determinism::NonDeterminism;
+use crate::value_iteration::non_determinism::NonDeterminismResolver;
 use probabilistic_models::base_model::Mdp;
 use probabilistic_models::traits::ReadStateSpace;
 use typed_index_collections::{Index, RawIndex, To1};
@@ -11,7 +11,7 @@ pub struct ValueIteration {
 impl ValueIteration {
     // Solves the MDP without resetting the values vector. This can be used to do warm starts of the
     // value iteration
-    pub fn solve_raw<'a, ND: NonDeterminism, SI: Index, CI: Index, BI: Index>(
+    pub fn solve_raw<'a, ND: NonDeterminismResolver, SI: Index, CI: Index, BI: Index>(
         &'a mut self,
         mdp: &Mdp<SI, CI, BI>,
         choice_exit_values: &To1<CI, f64>,
@@ -74,7 +74,7 @@ impl SubModelSolver for ValueIteration {
         }
     }
 
-    fn solve<'a, ND: NonDeterminism, SI: Index, CI: Index, BI: Index>(
+    fn solve<'a, ND: NonDeterminismResolver, SI: Index, CI: Index, BI: Index>(
         &'a mut self,
         mdp: &Mdp<SI, CI, BI>,
         choice_exit_values: &To1<CI, f64>,

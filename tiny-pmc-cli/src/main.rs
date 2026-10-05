@@ -1,6 +1,6 @@
 use clap::Parser;
 use prism_model_builder::ModelBuildingError;
-use tiny_pmc::parsing::{ConstParsingError, Inputs, ModelAndPropArgs};
+use tiny_pmc::parsing::{ConstParsingError, Inputs};
 use tiny_pmc::{CheckerError, OutputPrinter};
 
 mod arg_parsing;

@@ -10,17 +10,16 @@ use non_determinism::{Maximise, Minimise};
 pub(crate) mod precomputed_states;
 
 mod solve_order;
-pub use solve_order::{EpsAllocationScheme, SccTimingOutput, SubModelHook};
 use solve_order::{Monolithic, Topological};
 
-mod config;
-pub use config::*;
+pub mod config;
 
+pub mod internal;
 mod sub_model_solver;
-mod until;
-pub use until::rebuild_model_for_until;
+pub mod until;
 
 use crate::sub_model;
+use crate::value_iteration::config::{SolveOrder, ValueIterationConfig};
 use sub_model_solver::{OptimisticValueIteration, SubModelSolver, ValueIteration};
 
 #[derive(Clone, Copy, Debug)]
@@ -186,7 +185,7 @@ fn dispatch_non_determinism<
 }
 
 fn dispatch_solve_order<
-    ND: non_determinism::NonDeterminism,
+    ND: non_determinism::NonDeterminismResolver,
     Solver: SubModelSolver,
     M: ReadStateSpace
         + ReadPredecessors<
@@ -232,9 +231,9 @@ fn dispatch_solve_order<
     }
 }
 
-fn value_iteration_internal<
-    ND: non_determinism::NonDeterminism,
-    SolveOrder: solve_order::SolveOrder,
+pub fn value_iteration_internal<
+    ND: non_determinism::NonDeterminismResolver,
+    SolveOrder: solve_order::OrderedSolver,
     Solver: SubModelSolver,
     M: ReadStateSpace
         + ReadPredecessors<

@@ -1,6 +1,7 @@
 use crate::checking::{CheckerError, CheckerOptions};
 use probabilistic_model_algorithms::state_description::StateDescription;
-use probabilistic_model_algorithms::value_iteration::{NonDeterminism, rebuild_model_for_until};
+use probabilistic_model_algorithms::value_iteration::NonDeterminism;
+use probabilistic_model_algorithms::value_iteration::until::rebuild_model_for_until;
 use probabilistic_models::traits::{
     ReadAtomicPropositions, ReadInitialStates, ReadPredecessors, ReadRewards, ReadStateSpace,
     StateSet,

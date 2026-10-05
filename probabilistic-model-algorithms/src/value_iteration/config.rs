@@ -1,8 +1,8 @@
 use crate::sub_model::SubModelOrder;
-use crate::value_iteration::solve_order::SubModelHook;
-use crate::value_iteration::{EpsAllocationScheme, SccTimingOutput};
 use std::cell::RefCell;
 use std::rc::Rc;
+
+pub use super::solve_order::{EpsAllocationScheme, SccTimingOutput, SubModelHook};
 
 pub struct ValueIterationConfig {
     pub collapse_mecs: CollapseMecs,

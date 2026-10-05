@@ -12,10 +12,10 @@ use crate::sub_model::{
     Attractor, IndexBased, IndexOrderDirection, Legacy, RewardsSource, StateOrdering, SubModel,
     SubModelConstructionContext, SubModelOrder,
 };
-use crate::value_iteration::non_determinism::NonDeterminism;
+use crate::value_iteration::non_determinism::NonDeterminismResolver;
 use crate::value_iteration::precomputed_states::PrecomputedStates;
 use crate::value_iteration::solve_order::topological::eps_allocation::EpsAllocation;
-use crate::value_iteration::solve_order::{ModelSize, SolveOrder};
+use crate::value_iteration::solve_order::{ModelSize, OrderedSolver};
 use crate::value_iteration::sub_model_solver::SubModelSolver;
 use probabilistic_models::base_model::Mdp;
 use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
@@ -46,9 +46,9 @@ impl Topological {
     }
 }
 
-impl SolveOrder for Topological {
+impl OrderedSolver for Topological {
     fn find_and_solve_submodels<
-        ND: NonDeterminism,
+        ND: NonDeterminismResolver,
         Solver: SubModelSolver,
         M: ReadStateSpace
             + ReadPredecessors<
@@ -89,7 +89,7 @@ impl SolveOrder for Topological {
 
 impl Topological {
     fn find_and_solve_submodels_with_timing<
-        ND: NonDeterminism,
+        ND: NonDeterminismResolver,
         Solver: SubModelSolver,
         M: ReadStateSpace
             + ReadPredecessors<
@@ -119,7 +119,7 @@ impl Topological {
         }
     }
     fn find_and_solve_submodels_with_timing_and_eps_allocation<
-        ND: NonDeterminism,
+        ND: NonDeterminismResolver,
         Solver: SubModelSolver,
         M: ReadStateSpace
             + ReadPredecessors<
@@ -185,7 +185,7 @@ impl Topological {
     }
 
     fn find_and_solve_submodels_with_ordering<
-        ND: NonDeterminism,
+        ND: NonDeterminismResolver,
         Solver: SubModelSolver,
         M: ReadStateSpace
             + ReadPredecessors<
@@ -348,7 +348,7 @@ fn create_value_vector<StateIdx: Index>(
 }
 
 fn evaluate_choice<
-    ND: NonDeterminism,
+    ND: NonDeterminismResolver,
     M: ReadStateSpace,
     Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>,
 >(
