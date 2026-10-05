@@ -2,6 +2,7 @@ use crate::mecs::Mecs;
 use crate::sccs::ExcludeStatesAndChoices;
 use crate::state_description::StateDescription;
 use crate::sub_model::RewardsSource;
+use crate::value_iteration::NonDeterminism;
 use crate::value_iteration::config::CollapseMecs;
 use crate::value_iteration::precomputed_states::{PrecomputedStates, S0S1, SInfinity};
 use probabilistic_models::traits::{ReadAtomicPropositions, ReadPredecessors, ReadStateSpace};
@@ -64,6 +65,7 @@ pub trait NonDeterminismResolver {
 
     fn neutral_value() -> f64;
     fn is_better(before: f64, new: f64) -> bool;
+    fn kind() -> NonDeterminism;
 }
 
 pub struct Maximise {}
@@ -150,6 +152,10 @@ impl NonDeterminismResolver for Maximise {
 
     fn is_better(before: f64, new: f64) -> bool {
         new >= before
+    }
+
+    fn kind() -> NonDeterminism {
+        NonDeterminism::Maximise
     }
 }
 
@@ -239,6 +245,10 @@ impl NonDeterminismResolver for Minimise {
 
     fn is_better(before: f64, new: f64) -> bool {
         new <= before
+    }
+
+    fn kind() -> NonDeterminism {
+        NonDeterminism::Minimise
     }
 }
 
