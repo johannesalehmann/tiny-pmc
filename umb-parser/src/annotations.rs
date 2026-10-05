@@ -1,5 +1,5 @@
 use crate::csr::parse_csr;
-use crate::index::TransitionSystem;
+use crate::index::{Annotation, TransitionSystem};
 use crate::to1::{BoolTo1Error, FromLeBytes, To1Error, parse_to1, parse_to1_bool};
 use crate::{AEI, API, BI, CI, OI, PI, RI, SI, SequenceIndex, StringIndex};
 use probabilistic_models::annotations::{
@@ -115,9 +115,14 @@ impl<E: ParseTo1> AnnotationGroupInProgress<E> {
 }
 
 impl AnnotationGroupInProgress<bool> {
-    pub fn finish_as_aps(self) -> AtomicPropositions<API, SI, AEI> {
+    pub fn finish_as_aps(
+        self,
+        annotations: &HashMap<String, Annotation>,
+    ) -> AtomicPropositions<API, SI, AEI> {
         let mut aps: AtomicPropositions<API, SI, AEI> = Default::default();
         for (name, entry) in self.entries {
+            let name = annotations[&name].alias.clone().unwrap_or(name);
+
             // TODO: Return an error here instead of panicing
             if entry.state_annotations.is_none() {
                 panic!("Atomic proposition `{name}` does not have an entry for states");
@@ -154,11 +159,15 @@ impl AnnotationGroupInProgress<bool> {
     }
 }
 impl AnnotationGroupInProgress<f64> {
-    pub fn finish_as_rewards(self) -> RewardAnnotations<RI, SI, CI, AEI> {
+    pub fn finish_as_rewards(
+        self,
+        annotations: &HashMap<String, Annotation>,
+    ) -> RewardAnnotations<RI, SI, CI, AEI> {
         // TODO: This function barely does any verification on its inputs, e.g. ignoring any other
         //  files present (such as distributions, strings), annotations besides states and choices.
         let mut rewards: RewardAnnotations<RI, SI, CI, AEI> = RewardAnnotations::new();
         for (name, entry) in self.entries {
+            let name = annotations[&name].alias.clone().unwrap_or(name);
             let mut rewards_entry: StateChoiceRewards<SI, CI, AEI> = StateChoiceRewards::new();
             if let Some(states) = entry.state_annotations {
                 let values = states

@@ -189,8 +189,10 @@ pub fn parse_umb<P: AsRef<Path>>(
     let branch_probabilities =
         unwrap_to1(branch_to_probability, index.transition_system.num_branches);
     let branch_destinations = unwrap_to1(branch_to_target, index.transition_system.num_branches);
-    let atomic_propositions = atomic_propositions.map(|ap| ap.finish_as_aps());
-    let rewards = rewards.map(|rew| rew.finish_as_rewards());
+    let atomic_propositions =
+        atomic_propositions.map(|ap| ap.finish_as_aps(&index.annotations.as_ref().unwrap()["aps"]));
+    let rewards =
+        rewards.map(|rew| rew.finish_as_rewards(&index.annotations.as_ref().unwrap()["rewards"]));
 
     let mdp = Mdp {
         state_to_choice,
