@@ -79,13 +79,15 @@ impl<M, Ini: ReadInitialStates, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals,
 }
 
 pub trait ReadInitialStatesMaybe {
-    type WithInitialStates: ReadInitialStates;
+    type StateIdx: Index;
+    type WithInitialStates: ReadInitialStates<StateIdx = Self::StateIdx>;
 
     fn has_initial_states(&self) -> bool;
     fn try_with_initial_states(self) -> Option<Self::WithInitialStates>;
 }
 
 impl<T: ReadInitialStates> ReadInitialStatesMaybe for T {
+    type StateIdx = T::StateIdx;
     type WithInitialStates = T;
 
     fn has_initial_states(&self) -> bool {
@@ -98,6 +100,7 @@ impl<T: ReadInitialStates> ReadInitialStatesMaybe for T {
 }
 
 impl<T: ReadInitialStates> ReadInitialStatesMaybe for Option<T> {
+    type StateIdx = T::StateIdx;
     type WithInitialStates = T;
 
     fn has_initial_states(&self) -> bool {
@@ -113,6 +116,7 @@ impl<M, Ini: ReadInitialStates, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals,
     ReadInitialStatesMaybe
     for Model<M, Option<Ini>, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>
 {
+    type StateIdx = Ini::StateIdx;
     type WithInitialStates = Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>;
 
     fn has_initial_states(&self) -> bool {

@@ -87,13 +87,26 @@ impl<T: ReadValuations> ReadValuations for &mut T {
 }
 
 pub trait ReadValuationsMaybe {
-    type WithValuations: ReadValuations;
+    type StateIdx: Index;
+    type ClassIdx: Index;
+    type ClassEntryIdx: Index;
+    type ValuationIdx: Index;
+    type WithValuations: ReadValuations<
+            StateIdx = Self::StateIdx,
+            ClassIdx = Self::ClassIdx,
+            ClassEntryIdx = Self::ClassEntryIdx,
+            ValuationIdx = Self::ValuationIdx,
+        >;
 
     fn has_valuations(&self) -> bool;
     fn try_with_valuations(self) -> Option<Self::WithValuations>;
 }
 
 impl<T: ReadValuations> ReadValuationsMaybe for T {
+    type StateIdx = T::StateIdx;
+    type ClassIdx = T::ClassIdx;
+    type ClassEntryIdx = T::ClassEntryIdx;
+    type ValuationIdx = T::ValuationIdx;
     type WithValuations = T;
 
     fn has_valuations(&self) -> bool {
@@ -106,6 +119,10 @@ impl<T: ReadValuations> ReadValuationsMaybe for T {
 }
 
 impl<T: ReadValuations> ReadValuationsMaybe for Option<T> {
+    type StateIdx = T::StateIdx;
+    type ClassIdx = T::ClassIdx;
+    type ClassEntryIdx = T::ClassEntryIdx;
+    type ValuationIdx = T::ValuationIdx;
     type WithValuations = T;
 
     fn has_valuations(&self) -> bool {
@@ -121,6 +138,10 @@ impl<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals: ReadValuations, Pr
     ReadValuationsMaybe
     for Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, Option<StateVals>, Preds>
 {
+    type StateIdx = StateVals::StateIdx;
+    type ClassIdx = StateVals::ClassIdx;
+    type ClassEntryIdx = StateVals::ClassEntryIdx;
+    type ValuationIdx = StateVals::ValuationIdx;
     type WithValuations = Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>;
 
     fn has_valuations(&self) -> bool {

@@ -83,13 +83,23 @@ impl<T: ReadBranchLabels> ReadBranchLabels for &mut T {
 }
 
 pub trait ReadBranchLabelsMaybe {
-    type WithBranchLabels: ReadBranchLabels;
+    type BranchIdx: Index;
+    type BranchActionIdx: Index;
+    type E;
+    type WithBranchLabels: ReadBranchLabels<
+            BranchIdx = Self::BranchIdx,
+            BranchActionIdx = Self::BranchActionIdx,
+            E = Self::E,
+        >;
 
     fn has_branch_labels(&self) -> bool;
     fn try_with_branch_labels(self) -> Option<Self::WithBranchLabels>;
 }
 
 impl<T: ReadBranchLabels> ReadBranchLabelsMaybe for T {
+    type BranchIdx = T::BranchIdx;
+    type BranchActionIdx = T::BranchActionIdx;
+    type E = T::E;
     type WithBranchLabels = T;
 
     fn has_branch_labels(&self) -> bool {
@@ -102,6 +112,9 @@ impl<T: ReadBranchLabels> ReadBranchLabelsMaybe for T {
 }
 
 impl<T: ReadBranchLabels> ReadBranchLabelsMaybe for Option<T> {
+    type BranchIdx = T::BranchIdx;
+    type BranchActionIdx = T::BranchActionIdx;
+    type E = T::E;
     type WithBranchLabels = T;
 
     fn has_branch_labels(&self) -> bool {
@@ -117,6 +130,9 @@ impl<M, Ini, ChLabel, BrLabel: ReadLabels, Obs, APs, Rew, Ann, StateVals, Preds>
     ReadBranchLabelsMaybe
     for Model<M, Ini, ChLabel, Option<BrLabel>, Obs, APs, Rew, Ann, StateVals, Preds>
 {
+    type BranchIdx = BrLabel::EntityIdx;
+    type BranchActionIdx = BrLabel::ActionIdx;
+    type E = BrLabel::E;
     type WithBranchLabels = Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>;
 
     fn has_branch_labels(&self) -> bool {

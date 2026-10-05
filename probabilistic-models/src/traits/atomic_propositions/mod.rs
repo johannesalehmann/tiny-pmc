@@ -93,13 +93,17 @@ impl<T: ReadAtomicPropositions> ReadAtomicPropositions for &mut T {
 }
 
 pub trait ReadAtomicPropositionsMaybe {
-    type WithAtomicPropositions: ReadAtomicPropositions;
+    type StateIdx: Index;
+    type APIdx: Index;
+    type WithAtomicPropositions: ReadAtomicPropositions<StateIdx = Self::StateIdx, APIdx = Self::APIdx>;
 
     fn has_atomic_propositions(&self) -> bool;
     fn try_with_atomic_propositions(self) -> Option<Self::WithAtomicPropositions>;
 }
 
 impl<T: ReadAtomicPropositions> ReadAtomicPropositionsMaybe for T {
+    type StateIdx = T::StateIdx;
+    type APIdx = T::APIdx;
     type WithAtomicPropositions = T;
 
     fn has_atomic_propositions(&self) -> bool {
@@ -112,6 +116,8 @@ impl<T: ReadAtomicPropositions> ReadAtomicPropositionsMaybe for T {
 }
 
 impl<T: ReadAtomicPropositions> ReadAtomicPropositionsMaybe for Option<T> {
+    type StateIdx = T::StateIdx;
+    type APIdx = T::APIdx;
     type WithAtomicPropositions = T;
 
     fn has_atomic_propositions(&self) -> bool {
@@ -127,6 +133,8 @@ impl<M, Ini, ChLabel, BrLabel, Obs, APs: ReadAtomicPropositions, Rew, Ann, State
     ReadAtomicPropositionsMaybe
     for Model<M, Ini, ChLabel, BrLabel, Obs, Option<APs>, Rew, Ann, StateVals, Preds>
 {
+    type StateIdx = APs::StateIdx;
+    type APIdx = APs::APIdx;
     type WithAtomicPropositions =
         Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>;
 

@@ -134,13 +134,23 @@ impl<T: ReadRewards> ReadRewards for &mut T {
 }
 
 pub trait ReadRewardsMaybe {
-    type WithRewards: ReadRewards;
+    type StateIdx: Index;
+    type ChoiceIdx: Index;
+    type RewardIdx: Index;
+    type WithRewards: ReadRewards<
+            StateIdx = Self::StateIdx,
+            ChoiceIdx = Self::ChoiceIdx,
+            RewardIdx = Self::RewardIdx,
+        >;
 
     fn has_rewards(&self) -> bool;
     fn try_with_rewards(self) -> Option<Self::WithRewards>;
 }
 
 impl<T: ReadRewards> ReadRewardsMaybe for T {
+    type StateIdx = T::StateIdx;
+    type ChoiceIdx = T::ChoiceIdx;
+    type RewardIdx = T::RewardIdx;
     type WithRewards = T;
 
     fn has_rewards(&self) -> bool {
@@ -153,6 +163,9 @@ impl<T: ReadRewards> ReadRewardsMaybe for T {
 }
 
 impl<T: ReadRewards> ReadRewardsMaybe for Option<T> {
+    type StateIdx = T::StateIdx;
+    type ChoiceIdx = T::ChoiceIdx;
+    type RewardIdx = T::RewardIdx;
     type WithRewards = T;
 
     fn has_rewards(&self) -> bool {
@@ -167,6 +180,9 @@ impl<T: ReadRewards> ReadRewardsMaybe for Option<T> {
 impl<M, Ini, ChLabel, BrLabel, Obs, APs, Rew: ReadRewards, Ann, StateVals, Preds> ReadRewardsMaybe
     for Model<M, Ini, ChLabel, BrLabel, Obs, APs, Option<Rew>, Ann, StateVals, Preds>
 {
+    type StateIdx = Rew::StateIdx;
+    type ChoiceIdx = Rew::ChoiceIdx;
+    type RewardIdx = Rew::RewardIdx;
     type WithRewards = Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>;
 
     fn has_rewards(&self) -> bool {

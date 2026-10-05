@@ -173,13 +173,26 @@ impl<T: ReadPredecessors> ReadPredecessors for &mut T {
 }
 
 pub trait ReadPredecessorsMaybe {
-    type WithPredecessors: ReadPredecessors;
+    type StateIdx: Index;
+    type ChoiceIdx: Index;
+    type BranchIdx: Index;
+    type PredecessorIdx: Index;
+    type WithPredecessors: ReadPredecessors<
+            StateIdx = Self::StateIdx,
+            ChoiceIdx = Self::ChoiceIdx,
+            BranchIdx = Self::BranchIdx,
+            PredecessorIdx = Self::PredecessorIdx,
+        >;
 
     fn has_predecessors(&self) -> bool;
     fn try_with_predecessors(self) -> Option<Self::WithPredecessors>;
 }
 
 impl<T: ReadPredecessors> ReadPredecessorsMaybe for T {
+    type StateIdx = T::StateIdx;
+    type ChoiceIdx = T::ChoiceIdx;
+    type BranchIdx = T::BranchIdx;
+    type PredecessorIdx = T::PredecessorIdx;
     type WithPredecessors = T;
 
     fn has_predecessors(&self) -> bool {
@@ -192,6 +205,10 @@ impl<T: ReadPredecessors> ReadPredecessorsMaybe for T {
 }
 
 impl<T: ReadPredecessors> ReadPredecessorsMaybe for Option<T> {
+    type StateIdx = T::StateIdx;
+    type ChoiceIdx = T::ChoiceIdx;
+    type BranchIdx = T::BranchIdx;
+    type PredecessorIdx = T::PredecessorIdx;
     type WithPredecessors = T;
 
     fn has_predecessors(&self) -> bool {
@@ -207,6 +224,10 @@ impl<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds: ReadPredece
     ReadPredecessorsMaybe
     for Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Option<Preds>>
 {
+    type StateIdx = Preds::StateIdx;
+    type ChoiceIdx = Preds::ChoiceIdx;
+    type BranchIdx = Preds::BranchIdx;
+    type PredecessorIdx = Preds::PredecessorIdx;
     type WithPredecessors = Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>;
 
     fn has_predecessors(&self) -> bool {

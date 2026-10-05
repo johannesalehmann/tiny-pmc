@@ -83,13 +83,23 @@ impl<T: ReadChoiceLabels> ReadChoiceLabels for &mut T {
 }
 
 pub trait ReadChoiceLabelsMaybe {
-    type WithChoiceLabels: ReadChoiceLabels;
+    type ChoiceIdx: Index;
+    type ChoiceActionIdx: Index;
+    type E;
+    type WithChoiceLabels: ReadChoiceLabels<
+            ChoiceIdx = Self::ChoiceIdx,
+            ChoiceActionIdx = Self::ChoiceActionIdx,
+            E = Self::E,
+        >;
 
     fn has_choice_labels(&self) -> bool;
     fn try_with_choice_labels(self) -> Option<Self::WithChoiceLabels>;
 }
 
 impl<T: ReadChoiceLabels> ReadChoiceLabelsMaybe for T {
+    type ChoiceIdx = T::ChoiceIdx;
+    type ChoiceActionIdx = T::ChoiceActionIdx;
+    type E = T::E;
     type WithChoiceLabels = T;
 
     fn has_choice_labels(&self) -> bool {
@@ -102,6 +112,9 @@ impl<T: ReadChoiceLabels> ReadChoiceLabelsMaybe for T {
 }
 
 impl<T: ReadChoiceLabels> ReadChoiceLabelsMaybe for Option<T> {
+    type ChoiceIdx = T::ChoiceIdx;
+    type ChoiceActionIdx = T::ChoiceActionIdx;
+    type E = T::E;
     type WithChoiceLabels = T;
 
     fn has_choice_labels(&self) -> bool {
@@ -117,6 +130,9 @@ impl<M, Ini, ChLabel: ReadLabels, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>
     ReadChoiceLabelsMaybe
     for Model<M, Ini, Option<ChLabel>, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>
 {
+    type ChoiceIdx = ChLabel::EntityIdx;
+    type ChoiceActionIdx = ChLabel::ActionIdx;
+    type E = ChLabel::E;
     type WithChoiceLabels = Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>;
 
     fn has_choice_labels(&self) -> bool {
