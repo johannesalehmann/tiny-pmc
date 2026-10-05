@@ -73,6 +73,10 @@ pub fn parse_umb<P: AsRef<Path>>(
 
     while let Some(entry) = entries.next() {
         let entry = entry?;
+        // Some archives contain entries for directories
+        if entry.header().entry_type().is_dir() {
+            continue;
+        }
         match entry.path()?.to_string_lossy().into_owned().as_str() {
             "state-to-choices.bin" => state_to_choice = Some(csr::parse_csr::<SI, CI, _>(entry)?),
             "state-to-player.bin" => {
@@ -160,7 +164,7 @@ pub fn parse_umb<P: AsRef<Path>>(
             }
             name if name.starts_with("annotations/") => {
                 println!(
-                    "Warning: The UMB parser does not yet annotations, apart from rewards and atomic propositions (ignoring {name})"
+                    "Warning: The UMB parser does not yet support annotations, apart from rewards and atomic propositions (ignoring {name})"
                 )
             }
             name => println!("File {name} currently unsupported and will be ignored"),
