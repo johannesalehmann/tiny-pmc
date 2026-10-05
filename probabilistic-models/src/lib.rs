@@ -15,6 +15,7 @@ pub mod predecessors;
 pub mod traits;
 pub mod valuations;
 
+pub use as_ref::AsRefComponent;
 pub use component::{Component, OptionalComponent};
 pub use operations::SuccessorOrder;
 pub use typed_index_collections;

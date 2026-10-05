@@ -22,8 +22,10 @@ pub use probabilistic_model_algorithms::value_iteration::config::{
     CollapseMecs, EpsAllocationScheme, SccTimingOutput, SolveOrder, SubModelHook,
 };
 use probabilistic_models::traits::{
-    ReadAtomicPropositions, ReadInitialStates, ReadPredecessors, ReadRewards, ReadStateSpace,
+    ReadAtomicPropositionsMaybe, ReadInitialStates, ReadInitialStatesMaybe, ReadPredecessors,
+    ReadRewardsMaybe, ReadStateSpace,
 };
+use probabilistic_models::{AsRefComponent, Model};
 
 pub enum CheckerError {
     NoSuitableAlgorithm,
@@ -82,21 +84,29 @@ impl CheckerOptions {
     }
 }
 
-pub fn check<
-    M: ReadStateSpace
-        + ReadAtomicPropositions<StateIdx = M::StateIndex>
-        + ReadPredecessors<
-            StateIdx = M::StateIndex,
-            ChoiceIdx = M::ChoiceIndex,
-            BranchIdx = M::BranchIndex,
-        > + ReadInitialStates<StateIdx = M::StateIndex>
-        + ReadRewards<StateIdx = M::StateIndex, ChoiceIdx = M::ChoiceIndex>,
->(
-    model: &M,
-    query: probabilistic_properties::Query<i64, f64, <M as ReadAtomicPropositions>::APIdx>,
+pub fn check<'a, B, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds, APIdx>(
+    model: &'a Model<B, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>,
+    query: probabilistic_properties::Query<i64, f64, APIdx>,
     options: &CheckerOptions,
-) -> Result<f64, CheckerError> {
-    let initial_states = model.initial_states().iter().collect::<Vec<_>>();
+) -> Result<f64, CheckerError>
+where
+    B: ReadStateSpace,
+    Ini: AsRefComponent,
+    Ini::Output<'a>: ReadInitialStatesMaybe<StateIdx = B::StateIndex>,
+    APs: AsRefComponent,
+    APs::Output<'a>: ReadAtomicPropositionsMaybe<StateIdx = B::StateIndex, APIdx = APIdx>,
+    Rew: AsRefComponent,
+    Rew::Output<'a>: ReadRewardsMaybe<StateIdx = B::StateIndex, ChoiceIdx = B::ChoiceIndex>,
+    Preds: ReadPredecessors<
+            StateIdx = B::StateIndex,
+            ChoiceIdx = B::ChoiceIndex,
+            BranchIdx = B::BranchIndex,
+        >,
+{
+    let initial_states = require_initial_states(model.initial.as_ref())
+        .initial_states()
+        .iter()
+        .collect::<Vec<_>>();
     assert_eq!(
         initial_states.len(),
         1,
@@ -104,4 +114,47 @@ pub fn check<
     );
     let initial_state = initial_states[0];
     markov_decision_processes::check_mdp(model, query, initial_state, options)
+}
+
+fn require_initial_states<Ini: ReadInitialStatesMaybe>(initial: Ini) -> Ini::WithInitialStates {
+    initial
+        .try_with_initial_states()
+        .expect("Checking this query requires initial states, but the model has none")
+}
+
+fn require_atomic_propositions<APs: ReadAtomicPropositionsMaybe>(
+    atomic_propositions: APs,
+) -> APs::WithAtomicPropositions {
+    atomic_propositions
+        .try_with_atomic_propositions()
+        .expect("Checking this query requires atomic propositions, but the model has none")
+}
+
+fn require_rewards<Rew: ReadRewardsMaybe>(rewards: Rew) -> Rew::WithRewards {
+    rewards
+        .try_with_rewards()
+        .expect("Checking this query requires rewards, but the model has none")
+}
+
+/// Builds a model from the given components. All other components are dropped, as the checker
+/// does not need them.
+fn sub_model<B, Ini, APs, Rew, Preds>(
+    base: B,
+    initial: Ini,
+    atomic_propositions: APs,
+    rewards: Rew,
+    predecessors: Preds,
+) -> Model<B, Ini, (), (), (), APs, Rew, (), (), Preds> {
+    Model {
+        base,
+        initial,
+        choice_labels: (),
+        branch_labels: (),
+        observations: (),
+        atomic_propositions,
+        rewards,
+        annotations: (),
+        state_valuations: (),
+        predecessors,
+    }
 }

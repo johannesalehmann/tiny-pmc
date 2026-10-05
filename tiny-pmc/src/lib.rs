@@ -1,9 +1,7 @@
 use prism_model_builder::UserProvidedConstValue;
 use prism_model_builder::queries::ProcessedQuery;
 use probabilistic_models::AtomicPropositionIndex;
-use probabilistic_models::traits::{
-    ReadAtomicPropositionsMaybe, ReadInitialStatesMaybe, ReadRewardsMaybe, ReadStateSpace,
-};
+use probabilistic_models::traits::{ReadInitialStatesMaybe, ReadStateSpace};
 
 pub mod checking;
 pub mod parsing;
@@ -119,16 +117,6 @@ pub fn check_model<Out: CheckerOutput>(
     mut output: Out,
 ) -> Result<Out::Return, CheckerError> {
     let model = model.unwrap_or_compute_predecessors();
-
-    // TODO: This unwrapping should not happen here. Instead, pass the optional model to the check
-    //  function and let it dynamically decide which features it needs.
-    let model = model
-        .try_with_initial_states()
-        .unwrap()
-        .try_with_atomic_propositions()
-        .unwrap()
-        .try_with_rewards()
-        .unwrap();
 
     for property in queries {
         output.started_check();

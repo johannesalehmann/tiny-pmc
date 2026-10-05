@@ -56,7 +56,7 @@ impl<
 }
 
 pub trait AsRefComponent {
-    type Output<'a>
+    type Output<'a>: Copy
     where
         Self: 'a;
     fn as_ref(&self) -> Self::Output<'_>;
