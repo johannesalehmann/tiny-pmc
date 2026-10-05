@@ -15,13 +15,73 @@ pub type ModuleManagerNamedVars<S: Span = FullSpan, A = Identifier<S>> =
 ///
 /// # Example
 ///
-// TODO: Better example! (Perhaps at `_mut` variants to the get functions of module manager?
+/// Create an empty module manager:
+///
 /// ```
-/// # use prism_model::{ModuleManager, Module, Identifier};
+/// # use prism_model::*;
 /// let mut module_manager: ModuleManager = ModuleManager::new();
+/// ```
+/// Add modules to the manager
+///
+/// ```
+/// # use prism_model::*;
+/// # let mut module_manager: ModuleManager = ModuleManager::new();
 /// let name = Identifier::new("module_1").unwrap();
 /// module_manager.add(Module::new(name.clone())).unwrap();
-/// assert!(module_manager.get_by_name(&name).unwrap().commands.is_empty());
+/// ```
+///
+/// Get the module's index using [`get_index_by_str()`](ModuleManager::get_index_by_str()) (or
+/// [`get_index_by_name()`](ModuleManager::get_index_by_name())):
+///
+/// ```
+/// /// ```
+/// # use prism_model::*;
+/// # let mut module_manager: ModuleManager = ModuleManager::new();
+/// # let name = Identifier::new("module_1").unwrap();
+/// # module_manager.add(Module::new(name.clone())).unwrap();
+/// let index = module_manager.get_index_by_str("module_1").expect("No module named `module_1` found");
+/// ```
+///
+/// Modify the module by adding a comment of the form `[] (var_2 = 4) -> 1.0: (var_4 '= 1234);`:
+///
+/// ```
+/// # use prism_model::*;
+/// # let mut module_manager: ModuleManager = ModuleManager::new();
+/// # let name = Identifier::new("module_1").unwrap();
+/// # module_manager.add(Module::new(name.clone())).unwrap();
+/// let index = module_manager.get_index_by_str("module_1").expect("No module named `module_1` found");
+///
+/// if let Some(module) = module_manager.get_mut(index) {
+///     let action = None;
+///     let guard = Expression::equals_to(
+///         Expression::var_or_const(VariableReference::new(2)),
+///         Expression::int(4));
+///     let probability = Expression::int(1);
+///     let assignment = Assignment::new(VariableReference::new(4), Expression::int(1234));
+///     let update = Update::with_assignments(probability, vec![assignment]);
+///     module.commands.push(Command::with_updates(action, guard, vec![update]));
+/// }
+/// ```
+///
+/// Inspect module:
+///
+/// ```
+/// # use prism_model::{ModuleManager, Module, Identifier, Command, Assignment, VariableReference, Expression, Update};
+/// # let mut module_manager: ModuleManager = ModuleManager::new();
+/// # let name = Identifier::new("module_1").unwrap();
+/// # module_manager.add(Module::new(name.clone())).unwrap();
+/// # let index = module_manager.get_index_by_str("module_1").expect("No module named `module_1` found");
+/// # if let Some(module) = module_manager.get_mut(index) {
+/// #     let action = None;
+/// #     let guard = Expression::equals_to(
+/// #         Expression::var_or_const(VariableReference::new(2)),
+/// #         Expression::int(4));
+/// #     let probability = Expression::int(1);
+/// #     let assignment = Assignment::new(VariableReference::new(4), Expression::int(1234));
+/// #     let update = Update::with_assignments(probability, vec![assignment]);
+/// #     module.commands.push(Command::with_updates(action, guard, vec![update]));
+/// # }
+/// assert_eq!(module_manager.get(index).unwrap().commands.len() == 1);
 /// ```
 ///
 /// # Renamed modules
