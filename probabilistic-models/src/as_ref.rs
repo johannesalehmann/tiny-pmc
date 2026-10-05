@@ -10,6 +10,7 @@ use crate::labels::Labels;
 use crate::predecessors::Predecessors;
 use crate::traits::ReadInitialStates;
 use crate::valuations::Valuations;
+use std::convert::Infallible;
 use typed_index_collections::Index;
 
 impl<
@@ -65,6 +66,14 @@ impl AsRefComponent for () {
     type Output<'a> = ();
 
     fn as_ref(&self) -> Self::Output<'_> {}
+}
+
+impl AsRefComponent for Infallible {
+    type Output<'a> = Infallible;
+
+    fn as_ref(&self) -> Self::Output<'_> {
+        unreachable!();
+    }
 }
 
 impl<T: AsRefComponent> AsRefComponent for Option<T> {
