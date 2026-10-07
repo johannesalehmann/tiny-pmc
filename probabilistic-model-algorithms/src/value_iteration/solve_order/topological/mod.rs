@@ -17,7 +17,7 @@ use crate::value_iteration::non_determinism::NonDeterminismResolver;
 use crate::value_iteration::precomputed_states::PrecomputedStates;
 use crate::value_iteration::solve_order::topological::eps_allocation::EpsAllocation;
 use crate::value_iteration::solve_order::{ModelSize, OrderedSolver};
-use crate::value_iteration::sub_model_solver::SubModelSolver;
+use crate::value_iteration::sub_model_solver::{SolveStatistics, SubModelSolver};
 use probabilistic_models::base_model::Mdp;
 use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
 use probabilistic_models::{BranchIndex, ChoiceIndex, StateIndex};
@@ -239,7 +239,7 @@ impl Topological {
                 let scc_eps = eps_allocation.eps(scc.get_index(), &size);
                 let timing_entry = timings.start_entry(&size);
                 let info = SubModelSolveInfo {
-                    eps,
+                    eps: scc_eps,
                     non_determinism: ND::kind(),
                     max_value: max,
                 };
@@ -254,15 +254,20 @@ impl Topological {
                         &ordering,
                         &mut submodel_context,
                     );
+                    let (res, statistics) = solver.solve_with_statistics::<ND, _, _, _>(
+                        &sm.mdp,
+                        &sm.choice_exit_values,
+                        scc_eps,
+                        max,
+                    );
                     if let Some(hook) = &mut self.hook {
                         hook.borrow_mut().handle_sub_model_u8(
                             &sm.mdp,
                             &sm.choice_exit_values,
                             info,
+                            statistics,
                         );
                     }
-                    let res =
-                        solver.solve::<ND, _, _, _>(&sm.mdp, &sm.choice_exit_values, scc_eps, max);
                     write_to_global_values(&mut values, sm, res);
                 } else if size.fits_u16() {
                     let sm = &mut submodels.u16;
@@ -275,15 +280,20 @@ impl Topological {
                         &ordering,
                         &mut submodel_context,
                     );
+                    let (res, statistics) = solver.solve_with_statistics::<ND, _, _, _>(
+                        &sm.mdp,
+                        &sm.choice_exit_values,
+                        scc_eps,
+                        max,
+                    );
                     if let Some(hook) = &mut self.hook {
                         hook.borrow_mut().handle_sub_model_u16(
                             &sm.mdp,
                             &sm.choice_exit_values,
                             info,
+                            statistics,
                         );
                     }
-                    let res =
-                        solver.solve::<ND, _, _, _>(&sm.mdp, &sm.choice_exit_values, scc_eps, max);
 
                     write_to_global_values(&mut values, sm, res);
                 } else if size.fits_u32() {
@@ -297,15 +307,20 @@ impl Topological {
                         &ordering,
                         &mut submodel_context,
                     );
+                    let (res, statistics) = solver.solve_with_statistics::<ND, _, _, _>(
+                        &sm.mdp,
+                        &sm.choice_exit_values,
+                        scc_eps,
+                        max,
+                    );
                     if let Some(hook) = &mut self.hook {
                         hook.borrow_mut().handle_sub_model_u32(
                             &sm.mdp,
                             &sm.choice_exit_values,
                             info,
+                            statistics,
                         );
                     }
-                    let res =
-                        solver.solve::<ND, _, _, _>(&sm.mdp, &sm.choice_exit_values, scc_eps, max);
                     write_to_global_values(&mut values, sm, res);
                 } else {
                     let sm = &mut submodels.usize;
@@ -318,15 +333,20 @@ impl Topological {
                         &ordering,
                         &mut submodel_context,
                     );
+                    let (res, statistics) = solver.solve_with_statistics::<ND, _, _, _>(
+                        &sm.mdp,
+                        &sm.choice_exit_values,
+                        scc_eps,
+                        max,
+                    );
                     if let Some(hook) = &mut self.hook {
                         hook.borrow_mut().handle_sub_model_usize(
                             &sm.mdp,
                             &sm.choice_exit_values,
                             info,
+                            statistics,
                         );
                     }
-                    let res =
-                        solver.solve::<ND, _, _, _>(&sm.mdp, &sm.choice_exit_values, scc_eps, max);
                     write_to_global_values(&mut values, sm, res);
                 };
                 for state in scc.states() {
@@ -429,24 +449,28 @@ pub trait SubModelHook: Debug {
         sub_model: &Mdp<StateIndex<u8>, ChoiceIndex<u8>, BranchIndex<u8>>,
         choice_exit_values: &To1<ChoiceIndex<u8>, f64>,
         info: SubModelSolveInfo,
+        statistics: SolveStatistics,
     );
     fn handle_sub_model_u16(
         &mut self,
         sub_model: &Mdp<StateIndex<u16>, ChoiceIndex<u16>, BranchIndex<u16>>,
         choice_exit_values: &To1<ChoiceIndex<u16>, f64>,
         info: SubModelSolveInfo,
+        statistics: SolveStatistics,
     );
     fn handle_sub_model_u32(
         &mut self,
         sub_model: &Mdp<StateIndex<u32>, ChoiceIndex<u32>, BranchIndex<u32>>,
         choice_exit_values: &To1<ChoiceIndex<u32>, f64>,
         info: SubModelSolveInfo,
+        statistics: SolveStatistics,
     );
     fn handle_sub_model_usize(
         &mut self,
         sub_model: &Mdp<StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>>,
         choice_exit_values: &To1<ChoiceIndex<usize>, f64>,
         info: SubModelSolveInfo,
+        statistics: SolveStatistics,
     );
 }
 

@@ -1,4 +1,4 @@
-use super::{SubModelSolver, ValueIteration};
+use super::{SolveStatistics, SubModelSolver, ValueIteration};
 use crate::value_iteration::non_determinism::NonDeterminismResolver;
 use probabilistic_models::base_model::Mdp;
 use probabilistic_models::traits::ReadStateSpace;
@@ -22,13 +22,13 @@ impl SubModelSolver for OptimisticValueIteration {
         }
     }
 
-    fn solve<'a, ND: NonDeterminismResolver, SI: Index, CI: Index, BI: Index>(
+    fn solve_with_statistics<'a, ND: NonDeterminismResolver, SI: Index, CI: Index, BI: Index>(
         &'a mut self,
         mdp: &Mdp<SI, CI, BI>,
         choice_exit_values: &To1<CI, f64>,
         mut eps: f64,
         max_value: f64,
-    ) -> &'a [f64] {
+    ) -> (&'a [f64], SolveStatistics) {
         let initial_eps = eps;
         // TODO: Surprisingly, the following is slower than just zeroing out the entire buffer.
         //  self.base_vi.values[0..mdp.states().len()].fill(0.0);
@@ -36,10 +36,15 @@ impl SubModelSolver for OptimisticValueIteration {
 
         self.base_vi.values.fill(0.0);
 
+        let mut statistics = SolveStatistics {
+            vi_iterations: 0,
+            verification_iterations: 0,
+        };
         loop {
-            let values = self
-                .base_vi
-                .solve_raw::<ND, _, _, _>(mdp, choice_exit_values, eps);
+            let (values, vi_iterations) =
+                self.base_vi
+                    .solve_raw_with_statistics::<ND, _, _, _>(mdp, choice_exit_values, eps);
+            statistics.vi_iterations += vi_iterations;
 
             let verification_bounds = &mut self.verification_bounds[..mdp.states().len()];
             for state in mdp.states() {
@@ -53,16 +58,18 @@ impl SubModelSolver for OptimisticValueIteration {
                 verification_bounds[state.raw().as_usize()] = (value, upper);
             }
 
-            match verify_submodel_optimistic::<ND, _, _, _>(
+            let (verify_result, verification_iterations) = verify_submodel_optimistic::<ND, _, _, _>(
                 mdp,
                 choice_exit_values,
                 (1.0 / (2.0 * eps)).max(1.0) as usize,
                 max_value,
                 verification_bounds,
-            ) {
+            );
+            statistics.verification_iterations += verification_iterations;
+            match verify_result {
                 OptimisticValueIterationResult::UpperBoundVerified => {
                     write_midpoints(&mut self.base_vi.values, verification_bounds);
-                    break &self.base_vi.values[..mdp.states().len()];
+                    break (&self.base_vi.values[..mdp.states().len()], statistics);
                 }
                 OptimisticValueIterationResult::UpperBoundRefuted { error } => {
                     if error > f64::EPSILON {
@@ -75,13 +82,16 @@ impl SubModelSolver for OptimisticValueIteration {
                         for (lower, upper) in verification_bounds.iter_mut() {
                             *upper = *lower;
                         }
-                        match verify_submodel_optimistic::<ND, _, _, _>(
-                            mdp,
-                            choice_exit_values,
-                            1,
-                            max_value,
-                            verification_bounds,
-                        ) {
+                        let (verify_result, verification_iterations) =
+                            verify_submodel_optimistic::<ND, _, _, _>(
+                                mdp,
+                                choice_exit_values,
+                                1,
+                                max_value,
+                                verification_bounds,
+                            );
+                        statistics.verification_iterations += verification_iterations;
+                        match verify_result {
                             OptimisticValueIterationResult::UpperBoundVerified => {
                                 write_midpoints(&mut self.base_vi.values, verification_bounds);
                             }
@@ -95,7 +105,7 @@ impl SubModelSolver for OptimisticValueIteration {
                                 write_lower_bounds(&mut self.base_vi.values, verification_bounds);
                             }
                         }
-                        break &self.base_vi.values[..mdp.states().len()];
+                        break (&self.base_vi.values[..mdp.states().len()], statistics);
                     }
                 }
             }
@@ -118,9 +128,9 @@ fn verify_submodel_optimistic<
     max_steps: usize,
     max_value: f64,
     verification_bounds: &mut [(f64, f64)],
-) -> OptimisticValueIterationResult {
+) -> (OptimisticValueIterationResult, usize) {
     let mut error: f64 = 0.0;
-    for _ in 0..max_steps {
+    for iteration in 1..max_steps + 1 {
         let mut all_up = true;
         let mut all_down = true;
         error = 0.0;
@@ -173,17 +183,29 @@ fn verify_submodel_optimistic<
             // Increases of the upper bound within the tolerance are ignored above, so the lower
             // bound may exceed the upper bound by the same tolerance.
             if new_upper_value < new_lower_value * (1.0 - ROUNDING_TOLERANCE) {
-                return OptimisticValueIterationResult::UpperBoundRefuted { error };
+                return (
+                    OptimisticValueIterationResult::UpperBoundRefuted { error },
+                    iteration,
+                );
             }
         }
 
         if all_down {
-            return OptimisticValueIterationResult::UpperBoundVerified;
+            return (
+                OptimisticValueIterationResult::UpperBoundVerified,
+                iteration,
+            );
         } else if all_up {
-            return OptimisticValueIterationResult::UpperBoundRefuted { error };
+            return (
+                OptimisticValueIterationResult::UpperBoundRefuted { error },
+                iteration,
+            );
         }
     }
-    OptimisticValueIterationResult::UpperBoundRefuted { error }
+    (
+        OptimisticValueIterationResult::UpperBoundRefuted { error },
+        max_steps,
+    )
 }
 
 fn write_midpoints(values: &mut [f64], verification_bounds: &[(f64, f64)]) {

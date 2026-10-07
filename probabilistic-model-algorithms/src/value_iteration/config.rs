@@ -5,6 +5,7 @@ use std::rc::Rc;
 pub use super::solve_order::{
     EpsAllocationScheme, SccTimingOutput, SubModelHook, SubModelSolveInfo,
 };
+pub use super::sub_model_solver::SolveStatistics;
 
 pub struct ValueIterationConfig {
     pub collapse_mecs: CollapseMecs,

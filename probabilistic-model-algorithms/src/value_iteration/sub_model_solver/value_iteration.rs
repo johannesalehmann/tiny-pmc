@@ -1,4 +1,4 @@
-use super::SubModelSolver;
+use super::{SolveStatistics, SubModelSolver};
 use crate::value_iteration::non_determinism::NonDeterminismResolver;
 use probabilistic_models::base_model::Mdp;
 use probabilistic_models::traits::ReadStateSpace;
@@ -17,8 +17,26 @@ impl ValueIteration {
         choice_exit_values: &To1<CI, f64>,
         eps: f64,
     ) -> &'a [f64] {
+        let (values, _) =
+            self.solve_raw_with_statistics::<ND, _, _, _>(mdp, choice_exit_values, eps);
+        values
+    }
+    pub fn solve_raw_with_statistics<
+        'a,
+        ND: NonDeterminismResolver,
+        SI: Index,
+        CI: Index,
+        BI: Index,
+    >(
+        &'a mut self,
+        mdp: &Mdp<SI, CI, BI>,
+        choice_exit_values: &To1<CI, f64>,
+        eps: f64,
+    ) -> (&'a [f64], usize) {
         let values = &mut self.values[0..mdp.states().len()];
+        let mut iterations = 0;
         loop {
+            iterations += 1;
             let mut converged = true;
             // Iterate states manually instead of relying on built-in functions such as
             // choices_of_state() because this is about 15% faster:
@@ -62,7 +80,7 @@ impl ValueIteration {
                 break;
             }
         }
-        values
+        (values, iterations)
         // &self.values[0..mdp.states().len()]
     }
 }
@@ -74,18 +92,26 @@ impl SubModelSolver for ValueIteration {
         }
     }
 
-    fn solve<'a, ND: NonDeterminismResolver, SI: Index, CI: Index, BI: Index>(
+    fn solve_with_statistics<'a, ND: NonDeterminismResolver, SI: Index, CI: Index, BI: Index>(
         &'a mut self,
         mdp: &Mdp<SI, CI, BI>,
         choice_exit_values: &To1<CI, f64>,
         eps: f64,
         _max_value: f64,
-    ) -> &'a [f64] {
+    ) -> (&'a [f64], SolveStatistics) {
         // TODO: Only reset the part that was actually dirtied on the previous call?
         //  See also the comment for optimistic value iteration which found that only resetting the
         //  beginning might actually be slower.
         self.values.fill(0.0);
-        self.solve_raw::<ND, _, _, _>(mdp, choice_exit_values, eps)
+        let (vals, vi_iterations) =
+            self.solve_raw_with_statistics::<ND, _, _, _>(mdp, choice_exit_values, eps);
+        (
+            vals,
+            SolveStatistics {
+                vi_iterations,
+                verification_iterations: 0,
+            },
+        )
     }
 
     fn requires_unique_fixed_point() -> bool {
