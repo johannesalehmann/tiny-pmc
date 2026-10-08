@@ -32,17 +32,6 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
         }
     }
 
-    pub fn from_active_states<
-        M: ReadStateSpace<StateIndex = StateIdx> + ReadPredecessors<StateIdx = StateIdx>,
-    >(
-        model: &M,
-        s0: &To1<M::StateIndex, bool>,
-        s1: &To1<M::StateIndex, bool>,
-    ) -> Self {
-        let _ = (model, s0, s1);
-        todo!()
-    }
-
     pub fn from_scc<
         M: ReadStateSpace<StateIndex = StateIdx>
             + ReadPredecessors<

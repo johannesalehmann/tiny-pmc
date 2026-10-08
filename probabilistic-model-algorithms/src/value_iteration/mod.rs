@@ -206,7 +206,7 @@ fn dispatch_solve_order<
                 println!("Warning: Monolithic solver does not print per-SCC timing");
             }
             value_iteration_internal::<ND, Monolithic, Solver, _, _>(
-                Monolithic {},
+                Monolithic::new(config.sub_model_order),
                 model,
                 goal,
                 config,

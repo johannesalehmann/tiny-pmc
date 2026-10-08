@@ -373,7 +373,7 @@ impl Topological {
     }
 }
 
-fn write_to_global_values<OldSI: Index, SI: Index, CI: Index, BI: Index>(
+pub(super) fn write_to_global_values<OldSI: Index, SI: Index, CI: Index, BI: Index>(
     values: &mut To1<OldSI, f64>,
     sm: &SubModel<OldSI, SI, CI, BI>,
     res: &[f64],
@@ -383,7 +383,7 @@ fn write_to_global_values<OldSI: Index, SI: Index, CI: Index, BI: Index>(
     }
 }
 
-fn create_value_vector<StateIdx: Index>(
+pub(super) fn create_value_vector<StateIdx: Index>(
     states: SemiboundedIndexRange<StateIdx>,
     precomputed_states: &impl PrecomputedStates<StateIdx = StateIdx>,
 ) -> To1<StateIdx, f64> {
