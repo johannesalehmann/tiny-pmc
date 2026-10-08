@@ -64,6 +64,10 @@ impl ModelSize {
         }
     }
 
+    pub fn weight(&self) -> usize {
+        self.states + self.choices + self.branches
+    }
+
     pub fn fits_u8(&self) -> bool {
         self.states < 256 && self.choices < 256 && self.branches < 256
     }

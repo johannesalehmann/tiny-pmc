@@ -405,6 +405,35 @@ impl<SccIdx: Index, SccDependencyIdx: Index> SccDependencies<SccIdx, SccDependen
 
     /// Returns the number of SCCs in the longest chain of SCC dependencies.
     pub fn longest_chain(&self) -> usize {
+        self.heaviest_chain(|_| 1)
+    }
+
+    /// Returns the number of SCCs with more than one state in the chain of SCC dependencies that
+    /// contains the most such SCCs.
+    pub fn longest_non_singleton_chain<ScEI: Index, SI: Index>(
+        &self,
+        sccs: &Sccs<SccIdx, ScEI, SI>,
+    ) -> usize {
+        self.heaviest_non_singleton_chain(sccs, |_| 1)
+    }
+
+    /// Like [`Self::heaviest_chain`], but SCCs with only one state have weight 0.
+    pub fn heaviest_non_singleton_chain<ScEI: Index, SI: Index>(
+        &self,
+        sccs: &Sccs<SccIdx, ScEI, SI>,
+        weight: impl Fn(SccIdx) -> usize,
+    ) -> usize {
+        self.heaviest_chain(|scc| {
+            if sccs.scc(scc).as_singleton().is_some() {
+                0
+            } else {
+                weight(scc)
+            }
+        })
+    }
+
+    /// Returns the largest total weight of any chain of SCC dependencies.
+    pub fn heaviest_chain(&self, weight: impl Fn(SccIdx) -> usize) -> usize {
         let mut longest_chain_from: To1<SccIdx, usize> =
             To1::with_entries(vec![0; self.scc_dependencies.keys().len()]);
         let mut longest = 0;
@@ -418,9 +447,10 @@ impl<SccIdx: Index, SccDependencyIdx: Index> SccDependencies<SccIdx, SccDependen
             let chain_length = self
                 .dependencies(scc)
                 .into_iter()
-                .map(|dependency| 1 + longest_chain_from[self.dependency_to_scc(dependency)])
+                .map(|dependency| longest_chain_from[self.dependency_to_scc(dependency)])
                 .max()
-                .unwrap_or(1);
+                .unwrap_or(0)
+                + weight(scc);
 
             longest_chain_from[scc] = chain_length;
             longest = longest.max(chain_length);

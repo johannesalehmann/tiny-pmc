@@ -1,6 +1,9 @@
 mod eps_allocation;
 
-pub use eps_allocation::{EpsAllocationScheme, GlobalEpsForEachScc, UniformEpsAllocation};
+pub use eps_allocation::{
+    EpsAllocationScheme, GlobalEpsForEachScc, ProportionalEpsAllocation, UniformEpsAllocation,
+    UniformUnsoundEpsAllocation,
+};
 use std::cell::RefCell;
 use std::fmt::Debug;
 use std::rc::Rc;
@@ -113,6 +116,12 @@ impl Topological {
         match self.eps_allocation_scheme {
             EpsAllocationScheme::Uniform => {
                 self.find_and_solve_submodels_with_timing_and_eps_allocation::<ND, Solver, M, P, Rew, Timing, UniformEpsAllocation>(model, precomputed_states, rew, mecs, eps, timing)
+            }
+            EpsAllocationScheme::Proportional => {
+                self.find_and_solve_submodels_with_timing_and_eps_allocation::<ND, Solver, M, P, Rew, Timing, ProportionalEpsAllocation>(model, precomputed_states, rew, mecs, eps, timing)
+            }
+            EpsAllocationScheme::UniformUnsound => {
+                self.find_and_solve_submodels_with_timing_and_eps_allocation::<ND, Solver, M, P, Rew, Timing, UniformUnsoundEpsAllocation>(model, precomputed_states, rew, mecs, eps, timing)
             }
             EpsAllocationScheme::GlobalEpsForEach => {
                 self.find_and_solve_submodels_with_timing_and_eps_allocation::<ND, Solver, M, P, Rew, Timing, GlobalEpsForEachScc>(model, precomputed_states, rew, mecs, eps, timing)

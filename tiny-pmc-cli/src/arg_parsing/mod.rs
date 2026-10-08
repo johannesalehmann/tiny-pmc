@@ -94,6 +94,8 @@ pub enum StateOrderArg {
 #[derive(Clone, Copy, ValueEnum)]
 pub enum EpsAllocationArg {
     Uniform,
+    Proportional,
+    UniformUnsound,
     GlobalEpsForEach,
 }
 
@@ -111,6 +113,8 @@ impl ValueIterationArguments {
             SolveOrderArg::Topological => SolveOrder::Topological {
                 eps_allocation_scheme: match self.eps_allocation {
                     None | Some(EpsAllocationArg::Uniform) => EpsAllocationScheme::Uniform,
+                    Some(EpsAllocationArg::Proportional) => EpsAllocationScheme::Proportional,
+                    Some(EpsAllocationArg::UniformUnsound) => EpsAllocationScheme::UniformUnsound,
                     Some(EpsAllocationArg::GlobalEpsForEach) => {
                         EpsAllocationScheme::GlobalEpsForEach
                     }
