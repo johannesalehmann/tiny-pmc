@@ -51,9 +51,11 @@ impl SubModelSolver for OptimisticValueIteration {
                 // Rounding can push the lower bound slightly above `max_value`. We clamp it to
                 // ensure that it does not exceed the upper bound.
                 let value = values[state.raw().as_usize()].min(max_value);
+                // The interval only shrinks during verification, so its midpoint, which we return,
+                // has a relative error of at most `initial_eps`.
                 let upper = match value {
                     0.0 => 0.0,
-                    v => (v * (1.0 + initial_eps)).min(max_value),
+                    v => (v * (1.0 + 2.0 * initial_eps)).min(max_value),
                 };
                 verification_bounds[state.raw().as_usize()] = (value, upper);
             }

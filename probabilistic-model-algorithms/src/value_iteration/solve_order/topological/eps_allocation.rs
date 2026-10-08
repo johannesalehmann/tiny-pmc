@@ -44,7 +44,7 @@ impl<SccIndex: Index> EpsAllocation<SccIndex> for UniformUnsoundEpsAllocation {
         let longest_chain = sccs
             .compute_dependencies::<SccDependencyIndex<usize>, _, _>(model, &())
             .longest_chain();
-        let scc_eps = 2.0 * global_eps * (1.0 / longest_chain as f64);
+        let scc_eps = global_eps / longest_chain as f64;
         Self { scc_eps }
     }
 
