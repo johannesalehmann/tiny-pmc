@@ -244,16 +244,18 @@ impl<
                     .variables
                     .expr_context
                     .evaluate_float(&update.probability, &val_source);
-                let new_valuation = self.variables.apply_assignments(valuation, once(update));
+                if probability > 0.0 {
+                    let new_valuation = self.variables.apply_assignments(valuation, once(update));
 
-                let index = Self::get_or_add_state(
-                    &mut self.base,
-                    &mut self.initial_states_builder,
-                    &mut self.open_states,
-                    new_valuation,
-                );
-                self.base.add_branch(probability, index);
-                // TODO: Add predecessors to model here?
+                    let index = Self::get_or_add_state(
+                        &mut self.base,
+                        &mut self.initial_states_builder,
+                        &mut self.open_states,
+                        new_valuation,
+                    );
+                    self.base.add_branch(probability, index);
+                    // TODO: Add predecessors to model here?
+                }
             }
             let index = self
                 .choice_labels
@@ -400,14 +402,15 @@ impl<
                         }
                     }
 
-                    let target = Self::get_or_add_state(
-                        &mut self.base,
-                        &mut self.initial_states_builder,
-                        &mut self.open_states,
-                        new_valuation,
-                    );
-                    self.base.add_branch(probability, target);
-
+                    if probability > 0.0 {
+                        let target = Self::get_or_add_state(
+                            &mut self.base,
+                            &mut self.initial_states_builder,
+                            &mut self.open_states,
+                            new_valuation,
+                        );
+                        self.base.add_branch(probability, target);
+                    }
                     // TODO: Set predecessor here?
 
                     for i in (0..n).rev() {
