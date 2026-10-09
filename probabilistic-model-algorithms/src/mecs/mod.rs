@@ -40,7 +40,7 @@ impl<StateIdx: Index, ChoiceIdx: Index> Mecs<StateIdx, ChoiceIdx> {
         let mut newly_excluded_states = Vec::new();
         loop {
             let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, StateIdx> =
-                Sccs::compute(model, &exclusion);
+                Sccs::compute_tarjan(model, &exclusion);
             let mut changed = false;
 
             for state in model.states() {

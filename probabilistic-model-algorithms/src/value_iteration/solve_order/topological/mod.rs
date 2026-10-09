@@ -221,9 +221,16 @@ impl Topological {
         let mut values = create_value_vector(model.states(), precomputed_states);
         let max = precomputed_states.max_value();
 
-        let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> =
-            Sccs::compute(model, precomputed_states);
-        let eps_allocation = EA::create(eps, model, &sccs);
+        let (sccs, longest_chain): (Sccs<SccIndex<usize>, SccEntryIndex<usize>, _>, _) =
+            match EA::CHAIN_WEIGHT {
+                None => (Sccs::compute_tarjan(model, precomputed_states), None),
+                Some(weight) => {
+                    let (sccs, longest_chain) =
+                        Sccs::compute_tarjan_with_longest_chain(model, precomputed_states, weight);
+                    (sccs, Some(longest_chain))
+                }
+            };
+        let eps_allocation = EA::create(eps, longest_chain);
         let max_size = sccs.max_size();
         let mut solver = Solver::create(max_size);
         let mut submodels = SubModelCollection::new();

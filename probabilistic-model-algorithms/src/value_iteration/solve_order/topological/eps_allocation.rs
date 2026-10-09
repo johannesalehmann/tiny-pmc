@@ -1,6 +1,5 @@
-use crate::sccs::{SccDependencyIndex, Sccs};
+use crate::sccs::SccChainWeight;
 use crate::value_iteration::solve_order::ModelSize;
-use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
 use typed_index_collections::Index;
 
 #[derive(Clone, Copy, Debug)]
@@ -12,15 +11,8 @@ pub enum EpsAllocationScheme {
 }
 
 pub trait EpsAllocation<SccIndex: Index> {
-    fn create<
-        ScEI: Index,
-        SI: Index,
-        M: ReadStateSpace<StateIndex = SI> + ReadPredecessors<StateIdx = SI>,
-    >(
-        global_eps: f64,
-        model: &M,
-        sccs: &Sccs<SccIndex, ScEI, SI>,
-    ) -> Self;
+    const CHAIN_WEIGHT: Option<SccChainWeight>;
+    fn create(global_eps: f64, longest_chain: Option<usize>) -> Self;
     fn eps(&self, scc_index: SccIndex, size: &ModelSize) -> f64;
 }
 
@@ -29,22 +21,13 @@ pub struct UniformUnsoundEpsAllocation {
 }
 
 impl<SccIndex: Index> EpsAllocation<SccIndex> for UniformUnsoundEpsAllocation {
-    fn create<
-        ScEI: Index,
-        SI: Index,
-        M: ReadStateSpace<StateIndex = SI> + ReadPredecessors<StateIdx = SI>,
-    >(
-        global_eps: f64,
-        model: &M,
-        sccs: &Sccs<SccIndex, ScEI, SI>,
-    ) -> Self {
+    const CHAIN_WEIGHT: Option<SccChainWeight> = Some(SccChainWeight::CountAllScc);
+
+    fn create(global_eps: f64, longest_chain: Option<usize>) -> Self {
         // This way of distributing eps is unsound and can lead to results that are slightly too
         // large. We keep it because, in practice, results are usually very close. In most cases
         // `UniformEpsAllocation` gives almost the same result.
-        let longest_chain = sccs
-            .compute_dependencies::<SccDependencyIndex<usize>, _, _>(model, &())
-            .longest_chain();
-        let scc_eps = global_eps / longest_chain as f64;
+        let scc_eps = global_eps / longest_chain.unwrap() as f64;
         Self { scc_eps }
     }
 
@@ -58,15 +41,9 @@ pub struct GlobalEpsForEachScc {
 }
 
 impl<SccIndex: Index> EpsAllocation<SccIndex> for GlobalEpsForEachScc {
-    fn create<
-        ScEI: Index,
-        SI: Index,
-        M: ReadStateSpace<StateIndex = SI> + ReadPredecessors<StateIdx = SI>,
-    >(
-        global_eps: f64,
-        _model: &M,
-        _sccs: &Sccs<SccIndex, ScEI, SI>,
-    ) -> Self {
+    const CHAIN_WEIGHT: Option<SccChainWeight> = None;
+
+    fn create(global_eps: f64, _longest_chain: Option<usize>) -> Self {
         Self { global_eps }
     }
 
@@ -86,20 +63,11 @@ pub struct UniformEpsAllocation {
 }
 
 impl<SccIndex: Index> EpsAllocation<SccIndex> for UniformEpsAllocation {
-    fn create<
-        ScEI: Index,
-        SI: Index,
-        M: ReadStateSpace<StateIndex = SI> + ReadPredecessors<StateIdx = SI>,
-    >(
-        global_eps: f64,
-        model: &M,
-        sccs: &Sccs<SccIndex, ScEI, SI>,
-    ) -> Self {
-        let longest_non_singleton_chain = sccs
-            .compute_dependencies::<SccDependencyIndex<usize>, _, _>(model, &())
-            .longest_non_singleton_chain(sccs);
+    const CHAIN_WEIGHT: Option<SccChainWeight> = Some(SccChainWeight::CountNonSingletonSccs);
+
+    fn create(global_eps: f64, longest_chain: Option<usize>) -> Self {
         Self {
-            scc_eps: share_of_eps(global_eps, 1, longest_non_singleton_chain),
+            scc_eps: share_of_eps(global_eps, 1, longest_chain.unwrap()),
         }
     }
 
@@ -114,23 +82,12 @@ pub struct ProportionalEpsAllocation {
 }
 
 impl<SccIndex: Index> EpsAllocation<SccIndex> for ProportionalEpsAllocation {
-    fn create<
-        ScEI: Index,
-        SI: Index,
-        M: ReadStateSpace<StateIndex = SI> + ReadPredecessors<StateIdx = SI>,
-    >(
-        global_eps: f64,
-        model: &M,
-        sccs: &Sccs<SccIndex, ScEI, SI>,
-    ) -> Self {
-        let heaviest_non_singleton_chain = sccs
-            .compute_dependencies::<SccDependencyIndex<usize>, _, _>(model, &())
-            .heaviest_non_singleton_chain(sccs, |scc| {
-                ModelSize::from_scc(model, sccs.scc(scc)).weight()
-            });
+    const CHAIN_WEIGHT: Option<SccChainWeight> = Some(SccChainWeight::SizeOfNonSingletonSccs);
+
+    fn create(global_eps: f64, longest_chain: Option<usize>) -> Self {
         Self {
             global_eps,
-            heaviest_non_singleton_chain,
+            heaviest_non_singleton_chain: longest_chain.unwrap(),
         }
     }
 

@@ -180,7 +180,7 @@ mod tests {
         });
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
 
-        let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> = Sccs::compute(
+        let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> = Sccs::compute_tarjan(
             &model,
             &S0S1::new(
                 To1::with_entries(vec![false, false, false]),
@@ -239,7 +239,7 @@ mod tests {
         });
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
 
-        let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> = Sccs::compute(
+        let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> = Sccs::compute_tarjan(
             &model,
             &S0S1::new(
                 To1::with_entries(vec![false, false, false]),
@@ -291,7 +291,7 @@ mod tests {
         });
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
 
-        let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> = Sccs::compute(
+        let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> = Sccs::compute_tarjan(
             &model,
             &S0S1::new(
                 To1::with_entries(vec![false, false, false]),
@@ -361,7 +361,7 @@ mod tests {
         });
         let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
 
-        let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> = Sccs::compute(
+        let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> = Sccs::compute_tarjan(
             &model,
             &S0S1::new(
                 To1::with_entries(vec![false, false, false]),
@@ -430,7 +430,7 @@ mod tests {
             To1::with_entries(vec![false, false, true]),
         );
         let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> =
-            Sccs::compute(&model, &precomputed_states);
+            Sccs::compute_tarjan(&model, &precomputed_states);
         let mecs = Mecs::compute(
             &model,
             ExcludeStatesAndChoices::new(
