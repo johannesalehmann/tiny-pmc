@@ -8,3 +8,7 @@ prism-model-builder = { path = "../prism-model-builder" }
 probabilistic-models = { path = "../probabilistic-models" }
 tiny-pmc = { path = "../tiny-pmc" }
 clap = { version = "4.5.51", features = ["derive"] }
+
+[features]
+log-topo-vi-preparation-overhead = ["tiny-pmc/log-topo-vi-preparation-overhead"]
+log-topo-vi-smallest-eps = ["tiny-pmc/log-topo-vi-smallest-eps"]

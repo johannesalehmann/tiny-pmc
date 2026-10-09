@@ -218,6 +218,8 @@ impl Topological {
         mut timings: Timing,
         ordering: O,
     ) -> To1<M::StateIndex, f64> {
+        #[cfg(feature = "log-topo-vi-preparation-overhead")]
+        let preparation_start = std::time::Instant::now();
         let mut values = create_value_vector(model.states(), precomputed_states);
         let max = precomputed_states.max_value();
 
@@ -235,6 +237,13 @@ impl Topological {
         let mut solver = Solver::create(max_size);
         let mut submodels = SubModelCollection::new();
         let mut submodel_context = SubModelConstructionContext::new(model, &ordering);
+        #[cfg(feature = "log-topo-vi-preparation-overhead")]
+        println!(
+            "Topological VI preparation took {:?}",
+            preparation_start.elapsed()
+        );
+        #[cfg(feature = "log-topo-vi-smallest-eps")]
+        let mut smallest_eps: Option<f64> = None;
         for scc in sccs.reverse_topological_ordering() {
             if let Some(state) = scc.as_singleton() {
                 values[state] = if model.choices_of_state(state).len() == 0 {
@@ -253,6 +262,10 @@ impl Topological {
             } else {
                 let size = ModelSize::from_scc(model, scc);
                 let scc_eps = eps_allocation.eps(scc.get_index(), &size);
+                #[cfg(feature = "log-topo-vi-smallest-eps")]
+                {
+                    smallest_eps = Some(smallest_eps.map_or(scc_eps, |e| e.min(scc_eps)));
+                }
                 let timing_entry = timings.start_entry(&size);
                 let info = SubModelSolveInfo {
                     eps: scc_eps,
@@ -375,6 +388,14 @@ impl Topological {
         }
 
         timings.write_topo_timings();
+
+        #[cfg(feature = "log-topo-vi-smallest-eps")]
+        match smallest_eps {
+            // `{:e}` prints the shortest representation that round-trips, so even subnormal
+            // values are printed exactly
+            Some(e) => println!("Smallest sub-model epsilon: {e:e}"),
+            None => println!("Smallest sub-model epsilon: none (no non-trivial SCCs)"),
+        }
 
         values
     }

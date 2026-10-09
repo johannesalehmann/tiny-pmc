@@ -11,3 +11,7 @@ probabilistic-properties = { path = "../probabilistic-properties" }
 prism-model-builder = { path = "../prism-model-builder" }
 probabilistic-model-algorithms = { path = "../probabilistic-model-algorithms" }
 umb-parser = { path = "../umb-parser" }
+
+[features]
+log-topo-vi-preparation-overhead = ["probabilistic-model-algorithms/log-topo-vi-preparation-overhead"]
+log-topo-vi-smallest-eps = ["probabilistic-model-algorithms/log-topo-vi-smallest-eps"]
