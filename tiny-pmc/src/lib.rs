@@ -152,12 +152,16 @@ impl CheckerOutput for OutputPrinter {
 
     fn started_check(&mut self) {
         self.start_time = std::time::Instant::now();
-        print!("Property 1:");
         self.counter += 1;
+        println!("Checking property {}...", self.counter);
     }
 
     fn finished_check(&mut self, result: f64) {
-        println!(" {result} (in {:?})", self.start_time.elapsed());
+        println!(
+            "Property {}: {result} (in {:?})",
+            self.counter,
+            self.start_time.elapsed()
+        );
     }
 
     fn into_return(self) -> Self::Return {
