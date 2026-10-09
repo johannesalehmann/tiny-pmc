@@ -4,11 +4,6 @@ use probabilistic_models::base_model::Mdp;
 use probabilistic_models::traits::ReadStateSpace;
 use typed_index_collections::{Index, RawIndex, To1};
 
-// Relative amount by which an upper bound may increase (or fall below the corresponding lower
-// bound) during verification before this is attributed to the bound being too small rather than
-// to floating-point rounding.
-const ROUNDING_TOLERANCE: f64 = 4.0 * f64::EPSILON;
-
 pub struct OptimisticValueIteration {
     base_vi: ValueIteration,
     verification_bounds: Vec<(f64, f64)>,
@@ -40,6 +35,7 @@ impl SubModelSolver for OptimisticValueIteration {
             vi_iterations: 0,
             verification_iterations: 0,
         };
+        let mut warned_stuck = false;
         loop {
             let (values, vi_iterations) =
                 self.base_vi
@@ -51,11 +47,15 @@ impl SubModelSolver for OptimisticValueIteration {
                 // Rounding can push the lower bound slightly above `max_value`. We clamp it to
                 // ensure that it does not exceed the upper bound.
                 let value = values[state.raw().as_usize()].min(max_value);
+
+                // Make the interval slightly tighter than necessary. This follows Storm's behaviour
+                // and supposedly avoids many floating-point issues.
+                let extra_tightening = 1e-6;
                 // The interval only shrinks during verification, so its midpoint, which we return,
                 // has a relative error of at most `initial_eps`.
                 let upper = match value {
                     0.0 => 0.0,
-                    v => (v * (1.0 + 2.0 * initial_eps)).min(max_value),
+                    v => (v * (1.0 + (2.0 - extra_tightening) * initial_eps)).min(max_value),
                 };
                 verification_bounds[state.raw().as_usize()] = (value, upper);
             }
@@ -96,18 +96,21 @@ impl SubModelSolver for OptimisticValueIteration {
                         match verify_result {
                             OptimisticValueIterationResult::UpperBoundVerified => {
                                 write_midpoints(&mut self.base_vi.values, verification_bounds);
+                                break (&self.base_vi.values[..mdp.states().len()], statistics);
                             }
                             OptimisticValueIterationResult::UpperBoundRefuted { .. } => {
-                                println!(
-                                    "Warning: Optimistic value iteration failed to verify the \
-                                upper bound for a sub-model with {} states due to floating-point \
-                                rounding. The provided values might not be epsilon-correct.",
-                                    mdp.states().len()
-                                );
+                                if !warned_stuck {
+                                    println!(
+                                        "Warning: Optimistic value iteration might be stuck due to \
+                                        floating-point rounding (on sub-model with {} states).",
+                                        mdp.states().len()
+                                    );
+                                    warned_stuck = true;
+                                }
+                                eps = error * 0.5;
                                 write_lower_bounds(&mut self.base_vi.values, verification_bounds);
                             }
                         }
-                        break (&self.base_vi.values[..mdp.states().len()], statistics);
                     }
                 }
             }
@@ -132,7 +135,7 @@ fn verify_submodel_optimistic<
     verification_bounds: &mut [(f64, f64)],
 ) -> (OptimisticValueIterationResult, usize) {
     let mut error: f64 = 0.0;
-    for iteration in 1..max_steps + 1 {
+    for iteration in 1..=max_steps {
         let mut all_up = true;
         let mut all_down = true;
         error = 0.0;
@@ -169,22 +172,25 @@ fn verify_submodel_optimistic<
                 current_choice += NewCI::RawType::one();
             }
 
-            let new_lower_value = new_lower_value.min(max_value); // .max to guard against floating-point round-ups
+            let new_lower_value = new_lower_value.min(max_value);
+            let new_upper_value = new_upper_value.min(max_value);
             let (lower, upper) = verification_bounds[state];
             if new_lower_value > 0.0 {
                 error = error.max((new_lower_value - lower) / new_lower_value);
             }
             verification_bounds[state].0 = new_lower_value;
-            if new_upper_value < upper {
+            let new_upper_value = if new_upper_value < upper {
                 all_up = false;
                 verification_bounds[state].1 = new_upper_value;
-            } else if new_upper_value > upper * (1.0 + ROUNDING_TOLERANCE) {
-                all_down = false;
-            }
+                new_upper_value
+            } else {
+                if new_upper_value > upper {
+                    all_down = false;
+                }
+                upper
+            };
 
-            // Increases of the upper bound within the tolerance are ignored above, so the lower
-            // bound may exceed the upper bound by the same tolerance.
-            if new_upper_value < new_lower_value * (1.0 - ROUNDING_TOLERANCE) {
+            if new_upper_value < new_lower_value {
                 return (
                     OptimisticValueIterationResult::UpperBoundRefuted { error },
                     iteration,
