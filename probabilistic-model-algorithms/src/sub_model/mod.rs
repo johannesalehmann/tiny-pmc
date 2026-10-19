@@ -10,7 +10,9 @@ pub use orderings::{
     SubModelOrder,
 };
 use probabilistic_models::base_model::Mdp;
-use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
+use probabilistic_models::traits::{
+    BuildChoiceBranchGraph, BuildStates, ClearModel, ReadPredecessors, ReadStateSpace,
+};
 pub use sub_model_rewards::{RewardsSource, StateAndChoiceRewards, UnitStateRewards};
 use typed_index_collections::{Index, RawIndex, To1};
 
@@ -99,7 +101,7 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
         self.choice_exit_values.clear();
 
         for (new_state, &state) in self.to_old_state_index.enumerate() {
-            self.mdp.add_state(new_state);
+            assert_eq!(new_state, self.mdp.add_state());
             for member in mecs.states_merged_into(state) {
                 let state_reward = if rewards.has_state_rewards() {
                     rewards.state_reward(member)
@@ -147,7 +149,7 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
                     } else {
                         let scale_factor = 1.0 / (1.0 - to_self);
                         for branch in self.mdp.branches_of_choice(choice_index) {
-                            self.mdp.branch_probabilities[branch] *= scale_factor;
+                            self.mdp.graph.branch_probabilities[branch] *= scale_factor;
                         }
                         self.choice_exit_values
                             .add_checked(choice_index, (exit_value + reward) * scale_factor);
@@ -208,19 +210,19 @@ mod tests {
             To1::with_entries(vec![StateIndex::from_raw(1), StateIndex::from_raw(0)])
         );
         assert_eq!(
-            sub_model.mdp.state_to_choice,
+            sub_model.mdp.graph.state_to_choice,
             Csr::with_entries(vec![ChoiceIndex::from_raw(1), ChoiceIndex::from_raw(2)])
         );
         assert_eq!(
-            sub_model.mdp.choice_to_branch,
+            sub_model.mdp.graph.choice_to_branch,
             Csr::with_entries(vec![BranchIndex::from_raw(1), BranchIndex::from_raw(2)])
         );
         assert_eq!(
-            sub_model.mdp.branch_destinations,
+            sub_model.mdp.graph.branch_destinations,
             To1::with_entries(vec![StateIndex::from_raw(1), StateIndex::from_raw(0)])
         );
         assert_eq!(
-            sub_model.mdp.branch_probabilities,
+            sub_model.mdp.graph.branch_probabilities,
             To1::with_entries(vec![1.0, 0.25 * (1.0 / 0.75)])
         );
         assert_eq!(
@@ -267,12 +269,12 @@ mod tests {
             To1::with_entries(vec![StateIndex::from_raw(0)])
         );
         assert_eq!(
-            sub_model.mdp.state_to_choice,
+            sub_model.mdp.graph.state_to_choice,
             Csr::with_entries(vec![ChoiceIndex::from_raw(1)])
         );
         // Both remaining branches leave the sub-model, so the only choice has no branches left.
         assert_eq!(
-            sub_model.mdp.choice_to_branch,
+            sub_model.mdp.graph.choice_to_branch,
             Csr::with_entries(vec![BranchIndex::from_raw(0)])
         );
         assert_eq!(
@@ -319,13 +321,13 @@ mod tests {
             To1::with_entries(vec![StateIndex::from_raw(1), StateIndex::from_raw(0)])
         );
         assert_eq!(
-            sub_model.mdp.state_to_choice,
+            sub_model.mdp.graph.state_to_choice,
             Csr::with_entries(vec![ChoiceIndex::from_raw(1), ChoiceIndex::from_raw(3)])
         );
         // The p=1 self loop is not removed by the self-loop removal (otherwise, it would produce
         // incorrect probabilities for minimal reachability).
         assert_eq!(
-            sub_model.mdp.choice_to_branch,
+            sub_model.mdp.graph.choice_to_branch,
             Csr::with_entries(vec![
                 BranchIndex::from_raw(1),
                 BranchIndex::from_raw(2),
@@ -333,7 +335,7 @@ mod tests {
             ])
         );
         assert_eq!(
-            sub_model.mdp.branch_destinations,
+            sub_model.mdp.graph.branch_destinations,
             To1::with_entries(vec![
                 StateIndex::from_raw(1),
                 StateIndex::from_raw(1),
@@ -341,7 +343,7 @@ mod tests {
             ])
         );
         assert_eq!(
-            sub_model.mdp.branch_probabilities,
+            sub_model.mdp.graph.branch_probabilities,
             To1::with_entries(vec![1.0, 1.0, 0.25 * (1.0 / 0.75)])
         );
         assert_eq!(
@@ -405,7 +407,7 @@ mod tests {
         // State 1 must not be left in the context after building the first sub-model, as its
         // branch would otherwise be mistaken for a branch within the second sub-model.
         assert_eq!(
-            sub_models[1].mdp.choice_to_branch,
+            sub_models[1].mdp.graph.choice_to_branch,
             Csr::with_entries(vec![BranchIndex::from_raw(0)])
         );
         assert_eq!(
@@ -462,11 +464,11 @@ mod tests {
             To1::with_entries(vec![representative])
         );
         assert_eq!(
-            sub_model.mdp.state_to_choice,
+            sub_model.mdp.graph.state_to_choice,
             Csr::with_entries(vec![ChoiceIndex::from_raw(1)])
         );
         assert_eq!(
-            sub_model.mdp.choice_to_branch,
+            sub_model.mdp.graph.choice_to_branch,
             Csr::with_entries(vec![BranchIndex::from_raw(0)])
         );
         assert_eq!(sub_model.choice_exit_values, To1::with_entries(vec![1.0]));

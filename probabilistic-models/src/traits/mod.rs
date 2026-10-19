@@ -34,15 +34,20 @@ mod valuations;
 pub(crate) use valuations::derive_read_valuations;
 pub use valuations::{ReadValuations, ReadValuationsMaybe};
 
-mod owners;
-pub use owners::ReadOwners;
-#[allow(unused)]
-pub(crate) use owners::derive_read_owners;
-
 mod rewards;
 #[allow(unused)]
 pub(crate) use rewards::derive_read_rewards;
 pub use rewards::{ReadRewards, ReadRewardsMaybe};
+
+mod build_state_space;
+pub use build_state_space::{
+    BuildBranchGraph, BuildChoiceBranchGraph, BuildChoiceGraph, BuildStates, ClearModel,
+};
+#[allow(unused)]
+pub(crate) use build_state_space::{
+    derive_build_branch_graph, derive_build_choice_branch_graph, derive_build_choice_graph,
+    derive_build_states,
+};
 
 use typed_index_collections::{Index, IndexRange, IndexRangeIterator, SemiboundedIndexRange};
 
@@ -76,6 +81,24 @@ pub trait ReadStateSpace {
             branches_iterator: IndexRangeIterator::empty(), // The branch iterator will be initialised on the first iteration
             model: self,
         }
+    }
+
+    /// All (state, choice, branch) triples, ordered by state, then choice, then branch.
+    fn state_choice_branch_triples(
+        &self,
+    ) -> impl Iterator<Item = (Self::StateIndex, Self::ChoiceIndex, Self::BranchIndex)>
+    where
+        Self: Sized,
+    {
+        self.states().into_iter().flat_map(move |state| {
+            self.choices_of_state(state)
+                .into_iter()
+                .flat_map(move |choice| {
+                    self.branches_of_choice(choice)
+                        .into_iter()
+                        .map(move |branch| (state, choice, branch))
+                })
+        })
     }
 }
 
@@ -138,6 +161,25 @@ macro_rules! derive_read_state_space {
         fn branch_destination(&self, branch: Self::BranchIndex) -> Self::StateIndex {
             self.$subcomponent.branch_destination(branch)
         }
+
+        fn successors_of_state(
+            &self,
+            state: Self::StateIndex,
+        ) -> impl Iterator<Item = Self::StateIndex>
+        where
+            Self: Sized,
+        {
+            self.$subcomponent.successors_of_state(state)
+        }
+
+        fn state_choice_branch_triples(
+            &self,
+        ) -> impl Iterator<Item = (Self::StateIndex, Self::ChoiceIndex, Self::BranchIndex)>
+        where
+            Self: Sized,
+        {
+            self.$subcomponent.state_choice_branch_triples()
+        }
     };
 }
 pub(crate) use derive_read_state_space;
@@ -150,6 +192,73 @@ impl<M: ReadStateSpace, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Pr
     type BranchIndex = M::BranchIndex;
 
     derive_read_state_space!(base);
+}
+
+pub trait ReadStateBranches: ReadStateSpace {
+    fn branches_of_state(&self, state: Self::StateIndex) -> IndexRange<Self::BranchIndex>;
+}
+
+macro_rules! derive_read_state_branches {
+    ($subcomponent:ident) => {
+        fn branches_of_state(
+            &self,
+            state: Self::StateIndex,
+        ) -> typed_index_collections::IndexRange<Self::BranchIndex> {
+            self.$subcomponent.branches_of_state(state)
+        }
+    };
+}
+pub(crate) use derive_read_state_branches;
+
+impl<M: ReadStateBranches, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>
+    ReadStateBranches
+    for crate::Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>
+{
+    derive_read_state_branches!(base);
+}
+
+impl<T: ReadStateBranches> ReadStateBranches for &T {
+    fn branches_of_state(&self, state: Self::StateIndex) -> IndexRange<Self::BranchIndex> {
+        (**self).branches_of_state(state)
+    }
+}
+
+impl<T: ReadStateBranches> ReadStateBranches for &mut T {
+    fn branches_of_state(&self, state: Self::StateIndex) -> IndexRange<Self::BranchIndex> {
+        (**self).branches_of_state(state)
+    }
+}
+
+pub trait ReadChoiceDestinations: ReadStateSpace {
+    fn choice_destination(&self, choice: Self::ChoiceIndex) -> Self::StateIndex;
+}
+
+macro_rules! derive_read_choice_destinations {
+    ($subcomponent:ident) => {
+        fn choice_destination(&self, choice: Self::ChoiceIndex) -> Self::StateIndex {
+            self.$subcomponent.choice_destination(choice)
+        }
+    };
+}
+pub(crate) use derive_read_choice_destinations;
+
+impl<M: ReadChoiceDestinations, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>
+    ReadChoiceDestinations
+    for crate::Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>
+{
+    derive_read_choice_destinations!(base);
+}
+
+impl<T: ReadChoiceDestinations> ReadChoiceDestinations for &T {
+    fn choice_destination(&self, choice: Self::ChoiceIndex) -> Self::StateIndex {
+        (**self).choice_destination(choice)
+    }
+}
+
+impl<T: ReadChoiceDestinations> ReadChoiceDestinations for &mut T {
+    fn choice_destination(&self, choice: Self::ChoiceIndex) -> Self::StateIndex {
+        (**self).choice_destination(choice)
+    }
 }
 
 impl<T: ReadStateSpace> ReadStateSpace for &T {
@@ -184,6 +293,14 @@ impl<T: ReadStateSpace> ReadStateSpace for &T {
     {
         (**self).successors_of_state(state)
     }
+    fn state_choice_branch_triples(
+        &self,
+    ) -> impl Iterator<Item = (Self::StateIndex, Self::ChoiceIndex, Self::BranchIndex)>
+    where
+        Self: Sized,
+    {
+        (**self).state_choice_branch_triples()
+    }
 }
 
 impl<T: ReadStateSpace> ReadStateSpace for &mut T {
@@ -217,6 +334,14 @@ impl<T: ReadStateSpace> ReadStateSpace for &mut T {
         Self: Sized,
     {
         (**self).successors_of_state(state)
+    }
+    fn state_choice_branch_triples(
+        &self,
+    ) -> impl Iterator<Item = (Self::StateIndex, Self::ChoiceIndex, Self::BranchIndex)>
+    where
+        Self: Sized,
+    {
+        (**self).state_choice_branch_triples()
     }
 }
 

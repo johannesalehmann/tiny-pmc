@@ -1,9 +1,9 @@
 use crate::Model;
-use crate::base_model::BaseModel;
 use crate::labels::Labels;
+use crate::traits::ReadStateSpace;
 use typed_index_collections::Index;
 
-impl<M: BaseModel, Ini, BrLabel, O, APs, R, A, V, P>
+impl<M: ReadStateSpace, Ini, BrLabel, O, APs, R, A, V, P>
     Model<M, Ini, (), BrLabel, O, APs, R, A, V, P>
 {
     pub fn with_choice_labels<ChoiceActionIdx: Index, E>(

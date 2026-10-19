@@ -4,7 +4,9 @@ use probabilistic_models::annotations::{AtomicPropositions, TypedAnnotation};
 use probabilistic_models::base_model::Mdp;
 use probabilistic_models::initial_states::InitialStates;
 use probabilistic_models::traits::StateSet;
-use probabilistic_models::traits::{ReadAtomicPropositions, ReadInitialStates, ReadStateSpace};
+use probabilistic_models::traits::{
+    BuildChoiceBranchGraph, BuildStates, ReadAtomicPropositions, ReadInitialStates, ReadStateSpace,
+};
 use typed_index_collections::{Index, RawIndex, To1};
 
 /// Builds a restricted model for checking `restriction U goal`. It contains only the reachable
@@ -61,7 +63,7 @@ pub fn rebuild_model_for_until<
 
     let mut mdp = Mdp::default();
     for (new_state, &state) in new_to_old.enumerate() {
-        mdp.add_state(new_state);
+        assert_eq!(new_state, mdp.add_state());
         for choice in model.choices_of_state(state) {
             mdp.add_choice();
             // Branches that are redirected to the goal or sink state are merged into one branch.
@@ -90,7 +92,7 @@ pub fn rebuild_model_for_until<
         }
     }
     for absorbing_state in [goal_state, sink_state] {
-        mdp.add_state(absorbing_state);
+        assert_eq!(absorbing_state, mdp.add_state());
         mdp.add_choice_from_slice(&[(1.0, absorbing_state)]);
     }
 

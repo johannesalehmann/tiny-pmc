@@ -10,7 +10,7 @@ use crate::annotations::AnnotationGroupInProgress;
 use crate::index::{Time, Type, TypeKind};
 use crate::to1::BoolTo1Error;
 use probabilistic_models::annotations::{AtomicPropositions, RewardAnnotations};
-use probabilistic_models::base_model::Mdp;
+use probabilistic_models::base_model::{ChoiceBranchGraph, Mdp};
 use probabilistic_models::initial_states::InitialStates;
 use probabilistic_models::typed_index_collections::{Csr, To1, index};
 use probabilistic_models::{
@@ -194,12 +194,12 @@ pub fn parse_umb<P: AsRef<Path>>(
     let rewards =
         rewards.map(|rew| rew.finish_as_rewards(&index.annotations.as_ref().unwrap()["rewards"]));
 
-    let mdp = Mdp {
+    let mdp = Mdp::with_graph(ChoiceBranchGraph {
         state_to_choice,
         choice_to_branch,
         branch_probabilities,
         branch_destinations,
-    };
+    });
 
     Ok(Model {
         base: mdp,

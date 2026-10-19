@@ -42,14 +42,16 @@ impl ValueIteration {
             // choices_of_state() because this is about 15% faster:
             let mut current_choice = CI::default();
             let mut current_branch = BI::default();
-            let mut choices = mdp.choice_to_branch.entries_raw().iter();
+            let mut choices = mdp.graph.choice_to_branch.entries_raw().iter();
             let mut branches = mdp
+                .graph
                 .branch_probabilities
                 .iter()
-                .zip(mdp.branch_destinations.iter());
+                .zip(mdp.graph.branch_destinations.iter());
             let mut choice_exit_values = choice_exit_values.iter();
 
-            for (state, &last_choice) in mdp.state_to_choice.entries_raw().iter().enumerate() {
+            for (state, &last_choice) in mdp.graph.state_to_choice.entries_raw().iter().enumerate()
+            {
                 let mut best_value = ND::neutral_value();
                 while current_choice < last_choice {
                     let last_branch = *choices.next().unwrap();

@@ -1,9 +1,9 @@
 use crate::Model;
-use crate::base_model::BaseModel;
+use crate::traits::ReadStateSpace;
 use crate::valuations::Valuations;
 use typed_index_collections::Index;
 
-impl<M: BaseModel, Ini, ChLabel, BrLabel, O, APs, R, A, P>
+impl<M: ReadStateSpace, Ini, ChLabel, BrLabel, O, APs, R, A, P>
     Model<M, Ini, ChLabel, BrLabel, O, APs, R, A, (), P>
 {
     pub fn with_valuations<ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index>(

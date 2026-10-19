@@ -7,8 +7,8 @@ pub use full_region::{attractor, attractor_with_buffer};
 mod state_included;
 pub use state_included::{attractor_contains_state, attractor_contains_state_with_buffer};
 
-use probabilistic_models::owners::TwoPlayer;
-use probabilistic_models::traits::{ReadOwners, ReadPredecessors, ReadStateSpace};
+use probabilistic_models::base_model::{ReadOwners, TwoPlayer};
+use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
 use typed_index_collections::Index;
 
 // TODO: This algorithm does not work properly on models with stochastic behaviour, but this is not

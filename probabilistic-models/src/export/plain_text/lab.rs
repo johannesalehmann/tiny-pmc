@@ -1,6 +1,5 @@
 use crate::Model;
 use crate::annotations::AtomicPropositions;
-use crate::base_model::BaseModel;
 use crate::traits::{ReadInitialStates, ReadStateSpace};
 use std::fmt::{Display, Formatter};
 use std::fs::File;
@@ -13,7 +12,7 @@ impl<
     AI: Index,
     SI: Index,
     AEI: Index,
-    M: BaseModel<StateIndex = SI>,
+    M: ReadStateSpace<StateIndex = SI>,
     Ini: ReadInitialStates<StateIdx = SI>,
     C,
     B,
@@ -40,7 +39,7 @@ impl<
     AI: Index,
     SI: Index,
     AEI: Index,
-    M: BaseModel<StateIndex = SI>,
+    M: ReadStateSpace<StateIndex = SI>,
     Ini: ReadInitialStates<StateIdx = SI>,
     C,
     B,
@@ -61,7 +60,7 @@ impl<
     AI: Index,
     SI: Index,
     AEI: Index,
-    M: BaseModel<StateIndex = SI>,
+    M: ReadStateSpace<StateIndex = SI>,
     Ini: ReadInitialStates<StateIdx = SI>,
     C,
     B,

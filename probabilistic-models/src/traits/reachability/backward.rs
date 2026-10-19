@@ -42,8 +42,8 @@ impl<M: ReadPredecessors> BackwardReachability for M {
 #[cfg(test)]
 mod tests {
     use crate::base_model::Mdp;
-    use crate::traits::{AsStateSet, BackwardReachability};
-    use crate::{Model, PredecessorIndex, StateIndex};
+    use crate::traits::{AsStateSet, BackwardReachability, BuildChoiceBranchGraph, BuildStates};
+    use crate::{BranchIndex, ChoiceIndex, Model, PredecessorIndex, StateIndex};
     use typed_index_collections::Index;
 
     #[test]
@@ -51,9 +51,10 @@ mod tests {
         for (self_loop, extra_jump) in [(false, false), (false, true), (true, false), (true, true)]
         {
             for states in 2..5 {
-                let mut mdp = Mdp::with_default_types();
+                let mut mdp =
+                    Mdp::<StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>>::new();
                 for i in 0..states {
-                    mdp.add_state(StateIndex::from_raw(i));
+                    assert_eq!(mdp.add_state(), StateIndex::from_raw(i));
                     if i + 1 < states && (!extra_jump || i + 2 >= states) {
                         mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(i + 1))]);
                     }

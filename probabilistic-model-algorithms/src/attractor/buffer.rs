@@ -1,5 +1,5 @@
-use probabilistic_models::owners::TwoPlayer;
-use probabilistic_models::traits::{ReadOwners, ReadStateSpace};
+use probabilistic_models::base_model::{ReadOwners, TwoPlayer};
+use probabilistic_models::traits::ReadStateSpace;
 use typed_index_collections::{Index, To1};
 
 pub struct AttractorBuffer<StateIdx: Index> {

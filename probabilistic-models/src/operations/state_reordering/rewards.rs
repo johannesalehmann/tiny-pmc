@@ -94,7 +94,8 @@ mod tests {
     use crate::annotations::{EntityRewards, RewardAnnotations, StateChoiceRewards};
     use crate::base_model::Mdp;
     use crate::operations::state_reordering::PermuteStates;
-    use crate::operations::state_reordering::test_utils::{state, state_ordering};
+    use crate::operations::state_reordering::test_utils::state_ordering;
+    use crate::traits::{BuildChoiceBranchGraph, BuildStates};
     use crate::{AnnotationEntryIndex, AnnotationIndex, BranchIndex, ChoiceIndex, StateIndex};
     use typed_index_collections::To1;
 
@@ -108,11 +109,11 @@ mod tests {
 
     /// An MDP with the given number of choices per state. Every choice is a self-loop.
     fn base(choices_per_state: &[usize]) -> Base {
-        let mut base = Mdp::with_default_types();
-        for (index, &choices) in choices_per_state.iter().enumerate() {
-            base.add_state(state(index));
+        let mut base = Base::new();
+        for &choices in choices_per_state {
+            let state_index = base.add_state();
             for _ in 0..choices {
-                base.add_choice_from_slice(&[(1.0, state(index))]);
+                base.add_choice_from_slice(&[(1.0, state_index)]);
             }
         }
         base

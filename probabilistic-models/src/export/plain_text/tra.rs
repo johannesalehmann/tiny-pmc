@@ -1,5 +1,5 @@
 use crate::Model;
-use crate::base_model::{BaseModel, Mdp};
+use crate::base_model::Mdp;
 use crate::traits::ReadStateSpace;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
@@ -7,7 +7,7 @@ use std::io::Write;
 use std::path::Path;
 use typed_index_collections::{Index, RawIndex};
 
-impl<M: BaseModel, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, P>
+impl<M: ReadStateSpace, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, P>
     Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, P>
 {
     #[must_use]
@@ -18,7 +18,7 @@ impl<M: BaseModel, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, P>
     }
 }
 
-pub struct TraFile<'a, M: BaseModel, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, P> {
+pub struct TraFile<'a, M: ReadStateSpace, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, P> {
     model: &'a Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, P>,
 }
 
@@ -47,8 +47,8 @@ impl<SI: Index, CI: Index, BI: Index, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann,
             } else if prev_choice != Some(choice) {
                 choice_counter += 1;
             }
-            let destination = self.model.base.branch_destinations[branch];
-            let probability = self.model.base.branch_probabilities[branch];
+            let destination = self.model.base.graph.branch_destinations[branch];
+            let probability = self.model.base.graph.branch_probabilities[branch];
             writeln!(
                 f,
                 "{} {} {} {}",

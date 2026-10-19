@@ -141,13 +141,14 @@ fn verify_submodel_optimistic<
         error = 0.0;
         let mut current_choice = NewCI::default();
         let mut current_branch = NewBI::default();
-        let mut choices = mdp.choice_to_branch.entries_raw().iter();
+        let mut choices = mdp.graph.choice_to_branch.entries_raw().iter();
         let mut branches = mdp
+            .graph
             .branch_probabilities
             .iter()
-            .zip(mdp.branch_destinations.iter());
+            .zip(mdp.graph.branch_destinations.iter());
         let mut choice_exit_values = choice_exit_values.iter();
-        for (state, &last_choice) in mdp.state_to_choice.entries_raw().iter().enumerate() {
+        for (state, &last_choice) in mdp.graph.state_to_choice.entries_raw().iter().enumerate() {
             let mut new_lower_value = ND::neutral_value();
             let mut new_upper_value = ND::neutral_value();
 

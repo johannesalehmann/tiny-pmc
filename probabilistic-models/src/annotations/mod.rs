@@ -2,7 +2,7 @@ mod distributions;
 pub use distributions::Distribution;
 
 use crate::annotations::distributions::IdentityDistribution;
-use crate::base_model::BaseModel;
+use crate::traits::ReadStateSpace;
 use crate::{Model, OptionalComponent};
 use std::marker::PhantomData;
 use typed_index_collections::{Index, MappedIndices, NamedTo1, To1, To1BoolValues};
@@ -116,7 +116,7 @@ pub enum Annotation<
     String(TypedAnnotation<From, AnnotationEntryIdx, Dist, String>),
 }
 
-impl<M: BaseModel, I, CL, BL, Obs, APs, Rew, Ann: OptionalComponent, Val, Pred>
+impl<M: ReadStateSpace, I, CL, BL, Obs, APs, Rew, Ann: OptionalComponent, Val, Pred>
     Model<M, I, CL, BL, Obs, APs, Rew, Ann, Val, Pred>
 {
     pub fn without_annotations(self) -> Model<M, I, CL, BL, Obs, APs, Rew, (), Val, Pred> {

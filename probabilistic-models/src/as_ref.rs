@@ -4,7 +4,7 @@
 
 use crate::Model;
 use crate::annotations::{AtomicPropositions, RewardAnnotations};
-use crate::base_model::{Mdp, NonstochasticGame, TransitionSystem, TwoPlayerTurnBasedGame};
+use crate::base_model::{Mdp, NonstochasticGame, StochasticGame, TransitionSystem};
 use crate::initial_states::{InitialStates, InitialStatesEnum, SingleInitialState};
 use crate::labels::Labels;
 use crate::predecessors::Predecessors;
@@ -131,7 +131,7 @@ impl<SI: Index, CI: Index> AsRefComponent for NonstochasticGame<SI, CI> {
     }
 }
 
-impl<SI: Index, CI: Index, BI: Index> AsRefComponent for TwoPlayerTurnBasedGame<SI, CI, BI> {
+impl<SI: Index, CI: Index, BI: Index> AsRefComponent for StochasticGame<SI, CI, BI> {
     type Output<'a>
         = &'a Self
     where

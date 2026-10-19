@@ -1,10 +1,9 @@
 use crate::Model;
-use crate::base_model::BaseModel;
 use crate::component::OptionalComponent;
 use crate::traits::ReadStateSpace;
 use typed_index_collections::{Csr, Index, RawIndex, To1};
 
-impl<M: BaseModel, I, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val>
+impl<M: ReadStateSpace, I, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val>
     Model<M, I, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, ()>
 {
     pub fn compute_predecessors<PredecessorIdx: Index>(
@@ -66,7 +65,7 @@ impl<M: BaseModel, I, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val>
     }
 }
 
-impl<PI: Index, M: BaseModel, I, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val>
+impl<PI: Index, M: ReadStateSpace, I, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val>
     Model<
         M,
         I,
@@ -113,7 +112,7 @@ impl<PI: Index, M: BaseModel, I, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val>
     }
 }
 
-impl<M: BaseModel, I, CL, BL, Obs, APs, Rew, Ann, Val, Pred: OptionalComponent>
+impl<M: ReadStateSpace, I, CL, BL, Obs, APs, Rew, Ann, Val, Pred: OptionalComponent>
     Model<M, I, CL, BL, Obs, APs, Rew, Ann, Val, Pred>
 {
     pub fn without_predecessors(self) -> Model<M, I, CL, BL, Obs, APs, Rew, Ann, Val, ()> {
@@ -225,7 +224,8 @@ impl<StateIdx: Index, ChoiceIdx: Index, BranchIdx: Index, PredecessorIdx: Index>
 #[cfg(test)]
 mod tests {
     use crate::base_model::Mdp;
-    use crate::{Model, PredecessorIndex, StateIndex};
+    use crate::traits::{BuildChoiceBranchGraph, BuildStates};
+    use crate::{BranchIndex, ChoiceIndex, Model, PredecessorIndex, StateIndex};
     use typed_index_collections::Index;
 
     #[test]
@@ -234,10 +234,10 @@ mod tests {
             for choices_per_state in 0..2usize {
                 for branches_per_state in 0..2usize {
                     let p = 1.0 / branches_per_state.max(1) as f64;
-                    let mut mdp = Mdp::with_default_types();
-                    for i in 0..padding_states {
-                        let self_index = StateIndex::from_raw(i);
-                        mdp.add_state(StateIndex::from_raw(i));
+                    let mut mdp =
+                        Mdp::<StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>>::new();
+                    for _ in 0..padding_states {
+                        let self_index = mdp.add_state();
 
                         for _ in 0..choices_per_state {
                             mdp.add_choice();
@@ -247,8 +247,7 @@ mod tests {
                         }
                     }
 
-                    let state = StateIndex::from_raw(padding_states);
-                    mdp.add_state(state);
+                    let state = mdp.add_state();
                     let choice = mdp.add_choice();
                     let branch = mdp.add_branch(1.0, state);
 
@@ -271,14 +270,15 @@ mod tests {
         // Note: We cannot be guaranteed that the predecessors are listed in a specific order, so
         //  this test is actually to specific.
         // If this test breaks, first check whether this is the cause.
-        let mut mdp = Mdp::with_default_types();
+        // TODO: Use the mdp! macro for this test?
+        let mut mdp = Mdp::<StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>>::new();
         let s0 = StateIndex::from_raw(0);
         let s1 = StateIndex::from_raw(1);
         let s2 = StateIndex::from_raw(2);
         let s3 = StateIndex::from_raw(3);
         let s4 = StateIndex::from_raw(4);
 
-        mdp.add_state(s0);
+        assert_eq!(mdp.add_state(), s0);
 
         let c0 = mdp.add_choice();
         let b0 = mdp.add_branch(0.5, s2);
@@ -287,15 +287,15 @@ mod tests {
         let c1 = mdp.add_choice();
         let b2 = mdp.add_branch(1.0, s2);
 
-        mdp.add_state(s1);
+        assert_eq!(mdp.add_state(), s1);
         let c2 = mdp.add_choice();
         let b3 = mdp.add_branch(1.0, s2);
 
-        mdp.add_state(s2);
+        assert_eq!(mdp.add_state(), s2);
 
-        mdp.add_state(s3);
+        assert_eq!(mdp.add_state(), s3);
 
-        mdp.add_state(s4);
+        assert_eq!(mdp.add_state(), s4);
         let c3 = mdp.add_choice();
         let b4 = mdp.add_branch(0.3, s4);
         let b5 = mdp.add_branch(0.7, s1);

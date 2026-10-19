@@ -1,8 +1,6 @@
 use crate::attractor;
-use probabilistic_models::owners::TwoPlayer;
-use probabilistic_models::traits::{
-    ReadAtomicPropositions, ReadOwners, ReadPredecessors, ReadStateSpace,
-};
+use probabilistic_models::base_model::{ReadOwners, TwoPlayer};
+use probabilistic_models::traits::{ReadAtomicPropositions, ReadPredecessors, ReadStateSpace};
 use typed_index_collections::{Index, To1};
 
 const REACHING_PLAYER: TwoPlayer = TwoPlayer::Eve;

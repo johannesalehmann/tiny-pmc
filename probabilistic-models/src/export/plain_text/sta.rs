@@ -1,5 +1,4 @@
 use crate::Model;
-use crate::base_model::BaseModel;
 use crate::traits::ReadStateSpace;
 use crate::valuations::{Type, ValuationBits, Valuations};
 use std::fmt::{Display, Formatter};
@@ -13,7 +12,7 @@ impl<
     CI: Index,
     CEI: Index,
     VI: Index,
-    M: BaseModel,
+    M: ReadStateSpace,
     Ini,
     ChLabel,
     BrLabel,
@@ -41,7 +40,7 @@ impl<
     CI: Index,
     CEI: Index,
     VI: Index,
-    M: BaseModel<StateIndex = SI>,
+    M: ReadStateSpace<StateIndex = SI>,
     Ini,
     ChLabel,
     BrLabel,
@@ -62,7 +61,7 @@ impl<
     CI: Index,
     CEI: Index,
     VI: Index,
-    M: BaseModel<StateIndex = SI>,
+    M: ReadStateSpace<StateIndex = SI>,
     Ini,
     ChLabel,
     BrLabel,

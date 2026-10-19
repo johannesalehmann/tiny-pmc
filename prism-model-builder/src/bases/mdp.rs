@@ -3,6 +3,7 @@ use crate::bases::{BaseModelBuilder, ValuationBuilder};
 use crate::choice_labels::ActionNameChoiceLabels;
 use prism_model::{Expression, Identifier, Span, VariableReference};
 use probabilistic_models::base_model::Mdp;
+use probabilistic_models::traits::{BuildChoiceBranchGraph, BuildStates};
 use probabilistic_models::valuations::{GetValuationClassIndex, GetValuationData, Valuations};
 use probabilistic_models::{
     AnnotationEntryIndex, AnnotationIndex, AtomicPropositionIndex, BranchIndex, ChoiceIndex,
@@ -83,7 +84,8 @@ impl<
 
     // Before calling this, call add_valuation to get the next state index
     fn add_state(&mut self, state_index: StateIdx) {
-        self.mdp.add_state(state_index);
+        let added_index = self.mdp.add_state();
+        assert_eq!(added_index, state_index);
     }
 
     fn valuation_builder(
