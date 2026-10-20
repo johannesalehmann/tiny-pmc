@@ -6,7 +6,7 @@ use crate::Ix;
 use crate::Model;
 use crate::annotations::{AtomicPropositions, RewardAnnotations};
 use crate::base_model::{
-    BaseModel, BranchGraph, ChoiceBranchGraph, ChoiceGraph, SinglePlayer, TurnBased,
+    BaseModel, BaseModelEnum, BranchGraph, ChoiceBranchGraph, ChoiceGraph, SinglePlayer, TurnBased,
 };
 use crate::initial_states::{InitialStates, InitialStatesEnum, SingleInitialState};
 use crate::labels::Labels;
@@ -118,6 +118,47 @@ impl<G: AsRefComponent, P: AsRefComponent> AsRefComponent for BaseModel<G, P> {
 
     fn as_ref(&self) -> Self::Output<'_> {
         BaseModel::as_ref(self)
+    }
+}
+
+impl<
+    TS: AsRefComponent,
+    D: AsRefComponent,
+    M: AsRefComponent,
+    NG: AsRefComponent,
+    SG: AsRefComponent,
+> BaseModelEnum<TS, D, M, NG, SG>
+{
+    pub fn as_ref(
+        &self,
+    ) -> BaseModelEnum<TS::Output<'_>, D::Output<'_>, M::Output<'_>, NG::Output<'_>, SG::Output<'_>>
+    {
+        match self {
+            BaseModelEnum::TransitionSystem(m) => BaseModelEnum::TransitionSystem(m.as_ref()),
+            BaseModelEnum::Dtmc(m) => BaseModelEnum::Dtmc(m.as_ref()),
+            BaseModelEnum::Mdp(m) => BaseModelEnum::Mdp(m.as_ref()),
+            BaseModelEnum::NonstochasticGame(m) => BaseModelEnum::NonstochasticGame(m.as_ref()),
+            BaseModelEnum::StochasticGame(m) => BaseModelEnum::StochasticGame(m.as_ref()),
+        }
+    }
+}
+
+impl<
+    TS: AsRefComponent,
+    D: AsRefComponent,
+    M: AsRefComponent,
+    NG: AsRefComponent,
+    SG: AsRefComponent,
+> AsRefComponent for BaseModelEnum<TS, D, M, NG, SG>
+{
+    type Output<'a>
+        =
+        BaseModelEnum<TS::Output<'a>, D::Output<'a>, M::Output<'a>, NG::Output<'a>, SG::Output<'a>>
+    where
+        Self: 'a;
+
+    fn as_ref(&self) -> Self::Output<'_> {
+        BaseModelEnum::as_ref(self)
     }
 }
 

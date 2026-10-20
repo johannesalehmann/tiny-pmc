@@ -6,7 +6,7 @@ use crate::Ix;
 use crate::Model;
 use crate::annotations::{AtomicPropositions, RewardAnnotations};
 use crate::base_model::{
-    BaseModel, BranchGraph, ChoiceBranchGraph, ChoiceGraph, SinglePlayer, TurnBased,
+    BaseModel, BaseModelEnum, BranchGraph, ChoiceBranchGraph, ChoiceGraph, SinglePlayer, TurnBased,
 };
 use crate::initial_states::{InitialStates, InitialStatesEnum, SingleInitialState};
 use crate::labels::Labels;
@@ -109,6 +109,47 @@ impl<G: AsMutComponent, P: AsMutComponent> AsMutComponent for BaseModel<G, P> {
 
     fn as_mut(&mut self) -> Self::Output<'_> {
         BaseModel::as_mut(self)
+    }
+}
+
+impl<
+    TS: AsMutComponent,
+    D: AsMutComponent,
+    M: AsMutComponent,
+    NG: AsMutComponent,
+    SG: AsMutComponent,
+> BaseModelEnum<TS, D, M, NG, SG>
+{
+    pub fn as_mut(
+        &mut self,
+    ) -> BaseModelEnum<TS::Output<'_>, D::Output<'_>, M::Output<'_>, NG::Output<'_>, SG::Output<'_>>
+    {
+        match self {
+            BaseModelEnum::TransitionSystem(m) => BaseModelEnum::TransitionSystem(m.as_mut()),
+            BaseModelEnum::Dtmc(m) => BaseModelEnum::Dtmc(m.as_mut()),
+            BaseModelEnum::Mdp(m) => BaseModelEnum::Mdp(m.as_mut()),
+            BaseModelEnum::NonstochasticGame(m) => BaseModelEnum::NonstochasticGame(m.as_mut()),
+            BaseModelEnum::StochasticGame(m) => BaseModelEnum::StochasticGame(m.as_mut()),
+        }
+    }
+}
+
+impl<
+    TS: AsMutComponent,
+    D: AsMutComponent,
+    M: AsMutComponent,
+    NG: AsMutComponent,
+    SG: AsMutComponent,
+> AsMutComponent for BaseModelEnum<TS, D, M, NG, SG>
+{
+    type Output<'a>
+        =
+        BaseModelEnum<TS::Output<'a>, D::Output<'a>, M::Output<'a>, NG::Output<'a>, SG::Output<'a>>
+    where
+        Self: 'a;
+
+    fn as_mut(&mut self) -> Self::Output<'_> {
+        BaseModelEnum::as_mut(self)
     }
 }
 
