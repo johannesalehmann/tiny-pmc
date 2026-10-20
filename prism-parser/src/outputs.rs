@@ -148,6 +148,23 @@ impl<'a, I, F, E> PropsResult<'a, I, F, E> {
     }
 }
 
+impl<'a, I, F, E> IntoIterator for PropsResult<'a, I, F, E> {
+    type Item = Result<probabilistic_properties::NamedQuery<I, F, E>, Vec<Error<'a>>>;
+    type IntoIter = std::vec::IntoIter<Self::Item>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        let mut queries = self.properties.into_iter();
+        let mut items = Vec::new();
+        for (range, errors) in self.input_source_to_properties.into_iter().zip(self.errors) {
+            items.extend(queries.by_ref().take(range.len()).map(Ok));
+            if let Err(errs) = errors {
+                items.push(Err(errs));
+            }
+        }
+        items.into_iter()
+    }
+}
+
 /// Contains parsing results for a model and a single property.
 ///
 /// The model and property are stored in separate `Result`s. Use
