@@ -3,6 +3,8 @@ pub use buechi::{
     BuechiContext, buechi_winner_from_state, buechi_winner_from_state_raw, create_buechi_context,
     solve_buechi, solve_buechi_raw,
 };
+use probabilistic_models::AtomicPropositionIndex;
+use probabilistic_models::{Ix, StateIndex};
 
 mod reachability;
 pub use reachability::{
@@ -23,14 +25,11 @@ pub use safety::{
 use crate::attractor::AttractorBuffer;
 use probabilistic_models::base_model::{ReadOwners, TwoPlayer};
 use probabilistic_models::traits::{ReadAtomicPropositions, ReadStateSpace};
-use typed_index_collections::{Index, To1};
+use typed_index_collections::To1;
 
-fn model_owners<
-    M: ReadStateSpace
-        + ReadOwners<StateIdx = M::StateIndex, OwnerType = TwoPlayer>,
->(
+fn model_owners<M: ReadStateSpace + ReadOwners<OwnerType = TwoPlayer>>(
     model: &M,
-) -> To1<M::StateIndex, TwoPlayer> {
+) -> To1<StateIndex<M::Ix>, TwoPlayer> {
     let mut owners = To1::with_capacity(model.states().len());
     for state in model.states() {
         owners.add_checked(state, model.state_owner(state));
@@ -38,12 +37,10 @@ fn model_owners<
     owners
 }
 
-fn states_with_ap<
-    M: ReadStateSpace + ReadAtomicPropositions<StateIdx = M::StateIndex>,
->(
+fn states_with_ap<M: ReadStateSpace + ReadAtomicPropositions>(
     model: &M,
-    atomic_proposition: <M as ReadAtomicPropositions>::APIdx,
-) -> Vec<M::StateIndex> {
+    atomic_proposition: AtomicPropositionIndex<M::Ix>,
+) -> Vec<StateIndex<M::Ix>> {
     model
         .states()
         .into_iter()
@@ -51,12 +48,10 @@ fn states_with_ap<
         .collect()
 }
 
-fn states_without_ap<
-    M: ReadStateSpace + ReadAtomicPropositions<StateIdx = M::StateIndex>,
->(
+fn states_without_ap<M: ReadStateSpace + ReadAtomicPropositions>(
     model: &M,
-    atomic_proposition: <M as ReadAtomicPropositions>::APIdx,
-) -> Vec<M::StateIndex> {
+    atomic_proposition: AtomicPropositionIndex<M::Ix>,
+) -> Vec<StateIndex<M::Ix>> {
     model
         .states()
         .into_iter()
@@ -64,9 +59,9 @@ fn states_without_ap<
         .collect()
 }
 
-fn reset_owner_counts<StateIdx: Index>(
-    owners: &To1<StateIdx, TwoPlayer>,
-    buffer: &mut AttractorBuffer<StateIdx>,
+fn reset_owner_counts<I: Ix>(
+    owners: &To1<StateIndex<I>, TwoPlayer>,
+    buffer: &mut AttractorBuffer<I>,
     reaching_player: TwoPlayer,
 ) {
     for (state, &owner) in owners.enumerate() {
@@ -74,9 +69,9 @@ fn reset_owner_counts<StateIdx: Index>(
     }
 }
 
-fn set_owner_count<StateIdx: Index>(
-    buffer: &mut AttractorBuffer<StateIdx>,
-    state: StateIdx,
+fn set_owner_count<I: Ix>(
+    buffer: &mut AttractorBuffer<I>,
+    state: StateIndex<I>,
     owner: TwoPlayer,
     reaching_player: TwoPlayer,
 ) {

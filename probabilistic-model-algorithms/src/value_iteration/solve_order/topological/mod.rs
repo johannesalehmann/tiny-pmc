@@ -10,7 +10,7 @@ use std::rc::Rc;
 
 mod scc_timings;
 use crate::mecs::Mecs;
-use crate::sccs::{SccEntryIndex, SccIndex, Sccs};
+use crate::sccs::{SccIndex, Sccs};
 use crate::sub_model::{
     Attractor, IndexBased, IndexOrderDirection, Legacy, RewardsSource, StateOrdering, SubModel,
     SubModelConstructionContext, SubModelOrder,
@@ -23,7 +23,7 @@ use crate::value_iteration::solve_order::{ModelSize, OrderedSolver};
 use crate::value_iteration::sub_model_solver::{SolveStatistics, SubModelSolver};
 use probabilistic_models::base_model::Mdp;
 use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
-use probabilistic_models::{BranchIndex, ChoiceIndex, StateIndex};
+use probabilistic_models::{ChoiceIndex, Ix, StateIndex, Sub, Uniform};
 pub use scc_timings::{SccTimingOutput, SccTimings, TopoTiming};
 use typed_index_collections::{Index, RawIndex, SemiboundedIndexRange, To1};
 
@@ -54,22 +54,17 @@ impl OrderedSolver for Topological {
     fn find_and_solve_submodels<
         ND: NonDeterminismResolver,
         Solver: SubModelSolver,
-        M: ReadStateSpace
-            + ReadPredecessors<
-                StateIdx = M::StateIndex,
-                ChoiceIdx = M::ChoiceIndex,
-                BranchIdx = M::BranchIndex,
-            >,
-        P: PrecomputedStates<StateIdx = M::StateIndex>,
-        Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>,
+        M: ReadStateSpace + ReadPredecessors,
+        P: PrecomputedStates<Ix = M::Ix>,
+        Rew: RewardsSource<M::Ix>,
     >(
         self,
         model: &M,
         precomputed_states: &P,
         rew: Rew,
-        mecs: &Mecs<M::StateIndex, M::ChoiceIndex>,
+        mecs: &Mecs<M::Ix>,
         eps: f64,
-    ) -> To1<M::StateIndex, f64> {
+    ) -> To1<StateIndex<M::Ix>, f64> {
         match self.timing.clone() {
             None => self.find_and_solve_submodels_with_timing::<ND, Solver, M, P, Rew, _>(
                 model,
@@ -95,24 +90,19 @@ impl Topological {
     fn find_and_solve_submodels_with_timing<
         ND: NonDeterminismResolver,
         Solver: SubModelSolver,
-        M: ReadStateSpace
-            + ReadPredecessors<
-                StateIdx = M::StateIndex,
-                ChoiceIdx = M::ChoiceIndex,
-                BranchIdx = M::BranchIndex,
-            >,
-        P: PrecomputedStates<StateIdx = M::StateIndex>,
-        Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>,
+        M: ReadStateSpace + ReadPredecessors,
+        P: PrecomputedStates<Ix = M::Ix>,
+        Rew: RewardsSource<M::Ix>,
         Timing: TopoTiming,
     >(
         self,
         model: &M,
         precomputed_states: &P,
         rew: Rew,
-        mecs: &Mecs<M::StateIndex, M::ChoiceIndex>,
+        mecs: &Mecs<M::Ix>,
         eps: f64,
         timing: Timing,
-    ) -> To1<M::StateIndex, f64> {
+    ) -> To1<StateIndex<M::Ix>, f64> {
         match self.eps_allocation_scheme {
             EpsAllocationScheme::Uniform => {
                 self.find_and_solve_submodels_with_timing_and_eps_allocation::<ND, Solver, M, P, Rew, Timing, UniformEpsAllocation>(model, precomputed_states, rew, mecs, eps, timing)
@@ -131,25 +121,20 @@ impl Topological {
     fn find_and_solve_submodels_with_timing_and_eps_allocation<
         ND: NonDeterminismResolver,
         Solver: SubModelSolver,
-        M: ReadStateSpace
-            + ReadPredecessors<
-                StateIdx = M::StateIndex,
-                ChoiceIdx = M::ChoiceIndex,
-                BranchIdx = M::BranchIndex,
-            >,
-        P: PrecomputedStates<StateIdx = M::StateIndex>,
-        Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>,
+        M: ReadStateSpace + ReadPredecessors,
+        P: PrecomputedStates<Ix = M::Ix>,
+        Rew: RewardsSource<M::Ix>,
         Timing: TopoTiming,
-        EA: EpsAllocation<SccIndex<usize>>,
+        EA: EpsAllocation<SccIndex<M::Ix>>,
     >(
         self,
         model: &M,
         precomputed_states: &P,
         rew: Rew,
-        mecs: &Mecs<M::StateIndex, M::ChoiceIndex>,
+        mecs: &Mecs<M::Ix>,
         eps: f64,
         timings: Timing,
-    ) -> To1<M::StateIndex, f64> {
+    ) -> To1<StateIndex<M::Ix>, f64> {
         match self.sub_model_order {
             SubModelOrder::BackToFront => self
                 .find_and_solve_submodels_with_ordering::<ND, Solver, M, P, Rew, Timing, EA, _>(
@@ -197,41 +182,35 @@ impl Topological {
     fn find_and_solve_submodels_with_ordering<
         ND: NonDeterminismResolver,
         Solver: SubModelSolver,
-        M: ReadStateSpace
-            + ReadPredecessors<
-                StateIdx = M::StateIndex,
-                ChoiceIdx = M::ChoiceIndex,
-                BranchIdx = M::BranchIndex,
-            >,
-        P: PrecomputedStates<StateIdx = M::StateIndex>,
-        Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>,
+        M: ReadStateSpace + ReadPredecessors,
+        P: PrecomputedStates<Ix = M::Ix>,
+        Rew: RewardsSource<M::Ix>,
         Timing: TopoTiming,
-        EA: EpsAllocation<SccIndex<usize>>,
+        EA: EpsAllocation<SccIndex<M::Ix>>,
         O: StateOrdering,
     >(
         mut self,
         model: &M,
         precomputed_states: &P,
         rew: Rew,
-        mecs: &Mecs<M::StateIndex, M::ChoiceIndex>,
+        mecs: &Mecs<M::Ix>,
         eps: f64,
         mut timings: Timing,
         ordering: O,
-    ) -> To1<M::StateIndex, f64> {
+    ) -> To1<StateIndex<M::Ix>, f64> {
         #[cfg(feature = "log-topo-vi-preparation-overhead")]
         let preparation_start = std::time::Instant::now();
         let mut values = create_value_vector(model.states(), precomputed_states);
         let max = precomputed_states.max_value();
 
-        let (sccs, longest_chain): (Sccs<SccIndex<usize>, SccEntryIndex<usize>, _>, _) =
-            match EA::CHAIN_WEIGHT {
-                None => (Sccs::compute_tarjan(model, precomputed_states), None),
-                Some(weight) => {
-                    let (sccs, longest_chain) =
-                        Sccs::compute_tarjan_with_longest_chain(model, precomputed_states, weight);
-                    (sccs, Some(longest_chain))
-                }
-            };
+        let (sccs, longest_chain): (Sccs<M::Ix>, _) = match EA::CHAIN_WEIGHT {
+            None => (Sccs::compute_tarjan(model, precomputed_states), None),
+            Some(weight) => {
+                let (sccs, longest_chain) =
+                    Sccs::compute_tarjan_with_longest_chain(model, precomputed_states, weight);
+                (sccs, Some(longest_chain))
+            }
+        };
         let eps_allocation = EA::create(eps, longest_chain);
         let max_size = sccs.max_size();
         let mut solver = Solver::create(max_size);
@@ -283,7 +262,7 @@ impl Topological {
                         &ordering,
                         &mut submodel_context,
                     );
-                    let (res, statistics) = solver.solve_with_statistics::<ND, _, _, _>(
+                    let (res, statistics) = solver.solve_with_statistics::<ND, _>(
                         &sm.mdp,
                         &sm.choice_exit_values,
                         scc_eps,
@@ -309,7 +288,7 @@ impl Topological {
                         &ordering,
                         &mut submodel_context,
                     );
-                    let (res, statistics) = solver.solve_with_statistics::<ND, _, _, _>(
+                    let (res, statistics) = solver.solve_with_statistics::<ND, _>(
                         &sm.mdp,
                         &sm.choice_exit_values,
                         scc_eps,
@@ -336,7 +315,7 @@ impl Topological {
                         &ordering,
                         &mut submodel_context,
                     );
-                    let (res, statistics) = solver.solve_with_statistics::<ND, _, _, _>(
+                    let (res, statistics) = solver.solve_with_statistics::<ND, _>(
                         &sm.mdp,
                         &sm.choice_exit_values,
                         scc_eps,
@@ -362,7 +341,7 @@ impl Topological {
                         &ordering,
                         &mut submodel_context,
                     );
-                    let (res, statistics) = solver.solve_with_statistics::<ND, _, _, _>(
+                    let (res, statistics) = solver.solve_with_statistics::<ND, _>(
                         &sm.mdp,
                         &sm.choice_exit_values,
                         scc_eps,
@@ -401,9 +380,9 @@ impl Topological {
     }
 }
 
-pub(super) fn write_to_global_values<OldSI: Index, SI: Index, CI: Index, BI: Index>(
-    values: &mut To1<OldSI, f64>,
-    sm: &SubModel<OldSI, SI, CI, BI>,
+pub(super) fn write_to_global_values<I: Ix, NewI: Ix>(
+    values: &mut To1<StateIndex<I>, f64>,
+    sm: &SubModel<I, NewI>,
     res: &[f64],
 ) {
     for new_state in sm.mdp.states() {
@@ -411,10 +390,10 @@ pub(super) fn write_to_global_values<OldSI: Index, SI: Index, CI: Index, BI: Ind
     }
 }
 
-pub(super) fn create_value_vector<StateIdx: Index>(
-    states: SemiboundedIndexRange<StateIdx>,
-    precomputed_states: &impl PrecomputedStates<StateIdx = StateIdx>,
-) -> To1<StateIdx, f64> {
+pub(super) fn create_value_vector<P: PrecomputedStates>(
+    states: SemiboundedIndexRange<StateIndex<P::Ix>>,
+    precomputed_states: &P,
+) -> To1<StateIndex<P::Ix>, f64> {
     let mut values = To1::with_capacity(states.len());
     for state in states {
         values.add_checked(state, precomputed_states.initial_value(state));
@@ -422,16 +401,12 @@ pub(super) fn create_value_vector<StateIdx: Index>(
     values
 }
 
-fn evaluate_choice<
-    ND: NonDeterminismResolver,
-    M: ReadStateSpace,
-    Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>,
->(
+fn evaluate_choice<ND: NonDeterminismResolver, M: ReadStateSpace, Rew: RewardsSource<M::Ix>>(
     model: &M,
-    values: &To1<M::StateIndex, f64>,
+    values: &To1<StateIndex<M::Ix>, f64>,
     rew: &Rew,
-    state: M::StateIndex,
-    choice: M::ChoiceIndex,
+    state: StateIndex<M::Ix>,
+    choice: ChoiceIndex<M::Ix>,
 ) -> f64 {
     let mut to_self = 0.0;
     let mut exit_value = 0.0;
@@ -457,14 +432,18 @@ fn evaluate_choice<
     }
 }
 
-pub struct SubModelCollection<OldStateIdx: Index> {
-    pub u8: SubModel<OldStateIdx, StateIndex<u8>, ChoiceIndex<u8>, BranchIndex<u8>>,
-    pub u16: SubModel<OldStateIdx, StateIndex<u16>, ChoiceIndex<u16>, BranchIndex<u16>>,
-    pub u32: SubModel<OldStateIdx, StateIndex<u32>, ChoiceIndex<u32>, BranchIndex<u32>>,
-    pub usize: SubModel<OldStateIdx, StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>>,
+/// Index profile of sub-models whose states, choices and branches fit into `R`. Using `Sub`
+/// ensures that indices of a sub-model cannot be confused with those of the original model.
+pub type SubModelIx<R> = Sub<Uniform<R>>;
+
+pub struct SubModelCollection<I: Ix> {
+    pub u8: SubModel<I, SubModelIx<u8>>,
+    pub u16: SubModel<I, SubModelIx<u16>>,
+    pub u32: SubModel<I, SubModelIx<u32>>,
+    pub usize: SubModel<I, SubModelIx<usize>>,
 }
 
-impl<OldStateIdx: Index> SubModelCollection<OldStateIdx> {
+impl<I: Ix> SubModelCollection<I> {
     pub fn new() -> Self {
         Self {
             u8: SubModel::empty(),
@@ -483,29 +462,29 @@ impl<OldStateIdx: Index> SubModelCollection<OldStateIdx> {
 pub trait SubModelHook: Debug {
     fn handle_sub_model_u8(
         &mut self,
-        sub_model: &Mdp<StateIndex<u8>, ChoiceIndex<u8>, BranchIndex<u8>>,
-        choice_exit_values: &To1<ChoiceIndex<u8>, f64>,
+        sub_model: &Mdp<SubModelIx<u8>>,
+        choice_exit_values: &To1<ChoiceIndex<SubModelIx<u8>>, f64>,
         info: SubModelSolveInfo,
         statistics: SolveStatistics,
     );
     fn handle_sub_model_u16(
         &mut self,
-        sub_model: &Mdp<StateIndex<u16>, ChoiceIndex<u16>, BranchIndex<u16>>,
-        choice_exit_values: &To1<ChoiceIndex<u16>, f64>,
+        sub_model: &Mdp<SubModelIx<u16>>,
+        choice_exit_values: &To1<ChoiceIndex<SubModelIx<u16>>, f64>,
         info: SubModelSolveInfo,
         statistics: SolveStatistics,
     );
     fn handle_sub_model_u32(
         &mut self,
-        sub_model: &Mdp<StateIndex<u32>, ChoiceIndex<u32>, BranchIndex<u32>>,
-        choice_exit_values: &To1<ChoiceIndex<u32>, f64>,
+        sub_model: &Mdp<SubModelIx<u32>>,
+        choice_exit_values: &To1<ChoiceIndex<SubModelIx<u32>>, f64>,
         info: SubModelSolveInfo,
         statistics: SolveStatistics,
     );
     fn handle_sub_model_usize(
         &mut self,
-        sub_model: &Mdp<StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>>,
-        choice_exit_values: &To1<ChoiceIndex<usize>, f64>,
+        sub_model: &Mdp<SubModelIx<usize>>,
+        choice_exit_values: &To1<ChoiceIndex<SubModelIx<usize>>, f64>,
         info: SubModelSolveInfo,
         statistics: SolveStatistics,
     );

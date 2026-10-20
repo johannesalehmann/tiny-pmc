@@ -15,10 +15,10 @@ impl<
     L: LabelSource,
     IS: InitialStateSource,
     B: BaseModelBuilder,
-    IB: InitialStatesBuilder<StateIdx = B::StateIdx>,
-    APs: atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = B::StateIdx>,
-    CL: choice_labels::ChoiceLabelBuilder<ChoiceIdx = B::ChoiceIdx>,
-    Rew: RewardsBuilder<StateIdx = B::StateIdx, ChoiceIdx = B::ChoiceIdx>,
+    IB: InitialStatesBuilder<Ix = B::Ix>,
+    APs: atomic_propositions_builder::AtomicPropositionBuilder<Ix = B::Ix>,
+    CL: choice_labels::ChoiceLabelBuilder<Ix = B::Ix>,
+    Rew: RewardsBuilder<Ix = B::Ix>,
 > ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CL, Rew>
 {
     pub(crate) fn map_queries<Q2: QueryCollection>(
@@ -95,7 +95,7 @@ impl<
         }
     }
 
-    pub(crate) fn map_initial_states_builder<IB2: InitialStatesBuilder<StateIdx = B::StateIdx>>(
+    pub(crate) fn map_initial_states_builder<IB2: InitialStatesBuilder<Ix = B::Ix>>(
         self,
         initial_states_builder: IB2,
     ) -> ModelBuilder<'a, S, Q, L, IS, B, IB2, APs, CL, Rew> {
@@ -114,7 +114,7 @@ impl<
         }
     }
 
-    pub(crate) fn map_atomic_propositions<AP2: AtomicPropositionBuilder<StateIdx = B::StateIdx>>(
+    pub(crate) fn map_atomic_propositions<AP2: AtomicPropositionBuilder<Ix = B::Ix>>(
         self,
         atomic_propositions: AP2,
     ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, AP2, CL, Rew> {
@@ -133,9 +133,7 @@ impl<
         }
     }
 
-    pub(crate) fn map_choice_labels<
-        CL2: choice_labels::ChoiceLabelBuilder<ChoiceIdx = B::ChoiceIdx>,
-    >(
+    pub(crate) fn map_choice_labels<CL2: choice_labels::ChoiceLabelBuilder<Ix = B::Ix>>(
         self,
         choice_labels: CL2,
     ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CL2, Rew> {
@@ -154,9 +152,7 @@ impl<
         }
     }
 
-    pub(crate) fn map_rewards<
-        Rew2: RewardsBuilder<StateIdx = B::StateIdx, ChoiceIdx = B::ChoiceIdx>,
-    >(
+    pub(crate) fn map_rewards<Rew2: RewardsBuilder<Ix = B::Ix>>(
         self,
         rewards: Rew2,
     ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CL, Rew2> {

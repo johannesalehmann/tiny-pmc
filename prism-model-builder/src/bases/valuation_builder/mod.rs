@@ -1,26 +1,25 @@
 mod valuation_to_state;
+use probabilistic_models::{
+    Ix, StateIndex, ValuationClassEntryIndex, ValuationClassIndex, ValuationIndex,
+};
 use valuation_to_state::ValuationToEntity;
 
 use probabilistic_models::valuations::{
     GetValuationClassIndex, GetValuationData, ValuationClass, Valuations,
 };
-use typed_index_collections::{Index, To1};
+use typed_index_collections::To1;
 
 #[derive(Default)]
-pub struct ValuationBuilder<
-    StateIdx: Index,
-    ClassIdx: Index,
-    ClassEntryIdx: Index,
-    ValuationIdx: Index,
-> {
-    state_valuations: Valuations<StateIdx, ClassIdx, ClassEntryIdx, ValuationIdx>,
-    valuation_to_state: To1<ClassIdx, ValuationToEntity<StateIdx>>,
+pub struct ValuationBuilder<I: Ix> {
+    state_valuations: Valuations<I>,
+    valuation_to_state: To1<ValuationClassIndex<I>, ValuationToEntity<StateIndex<I>>>,
 }
 
-impl<StateIdx: Index, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index>
-    ValuationBuilder<StateIdx, ClassIdx, ClassEntryIdx, ValuationIdx>
-{
-    pub fn add_class(&mut self, class: ValuationClass<ClassEntryIdx>) -> ClassIdx {
+impl<I: Ix> ValuationBuilder<I> {
+    pub fn add_class(
+        &mut self,
+        class: ValuationClass<ValuationClassEntryIndex<I>>,
+    ) -> ValuationClassIndex<I> {
         let width = class.size_in_bits();
         let index = self.state_valuations.add_class(class);
         self.valuation_to_state
@@ -29,38 +28,34 @@ impl<StateIdx: Index, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index
     }
 
     pub fn state_by_valuation<
-        Val: GetValuationClassIndex<ClassIdx> + GetValuationData<ValuationIdx>,
+        Val: GetValuationClassIndex<ValuationClassIndex<I>> + GetValuationData<ValuationIndex<I>>,
     >(
         &self,
         valuation: &Val,
-    ) -> Option<StateIdx> {
+    ) -> Option<StateIndex<I>> {
         self.valuation_to_state[valuation.valuation_class_index()].get(valuation)
     }
 
     pub fn add_state_valuation<
-        Val: GetValuationClassIndex<ClassIdx> + GetValuationData<ValuationIdx>,
+        Val: GetValuationClassIndex<ValuationClassIndex<I>> + GetValuationData<ValuationIndex<I>>,
     >(
         &mut self,
         valuation: &Val,
-        state_index: StateIdx,
+        state_index: StateIndex<I>,
     ) {
         self.valuation_to_state[valuation.valuation_class_index()].add(valuation, state_index);
         self.state_valuations.add_valuation(state_index, valuation);
     }
 
-    pub fn state_valuations(&self) -> &Valuations<StateIdx, ClassIdx, ClassEntryIdx, ValuationIdx> {
+    pub fn state_valuations(&self) -> &Valuations<I> {
         &self.state_valuations
     }
 
-    pub fn state_valuations_mut(
-        &mut self,
-    ) -> &mut Valuations<StateIdx, ClassIdx, ClassEntryIdx, ValuationIdx> {
+    pub fn state_valuations_mut(&mut self) -> &mut Valuations<I> {
         &mut self.state_valuations
     }
 
-    pub fn into_state_valuations(
-        self,
-    ) -> Valuations<StateIdx, ClassIdx, ClassEntryIdx, ValuationIdx> {
+    pub fn into_state_valuations(self) -> Valuations<I> {
         self.state_valuations
     }
 }

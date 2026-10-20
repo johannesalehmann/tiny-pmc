@@ -1,22 +1,23 @@
 use crate::attractor;
 use probabilistic_models::base_model::{ReadOwners, TwoPlayer};
 use probabilistic_models::traits::{ReadAtomicPropositions, ReadPredecessors, ReadStateSpace};
-use typed_index_collections::{Index, To1, ValuePerIndexSource};
+use probabilistic_models::{AtomicPropositionIndex, Ix, StateIndex};
+use typed_index_collections::{To1, ValuePerIndexSource};
 
-pub struct BuechiContext<StateIdx: Index> {
-    buechi_states: Vec<StateIdx>,
-    owners: To1<StateIdx, TwoPlayer>,
-    buffer: attractor::AttractorBuffer<StateIdx>,
-    unreachable: To1<StateIdx, bool>,
+pub struct BuechiContext<I: Ix> {
+    buechi_states: Vec<StateIndex<I>>,
+    owners: To1<StateIndex<I>, TwoPlayer>,
+    buffer: attractor::AttractorBuffer<I>,
+    unreachable: To1<StateIndex<I>, bool>,
     dirty: bool,
 }
 
-impl<StateIdx: Index> BuechiContext<StateIdx> {
-    pub fn owner(&self, state: StateIdx) -> TwoPlayer {
+impl<I: Ix> BuechiContext<I> {
+    pub fn owner(&self, state: StateIndex<I>) -> TwoPlayer {
         self.owners[state]
     }
 
-    pub fn set_owner(&mut self, state: StateIdx, owner: TwoPlayer) {
+    pub fn set_owner(&mut self, state: StateIndex<I>, owner: TwoPlayer) {
         self.owners[state] = owner;
     }
 
@@ -51,7 +52,7 @@ impl<StateIdx: Index> BuechiContext<StateIdx> {
         }
     }
 
-    fn add_new_unreachable_states(&mut self, new_unreachable: &To1<StateIdx, bool>) -> bool {
+    fn add_new_unreachable_states(&mut self, new_unreachable: &To1<StateIndex<I>, bool>) -> bool {
         let mut changed = false;
         for state in self.unreachable.keys() {
             if !self.unreachable[state] && new_unreachable[state] {
@@ -64,13 +65,11 @@ impl<StateIdx: Index> BuechiContext<StateIdx> {
 }
 
 pub fn create_buechi_context<
-    M: ReadStateSpace
-        + ReadOwners<StateIdx = M::StateIndex, OwnerType = TwoPlayer>
-        + ReadAtomicPropositions<StateIdx = M::StateIndex>,
+    M: ReadStateSpace + ReadOwners<OwnerType = TwoPlayer> + ReadAtomicPropositions,
 >(
     model: &M,
-    buechi_states: <M as ReadAtomicPropositions>::APIdx,
-) -> BuechiContext<M::StateIndex> {
+    buechi_states: AtomicPropositionIndex<M::Ix>,
+) -> BuechiContext<M::Ix> {
     BuechiContext {
         buechi_states: super::states_with_ap(model, buechi_states),
         owners: super::model_owners(model),
@@ -81,33 +80,19 @@ pub fn create_buechi_context<
 }
 
 pub fn solve_buechi<
-    M: ReadStateSpace
-        + ReadOwners<StateIdx = M::StateIndex, OwnerType = TwoPlayer>
-        + ReadAtomicPropositions<StateIdx = M::StateIndex>
-        + ReadPredecessors<
-            StateIdx = M::StateIndex,
-            ChoiceIdx = M::ChoiceIndex,
-            BranchIdx = M::BranchIndex,
-        >,
+    M: ReadStateSpace + ReadOwners<OwnerType = TwoPlayer> + ReadAtomicPropositions + ReadPredecessors,
 >(
     model: &M,
-    buechi_states: <M as ReadAtomicPropositions>::APIdx,
-) -> To1<M::StateIndex, bool> {
+    buechi_states: AtomicPropositionIndex<M::Ix>,
+) -> To1<StateIndex<M::Ix>, bool> {
     let mut context = create_buechi_context(model, buechi_states);
     solve_buechi_raw(model, &mut context)
 }
 
-pub fn solve_buechi_raw<
-    M: ReadStateSpace
-        + ReadPredecessors<
-            StateIdx = M::StateIndex,
-            ChoiceIdx = M::ChoiceIndex,
-            BranchIdx = M::BranchIndex,
-        >,
->(
+pub fn solve_buechi_raw<M: ReadStateSpace + ReadPredecessors>(
     model: &M,
-    context: &mut BuechiContext<M::StateIndex>,
-) -> To1<M::StateIndex, bool> {
+    context: &mut BuechiContext<M::Ix>,
+) -> To1<StateIndex<M::Ix>, bool> {
     context.mark_dirty();
 
     let mut changed = true;
@@ -140,34 +125,20 @@ pub fn solve_buechi_raw<
 }
 
 pub fn buechi_winner_from_state<
-    M: ReadStateSpace
-        + ReadOwners<StateIdx = M::StateIndex, OwnerType = TwoPlayer>
-        + ReadAtomicPropositions<StateIdx = M::StateIndex>
-        + ReadPredecessors<
-            StateIdx = M::StateIndex,
-            ChoiceIdx = M::ChoiceIndex,
-            BranchIdx = M::BranchIndex,
-        >,
+    M: ReadStateSpace + ReadOwners<OwnerType = TwoPlayer> + ReadAtomicPropositions + ReadPredecessors,
 >(
     model: &M,
-    buechi_states: <M as ReadAtomicPropositions>::APIdx,
-    state: M::StateIndex,
+    buechi_states: AtomicPropositionIndex<M::Ix>,
+    state: StateIndex<M::Ix>,
 ) -> TwoPlayer {
     let mut context = create_buechi_context(model, buechi_states);
     buechi_winner_from_state_raw(model, &mut context, state)
 }
 
-pub fn buechi_winner_from_state_raw<
-    M: ReadStateSpace
-        + ReadPredecessors<
-            StateIdx = M::StateIndex,
-            ChoiceIdx = M::ChoiceIndex,
-            BranchIdx = M::BranchIndex,
-        >,
->(
+pub fn buechi_winner_from_state_raw<M: ReadStateSpace + ReadPredecessors>(
     model: &M,
-    context: &mut BuechiContext<M::StateIndex>,
-    state: M::StateIndex,
+    context: &mut BuechiContext<M::Ix>,
+    state: StateIndex<M::Ix>,
 ) -> TwoPlayer {
     if solve_buechi_raw(model, context)[state] {
         TwoPlayer::Eve

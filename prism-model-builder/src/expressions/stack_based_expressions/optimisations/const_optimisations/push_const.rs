@@ -42,15 +42,15 @@ mod tests {
     use crate::expressions::stack_based_expressions::Operation::*;
     use crate::variables::ModelVariableInfo;
     use prism_model::VariableReference;
-    use probabilistic_models::{ValuationClassEntryIndex, ValuationClassIndex};
+    use probabilistic_models::{Uniform, ValuationClassEntryIndex, ValuationClassIndex};
 
     test_optimisation!(
         integer_zero_first,
         {
             PushConstOptimisation {
                 variable_info: &ModelVariableInfo::<
-                    ValuationClassIndex<usize>,
-                    ValuationClassEntryIndex<usize>,
+                    ValuationClassIndex<Uniform<usize>>,
+                    ValuationClassEntryIndex<Uniform<usize>>,
                 >::with_mock_values(),
             }
         },

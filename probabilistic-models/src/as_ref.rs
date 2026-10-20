@@ -2,6 +2,7 @@
 // not break and instead silently call itself. This ensures this does not happen.
 #![deny(unconditional_recursion)]
 
+use crate::Ix;
 use crate::Model;
 use crate::annotations::{AtomicPropositions, RewardAnnotations};
 use crate::base_model::{
@@ -89,7 +90,7 @@ impl<T: AsRefComponent> AsRefComponent for Option<T> {
     }
 }
 
-impl<AI: Index, SI: Index, AEI: Index> AsRefComponent for AtomicPropositions<AI, SI, AEI> {
+impl<I: Ix> AsRefComponent for AtomicPropositions<I> {
     type Output<'a>
         = &'a Self
     where
@@ -120,7 +121,7 @@ impl<G: AsRefComponent, P: AsRefComponent> AsRefComponent for BaseModel<G, P> {
     }
 }
 
-impl<SI: Index, CI: Index, BI: Index> AsRefComponent for ChoiceBranchGraph<SI, CI, BI> {
+impl<I: Ix> AsRefComponent for ChoiceBranchGraph<I> {
     type Output<'a>
         = &'a Self
     where
@@ -131,7 +132,7 @@ impl<SI: Index, CI: Index, BI: Index> AsRefComponent for ChoiceBranchGraph<SI, C
     }
 }
 
-impl<SI: Index, CI: Index> AsRefComponent for ChoiceGraph<SI, CI> {
+impl<I: Ix> AsRefComponent for ChoiceGraph<I> {
     type Output<'a>
         = &'a Self
     where
@@ -142,7 +143,7 @@ impl<SI: Index, CI: Index> AsRefComponent for ChoiceGraph<SI, CI> {
     }
 }
 
-impl<SI: Index, BI: Index> AsRefComponent for BranchGraph<SI, BI> {
+impl<I: Ix> AsRefComponent for BranchGraph<I> {
     type Output<'a>
         = &'a Self
     where
@@ -163,7 +164,7 @@ impl AsRefComponent for SinglePlayer {
     }
 }
 
-impl<SI: Index, Owner> AsRefComponent for TurnBased<SI, Owner> {
+impl<I: Ix, Owner> AsRefComponent for TurnBased<I, Owner> {
     type Output<'a>
         = &'a Self
     where
@@ -174,7 +175,7 @@ impl<SI: Index, Owner> AsRefComponent for TurnBased<SI, Owner> {
     }
 }
 
-impl<SI: Index> AsRefComponent for SingleInitialState<SI> {
+impl<I: Ix> AsRefComponent for SingleInitialState<I> {
     type Output<'a>
         = &'a Self
     where
@@ -185,7 +186,7 @@ impl<SI: Index> AsRefComponent for SingleInitialState<SI> {
     }
 }
 
-impl<SI: Index> AsRefComponent for InitialStates<SI> {
+impl<I: Ix> AsRefComponent for InitialStates<I> {
     type Output<'a>
         = &'a Self
     where
@@ -196,14 +197,11 @@ impl<SI: Index> AsRefComponent for InitialStates<SI> {
     }
 }
 
-impl<
-    SI: Index,
-    Single: ReadInitialStates<StateIdx = SI>,
-    Multiple: ReadInitialStates<StateIdx = SI>,
-> AsRefComponent for InitialStatesEnum<SI, Single, Multiple>
+impl<I: Ix, Single: ReadInitialStates<Ix = I>, Multiple: ReadInitialStates<Ix = I>> AsRefComponent
+    for InitialStatesEnum<I, Single, Multiple>
 {
     type Output<'a>
-        = InitialStatesEnum<SI, &'a Single, &'a Multiple>
+        = InitialStatesEnum<I, &'a Single, &'a Multiple>
     where
         Self: 'a;
 
@@ -223,9 +221,7 @@ impl<EntityIdx: Index, ActionIdx: Index, E> AsRefComponent for Labels<EntityIdx,
     }
 }
 
-impl<RI: Index, SI: Index, CI: Index, AEI: Index> AsRefComponent
-    for RewardAnnotations<RI, SI, CI, AEI>
-{
+impl<I: Ix> AsRefComponent for RewardAnnotations<I> {
     type Output<'a>
         = &'a Self
     where
@@ -236,9 +232,7 @@ impl<RI: Index, SI: Index, CI: Index, AEI: Index> AsRefComponent
     }
 }
 
-impl<EntityIdx: Index, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index> AsRefComponent
-    for Valuations<EntityIdx, ClassIdx, ClassEntryIdx, ValuationIdx>
-{
+impl<I: Ix, EntityIdx: Index> AsRefComponent for Valuations<I, EntityIdx> {
     type Output<'a>
         = &'a Self
     where
@@ -249,7 +243,7 @@ impl<EntityIdx: Index, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Inde
     }
 }
 
-impl<SI: Index, CI: Index, BI: Index, PI: Index> AsRefComponent for Predecessors<SI, CI, BI, PI> {
+impl<I: Ix> AsRefComponent for Predecessors<I> {
     type Output<'a>
         = &'a Self
     where

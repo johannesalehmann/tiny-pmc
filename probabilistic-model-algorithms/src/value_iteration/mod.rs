@@ -1,4 +1,6 @@
 use crate::state_description::StateDescription;
+use probabilistic_models::RewardIndex;
+use probabilistic_models::StateIndex;
 use probabilistic_models::traits::{
     ReadAtomicPropositions, ReadPredecessors, ReadRewards, ReadStateSpace,
 };
@@ -28,37 +30,24 @@ pub enum NonDeterminism {
     Maximise,
 }
 
-pub fn value_iteration<
-    M: ReadStateSpace
-        + ReadPredecessors<
-            StateIdx = M::StateIndex,
-            ChoiceIdx = M::ChoiceIndex,
-            BranchIdx = M::BranchIndex,
-        > + ReadAtomicPropositions<StateIdx = M::StateIndex>,
->(
+pub fn value_iteration<M: ReadStateSpace + ReadPredecessors + ReadAtomicPropositions>(
     model: &M,
     goal: &StateDescription<M>,
     non_determinism: NonDeterminism,
     config: ValueIterationConfig,
-) -> To1<M::StateIndex, f64> {
+) -> To1<StateIndex<M::Ix>, f64> {
     dispatch_non_determinism::<ValueIteration, _, ()>(model, goal, non_determinism, config, None)
 }
 
 pub fn value_iteration_rewards<
-    M: ReadStateSpace
-        + ReadPredecessors<
-            StateIdx = M::StateIndex,
-            ChoiceIdx = M::ChoiceIndex,
-            BranchIdx = M::BranchIndex,
-        > + ReadAtomicPropositions<StateIdx = M::StateIndex>
-        + ReadRewards<StateIdx = M::StateIndex, ChoiceIdx = M::ChoiceIndex>,
+    M: ReadStateSpace + ReadPredecessors + ReadAtomicPropositions + ReadRewards,
 >(
     model: &M,
     goal: &StateDescription<M>,
-    rewards: <M as ReadRewards>::RewardIdx,
+    rewards: RewardIndex<M::Ix>,
     non_determinism: NonDeterminism,
     config: ValueIterationConfig,
-) -> To1<M::StateIndex, f64> {
+) -> To1<StateIndex<M::Ix>, f64> {
     dispatch_non_determinism::<ValueIteration, _, _>(
         model,
         goal,
@@ -68,19 +57,12 @@ pub fn value_iteration_rewards<
     )
 }
 
-pub fn value_iteration_time<
-    M: ReadStateSpace
-        + ReadPredecessors<
-            StateIdx = M::StateIndex,
-            ChoiceIdx = M::ChoiceIndex,
-            BranchIdx = M::BranchIndex,
-        > + ReadAtomicPropositions<StateIdx = M::StateIndex>,
->(
+pub fn value_iteration_time<M: ReadStateSpace + ReadPredecessors + ReadAtomicPropositions>(
     model: &M,
     goal: &StateDescription<M>,
     non_determinism: NonDeterminism,
     config: ValueIterationConfig,
-) -> To1<M::StateIndex, f64> {
+) -> To1<StateIndex<M::Ix>, f64> {
     dispatch_non_determinism::<ValueIteration, _, _>(
         model,
         goal,
@@ -90,19 +72,12 @@ pub fn value_iteration_time<
     )
 }
 
-pub fn optimistic_value_iteration<
-    M: ReadStateSpace
-        + ReadPredecessors<
-            StateIdx = M::StateIndex,
-            ChoiceIdx = M::ChoiceIndex,
-            BranchIdx = M::BranchIndex,
-        > + ReadAtomicPropositions<StateIdx = M::StateIndex>,
->(
+pub fn optimistic_value_iteration<M: ReadStateSpace + ReadPredecessors + ReadAtomicPropositions>(
     model: &M,
     goal: &StateDescription<M>,
     non_determinism: NonDeterminism,
     config: ValueIterationConfig,
-) -> To1<M::StateIndex, f64> {
+) -> To1<StateIndex<M::Ix>, f64> {
     dispatch_non_determinism::<OptimisticValueIteration, _, ()>(
         model,
         goal,
@@ -113,20 +88,14 @@ pub fn optimistic_value_iteration<
 }
 
 pub fn optimistic_value_iteration_rewards<
-    M: ReadStateSpace
-        + ReadPredecessors<
-            StateIdx = M::StateIndex,
-            ChoiceIdx = M::ChoiceIndex,
-            BranchIdx = M::BranchIndex,
-        > + ReadAtomicPropositions<StateIdx = M::StateIndex>
-        + ReadRewards<StateIdx = M::StateIndex, ChoiceIdx = M::ChoiceIndex>,
+    M: ReadStateSpace + ReadPredecessors + ReadAtomicPropositions + ReadRewards,
 >(
     model: &M,
     goal: &StateDescription<M>,
-    rewards: <M as ReadRewards>::RewardIdx,
+    rewards: RewardIndex<M::Ix>,
     non_determinism: NonDeterminism,
     config: ValueIterationConfig,
-) -> To1<M::StateIndex, f64> {
+) -> To1<StateIndex<M::Ix>, f64> {
     dispatch_non_determinism::<OptimisticValueIteration, _, _>(
         model,
         goal,
@@ -137,18 +106,13 @@ pub fn optimistic_value_iteration_rewards<
 }
 
 pub fn optimistic_value_iteration_time<
-    M: ReadStateSpace
-        + ReadPredecessors<
-            StateIdx = M::StateIndex,
-            ChoiceIdx = M::ChoiceIndex,
-            BranchIdx = M::BranchIndex,
-        > + ReadAtomicPropositions<StateIdx = M::StateIndex>,
+    M: ReadStateSpace + ReadPredecessors + ReadAtomicPropositions,
 >(
     model: &M,
     goal: &StateDescription<M>,
     non_determinism: NonDeterminism,
     config: ValueIterationConfig,
-) -> To1<M::StateIndex, f64> {
+) -> To1<StateIndex<M::Ix>, f64> {
     dispatch_non_determinism::<OptimisticValueIteration, _, _>(
         model,
         goal,
@@ -160,20 +124,15 @@ pub fn optimistic_value_iteration_time<
 
 fn dispatch_non_determinism<
     Solver: SubModelSolver,
-    M: ReadStateSpace
-        + ReadPredecessors<
-            StateIdx = M::StateIndex,
-            ChoiceIdx = M::ChoiceIndex,
-            BranchIdx = M::BranchIndex,
-        > + ReadAtomicPropositions<StateIdx = M::StateIndex>,
-    Rew: sub_model::RewardsSource<M::StateIndex, M::ChoiceIndex>,
+    M: ReadStateSpace + ReadPredecessors + ReadAtomicPropositions,
+    Rew: sub_model::RewardsSource<M::Ix>,
 >(
     model: &M,
     goal: &StateDescription<M>,
     non_determinism: NonDeterminism,
     config: ValueIterationConfig,
     reward_source: Option<Rew>,
-) -> To1<M::StateIndex, f64> {
+) -> To1<StateIndex<M::Ix>, f64> {
     match non_determinism {
         NonDeterminism::Minimise => {
             dispatch_solve_order::<Minimise, Solver, _, _>(model, goal, config, reward_source)
@@ -187,19 +146,14 @@ fn dispatch_non_determinism<
 fn dispatch_solve_order<
     ND: non_determinism::NonDeterminismResolver,
     Solver: SubModelSolver,
-    M: ReadStateSpace
-        + ReadPredecessors<
-            StateIdx = M::StateIndex,
-            ChoiceIdx = M::ChoiceIndex,
-            BranchIdx = M::BranchIndex,
-        > + ReadAtomicPropositions<StateIdx = M::StateIndex>,
-    Rew: sub_model::RewardsSource<M::StateIndex, M::ChoiceIndex>,
+    M: ReadStateSpace + ReadPredecessors + ReadAtomicPropositions,
+    Rew: sub_model::RewardsSource<M::Ix>,
 >(
     model: &M,
     goal: &StateDescription<M>,
     config: ValueIterationConfig,
     reward_source: Option<Rew>,
-) -> To1<M::StateIndex, f64> {
+) -> To1<StateIndex<M::Ix>, f64> {
     match &config.solve_order {
         SolveOrder::Monolithic => {
             if config.write_sub_mdp_timing.is_some() {
@@ -235,20 +189,15 @@ pub fn value_iteration_internal<
     ND: non_determinism::NonDeterminismResolver,
     SolveOrder: solve_order::OrderedSolver,
     Solver: SubModelSolver,
-    M: ReadStateSpace
-        + ReadPredecessors<
-            StateIdx = M::StateIndex,
-            ChoiceIdx = M::ChoiceIndex,
-            BranchIdx = M::BranchIndex,
-        > + ReadAtomicPropositions<StateIdx = M::StateIndex>,
-    Rew: sub_model::RewardsSource<M::StateIndex, M::ChoiceIndex>,
+    M: ReadStateSpace + ReadPredecessors + ReadAtomicPropositions,
+    Rew: sub_model::RewardsSource<M::Ix>,
 >(
     solve_order: SolveOrder,
     model: &M,
     goal: &StateDescription<M>,
     config: ValueIterationConfig,
     rew: Option<Rew>,
-) -> To1<M::StateIndex, f64> {
+) -> To1<StateIndex<M::Ix>, f64> {
     if let Some(rew) = rew {
         let precomputed_states = ND::compute_s_inf(model, goal);
         let mecs = ND::compute_reward_mecs(model, &precomputed_states, &rew);

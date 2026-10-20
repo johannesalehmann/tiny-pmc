@@ -6,62 +6,32 @@ use crate::value_iteration::NonDeterminism;
 use crate::value_iteration::config::CollapseMecs;
 use crate::value_iteration::precomputed_states::{PrecomputedStates, S0S1, SInfinity};
 use probabilistic_models::traits::{ReadAtomicPropositions, ReadPredecessors, ReadStateSpace};
+use probabilistic_models::{ChoiceIndex, StateIndex};
 use typed_index_collections::To1;
 
 pub trait NonDeterminismResolver {
-    fn compute_s0_s1<
-        M: ReadStateSpace
-            + ReadAtomicPropositions<StateIdx = M::StateIndex>
-            + ReadPredecessors<
-                StateIdx = M::StateIndex,
-                ChoiceIdx = M::ChoiceIndex,
-                BranchIdx = M::BranchIndex,
-            >,
-    >(
+    fn compute_s0_s1<M: ReadStateSpace + ReadAtomicPropositions + ReadPredecessors>(
         model: &M,
         goal: &StateDescription<M>,
-    ) -> S0S1<M::StateIndex>;
+    ) -> S0S1<M::Ix>;
 
-    fn compute_s_inf<
-        M: ReadStateSpace
-            + ReadAtomicPropositions<StateIdx = M::StateIndex>
-            + ReadPredecessors<
-                StateIdx = M::StateIndex,
-                ChoiceIdx = M::ChoiceIndex,
-                BranchIdx = M::BranchIndex,
-            >,
-    >(
+    fn compute_s_inf<M: ReadStateSpace + ReadAtomicPropositions + ReadPredecessors>(
         model: &M,
         goal: &StateDescription<M>,
-    ) -> SInfinity<M::StateIndex>;
+    ) -> SInfinity<M::Ix>;
 
-    fn compute_probability_mecs<
-        M: ReadStateSpace
-            + ReadPredecessors<
-                StateIdx = M::StateIndex,
-                ChoiceIdx = M::ChoiceIndex,
-                BranchIdx = M::BranchIndex,
-            >,
-    >(
+    fn compute_probability_mecs<M: ReadStateSpace + ReadPredecessors>(
         model: &M,
-        s0_s1: &S0S1<M::StateIndex>,
+        s0_s1: &S0S1<M::Ix>,
         collapse_mecs: CollapseMecs,
         unique_fixed_point_required: bool,
-    ) -> Mecs<M::StateIndex, M::ChoiceIndex>;
+    ) -> Mecs<M::Ix>;
 
-    fn compute_reward_mecs<
-        M: ReadStateSpace
-            + ReadPredecessors<
-                StateIdx = M::StateIndex,
-                ChoiceIdx = M::ChoiceIndex,
-                BranchIdx = M::BranchIndex,
-            >,
-        Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>,
-    >(
+    fn compute_reward_mecs<M: ReadStateSpace + ReadPredecessors, Rew: RewardsSource<M::Ix>>(
         model: &M,
-        s_inf: &SInfinity<M::StateIndex>,
+        s_inf: &SInfinity<M::Ix>,
         rewards: &Rew,
-    ) -> Mecs<M::StateIndex, M::ChoiceIndex>;
+    ) -> Mecs<M::Ix>;
 
     fn neutral_value() -> f64;
     fn is_better(before: f64, new: f64) -> bool;
@@ -71,53 +41,30 @@ pub trait NonDeterminismResolver {
 pub struct Maximise {}
 
 impl NonDeterminismResolver for Maximise {
-    fn compute_s0_s1<
-        M: ReadStateSpace
-            + ReadAtomicPropositions<StateIdx = M::StateIndex>
-            + ReadPredecessors<
-                StateIdx = M::StateIndex,
-                ChoiceIdx = M::ChoiceIndex,
-                BranchIdx = M::BranchIndex,
-            >,
-    >(
+    fn compute_s0_s1<M: ReadStateSpace + ReadAtomicPropositions + ReadPredecessors>(
         model: &M,
         goal: &StateDescription<M>,
-    ) -> S0S1<M::StateIndex> {
+    ) -> S0S1<M::Ix> {
         let s0 = crate::qualitative_reachability::s0_max(model, goal);
         let s1 = crate::qualitative_reachability::s1_max(model, goal);
         S0S1::new(s0, s1)
     }
 
-    fn compute_s_inf<
-        M: ReadStateSpace
-            + ReadAtomicPropositions<StateIdx = M::StateIndex>
-            + ReadPredecessors<
-                StateIdx = M::StateIndex,
-                ChoiceIdx = M::ChoiceIndex,
-                BranchIdx = M::BranchIndex,
-            >,
-    >(
+    fn compute_s_inf<M: ReadStateSpace + ReadAtomicPropositions + ReadPredecessors>(
         model: &M,
         goal: &StateDescription<M>,
-    ) -> SInfinity<M::StateIndex> {
+    ) -> SInfinity<M::Ix> {
         let s0 = crate::qualitative_reachability::s0_min(model, goal);
         let s1 = crate::qualitative_reachability::s1_min(model, goal, &s0);
         SInfinity::new(s1, goal_flags(model, goal))
     }
 
-    fn compute_probability_mecs<
-        M: ReadStateSpace
-            + ReadPredecessors<
-                StateIdx = M::StateIndex,
-                ChoiceIdx = M::ChoiceIndex,
-                BranchIdx = M::BranchIndex,
-            >,
-    >(
+    fn compute_probability_mecs<M: ReadStateSpace + ReadPredecessors>(
         model: &M,
-        s0_s1: &S0S1<M::StateIndex>,
+        s0_s1: &S0S1<M::Ix>,
         collapse_mecs: CollapseMecs,
         unique_fixed_point_required: bool,
-    ) -> Mecs<M::StateIndex, M::ChoiceIndex> {
+    ) -> Mecs<M::Ix> {
         if unique_fixed_point_required || collapse_mecs == CollapseMecs::WheneverPossible {
             let excluded_choices = To1::with_entries(vec![false; model.choices().len()]);
             Mecs::compute(
@@ -129,19 +76,11 @@ impl NonDeterminismResolver for Maximise {
         }
     }
 
-    fn compute_reward_mecs<
-        M: ReadStateSpace
-            + ReadPredecessors<
-                StateIdx = M::StateIndex,
-                ChoiceIdx = M::ChoiceIndex,
-                BranchIdx = M::BranchIndex,
-            >,
-        Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>,
-    >(
+    fn compute_reward_mecs<M: ReadStateSpace + ReadPredecessors, Rew: RewardsSource<M::Ix>>(
         model: &M,
-        s_inf: &SInfinity<M::StateIndex>,
+        s_inf: &SInfinity<M::Ix>,
         rewards: &Rew,
-    ) -> Mecs<M::StateIndex, M::ChoiceIndex> {
+    ) -> Mecs<M::Ix> {
         let _ = (model, s_inf, rewards);
         Mecs::empty()
     }
@@ -162,70 +101,39 @@ impl NonDeterminismResolver for Maximise {
 pub struct Minimise {}
 
 impl NonDeterminismResolver for Minimise {
-    fn compute_s0_s1<
-        M: ReadStateSpace
-            + ReadAtomicPropositions<StateIdx = M::StateIndex>
-            + ReadPredecessors<
-                StateIdx = M::StateIndex,
-                ChoiceIdx = M::ChoiceIndex,
-                BranchIdx = M::BranchIndex,
-            >,
-    >(
+    fn compute_s0_s1<M: ReadStateSpace + ReadAtomicPropositions + ReadPredecessors>(
         model: &M,
         goal: &StateDescription<M>,
-    ) -> S0S1<M::StateIndex> {
+    ) -> S0S1<M::Ix> {
         let s0 = crate::qualitative_reachability::s0_min(model, goal);
         let s1 = crate::qualitative_reachability::s1_min(model, goal, &s0);
         S0S1::new(s0, s1)
     }
 
-    fn compute_s_inf<
-        M: ReadStateSpace
-            + ReadAtomicPropositions<StateIdx = M::StateIndex>
-            + ReadPredecessors<
-                StateIdx = M::StateIndex,
-                ChoiceIdx = M::ChoiceIndex,
-                BranchIdx = M::BranchIndex,
-            >,
-    >(
+    fn compute_s_inf<M: ReadStateSpace + ReadAtomicPropositions + ReadPredecessors>(
         model: &M,
         goal: &StateDescription<M>,
-    ) -> SInfinity<M::StateIndex> {
+    ) -> SInfinity<M::Ix> {
         let s1 = crate::qualitative_reachability::s1_max(model, goal);
         SInfinity::new(s1, goal_flags(model, goal))
     }
 
-    fn compute_probability_mecs<
-        M: ReadStateSpace
-            + ReadPredecessors<
-                StateIdx = M::StateIndex,
-                ChoiceIdx = M::ChoiceIndex,
-                BranchIdx = M::BranchIndex,
-            >,
-    >(
+    fn compute_probability_mecs<M: ReadStateSpace + ReadPredecessors>(
         model: &M,
-        s0_s1: &S0S1<M::StateIndex>,
+        s0_s1: &S0S1<M::Ix>,
         collapse_mecs: CollapseMecs,
         unique_fixed_point_required: bool,
-    ) -> Mecs<M::StateIndex, M::ChoiceIndex> {
+    ) -> Mecs<M::Ix> {
         // All ECs among maybe states have been removed by the qualitative precomputation
         let _ = (model, s0_s1, collapse_mecs, unique_fixed_point_required);
         Mecs::empty()
     }
 
-    fn compute_reward_mecs<
-        M: ReadStateSpace
-            + ReadPredecessors<
-                StateIdx = M::StateIndex,
-                ChoiceIdx = M::ChoiceIndex,
-                BranchIdx = M::BranchIndex,
-            >,
-        Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>,
-    >(
+    fn compute_reward_mecs<M: ReadStateSpace + ReadPredecessors, Rew: RewardsSource<M::Ix>>(
         model: &M,
-        s_inf: &SInfinity<M::StateIndex>,
+        s_inf: &SInfinity<M::Ix>,
         rewards: &Rew,
-    ) -> Mecs<M::StateIndex, M::ChoiceIndex> {
+    ) -> Mecs<M::Ix> {
         Mecs::compute(
             model,
             ExcludeStatesAndChoices::new(
@@ -252,10 +160,10 @@ impl NonDeterminismResolver for Minimise {
     }
 }
 
-fn goal_flags<M: ReadStateSpace + ReadAtomicPropositions<StateIdx = M::StateIndex>>(
+fn goal_flags<M: ReadStateSpace + ReadAtomicPropositions>(
     model: &M,
     goal: &StateDescription<M>,
-) -> To1<M::StateIndex, bool> {
+) -> To1<StateIndex<M::Ix>, bool> {
     let mut flags = To1::with_entries(vec![false; model.states().len()]);
     goal.write_flags(&mut flags);
     flags
@@ -263,8 +171,8 @@ fn goal_flags<M: ReadStateSpace + ReadAtomicPropositions<StateIdx = M::StateInde
 
 fn non_maybe_states<M: ReadStateSpace>(
     model: &M,
-    precomputed_states: &impl PrecomputedStates<StateIdx = M::StateIndex>,
-) -> To1<M::StateIndex, bool> {
+    precomputed_states: &impl PrecomputedStates<Ix = M::Ix>,
+) -> To1<StateIndex<M::Ix>, bool> {
     let mut excluded = To1::with_capacity(model.states().len());
     for state in model.states() {
         excluded.add_checked(state, !precomputed_states.is_maybe_state(state));
@@ -272,10 +180,10 @@ fn non_maybe_states<M: ReadStateSpace>(
     excluded
 }
 
-fn rewarded_choices<M: ReadStateSpace, Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>>(
+fn rewarded_choices<M: ReadStateSpace, Rew: RewardsSource<M::Ix>>(
     model: &M,
     rewards: &Rew,
-) -> To1<M::ChoiceIndex, bool> {
+) -> To1<ChoiceIndex<M::Ix>, bool> {
     let mut rewarded = To1::with_capacity(model.choices().len());
     for state in model.states() {
         let state_reward = if rewards.has_state_rewards() {

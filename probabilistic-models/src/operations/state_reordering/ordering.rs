@@ -54,9 +54,9 @@ impl<SI: Index> StateOrdering<SI> {
 
 #[cfg(test)]
 mod tests {
-    use crate::StateIndex;
     use crate::operations::state_reordering::StateOrdering;
     use crate::operations::state_reordering::test_utils::{ordering, state};
+    use crate::{StateIndex, Uniform};
     use typed_index_collections::To1;
 
     #[test]
@@ -133,7 +133,7 @@ mod tests {
     #[test]
     fn maximal_index() {
         // Indices 0..=254 are valid for `u8`, so 255 states is the maximum.
-        let old_to_new = To1::<StateIndex<u8>, StateIndex<u8>>::with_entries(
+        let old_to_new = To1::<StateIndex<Uniform<u8>>, StateIndex<Uniform<u8>>>::with_entries(
             (0..u8::MAX).rev().map(state).collect::<Vec<_>>(),
         );
         assert_eq!(old_to_new.len(), 255);
@@ -146,7 +146,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "StateOrdering::new can only be called")]
     fn exhaustive_index() {
-        let old_to_new = To1::<StateIndex<u8>, StateIndex<u8>>::with_entries(
+        let old_to_new = To1::<StateIndex<Uniform<u8>>, StateIndex<Uniform<u8>>>::with_entries(
             (0..=u8::MAX).map(state).collect::<Vec<_>>(),
         );
         assert_eq!(old_to_new.len(), 256);

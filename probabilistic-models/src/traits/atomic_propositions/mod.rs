@@ -1,31 +1,31 @@
 use crate::Model;
 use crate::annotations::AtomicPropositions;
-use typed_index_collections::Index;
+use crate::{AtomicPropositionIndex, HasIx, Ix, StateIndex};
 
-pub trait ReadAtomicPropositions {
-    type StateIdx: Index;
-    type APIdx: Index;
-
+pub trait ReadAtomicPropositions: HasIx {
     fn is_atomic_proposition_set(
         &self,
-        state: Self::StateIdx,
-        atomic_proposition: Self::APIdx,
+        state: StateIndex<Self::Ix>,
+        atomic_proposition: AtomicPropositionIndex<Self::Ix>,
     ) -> bool;
 
-    fn atomic_proposition_by_name(&self, name: &str) -> Option<Self::APIdx>;
+    fn atomic_proposition_by_name(&self, name: &str) -> Option<AtomicPropositionIndex<Self::Ix>>;
 }
 
 macro_rules! derive_read_atomic_propositions {
     ($subcomponent:ident) => {
         fn is_atomic_proposition_set(
             &self,
-            state: Self::StateIdx,
-            atomic_proposition: Self::APIdx,
+            state: $crate::StateIndex<Self::Ix>,
+            atomic_proposition: $crate::AtomicPropositionIndex<Self::Ix>,
         ) -> bool {
             self.$subcomponent
                 .is_atomic_proposition_set(state, atomic_proposition)
         }
-        fn atomic_proposition_by_name(&self, name: &str) -> Option<Self::APIdx> {
+        fn atomic_proposition_by_name(
+            &self,
+            name: &str,
+        ) -> Option<$crate::AtomicPropositionIndex<Self::Ix>> {
             self.$subcomponent.atomic_proposition_by_name(name)
         }
     };
@@ -33,77 +33,70 @@ macro_rules! derive_read_atomic_propositions {
 
 pub(crate) use derive_read_atomic_propositions;
 
-impl<AI: Index, SI: Index, AEI: Index> ReadAtomicPropositions for AtomicPropositions<AI, SI, AEI> {
-    type StateIdx = SI;
-    type APIdx = AI;
-
+impl<I: Ix> ReadAtomicPropositions for AtomicPropositions<I> {
     fn is_atomic_proposition_set(
         &self,
-        state: Self::StateIdx,
-        atomic_proposition: Self::APIdx,
+        state: StateIndex<Self::Ix>,
+        atomic_proposition: AtomicPropositionIndex<Self::Ix>,
     ) -> bool {
         self.entries()[atomic_proposition][state]
     }
 
-    fn atomic_proposition_by_name(&self, name: &str) -> Option<Self::APIdx> {
+    fn atomic_proposition_by_name(&self, name: &str) -> Option<AtomicPropositionIndex<Self::Ix>> {
         self.index_by_name(name)
     }
 }
 
-impl<M, Ini, ChLabel, BrLabel, Obs, APs: ReadAtomicPropositions, Rew, Ann, StateVals, Preds>
-    ReadAtomicPropositions
-    for Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>
+impl<
+    M: HasIx,
+    Ini,
+    ChLabel,
+    BrLabel,
+    Obs,
+    APs: ReadAtomicPropositions<Ix = M::Ix>,
+    Rew,
+    Ann,
+    StateVals,
+    Preds,
+> ReadAtomicPropositions for Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>
 {
-    type StateIdx = APs::StateIdx;
-    type APIdx = APs::APIdx;
-
     derive_read_atomic_propositions!(atomic_propositions);
 }
 
 impl<T: ReadAtomicPropositions> ReadAtomicPropositions for &T {
-    type StateIdx = T::StateIdx;
-    type APIdx = T::APIdx;
-
     fn is_atomic_proposition_set(
         &self,
-        state: Self::StateIdx,
-        atomic_proposition: Self::APIdx,
+        state: StateIndex<Self::Ix>,
+        atomic_proposition: AtomicPropositionIndex<Self::Ix>,
     ) -> bool {
         (**self).is_atomic_proposition_set(state, atomic_proposition)
     }
-    fn atomic_proposition_by_name(&self, name: &str) -> Option<Self::APIdx> {
+    fn atomic_proposition_by_name(&self, name: &str) -> Option<AtomicPropositionIndex<Self::Ix>> {
         (**self).atomic_proposition_by_name(name)
     }
 }
 
 impl<T: ReadAtomicPropositions> ReadAtomicPropositions for &mut T {
-    type StateIdx = T::StateIdx;
-    type APIdx = T::APIdx;
-
     fn is_atomic_proposition_set(
         &self,
-        state: Self::StateIdx,
-        atomic_proposition: Self::APIdx,
+        state: StateIndex<Self::Ix>,
+        atomic_proposition: AtomicPropositionIndex<Self::Ix>,
     ) -> bool {
         (**self).is_atomic_proposition_set(state, atomic_proposition)
     }
-    fn atomic_proposition_by_name(&self, name: &str) -> Option<Self::APIdx> {
+    fn atomic_proposition_by_name(&self, name: &str) -> Option<AtomicPropositionIndex<Self::Ix>> {
         (**self).atomic_proposition_by_name(name)
     }
 }
 
-pub trait ReadAtomicPropositionsMaybe {
-    type StateIdx: Index;
-    type APIdx: Index;
-    type WithAtomicPropositions: ReadAtomicPropositions<StateIdx = Self::StateIdx, APIdx = Self::APIdx>;
+pub trait ReadAtomicPropositionsMaybe: HasIx {
+    type WithAtomicPropositions: ReadAtomicPropositions<Ix = Self::Ix>;
 
     fn has_atomic_propositions(&self) -> bool;
     fn try_with_atomic_propositions(self) -> Option<Self::WithAtomicPropositions>;
 }
 
 impl<T: ReadAtomicPropositions> ReadAtomicPropositionsMaybe for T {
-    type StateIdx = T::StateIdx;
-    type APIdx = T::APIdx;
     type WithAtomicPropositions = T;
 
     fn has_atomic_propositions(&self) -> bool {
@@ -116,8 +109,6 @@ impl<T: ReadAtomicPropositions> ReadAtomicPropositionsMaybe for T {
 }
 
 impl<T: ReadAtomicPropositions> ReadAtomicPropositionsMaybe for Option<T> {
-    type StateIdx = T::StateIdx;
-    type APIdx = T::APIdx;
     type WithAtomicPropositions = T;
 
     fn has_atomic_propositions(&self) -> bool {
@@ -129,12 +120,20 @@ impl<T: ReadAtomicPropositions> ReadAtomicPropositionsMaybe for Option<T> {
     }
 }
 
-impl<M, Ini, ChLabel, BrLabel, Obs, APs: ReadAtomicPropositions, Rew, Ann, StateVals, Preds>
-    ReadAtomicPropositionsMaybe
+impl<
+    M: HasIx,
+    Ini,
+    ChLabel,
+    BrLabel,
+    Obs,
+    APs: ReadAtomicPropositions<Ix = M::Ix>,
+    Rew,
+    Ann,
+    StateVals,
+    Preds,
+> ReadAtomicPropositionsMaybe
     for Model<M, Ini, ChLabel, BrLabel, Obs, Option<APs>, Rew, Ann, StateVals, Preds>
 {
-    type StateIdx = APs::StateIdx;
-    type APIdx = APs::APIdx;
     type WithAtomicPropositions =
         Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>;
 

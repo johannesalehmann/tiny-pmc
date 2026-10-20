@@ -1,16 +1,14 @@
 use crate::Model;
-use crate::labels::Labels;
+use crate::labels::ChoiceLabels;
 use crate::traits::ReadStateSpace;
-use typed_index_collections::Index;
 
 impl<M: ReadStateSpace, Ini, BrLabel, O, APs, R, A, V, P>
     Model<M, Ini, (), BrLabel, O, APs, R, A, V, P>
 {
-    pub fn with_choice_labels<ChoiceActionIdx: Index, E>(
+    pub fn with_choice_labels<E>(
         self,
-        labels: Labels<M::ChoiceIndex, ChoiceActionIdx, E>,
-    ) -> Model<M, Ini, Labels<M::ChoiceIndex, ChoiceActionIdx, E>, BrLabel, O, APs, R, A, V, P>
-    {
+        labels: ChoiceLabels<M::Ix, E>,
+    ) -> Model<M, Ini, ChoiceLabels<M::Ix, E>, BrLabel, O, APs, R, A, V, P> {
         Model {
             base: self.base,
             initial: self.initial,

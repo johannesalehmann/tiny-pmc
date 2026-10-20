@@ -2,6 +2,7 @@
 // not break and instead silently call itself. This ensures this does not happen.
 #![deny(unconditional_recursion)]
 
+use crate::Ix;
 use crate::Model;
 use crate::annotations::{AtomicPropositions, RewardAnnotations};
 use crate::base_model::{
@@ -80,7 +81,7 @@ impl<T: AsMutComponent> AsMutComponent for Option<T> {
     }
 }
 
-impl<AI: Index, SI: Index, AEI: Index> AsMutComponent for AtomicPropositions<AI, SI, AEI> {
+impl<I: Ix> AsMutComponent for AtomicPropositions<I> {
     type Output<'a>
         = &'a mut Self
     where
@@ -111,7 +112,7 @@ impl<G: AsMutComponent, P: AsMutComponent> AsMutComponent for BaseModel<G, P> {
     }
 }
 
-impl<SI: Index, CI: Index, BI: Index> AsMutComponent for ChoiceBranchGraph<SI, CI, BI> {
+impl<I: Ix> AsMutComponent for ChoiceBranchGraph<I> {
     type Output<'a>
         = &'a mut Self
     where
@@ -122,7 +123,7 @@ impl<SI: Index, CI: Index, BI: Index> AsMutComponent for ChoiceBranchGraph<SI, C
     }
 }
 
-impl<SI: Index, CI: Index> AsMutComponent for ChoiceGraph<SI, CI> {
+impl<I: Ix> AsMutComponent for ChoiceGraph<I> {
     type Output<'a>
         = &'a mut Self
     where
@@ -133,7 +134,7 @@ impl<SI: Index, CI: Index> AsMutComponent for ChoiceGraph<SI, CI> {
     }
 }
 
-impl<SI: Index, BI: Index> AsMutComponent for BranchGraph<SI, BI> {
+impl<I: Ix> AsMutComponent for BranchGraph<I> {
     type Output<'a>
         = &'a mut Self
     where
@@ -154,7 +155,7 @@ impl AsMutComponent for SinglePlayer {
     }
 }
 
-impl<SI: Index, Owner> AsMutComponent for TurnBased<SI, Owner> {
+impl<I: Ix, Owner> AsMutComponent for TurnBased<I, Owner> {
     type Output<'a>
         = &'a mut Self
     where
@@ -165,7 +166,7 @@ impl<SI: Index, Owner> AsMutComponent for TurnBased<SI, Owner> {
     }
 }
 
-impl<SI: Index> AsMutComponent for SingleInitialState<SI> {
+impl<I: Ix> AsMutComponent for SingleInitialState<I> {
     type Output<'a>
         = &'a mut Self
     where
@@ -176,7 +177,7 @@ impl<SI: Index> AsMutComponent for SingleInitialState<SI> {
     }
 }
 
-impl<SI: Index> AsMutComponent for InitialStates<SI> {
+impl<I: Ix> AsMutComponent for InitialStates<I> {
     type Output<'a>
         = &'a mut Self
     where
@@ -187,14 +188,11 @@ impl<SI: Index> AsMutComponent for InitialStates<SI> {
     }
 }
 
-impl<
-    SI: Index,
-    Single: ReadInitialStates<StateIdx = SI>,
-    Multiple: ReadInitialStates<StateIdx = SI>,
-> AsMutComponent for InitialStatesEnum<SI, Single, Multiple>
+impl<I: Ix, Single: ReadInitialStates<Ix = I>, Multiple: ReadInitialStates<Ix = I>> AsMutComponent
+    for InitialStatesEnum<I, Single, Multiple>
 {
     type Output<'a>
-        = InitialStatesEnum<SI, &'a mut Single, &'a mut Multiple>
+        = InitialStatesEnum<I, &'a mut Single, &'a mut Multiple>
     where
         Self: 'a;
 
@@ -214,9 +212,7 @@ impl<EntityIdx: Index, ActionIdx: Index, E> AsMutComponent for Labels<EntityIdx,
     }
 }
 
-impl<RI: Index, SI: Index, CI: Index, AEI: Index> AsMutComponent
-    for RewardAnnotations<RI, SI, CI, AEI>
-{
+impl<I: Ix> AsMutComponent for RewardAnnotations<I> {
     type Output<'a>
         = &'a mut Self
     where
@@ -227,9 +223,7 @@ impl<RI: Index, SI: Index, CI: Index, AEI: Index> AsMutComponent
     }
 }
 
-impl<EntityIdx: Index, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index> AsMutComponent
-    for Valuations<EntityIdx, ClassIdx, ClassEntryIdx, ValuationIdx>
-{
+impl<I: Ix, EntityIdx: Index> AsMutComponent for Valuations<I, EntityIdx> {
     type Output<'a>
         = &'a mut Self
     where
@@ -240,7 +234,7 @@ impl<EntityIdx: Index, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Inde
     }
 }
 
-impl<SI: Index, CI: Index, BI: Index, PI: Index> AsMutComponent for Predecessors<SI, CI, BI, PI> {
+impl<I: Ix> AsMutComponent for Predecessors<I> {
     type Output<'a>
         = &'a mut Self
     where

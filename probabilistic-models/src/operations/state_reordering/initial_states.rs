@@ -1,21 +1,17 @@
 use super::{PermuteStates, StateOrdering};
 use crate::initial_states::{InitialStates, InitialStatesEnum, SingleInitialState};
 use crate::traits::ReadInitialStates;
-use typed_index_collections::Index;
+use crate::{Ix, StateIndex};
 
-impl<SI: Index> PermuteStates for SingleInitialState<SI> {
-    type StateIndex = SI;
-
-    fn permute_states(&self, ordering: &StateOrdering<SI>) -> Self {
+impl<I: Ix> PermuteStates for SingleInitialState<I> {
+    fn permute_states(&self, ordering: &StateOrdering<StateIndex<I>>) -> Self {
         SingleInitialState {
             index: ordering.old_to_new[self.index],
         }
     }
 }
-impl<SI: Index> PermuteStates for InitialStates<SI> {
-    type StateIndex = SI;
-
-    fn permute_states(&self, ordering: &StateOrdering<SI>) -> Self {
+impl<I: Ix> PermuteStates for InitialStates<I> {
+    fn permute_states(&self, ordering: &StateOrdering<StateIndex<I>>) -> Self {
         let (n, ordering_n) = (self.len(), ordering.len());
         assert_eq!(
             n, ordering_n,
@@ -30,14 +26,12 @@ impl<SI: Index> PermuteStates for InitialStates<SI> {
 }
 
 impl<
-    SI: Index,
-    Single: PermuteStates<StateIndex = SI> + ReadInitialStates<StateIdx = SI>,
-    Multiple: PermuteStates<StateIndex = SI> + ReadInitialStates<StateIdx = SI>,
-> PermuteStates for InitialStatesEnum<SI, Single, Multiple>
+    I: Ix,
+    Single: PermuteStates<Ix = I> + ReadInitialStates<Ix = I>,
+    Multiple: PermuteStates<Ix = I> + ReadInitialStates<Ix = I>,
+> PermuteStates for InitialStatesEnum<I, Single, Multiple>
 {
-    type StateIndex = SI;
-
-    fn permute_states(&self, ordering: &StateOrdering<Self::StateIndex>) -> Self {
+    fn permute_states(&self, ordering: &StateOrdering<StateIndex<Self::Ix>>) -> Self {
         match self {
             InitialStatesEnum::Single(i) => InitialStatesEnum::Single(i.permute_states(ordering)),
             InitialStatesEnum::Multiple(i) => {
@@ -50,17 +44,18 @@ impl<
 #[cfg(test)]
 mod tests {
     use super::PermuteStates;
-    use crate::StateIndex;
+    use crate::Uniform;
+
     use crate::initial_states::{InitialStates, SingleInitialState};
     use crate::operations::state_reordering::StateOrdering;
     use crate::operations::state_reordering::test_utils::{state, state_ordering};
     use typed_index_collections::To1;
 
-    fn initial_states(values: &[bool]) -> InitialStates<StateIndex<usize>> {
+    fn initial_states(values: &[bool]) -> InitialStates<Uniform<usize>> {
         To1::with_entries(values.to_vec())
     }
 
-    fn single(index: usize) -> SingleInitialState<StateIndex<usize>> {
+    fn single(index: usize) -> SingleInitialState<Uniform<usize>> {
         SingleInitialState {
             index: state(index),
         }

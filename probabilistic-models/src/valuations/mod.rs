@@ -1,3 +1,4 @@
+use crate::{HasIx, Ix, StateIndex, ValuationClassEntryIndex, ValuationClassIndex, ValuationIndex};
 use std::fmt::{Display, Formatter};
 use std::ops::Range;
 use typed_index_collections::{Index, RawIndex, SemiboundedIndexRange, To1, ValuePerIndexSource};
@@ -11,37 +12,60 @@ mod state_valuations;
 pub use class::{Type, ValuationClass, ValuationClassEntry, ValuationEntryDescription};
 
 #[derive(Default)]
-pub struct Valuations<EntityIdx: Index, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index>
-{
-    classes: To1<ClassIdx, ValuationClass<ClassEntryIdx>>,
-    valuations: To1<ClassIdx, ValuationClassData<ValuationIdx>>,
-    entity_to_class: To1<EntityIdx, ClassIdx>,
-    entity_to_index: To1<EntityIdx, ValuationIdx>,
+pub struct Valuations<I: Ix, EntityIdx: Index = StateIndex<I>> {
+    classes: To1<ValuationClassIndex<I>, ValuationClass<ValuationClassEntryIndex<I>>>,
+    valuations: To1<ValuationClassIndex<I>, ValuationClassData<ValuationIndex<I>>>,
+    entity_to_class: To1<EntityIdx, ValuationClassIndex<I>>,
+    entity_to_index: To1<EntityIdx, ValuationIndex<I>>,
 }
-impl<EI: Index, CI: Index, CEI: Index, VI: Index> crate::Component for Valuations<EI, CI, CEI, VI> {}
+impl<I: Ix, EntityIdx: Index> crate::Component for Valuations<I, EntityIdx> {}
 
-impl<EntityIdx: Index, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index>
-    Valuations<EntityIdx, ClassIdx, ClassEntryIdx, ValuationIdx>
-{
-    pub fn add_class(&mut self, class: ValuationClass<ClassEntryIdx>) -> ClassIdx {
+impl<I: Ix, EntityIdx: Index> HasIx for Valuations<I, EntityIdx> {
+    type Ix = I;
+}
+
+/// The valuation of a single entry.
+///
+/// Internally, this stores a reference to the underlying valuation struct and the index of the
+/// entity.
+pub type ModelValuationEntry<'a, I> =
+    ValuationEntry<'a, ValuationClassIndex<I>, ValuationClassEntryIndex<I>, ValuationIndex<I>>;
+/// The valuation of a single entry, storing a mutable reference to the model's valuation struct.
+pub type ModelValuationEntryMut<'a, I> =
+    ValuationEntryMut<'a, ValuationClassIndex<I>, ValuationClassEntryIndex<I>, ValuationIndex<I>>;
+/// A stand-alone valuation, i.e. one that hasn't been added to a model's valuation struct yet.
+///
+/// This still stores a reference to the valuation struct. This is required to access the valuation
+/// class, which stores the internal layout of a valuation. Once the valuation is constructed, you
+/// no longer need this layout, so you can convert it to a bare valuation.
+pub type ModelStandaloneValuation<'a, I> =
+    StandaloneValuation<'a, ValuationClassIndex<I>, ValuationClassEntryIndex<I>, ValuationIndex<I>>;
+pub type ModelBareStandaloneValuation<I> =
+    BareStandaloneValuation<ValuationClassIndex<I>, ValuationIndex<I>>;
+
+impl<I: Ix, EntityIdx: Index> Valuations<I, EntityIdx> {
+    pub fn add_class(
+        &mut self,
+        class: ValuationClass<ValuationClassEntryIndex<I>>,
+    ) -> ValuationClassIndex<I> {
         let bits = class.size_in_bits();
         let index = self.classes.add(class);
         self.valuations.add(ValuationClassData::new(bits));
         index
     }
 
-    pub fn class(&self, class_index: ClassIdx) -> &ValuationClass<ClassEntryIdx> {
+    pub fn class(
+        &self,
+        class_index: ValuationClassIndex<I>,
+    ) -> &ValuationClass<ValuationClassEntryIndex<I>> {
         &self.classes[class_index]
     }
 
-    pub fn classes(&self) -> SemiboundedIndexRange<ClassIdx> {
+    pub fn classes(&self) -> SemiboundedIndexRange<ValuationClassIndex<I>> {
         self.classes.keys()
     }
 
-    pub fn entry(
-        &self,
-        entity: EntityIdx,
-    ) -> ValuationEntry<'_, ClassIdx, ClassEntryIdx, ValuationIdx> {
+    pub fn entry(&self, entity: EntityIdx) -> ModelValuationEntry<'_, I> {
         let class_index = self.entity_to_class[entity];
         let index = self.entity_to_index[entity];
         ValuationEntry {
@@ -52,10 +76,7 @@ impl<EntityIdx: Index, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Inde
         }
     }
 
-    pub fn entry_mut(
-        &mut self,
-        entity: EntityIdx,
-    ) -> ValuationEntryMut<'_, ClassIdx, ClassEntryIdx, ValuationIdx> {
+    pub fn entry_mut(&mut self, entity: EntityIdx) -> ModelValuationEntryMut<'_, I> {
         let class_index = self.entity_to_class[entity];
         let index = self.entity_to_index[entity];
         ValuationEntryMut {
@@ -66,7 +87,11 @@ impl<EntityIdx: Index, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Inde
         }
     }
 
-    pub fn add_empty_valuation(&mut self, entity: EntityIdx, class: ClassIdx) -> ValuationIdx {
+    pub fn add_empty_valuation(
+        &mut self,
+        entity: EntityIdx,
+        class: ValuationClassIndex<I>,
+    ) -> ValuationIndex<I> {
         let index = self.valuations[class].valuations.add_empty_entry();
         self.entity_to_index.add_checked(entity, index);
         self.entity_to_class.add_checked(entity, class);
@@ -75,8 +100,8 @@ impl<EntityIdx: Index, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Inde
 
     pub fn create_standalone_valuation(
         &self,
-        class_index: ClassIdx,
-    ) -> StandaloneValuation<'_, ClassIdx, ClassEntryIdx, ValuationIdx> {
+        class_index: ValuationClassIndex<I>,
+    ) -> ModelStandaloneValuation<'_, I> {
         let class = &self.classes[class_index];
         let data = ValuationClassData::new(class.size_in_bits());
         StandaloneValuation {
@@ -86,11 +111,13 @@ impl<EntityIdx: Index, ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Inde
         }
     }
 
-    pub fn add_valuation<Val: GetValuationClassIndex<ClassIdx> + GetValuationData<ValuationIdx>>(
+    pub fn add_valuation<
+        Val: GetValuationClassIndex<ValuationClassIndex<I>> + GetValuationData<ValuationIndex<I>>,
+    >(
         &mut self,
         entity: EntityIdx,
         valuation: &Val,
-    ) -> ValuationIdx {
+    ) -> ValuationIndex<I> {
         if !valuation.valuation_class_data().strings.is_empty() {
             panic!("Adding StandaloneValuations with strings is not yet supported");
         }
@@ -675,6 +702,9 @@ pub enum ValuationVector<ValuationIdx: Index> {
     U32(To1<ValuationIdx, u32>),
     U64(To1<ValuationIdx, u64>),
     MultiField {
+        // TODO: Use a different index type (always usize?) for the fields, as ValuationIdx could be
+        //  too narrow. (e.g. if there are 200 entries, ValuationIdx is u8 and fields_per_value is
+        //  2, then this would fail).
         fields: To1<ValuationIdx, u64>,
         fields_per_valuation: usize,
     },

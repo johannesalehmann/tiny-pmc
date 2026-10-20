@@ -1,16 +1,14 @@
 use crate::Model;
-use crate::labels::Labels;
+use crate::labels::BranchLabels;
 use crate::traits::ReadStateSpace;
-use typed_index_collections::Index;
 
 impl<M: ReadStateSpace, Ini, ChLabel, O, APs, R, A, V, P>
     Model<M, Ini, ChLabel, (), O, APs, R, A, V, P>
 {
-    pub fn with_branch_labels<BranchActionIdx: Index, E>(
+    pub fn with_branch_labels<E>(
         self,
-        labels: Labels<M::BranchIndex, BranchActionIdx, E>,
-    ) -> Model<M, Ini, ChLabel, Labels<M::BranchIndex, BranchActionIdx, E>, O, APs, R, A, V, P>
-    {
+        labels: BranchLabels<M::Ix, E>,
+    ) -> Model<M, Ini, ChLabel, BranchLabels<M::Ix, E>, O, APs, R, A, V, P> {
         Model {
             base: self.base,
             initial: self.initial,

@@ -1,5 +1,7 @@
 mod action_names;
 pub use action_names::ActionNameChoiceLabels;
+use probabilistic_models::ChoiceIndex;
+use probabilistic_models::HasIx;
 
 mod command_indices;
 pub use command_indices::{CommandIndexComponent, CommandIndexLabels, CommandIndices};
@@ -7,15 +9,14 @@ pub use command_indices::{CommandIndexComponent, CommandIndexLabels, CommandIndi
 mod no_choice_labels;
 pub use no_choice_labels::NoChoiceLabels;
 
-pub trait ChoiceLabelBuilder {
-    type ChoiceIdx;
+pub trait ChoiceLabelBuilder: HasIx {
     type NameIndex;
     type ContextType: Context;
     type ChoiceLabels;
     fn name_to_index(&mut self, name: Option<&str>) -> Self::NameIndex;
     fn label_choice(
         &mut self,
-        choice_index: Self::ChoiceIdx,
+        choice_index: ChoiceIndex<Self::Ix>,
         name: &Self::NameIndex,
         context: &Self::ContextType,
     );

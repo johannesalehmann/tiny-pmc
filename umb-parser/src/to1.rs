@@ -101,9 +101,9 @@ pub fn parse_to1_bool<From: Index, R: Read>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use probabilistic_models::StateIndex;
+    use probabilistic_models::{StateIndex, Uniform};
 
-    type S = StateIndex<u32>;
+    type S = StateIndex<Uniform<u32>>;
 
     fn bytes(values: &[u64]) -> Vec<u8> {
         values.iter().flat_map(|v| v.to_le_bytes()).collect()

@@ -1,24 +1,22 @@
 use crate::traits::ReadStateSpace;
 use crate::traits::state_specifier::StateSet;
-use typed_index_collections::{Index, To1};
+use crate::{HasIx, StateIndex};
+use typed_index_collections::To1;
 
-pub trait Reachability {
-    type StateIdx: Index;
+pub trait Reachability: HasIx {
     // TODO: Allow user to provide reusable buffer and open state list to reduce allocations (and
     //  do the same for backward reachability
-    fn reachable_states<S: StateSet<StateIdx = Self::StateIdx>>(
+    fn reachable_states<S: StateSet<StateIdx = StateIndex<Self::Ix>>>(
         &self,
         from: S,
-    ) -> To1<Self::StateIdx, bool>;
+    ) -> To1<StateIndex<Self::Ix>, bool>;
 }
 
 impl<M: ReadStateSpace> Reachability for M {
-    type StateIdx = M::StateIndex;
-
-    fn reachable_states<S: StateSet<StateIdx = Self::StateIdx>>(
+    fn reachable_states<S: StateSet<StateIdx = StateIndex<Self::Ix>>>(
         &self,
         from: S,
-    ) -> To1<Self::StateIdx, bool> {
+    ) -> To1<StateIndex<Self::Ix>, bool> {
         let mut open_states = from.iter().collect::<Vec<_>>();
         let mut buffer = To1::with_entries(vec![false; self.states().len()]);
 
@@ -50,19 +48,19 @@ mod tests {
     use crate::mdp;
     use crate::traits::AsStateSet;
     use crate::traits::reachability::Reachability;
-    use crate::{BranchIndex, ChoiceIndex, StateIndex};
+    use crate::{StateIndex, Uniform};
     use typed_index_collections::To1;
 
     fn create_mdp() -> (
-        Mdp<StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>>,
-        StateIndex<usize>,
-        StateIndex<usize>,
-        StateIndex<usize>,
-        StateIndex<usize>,
-        StateIndex<usize>,
-        StateIndex<usize>,
-        StateIndex<usize>,
-        StateIndex<usize>,
+        Mdp<Uniform<usize>>,
+        StateIndex<Uniform<usize>>,
+        StateIndex<Uniform<usize>>,
+        StateIndex<Uniform<usize>>,
+        StateIndex<Uniform<usize>>,
+        StateIndex<Uniform<usize>>,
+        StateIndex<Uniform<usize>>,
+        StateIndex<Uniform<usize>>,
+        StateIndex<Uniform<usize>>,
     ) {
         mdp!(mdp = {
             s0 -> 0.3: s1 & 0.7: s5,

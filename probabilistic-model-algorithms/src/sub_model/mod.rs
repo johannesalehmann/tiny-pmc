@@ -13,19 +13,19 @@ use probabilistic_models::base_model::Mdp;
 use probabilistic_models::traits::{
     BuildChoiceBranchGraph, BuildStates, ClearModel, ReadPredecessors, ReadStateSpace,
 };
+use probabilistic_models::{ChoiceIndex, Ix, StateIndex};
 pub use sub_model_rewards::{RewardsSource, StateAndChoiceRewards, UnitStateRewards};
 use typed_index_collections::{Index, RawIndex, To1};
 
-pub struct SubModel<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index> {
-    pub mdp: Mdp<NewSI, NewCI, NewBI>,
+/// A sub-model of some model. The sub-model uses index profile `NewI`, the original model uses profile `I`.
+pub struct SubModel<I: Ix, NewI: Ix> {
+    pub mdp: Mdp<NewI>,
     /// The value that external states (i.e. those outside the SCC) contribute to a choice.
-    pub choice_exit_values: To1<NewCI, f64>,
-    pub to_old_state_index: To1<NewSI, StateIdx>,
+    pub choice_exit_values: To1<ChoiceIndex<NewI>, f64>,
+    pub to_old_state_index: To1<StateIndex<NewI>, StateIndex<I>>,
 }
 
-impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
-    SubModel<StateIdx, NewSI, NewCI, NewBI>
-{
+impl<I: Ix, NewI: Ix> SubModel<I, NewI> {
     pub fn empty() -> Self {
         Self {
             mdp: Mdp::default(),
@@ -35,21 +35,14 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
     }
 
     pub fn from_scc<
-        M: ReadStateSpace<StateIndex = StateIdx>
-            + ReadPredecessors<
-                StateIdx = StateIdx,
-                ChoiceIdx = M::ChoiceIndex,
-                BranchIdx = M::BranchIndex,
-            >,
-        ScI: Index,
-        ScEI: Index,
-        Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>,
+        M: ReadStateSpace<Ix = I> + ReadPredecessors,
+        Rew: RewardsSource<I>,
         O: StateOrdering,
     >(
         model: &M,
-        scc: Scc<'_, ScI, ScEI, M::StateIndex>,
-        mecs: &Mecs<M::StateIndex, M::ChoiceIndex>,
-        values: &To1<M::StateIndex, f64>,
+        scc: Scc<'_, I>,
+        mecs: &Mecs<I>,
+        values: &To1<StateIndex<I>, f64>,
         rewards: &Rew,
         ordering: &O,
     ) -> Self {
@@ -60,28 +53,18 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
     }
 
     pub fn rebuild_from_scc<
-        M: ReadStateSpace<StateIndex = StateIdx>
-            + ReadPredecessors<
-                StateIdx = StateIdx,
-                ChoiceIdx = M::ChoiceIndex,
-                BranchIdx = M::BranchIndex,
-            >,
-        ScI: Index,
-        ScEI: Index,
-        Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>,
+        M: ReadStateSpace<Ix = I> + ReadPredecessors,
+        Rew: RewardsSource<I>,
         O: StateOrdering,
     >(
         &mut self,
         model: &M,
-        scc: Scc<'_, ScI, ScEI, M::StateIndex>,
-        mecs: &Mecs<M::StateIndex, M::ChoiceIndex>,
-        values: &To1<M::StateIndex, f64>,
+        scc: Scc<'_, I>,
+        mecs: &Mecs<I>,
+        values: &To1<StateIndex<I>, f64>,
         rewards: &Rew,
         ordering: &O,
-        context: &mut SubModelConstructionContext<
-            M::StateIndex,
-            O::Context<M::StateIndex, M::ChoiceIndex>,
-        >,
+        context: &mut SubModelConstructionContext<I, O::Context<I>>,
     ) {
         self.to_old_state_index.clear();
         ordering.compute_ordering(
@@ -127,7 +110,7 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
                         } else if let Some(target) = context.to_new_state_index[destination] {
                             // We first add the actual probability. After the loop, we then scale
                             // the probability to account for removed self loops.
-                            let target = NewSI::from_raw(NewSI::RawType::from_usize(target));
+                            let target = StateIndex::from_raw(NewI::State::from_usize(target));
                             self.mdp.add_branch(p, target);
                         } else {
                             exit_value += p * values[destination];
@@ -166,10 +149,10 @@ impl<StateIdx: Index, NewSI: Index, NewCI: Index, NewBI: Index>
 mod tests {
     use super::{IndexBased, IndexOrderDirection, SubModel, SubModelConstructionContext};
     use crate::mecs::Mecs;
-    use crate::sccs::{ExcludeStatesAndChoices, SccEntryIndex, SccIndex, Sccs};
+    use crate::sccs::{ExcludeStatesAndChoices, Sccs};
     use crate::value_iteration::precomputed_states::S0S1;
     use probabilistic_models::mdp;
-    use probabilistic_models::{BranchIndex, ChoiceIndex, Model, PredecessorIndex, StateIndex};
+    use probabilistic_models::{BranchIndex, ChoiceIndex, Model, StateIndex, Sub, Uniform};
     use typed_index_collections::{Csr, Index, To1};
 
     #[test]
@@ -180,9 +163,9 @@ mod tests {
             s1 -> 1.0: s0,
             s2 -> 1.0: s2
         });
-        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
+        let model = Model::new(mdp).compute_predecessors();
 
-        let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> = Sccs::compute_tarjan(
+        let sccs: Sccs<Uniform<usize>> = Sccs::compute_tarjan(
             &model,
             &S0S1::new(
                 To1::with_entries(vec![false, false, false]),
@@ -193,8 +176,7 @@ mod tests {
         let ordering = IndexBased::new(IndexOrderDirection::BackToFront);
         let mut context = SubModelConstructionContext::new(&model, &ordering);
 
-        let mut sub_model: SubModel<_, StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>> =
-            SubModel::empty();
+        let mut sub_model: SubModel<_, Sub<Uniform<usize>>> = SubModel::empty();
         sub_model.rebuild_from_scc(
             &model,
             sccs.scc_of_state(StateIndex::from_raw(0)).unwrap(),
@@ -239,9 +221,9 @@ mod tests {
             s1 -> 1.0: s1,
             s2 -> 1.0: s2
         });
-        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
+        let model = Model::new(mdp).compute_predecessors();
 
-        let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> = Sccs::compute_tarjan(
+        let sccs: Sccs<Uniform<usize>> = Sccs::compute_tarjan(
             &model,
             &S0S1::new(
                 To1::with_entries(vec![false, false, false]),
@@ -252,8 +234,7 @@ mod tests {
         let ordering = IndexBased::new(IndexOrderDirection::BackToFront);
         let mut context = SubModelConstructionContext::new(&model, &ordering);
 
-        let mut sub_model: SubModel<_, StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>> =
-            SubModel::empty();
+        let mut sub_model: SubModel<_, Sub<Uniform<usize>>> = SubModel::empty();
         sub_model.rebuild_from_scc(
             &model,
             sccs.scc_of_state(StateIndex::from_raw(0)).unwrap(),
@@ -291,9 +272,9 @@ mod tests {
             s1 -> 1.0: s0,
             s2 -> 1.0: s2
         });
-        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
+        let model = Model::new(mdp).compute_predecessors();
 
-        let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> = Sccs::compute_tarjan(
+        let sccs: Sccs<Uniform<usize>> = Sccs::compute_tarjan(
             &model,
             &S0S1::new(
                 To1::with_entries(vec![false, false, false]),
@@ -304,8 +285,7 @@ mod tests {
         let ordering = IndexBased::new(IndexOrderDirection::BackToFront);
         let mut context = SubModelConstructionContext::new(&model, &ordering);
 
-        let mut sub_model: SubModel<_, StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>> =
-            SubModel::empty();
+        let mut sub_model: SubModel<_, Sub<Uniform<usize>>> = SubModel::empty();
         sub_model.rebuild_from_scc(
             &model,
             sccs.scc_of_state(StateIndex::from_raw(0)).unwrap(),
@@ -361,9 +341,9 @@ mod tests {
             s1 -> 0.5: s1 & 0.5: s2,
             s2 -> 1.0: s2
         });
-        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
+        let model = Model::new(mdp).compute_predecessors();
 
-        let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> = Sccs::compute_tarjan(
+        let sccs: Sccs<Uniform<usize>> = Sccs::compute_tarjan(
             &model,
             &S0S1::new(
                 To1::with_entries(vec![false, false, false]),
@@ -374,16 +354,9 @@ mod tests {
         let ordering = IndexBased::new(IndexOrderDirection::BackToFront);
         let mut context = SubModelConstructionContext::new(&model, &ordering);
 
-        let mut sub_models: Vec<
-            SubModel<StateIndex<usize>, StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>>,
-        > = Vec::new();
+        let mut sub_models: Vec<SubModel<Uniform<usize>, Sub<Uniform<usize>>>> = Vec::new();
         for scc in sccs.reverse_topological_ordering() {
-            let mut sub_model: SubModel<
-                _,
-                StateIndex<usize>,
-                ChoiceIndex<usize>,
-                BranchIndex<usize>,
-            > = SubModel::empty();
+            let mut sub_model: SubModel<_, Sub<Uniform<usize>>> = SubModel::empty();
             sub_model.rebuild_from_scc(
                 &model,
                 scc,
@@ -425,14 +398,13 @@ mod tests {
             s1 -> 0.5: s0 & 0.5: s2,
             s2 -> 1.0: s2
         });
-        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
+        let model = Model::new(mdp).compute_predecessors();
 
         let precomputed_states = S0S1::new(
             To1::with_entries(vec![false, false, false]),
             To1::with_entries(vec![false, false, true]),
         );
-        let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> =
-            Sccs::compute_tarjan(&model, &precomputed_states);
+        let sccs: Sccs<Uniform<usize>> = Sccs::compute_tarjan(&model, &precomputed_states);
         let mecs = Mecs::compute(
             &model,
             ExcludeStatesAndChoices::new(
@@ -445,8 +417,7 @@ mod tests {
         let ordering = IndexBased::new(IndexOrderDirection::BackToFront);
         let mut context = SubModelConstructionContext::new(&model, &ordering);
 
-        let mut sub_model: SubModel<_, StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>> =
-            SubModel::empty();
+        let mut sub_model: SubModel<_, Sub<Uniform<usize>>> = SubModel::empty();
         sub_model.rebuild_from_scc(
             &model,
             sccs.scc_of_state(StateIndex::from_raw(0)).unwrap(),

@@ -1,6 +1,6 @@
-use crate::Model;
 use crate::base_model::{BaseModel, ChoiceBranchGraph, SinglePlayer};
 use crate::traits::ReadStateSpace;
+use crate::{ChoiceIndex, Model};
 use std::borrow::Borrow;
 use std::fmt::{Display, Formatter};
 use std::fs::File;
@@ -49,15 +49,15 @@ impl<G, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, P> Display
         P,
     >
 where
-    G: ReadStateSpace + Borrow<ChoiceBranchGraph<G::StateIndex, G::ChoiceIndex, G::BranchIndex>>,
+    G: ReadStateSpace + Borrow<ChoiceBranchGraph<G::Ix>>,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "{}", self.model.states().len())?;
         write!(f, " {}", self.model.choices().len())?;
         writeln!(f, " {}", self.model.branches().len())?;
         let mut prev_state = None;
-        let mut prev_choice = Some(G::ChoiceIndex::from_raw(
-            <G::ChoiceIndex as Index>::RawType::zero(),
+        let mut prev_choice = Some(ChoiceIndex::<G::Ix>::from_raw(
+            <ChoiceIndex<G::Ix> as Index>::RawType::zero(),
         ));
         let mut choice_counter = 0;
         for (state, choice, branch) in self.model.base.state_choice_branch_triples() {

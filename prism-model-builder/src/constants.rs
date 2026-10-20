@@ -14,10 +14,10 @@ impl<
     L: crate::labels::LabelSource,
     IS: crate::initial_states_source::InitialStateSource,
     B: crate::bases::BaseModelBuilder,
-    IB: crate::initial_states_builder::InitialStatesBuilder<StateIdx = B::StateIdx>,
-    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = B::StateIdx>,
-    CL: crate::choice_labels::ChoiceLabelBuilder<ChoiceIdx = B::ChoiceIdx>,
-    Rew: crate::rewards_builder::RewardsBuilder<StateIdx = B::StateIdx, ChoiceIdx = B::ChoiceIdx>,
+    IB: crate::initial_states_builder::InitialStatesBuilder<Ix = B::Ix>,
+    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<Ix = B::Ix>,
+    CL: crate::choice_labels::ChoiceLabelBuilder<Ix = B::Ix>,
+    Rew: crate::rewards_builder::RewardsBuilder<Ix = B::Ix>,
 > ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CL, Rew>
 {
     pub fn with_constant(

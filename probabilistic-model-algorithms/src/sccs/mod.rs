@@ -1,6 +1,6 @@
 use probabilistic_models::traits::ReadStateSpace;
-use probabilistic_models::typed_index_collections::{Csr, To1, ValuePerIndexSource, index};
-use probabilistic_models::{Index, RawIndex};
+use probabilistic_models::typed_index_collections::{Csr, To1, ValuePerIndexSource};
+use probabilistic_models::{Index, Ix, RawIndex, StateIndex};
 
 mod exclusion_criterion;
 pub use exclusion_criterion::*;
@@ -9,16 +9,16 @@ mod tarjan;
 pub use tarjan::SccChainWeight;
 use typed_index_collections::IndexRange;
 
-index!(SccIndex);
-index!(SccEntryIndex);
-pub struct Sccs<SccIdx: Index, SccEntryIdx: Index, StateIdx: Index> {
-    sccs: Csr<SccIdx, SccEntryIdx>,
-    scc_entries: To1<SccEntryIdx, StateIdx>,
-    state_to_scc: To1<StateIdx, Option<SccIdx>>, // This maps to None for excluded states
+typed_index_collections::index!(SccIndex<I: Ix> => I::State);
+typed_index_collections::index!(SccEntryIndex<I: Ix> => I::State);
+pub struct Sccs<I: Ix> {
+    sccs: Csr<SccIndex<I>, SccEntryIndex<I>>,
+    scc_entries: To1<SccEntryIndex<I>, StateIndex<I>>,
+    state_to_scc: To1<StateIndex<I>, Option<SccIndex<I>>>, // This maps to None for excluded states
 }
 
-impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
-    pub fn new<Inner: IntoIterator<Item = SI>, Outer: IntoIterator<Item = Inner>>(
+impl<I: Ix> Sccs<I> {
+    pub fn new<Inner: IntoIterator<Item = StateIndex<I>>, Outer: IntoIterator<Item = Inner>>(
         scc_iter: Outer,
         state_count: usize,
     ) -> Self {
@@ -29,7 +29,7 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
             let scc_index = sccs.add_empty_entry();
             for state in scc {
                 let entry_index = scc_entries.add(state);
-                sccs.extend_last_entry(entry_index + ScEI::RawType::one());
+                sccs.extend_last_entry(entry_index + I::State::one());
                 state_to_scc[state] = Some(scc_index);
             }
         }
@@ -40,46 +40,40 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
         }
     }
 
-    pub fn reverse_topological_ordering(
-        &self,
-    ) -> ReverseTopologicalOrderIterator<'_, ScI, ScEI, SI> {
+    pub fn reverse_topological_ordering(&self) -> ReverseTopologicalOrderIterator<'_, I> {
         ReverseTopologicalOrderIterator {
             sccs: self,
             current: self.sccs.keys().end(),
         }
     }
 
-    pub fn entries(&self, scc: ScI) -> IndexRange<ScEI> {
+    pub fn entries(&self, scc: SccIndex<I>) -> IndexRange<SccEntryIndex<I>> {
         self.sccs.index(scc)
     }
 
-    pub fn state_of_entry(&self, entry: ScEI) -> SI {
+    pub fn state_of_entry(&self, entry: SccEntryIndex<I>) -> StateIndex<I> {
         self.scc_entries[entry]
     }
 
     /// Returns the index of the SCC containing the state, or `None` if the state was excluded
     /// from the SCC computation.
-    pub fn scc_index_of_state(&self, state: SI) -> Option<ScI> {
+    pub fn scc_index_of_state(&self, state: StateIndex<I>) -> Option<SccIndex<I>> {
         self.state_to_scc[state]
     }
 
-    pub fn scc(&self, index: ScI) -> Scc<'_, ScI, ScEI, SI> {
+    pub fn scc(&self, index: SccIndex<I>) -> Scc<'_, I> {
         Scc { sccs: self, index }
     }
 
-    pub fn scc_of_state(&self, state: SI) -> Option<Scc<'_, ScI, ScEI, SI>> {
+    pub fn scc_of_state(&self, state: StateIndex<I>) -> Option<Scc<'_, I>> {
         Some(self.scc(self.scc_index_of_state(state)?))
     }
 
-    pub fn compute_dependencies<
-        SccDependencyIdx: Index,
-        M: ReadStateSpace<StateIndex = SI>,
-        Ex: ExclusionCriterion<SI, M::ChoiceIndex>,
-    >(
+    pub fn compute_dependencies<M: ReadStateSpace<Ix = I>, Ex: ExclusionCriterion<I>>(
         &self,
         model: &M,
         exclusion_criterion: &Ex,
-    ) -> SccDependencies<ScI, SccDependencyIdx> {
+    ) -> SccDependencies<I> {
         SccDependencies::compute(model, self, exclusion_criterion)
     }
 
@@ -94,17 +88,17 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
 }
 
 #[derive(Clone, Copy)]
-pub struct Scc<'a, ScI: Index, ScEI: Index, SI: Index> {
-    sccs: &'a Sccs<ScI, ScEI, SI>,
-    index: ScI,
+pub struct Scc<'a, I: Ix> {
+    sccs: &'a Sccs<I>,
+    index: SccIndex<I>,
 }
 
-impl<'a, ScI: Index, ScEI: Index, SI: Index> Scc<'a, ScI, ScEI, SI> {
+impl<'a, I: Ix> Scc<'a, I> {
     pub fn size(&self) -> usize {
         self.sccs.entries(self.index).len()
     }
 
-    pub fn as_singleton(&self) -> Option<SI> {
+    pub fn as_singleton(&self) -> Option<StateIndex<I>> {
         if self.size() == 1 {
             Some(self.states().next().unwrap())
         } else {
@@ -112,7 +106,7 @@ impl<'a, ScI: Index, ScEI: Index, SI: Index> Scc<'a, ScI, ScEI, SI> {
         }
     }
 
-    pub fn states(&self) -> impl Iterator<Item = SI> + 'a {
+    pub fn states(&self) -> impl Iterator<Item = StateIndex<I>> + 'a {
         let sccs = self.sccs;
         let index = self.index;
         sccs.entries(index)
@@ -120,28 +114,26 @@ impl<'a, ScI: Index, ScEI: Index, SI: Index> Scc<'a, ScI, ScEI, SI> {
             .map(move |entry| sccs.state_of_entry(entry))
     }
 
-    pub fn contains(&self, state: SI) -> bool {
+    pub fn contains(&self, state: StateIndex<I>) -> bool {
         self.sccs.scc_index_of_state(state) == Some(self.index)
     }
 
-    pub fn get_index(&self) -> ScI {
+    pub fn get_index(&self) -> SccIndex<I> {
         self.index
     }
 }
 
-pub struct ReverseTopologicalOrderIterator<'a, ScI: Index, ScEI: Index, SI: Index> {
-    sccs: &'a Sccs<ScI, ScEI, SI>,
-    current: ScI,
+pub struct ReverseTopologicalOrderIterator<'a, I: Ix> {
+    sccs: &'a Sccs<I>,
+    current: SccIndex<I>,
 }
 
-impl<'a, ScI: Index, ScEI: Index, SI: Index> Iterator
-    for ReverseTopologicalOrderIterator<'a, ScI, ScEI, SI>
-{
-    type Item = Scc<'a, ScI, ScEI, SI>;
+impl<'a, I: Ix> Iterator for ReverseTopologicalOrderIterator<'a, I> {
+    type Item = Scc<'a, I>;
 
     fn next(&mut self) -> Option<Self::Item> {
         if self.current.raw().as_usize() > 0 {
-            self.current -= ScI::RawType::one();
+            self.current -= I::State::one();
             Some(Scc {
                 sccs: self.sccs,
                 index: self.current,
@@ -157,25 +149,18 @@ impl<'a, ScI: Index, ScEI: Index, SI: Index> Iterator
     }
 }
 
-impl<'a, ScI: Index, ScEI: Index, SI: Index> ExactSizeIterator
-    for ReverseTopologicalOrderIterator<'a, ScI, ScEI, SI>
-{
+impl<'a, I: Ix> ExactSizeIterator for ReverseTopologicalOrderIterator<'a, I> {}
+
+typed_index_collections::index!(SccDependencyIndex<I: Ix> => I::Branch);
+pub struct SccDependencies<I: Ix> {
+    scc_dependencies: Csr<SccIndex<I>, SccDependencyIndex<I>>,
+    depends_on: To1<SccDependencyIndex<I>, SccIndex<I>>,
 }
 
-index!(SccDependencyIndex);
-pub struct SccDependencies<SccIdx: Index, SccDependencyIdx: Index> {
-    scc_dependencies: Csr<SccIdx, SccDependencyIdx>,
-    depends_on: To1<SccDependencyIdx, SccIdx>,
-}
-
-impl<SccIdx: Index, SccDependencyIdx: Index> SccDependencies<SccIdx, SccDependencyIdx> {
-    pub fn compute<
-        M: ReadStateSpace,
-        ScEI: Index,
-        Ex: ExclusionCriterion<M::StateIndex, M::ChoiceIndex>,
-    >(
+impl<I: Ix> SccDependencies<I> {
+    pub fn compute<M: ReadStateSpace<Ix = I>, Ex: ExclusionCriterion<I>>(
         model: &M,
-        sccs: &Sccs<SccIdx, ScEI, M::StateIndex>,
+        sccs: &Sccs<I>,
         exclusion_criterion: &Ex,
     ) -> Self {
         let scc_count = sccs.sccs.keys().len();
@@ -185,7 +170,7 @@ impl<SccIdx: Index, SccDependencyIdx: Index> SccDependencies<SccIdx, SccDependen
         // For each SCC, remembers the last SCC whose dependency list it was already added to.
         // This lets us deduplicate the (possibly many) edges leading to the same successor SCC
         // in O(1) per edge, without allocating and clearing a fresh set for every SCC.
-        let mut last_recorded_for: To1<SccIdx, Option<SccIdx>> =
+        let mut last_recorded_for: To1<SccIndex<I>, Option<SccIndex<I>>> =
             To1::with_entries(vec![None; scc_count]);
 
         for scc in sccs.sccs.keys() {
@@ -216,11 +201,11 @@ impl<SccIdx: Index, SccDependencyIdx: Index> SccDependencies<SccIdx, SccDependen
         }
     }
 
-    pub fn dependencies(&self, scc: SccIdx) -> IndexRange<SccDependencyIdx> {
+    pub fn dependencies(&self, scc: SccIndex<I>) -> IndexRange<SccDependencyIndex<I>> {
         self.scc_dependencies.index(scc)
     }
 
-    pub fn dependency_to_scc(&self, dependency: SccDependencyIdx) -> SccIdx {
+    pub fn dependency_to_scc(&self, dependency: SccDependencyIndex<I>) -> SccIndex<I> {
         self.depends_on[dependency]
     }
 
@@ -231,18 +216,15 @@ impl<SccIdx: Index, SccDependencyIdx: Index> SccDependencies<SccIdx, SccDependen
 
     /// Returns the number of SCCs with more than one state in the chain of SCC dependencies that
     /// contains the most such SCCs.
-    pub fn longest_non_singleton_chain<ScEI: Index, SI: Index>(
-        &self,
-        sccs: &Sccs<SccIdx, ScEI, SI>,
-    ) -> usize {
+    pub fn longest_non_singleton_chain(&self, sccs: &Sccs<I>) -> usize {
         self.heaviest_non_singleton_chain(sccs, |_| 1)
     }
 
     /// Like [`Self::heaviest_chain`], but SCCs with only one state have weight 0.
-    pub fn heaviest_non_singleton_chain<ScEI: Index, SI: Index>(
+    pub fn heaviest_non_singleton_chain(
         &self,
-        sccs: &Sccs<SccIdx, ScEI, SI>,
-        weight: impl Fn(SccIdx) -> usize,
+        sccs: &Sccs<I>,
+        weight: impl Fn(SccIndex<I>) -> usize,
     ) -> usize {
         self.heaviest_chain(|scc| {
             if sccs.scc(scc).as_singleton().is_some() {
@@ -254,8 +236,8 @@ impl<SccIdx: Index, SccDependencyIdx: Index> SccDependencies<SccIdx, SccDependen
     }
 
     /// Returns the largest total weight of any chain of SCC dependencies.
-    pub fn heaviest_chain(&self, weight: impl Fn(SccIdx) -> usize) -> usize {
-        let mut longest_chain_from: To1<SccIdx, usize> =
+    pub fn heaviest_chain(&self, weight: impl Fn(SccIndex<I>) -> usize) -> usize {
+        let mut longest_chain_from: To1<SccIndex<I>, usize> =
             To1::with_entries(vec![0; self.scc_dependencies.keys().len()]);
         let mut longest = 0;
 
@@ -263,7 +245,7 @@ impl<SccIdx: Index, SccDependencyIdx: Index> SccDependencies<SccIdx, SccDependen
         // dependency chain length for every SCC.
         let mut scc = self.scc_dependencies.keys().end();
         while scc.raw().as_usize() > 0 {
-            scc -= SccIdx::RawType::one();
+            scc -= I::State::one();
 
             let chain_length = self
                 .dependencies(scc)
@@ -284,24 +266,15 @@ impl<SccIdx: Index, SccDependencyIdx: Index> SccDependencies<SccIdx, SccDependen
 mod tests {
     // TODO: Tests currently only cover kosajaru, even though tarjan is used more often given its
     //  better performance.
-    use super::{
-        ExcludeStatesAndChoices, SccDependencies, SccDependencyIndex, SccEntryIndex, SccIndex, Sccs,
-    };
+    use super::{ExcludeStatesAndChoices, SccDependencies, SccIndex, Sccs};
     use crate::value_iteration::precomputed_states::S0S1;
     use probabilistic_models::mdp;
     use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
-    use probabilistic_models::{BranchIndex, ChoiceIndex, Model, PredecessorIndex, StateIndex};
+    use probabilistic_models::{Model, StateIndex, Uniform};
     use typed_index_collections::{Index, To1};
 
-    pub(super) fn complex_model() -> impl ReadStateSpace<
-        StateIndex = StateIndex<usize>,
-        ChoiceIndex = ChoiceIndex<usize>,
-        BranchIndex = BranchIndex<usize>,
-    > + ReadPredecessors<
-        StateIdx = StateIndex<usize>,
-        ChoiceIdx = ChoiceIndex<usize>,
-        BranchIdx = BranchIndex<usize>,
-    > {
+    pub(super) fn complex_model()
+    -> impl ReadStateSpace<Ix = Uniform<usize>> + ReadPredecessors<Ix = Uniform<usize>> {
         mdp!(mdp = {
             s0 -> 1.0: s1,
             s1 -> 1.0: s2,
@@ -312,17 +285,13 @@ mod tests {
             s5 -> 0.3: s5 & 0.7: s5
         });
 
-        Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>()
+        Model::new(mdp).compute_predecessors()
     }
 
     #[test]
     fn scc_wrapper() {
         let model = complex_model();
-        let sccs =
-            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute_kosaraju(
-                &model,
-                &(),
-            );
+        let sccs = Sccs::<Uniform<usize>>::compute_kosaraju(&model, &());
 
         let scc = sccs.scc_of_state(StateIndex::from_raw(1)).unwrap();
 
@@ -346,18 +315,10 @@ mod tests {
     #[test]
     fn scc_dependencies_complex() {
         let model = complex_model();
-        let sccs =
-            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute_kosaraju(
-                &model,
-                &(),
-            );
-        let dependencies = SccDependencies::<SccIndex<usize>, SccDependencyIndex<usize>>::compute(
-            &model,
-            &sccs,
-            &(),
-        );
+        let sccs = Sccs::<Uniform<usize>>::compute_kosaraju(&model, &());
+        let dependencies = SccDependencies::<Uniform<usize>>::compute(&model, &sccs, &());
 
-        let deps_of = |scc: SccIndex<usize>| {
+        let deps_of = |scc: SccIndex<Uniform<usize>>| {
             dependencies
                 .dependencies(scc)
                 .into_iter()
@@ -378,17 +339,9 @@ mod tests {
     #[test]
     fn longest_chain_empty() {
         mdp!(mdp = {});
-        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
-        let sccs =
-            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute_kosaraju(
-                &model,
-                &(),
-            );
-        let dependencies = SccDependencies::<SccIndex<usize>, SccDependencyIndex<usize>>::compute(
-            &model,
-            &sccs,
-            &(),
-        );
+        let model = Model::new(mdp).compute_predecessors();
+        let sccs = Sccs::<Uniform<usize>>::compute_kosaraju(&model, &());
+        let dependencies = SccDependencies::<Uniform<usize>>::compute(&model, &sccs, &());
 
         assert_eq!(dependencies.longest_chain(), 0);
     }
@@ -403,17 +356,9 @@ mod tests {
             s3 -> deadlock
         });
 
-        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
-        let sccs =
-            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute_kosaraju(
-                &model,
-                &(),
-            );
-        let dependencies = SccDependencies::<SccIndex<usize>, SccDependencyIndex<usize>>::compute(
-            &model,
-            &sccs,
-            &(),
-        );
+        let model = Model::new(mdp).compute_predecessors();
+        let sccs = Sccs::<Uniform<usize>>::compute_kosaraju(&model, &());
+        let dependencies = SccDependencies::<Uniform<usize>>::compute(&model, &sccs, &());
 
         assert_eq!(dependencies.longest_chain(), 4);
     }
@@ -426,17 +371,13 @@ mod tests {
             s2 -> 1.0: s0
         });
 
-        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
+        let model = Model::new(mdp).compute_predecessors();
 
         let precomputed_states = S0S1::new(
             To1::with_entries(vec![false, true, false]),
             To1::with_entries(vec![false, false, false]),
         );
-        let sccs =
-            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute_kosaraju(
-                &model,
-                &precomputed_states,
-            );
+        let sccs = Sccs::<Uniform<usize>>::compute_kosaraju(&model, &precomputed_states);
 
         assert_eq!(sccs.state_to_scc[StateIndex::from_raw(1)], None);
         let scc0 = sccs.state_to_scc[StateIndex::from_raw(0)].unwrap();
@@ -446,12 +387,9 @@ mod tests {
             "excluding state 1 must prevent 0 and 2 from merging into one SCC"
         );
 
-        let dependencies = SccDependencies::<SccIndex<usize>, SccDependencyIndex<usize>>::compute(
-            &model,
-            &sccs,
-            &precomputed_states,
-        );
-        let deps_of = |scc: SccIndex<usize>| {
+        let dependencies =
+            SccDependencies::<Uniform<usize>>::compute(&model, &sccs, &precomputed_states);
+        let deps_of = |scc: SccIndex<Uniform<usize>>| {
             dependencies
                 .dependencies(scc)
                 .into_iter()
@@ -472,18 +410,13 @@ mod tests {
             s2 -> deadlock
         });
 
-        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
+        let model = Model::new(mdp).compute_predecessors();
         let exclusion = ExcludeStatesAndChoices::new(
             To1::with_entries(vec![false, false, false]),
             To1::with_entries(vec![true, false]),
         );
-        let sccs =
-            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute_kosaraju(
-                &model, &exclusion,
-            );
-        let dependencies = SccDependencies::<SccIndex<usize>, SccDependencyIndex<usize>>::compute(
-            &model, &sccs, &exclusion,
-        );
+        let sccs = Sccs::<Uniform<usize>>::compute_kosaraju(&model, &exclusion);
+        let dependencies = SccDependencies::<Uniform<usize>>::compute(&model, &sccs, &exclusion);
 
         let scc0 = sccs.scc_index_of_state(StateIndex::from_raw(0)).unwrap();
         let scc2 = sccs.scc_index_of_state(StateIndex::from_raw(2)).unwrap();
@@ -507,17 +440,9 @@ mod tests {
             s2 -> 1.0: s1
         });
 
-        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
-        let sccs =
-            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute_kosaraju(
-                &model,
-                &(),
-            );
-        let dependencies = SccDependencies::<SccIndex<usize>, SccDependencyIndex<usize>>::compute(
-            &model,
-            &sccs,
-            &(),
-        );
+        let model = Model::new(mdp).compute_predecessors();
+        let sccs = Sccs::<Uniform<usize>>::compute_kosaraju(&model, &());
+        let dependencies = SccDependencies::<Uniform<usize>>::compute(&model, &sccs, &());
 
         let scc0 = sccs.state_to_scc[StateIndex::from_raw(0)].unwrap();
         let scc1 = sccs.state_to_scc[StateIndex::from_raw(1)].unwrap();
@@ -545,17 +470,9 @@ mod tests {
             s4 -> deadlock,
         });
 
-        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
-        let sccs =
-            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute_kosaraju(
-                &model,
-                &(),
-            );
-        let dependencies = SccDependencies::<SccIndex<usize>, SccDependencyIndex<usize>>::compute(
-            &model,
-            &sccs,
-            &(),
-        );
+        let model = Model::new(mdp).compute_predecessors();
+        let sccs = Sccs::<Uniform<usize>>::compute_kosaraju(&model, &());
+        let dependencies = SccDependencies::<Uniform<usize>>::compute(&model, &sccs, &());
 
         assert_eq!(dependencies.longest_chain(), 4);
     }

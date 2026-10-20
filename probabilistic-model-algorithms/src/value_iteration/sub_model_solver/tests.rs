@@ -13,7 +13,7 @@ fn value_iteration_zero_valued_state() {
     });
     let exit_values = To1::with_entries(vec![1.0, 1.0, 0.0]);
     let mut solver = ValueIteration::create(2);
-    let values = solver.solve::<Minimise, _, _, _>(&mdp, &exit_values, 1e-6, f64::INFINITY);
+    let values = solver.solve::<Minimise, _>(&mdp, &exit_values, 1e-6, f64::INFINITY);
     assert_eq!(values, [1.0, 0.0]);
 }
 
@@ -26,7 +26,7 @@ fn optimistic_value_iteration_zero_valued_state() {
     });
     let exit_values = To1::with_entries(vec![1.0, 1.0, 0.0]);
     let mut solver = OptimisticValueIteration::create(2);
-    let values = solver.solve::<Minimise, _, _, _>(&mdp, &exit_values, 1e-6, f64::INFINITY);
+    let values = solver.solve::<Minimise, _>(&mdp, &exit_values, 1e-6, f64::INFINITY);
     assert_eq!(values, [1.0, 0.0]);
 }
 
@@ -39,7 +39,7 @@ fn value_iteration_eps_zero() {
     });
     let exit_values = To1::with_entries(vec![0.5, 0.5]);
     let mut solver = ValueIteration::create(2);
-    let values = solver.solve::<Maximise, _, _, _>(&mdp, &exit_values, 0.0, 1.0);
+    let values = solver.solve::<Maximise, _>(&mdp, &exit_values, 0.0, 1.0);
     for value in values {
         assert!((value - 1.0).abs() < 1e-15, "Expected 1, got {value}");
     }
@@ -56,7 +56,7 @@ fn optimistic_value_iteration_rounding_above_max_value() {
     });
     let exit_values = To1::with_entries(vec![0.34 + 0.56, 0.0]);
     let mut solver = OptimisticValueIteration::create(2);
-    let values = solver.solve::<Maximise, _, _, _>(&mdp, &exit_values, 1e-6, 1.0);
+    let values = solver.solve::<Maximise, _>(&mdp, &exit_values, 1e-6, 1.0);
     for &value in values {
         assert!(
             (1.0 - 1e-6..=1.0).contains(&value),

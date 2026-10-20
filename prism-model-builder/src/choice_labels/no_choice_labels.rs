@@ -1,14 +1,18 @@
 use crate::ModelBuilder;
 use crate::choice_labels::{ActionNameChoiceLabels, ChoiceLabelBuilder, CommandIndexLabels};
 use prism_model::Span;
+use probabilistic_models::{ChoiceIndex, HasIx, Ix};
 use std::marker::PhantomData;
-use typed_index_collections::Index;
 
-pub struct NoChoiceLabels<ChoiceIdx> {
-    _phantom_data: PhantomData<ChoiceIdx>,
+pub struct NoChoiceLabels<I: Ix> {
+    _phantom_data: PhantomData<I>,
 }
 
-impl<ChoiceIdx> NoChoiceLabels<ChoiceIdx> {
+impl<I: Ix> HasIx for NoChoiceLabels<I> {
+    type Ix = I;
+}
+
+impl<I: Ix> NoChoiceLabels<I> {
     pub fn new() -> Self {
         Self {
             _phantom_data: PhantomData,
@@ -16,7 +20,7 @@ impl<ChoiceIdx> NoChoiceLabels<ChoiceIdx> {
     }
 }
 
-impl<ChoiceIdx> Default for NoChoiceLabels<ChoiceIdx> {
+impl<I: Ix> Default for NoChoiceLabels<I> {
     fn default() -> Self {
         Self::new()
     }
@@ -29,37 +33,24 @@ impl<
     L: crate::labels::LabelSource,
     IS: crate::initial_states_source::InitialStateSource,
     B: crate::bases::BaseModelBuilder,
-    IB: crate::initial_states_builder::InitialStatesBuilder<StateIdx = B::StateIdx>,
-    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = B::StateIdx>,
-    Rew: crate::rewards_builder::RewardsBuilder<StateIdx = B::StateIdx, ChoiceIdx = B::ChoiceIdx>,
-> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, NoChoiceLabels<B::ChoiceIdx>, Rew>
+    IB: crate::initial_states_builder::InitialStatesBuilder<Ix = B::Ix>,
+    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<Ix = B::Ix>,
+    Rew: crate::rewards_builder::RewardsBuilder<Ix = B::Ix>,
+> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, NoChoiceLabels<B::Ix>, Rew>
 {
-    pub fn label_choices_with_action_names<ActionIdx: Index>(
+    pub fn label_choices_with_action_names(
         self,
-    ) -> ModelBuilder<
-        'a,
-        S,
-        Q,
-        L,
-        IS,
-        B,
-        IB,
-        APs,
-        ActionNameChoiceLabels<B::ChoiceIdx, ActionIdx>,
-        Rew,
-    > {
+    ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, ActionNameChoiceLabels<B::Ix>, Rew> {
         self.map_choice_labels(ActionNameChoiceLabels::default())
     }
-    pub fn label_choices_with_command_indices<ActionIdx: Index>(
+    pub fn label_choices_with_command_indices(
         self,
-    ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CommandIndexLabels<B::ChoiceIdx, ActionIdx>, Rew>
-    {
+    ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CommandIndexLabels<B::Ix>, Rew> {
         self.map_choice_labels(CommandIndexLabels::default())
     }
 }
 
-impl<ChoiceIdx: Index> ChoiceLabelBuilder for NoChoiceLabels<ChoiceIdx> {
-    type ChoiceIdx = ChoiceIdx;
+impl<I: Ix> ChoiceLabelBuilder for NoChoiceLabels<I> {
     type NameIndex = ();
     type ContextType = ();
     type ChoiceLabels = ();
@@ -70,7 +61,7 @@ impl<ChoiceIdx: Index> ChoiceLabelBuilder for NoChoiceLabels<ChoiceIdx> {
 
     fn label_choice(
         &mut self,
-        _choice_index: Self::ChoiceIdx,
+        _choice_index: ChoiceIndex<Self::Ix>,
         _name: &Self::NameIndex,
         _context: &Self::ContextType,
     ) {

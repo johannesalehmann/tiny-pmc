@@ -3,23 +3,21 @@ use crate::mecs::Mecs;
 use crate::sccs::Scc;
 use crate::sub_model::RewardsSource;
 use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
+use probabilistic_models::{Ix, StateIndex};
 use std::collections::VecDeque;
-use typed_index_collections::{Index, To1};
+use typed_index_collections::To1;
 
 pub struct Legacy;
 
-pub struct LegacyContext<SI: Index> {
-    visited: To1<SI, bool>,
-    open_list: VecDeque<SI>,
+pub struct LegacyContext<I: Ix> {
+    visited: To1<StateIndex<I>, bool>,
+    open_list: VecDeque<StateIndex<I>>,
 }
 
 impl StateOrdering for Legacy {
-    type Context<SI: Index, CI: Index> = LegacyContext<SI>;
+    type Context<I: Ix> = LegacyContext<I>;
 
-    fn create_context<M: ReadStateSpace>(
-        &self,
-        model: &M,
-    ) -> Self::Context<M::StateIndex, M::ChoiceIndex> {
+    fn create_context<M: ReadStateSpace>(&self, model: &M) -> Self::Context<M::Ix> {
         LegacyContext {
             visited: To1::with_entries(vec![false; model.states().len()]),
             open_list: VecDeque::new(),
@@ -27,24 +25,18 @@ impl StateOrdering for Legacy {
     }
 
     fn compute_ordering<
-        M: ReadStateSpace<StateIndex = SI, ChoiceIndex = CI, BranchIndex = BI>
-            + ReadPredecessors<StateIdx = SI, ChoiceIdx = CI, BranchIdx = BI>,
-        SI: Index,
-        CI: Index,
-        BI: Index,
-        ScI: Index,
-        ScEI: Index,
-        NewSI: Index,
-        Rew: RewardsSource<SI, CI>,
+        M: ReadStateSpace + ReadPredecessors,
+        NewI: Ix,
+        Rew: RewardsSource<M::Ix>,
     >(
         &self,
         model: &M,
-        scc: Scc<'_, ScI, ScEI, SI>,
-        mecs: &Mecs<SI, CI>,
-        values: &To1<SI, f64>,
+        scc: Scc<'_, M::Ix>,
+        mecs: &Mecs<M::Ix>,
+        values: &To1<StateIndex<M::Ix>, f64>,
         rewards: &Rew,
-        context: &mut Self::Context<SI, CI>,
-        to_old_state_index: &mut To1<NewSI, SI>,
+        context: &mut Self::Context<M::Ix>,
+        to_old_state_index: &mut To1<StateIndex<NewI>, StateIndex<M::Ix>>,
     ) {
         // Find states that can leave the SCC into a state with a non-zero value or that have a
         // non-zero reward. If an SCC has no such states, all states within it also have value zero,
@@ -87,10 +79,10 @@ impl StateOrdering for Legacy {
     }
 }
 
-fn has_non_zero_reward<M: ReadStateSpace, Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>>(
+fn has_non_zero_reward<M: ReadStateSpace, Rew: RewardsSource<M::Ix>>(
     model: &M,
     rewards: &Rew,
-    state: M::StateIndex,
+    state: StateIndex<M::Ix>,
 ) -> bool {
     (rewards.has_state_rewards() && rewards.state_reward(state) != 0.0)
         || (rewards.has_choice_rewards()

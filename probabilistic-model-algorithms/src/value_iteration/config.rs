@@ -3,7 +3,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 pub use super::solve_order::{
-    EpsAllocationScheme, SccTimingOutput, SubModelHook, SubModelSolveInfo,
+    EpsAllocationScheme, SccTimingOutput, SubModelHook, SubModelIx, SubModelSolveInfo,
 };
 pub use super::sub_model_solver::SolveStatistics;
 

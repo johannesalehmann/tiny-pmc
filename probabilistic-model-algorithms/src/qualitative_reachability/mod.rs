@@ -1,31 +1,24 @@
 use crate::state_description::StateDescription;
 use probabilistic_models::traits::{ReadAtomicPropositions, ReadPredecessors, ReadStateSpace};
+use probabilistic_models::{ChoiceIndex, StateIndex};
 use typed_index_collections::To1;
 // The functions in this file implement Algorithms 4.1 to 4.4 from "Forejt, V., Kwiatkowska, M.,
 // Norman, G., & Parker, D. (2011). Automated verification techniques for probabilistic systems"
 
-pub fn s0_min<
-    M: ReadStateSpace
-        + ReadAtomicPropositions<StateIdx = M::StateIndex>
-        + ReadPredecessors<
-            StateIdx = M::StateIndex,
-            ChoiceIdx = M::ChoiceIndex,
-            BranchIdx = M::BranchIndex,
-        >,
->(
+pub fn s0_min<M: ReadStateSpace + ReadAtomicPropositions + ReadPredecessors>(
     model: &M,
     goal: &StateDescription<M>,
-) -> To1<M::StateIndex, bool> {
+) -> To1<StateIndex<M::Ix>, bool> {
     let mut open_list = Vec::new();
     let mut result = To1::with_entries(vec![true; model.states().len()]);
     // For every state, the number of its choices that do not (yet) have a branch into the
     // complement of `result`. A state leaves `result` only once this counter reaches zero, i.e.
     // once *every* choice of the state reaches the complement with positive probability.
-    let mut remaining_choices: To1<M::StateIndex, u32> =
+    let mut remaining_choices: To1<StateIndex<M::Ix>, u32> =
         To1::with_capacity(model.states().len());
     // Records the choices that are already known to have a branch into the complement of `result`,
     // so that a choice with several such branches decrements its state's counter only once.
-    let mut choice_reaches_complement: To1<M::ChoiceIndex, bool> =
+    let mut choice_reaches_complement: To1<ChoiceIndex<M::Ix>, bool> =
         To1::with_entries(vec![false; model.choices().len()]);
     for state in model.states() {
         remaining_choices.add(model.choices_of_state(state).len() as u32);
@@ -55,19 +48,11 @@ pub fn s0_min<
     result
 }
 
-pub fn s1_min<
-    M: ReadStateSpace
-        + ReadAtomicPropositions<StateIdx = M::StateIndex>
-        + ReadPredecessors<
-            StateIdx = M::StateIndex,
-            ChoiceIdx = M::ChoiceIndex,
-            BranchIdx = M::BranchIndex,
-        >,
->(
+pub fn s1_min<M: ReadStateSpace + ReadAtomicPropositions + ReadPredecessors>(
     model: &M,
     goal: &StateDescription<M>,
-    s0_states: &To1<M::StateIndex, bool>,
-) -> To1<M::StateIndex, bool> {
+    s0_states: &To1<StateIndex<M::Ix>, bool>,
+) -> To1<StateIndex<M::Ix>, bool> {
     let mut result = To1::with_capacity(model.states().len());
     let mut open_list = Vec::new();
     for (state, &value) in s0_states.enumerate() {
@@ -88,18 +73,10 @@ pub fn s1_min<
     result
 }
 
-pub fn s0_max<
-    M: ReadStateSpace
-        + ReadAtomicPropositions<StateIdx = M::StateIndex>
-        + ReadPredecessors<
-            StateIdx = M::StateIndex,
-            ChoiceIdx = M::ChoiceIndex,
-            BranchIdx = M::BranchIndex,
-        >,
->(
+pub fn s0_max<M: ReadStateSpace + ReadAtomicPropositions + ReadPredecessors>(
     model: &M,
     goal: &StateDescription<M>,
-) -> To1<M::StateIndex, bool> {
+) -> To1<StateIndex<M::Ix>, bool> {
     let mut open_list = Vec::new();
     let mut result = To1::with_entries(vec![true; model.states().len()]);
     for state in model.states() {
@@ -121,18 +98,10 @@ pub fn s0_max<
 }
 
 // TODO: There are asymptotically faster algorithms for this that might be worth investigating.
-pub fn s1_max<
-    M: ReadStateSpace
-        + ReadAtomicPropositions<StateIdx = M::StateIndex>
-        + ReadPredecessors<
-            StateIdx = M::StateIndex,
-            ChoiceIdx = M::ChoiceIndex,
-            BranchIdx = M::BranchIndex,
-        >,
->(
+pub fn s1_max<M: ReadStateSpace + ReadAtomicPropositions + ReadPredecessors>(
     model: &M,
     goal: &StateDescription<M>,
-) -> To1<M::StateIndex, bool> {
+) -> To1<StateIndex<M::Ix>, bool> {
     let mut result = To1::with_entries(vec![true; model.states().len()]);
     let mut inner_buffer = To1::with_entries(vec![false; model.states().len()]);
     let mut open_list = Vec::new();

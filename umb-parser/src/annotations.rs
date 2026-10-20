@@ -1,12 +1,12 @@
 use crate::csr::parse_csr;
 use crate::index::{Annotation, TransitionSystem};
 use crate::to1::{BoolTo1Error, FromLeBytes, To1Error, parse_to1, parse_to1_bool};
-use crate::{AEI, API, BI, CI, OI, PI, RI, SI, SequenceIndex, StringIndex};
+use crate::{AnnotationEntryIndex, BI, CI, OI, PI, SI, SequenceIndex, StringIndex};
 use probabilistic_models::annotations::{
     AtomicPropositions, EntityRewards, RewardAnnotations, StateChoiceRewards, TypedAnnotation,
 };
 use probabilistic_models::typed_index_collections::{Csr, To1};
-use probabilistic_models::{AnnotationEntryIndex, Index};
+use probabilistic_models::{DefaultIx, Index};
 use std::collections::HashMap;
 use std::io::Read;
 
@@ -118,8 +118,8 @@ impl AnnotationGroupInProgress<bool> {
     pub fn finish_as_aps(
         self,
         annotations: &HashMap<String, Annotation>,
-    ) -> AtomicPropositions<API, SI, AEI> {
-        let mut aps: AtomicPropositions<API, SI, AEI> = Default::default();
+    ) -> AtomicPropositions<DefaultIx> {
+        let mut aps: AtomicPropositions<DefaultIx> = Default::default();
         for (name, entry) in self.entries {
             let name = annotations[&name].alias.clone().unwrap_or(name);
 
@@ -162,13 +162,13 @@ impl AnnotationGroupInProgress<f64> {
     pub fn finish_as_rewards(
         self,
         annotations: &HashMap<String, Annotation>,
-    ) -> RewardAnnotations<RI, SI, CI, AEI> {
+    ) -> RewardAnnotations<DefaultIx> {
         // TODO: This function barely does any verification on its inputs, e.g. ignoring any other
         //  files present (such as distributions, strings), annotations besides states and choices.
-        let mut rewards: RewardAnnotations<RI, SI, CI, AEI> = RewardAnnotations::new();
+        let mut rewards: RewardAnnotations<DefaultIx> = RewardAnnotations::new();
         for (name, entry) in self.entries {
             let name = annotations[&name].alias.clone().unwrap_or(name);
-            let mut rewards_entry: StateChoiceRewards<SI, CI, AEI> = StateChoiceRewards::new();
+            let mut rewards_entry: StateChoiceRewards<DefaultIx> = StateChoiceRewards::new();
             if let Some(states) = entry.state_annotations {
                 let values = states
                     .values

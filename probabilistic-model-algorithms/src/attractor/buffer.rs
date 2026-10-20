@@ -1,10 +1,11 @@
 use probabilistic_models::base_model::{ReadOwners, TwoPlayer};
 use probabilistic_models::traits::ReadStateSpace;
-use typed_index_collections::{Index, To1};
+use probabilistic_models::{Ix, StateIndex};
+use typed_index_collections::To1;
 
-pub struct AttractorBuffer<StateIdx: Index> {
-    counts: To1<StateIdx, Count>,
-    pub open_list: Vec<StateIdx>,
+pub struct AttractorBuffer<I: Ix> {
+    counts: To1<StateIndex<I>, Count>,
+    pub open_list: Vec<StateIndex<I>>,
 }
 
 #[derive(Copy, Clone)]
@@ -32,8 +33,8 @@ impl Count {
     }
 }
 
-impl<StateIdx: Index> AttractorBuffer<StateIdx> {
-    pub fn create<M: ReadStateSpace<StateIndex = StateIdx>>(model: &M) -> Self {
+impl<I: Ix> AttractorBuffer<I> {
+    pub fn create<M: ReadStateSpace<Ix = I>>(model: &M) -> Self {
         let mut counts = To1::with_capacity(model.states().len());
         for state in model.states() {
             counts.add_checked(
@@ -47,10 +48,7 @@ impl<StateIdx: Index> AttractorBuffer<StateIdx> {
         }
     }
 
-    pub fn reset_owner_counts<
-        M: ReadStateSpace<StateIndex = StateIdx>
-            + ReadOwners<StateIdx = StateIdx, OwnerType = TwoPlayer>,
-    >(
+    pub fn reset_owner_counts<M: ReadStateSpace<Ix = I> + ReadOwners<OwnerType = TwoPlayer>>(
         &mut self,
         model: &M,
         reaching_player: TwoPlayer,
@@ -64,23 +62,23 @@ impl<StateIdx: Index> AttractorBuffer<StateIdx> {
         }
     }
 
-    pub fn reset_reaching_player(&mut self, index: StateIdx) {
+    pub fn reset_reaching_player(&mut self, index: StateIndex<I>) {
         self.counts[index].reset_reaching_player()
     }
 
-    pub fn reset_avoiding_player(&mut self, index: StateIdx) {
+    pub fn reset_avoiding_player(&mut self, index: StateIndex<I>) {
         self.counts[index].reset_avoiding_player()
     }
 
-    pub fn reset_sink_state(&mut self, index: StateIdx) {
+    pub fn reset_sink_state(&mut self, index: StateIndex<I>) {
         self.counts[index].reset_sink_state()
     }
 
-    pub fn get_value(&self, index: StateIdx) -> u32 {
+    pub fn get_value(&self, index: StateIndex<I>) -> u32 {
         self.counts[index].current
     }
 
-    pub fn set_value(&mut self, index: StateIdx, value: u32) {
+    pub fn set_value(&mut self, index: StateIndex<I>, value: u32) {
         self.counts[index].current = value
     }
 }

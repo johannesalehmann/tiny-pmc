@@ -1,5 +1,7 @@
+use super::SccEntryIndex;
 use super::{ExclusionCriterion, Sccs};
 use probabilistic_models::traits::ReadStateSpace;
+use probabilistic_models::{BranchIndex, ChoiceIndex, Ix, StateIndex};
 use typed_index_collections::{Csr, Index, IndexRangeIterator, RawIndex, To1};
 
 // Used by the optional chain-length computer. Determines how chain length is counted.
@@ -10,11 +12,8 @@ pub enum SccChainWeight {
     SizeOfNonSingletonSccs, // The value of each SCC corresponds to its size (except for singletons, which get 0)
 }
 
-impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
-    pub fn compute_tarjan<
-        M: ReadStateSpace<StateIndex = SI>,
-        Ex: ExclusionCriterion<SI, M::ChoiceIndex>,
-    >(
+impl<I: Ix> Sccs<I> {
+    pub fn compute_tarjan<M: ReadStateSpace<Ix = I>, Ex: ExclusionCriterion<I>>(
         model: &M,
         exclusion_criterion: &Ex,
     ) -> Self {
@@ -22,8 +21,8 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
     }
 
     pub fn compute_tarjan_with_longest_chain<
-        M: ReadStateSpace<StateIndex = SI>,
-        Ex: ExclusionCriterion<SI, M::ChoiceIndex>,
+        M: ReadStateSpace<Ix = I>,
+        Ex: ExclusionCriterion<I>,
     >(
         model: &M,
         exclusion_criterion: &Ex,
@@ -39,8 +38,8 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
     }
 
     fn compute_tarjan_generic<
-        M: ReadStateSpace<StateIndex = SI>,
-        Ex: ExclusionCriterion<SI, M::ChoiceIndex>,
+        M: ReadStateSpace<Ix = I>,
+        Ex: ExclusionCriterion<I>,
         C: ChainTracker,
     >(
         model: &M,
@@ -65,7 +64,8 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
             }
         }
 
-        let mut scc_entries: To1<ScEI, SI> = To1::with_capacity(scc_entry_count);
+        let mut scc_entries: To1<SccEntryIndex<I>, StateIndex<I>> =
+            To1::with_capacity(scc_entry_count);
         let mut scc_bounds = vec![0];
         let mut tarjan_stack = Vec::new();
         let mut dfs_stack = Vec::new();
@@ -164,7 +164,7 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
         scc_entries.entries_mut().reverse();
         let mut sccs = Csr::with_capacity(scc_bounds.len() - 1);
         for &bound in scc_bounds.iter().rev().skip(1) {
-            sccs.add_entry_unchecked(ScEI::from_raw(ScEI::RawType::from_usize(
+            sccs.add_entry_unchecked(SccEntryIndex::from_raw(I::State::from_usize(
                 scc_entry_count - bound,
             )));
         }
@@ -187,13 +187,13 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
     }
 }
 
-struct Frame<SI, CI: Index, BI: Index, C> {
-    state: SI,
+struct Frame<I: Ix, C> {
+    state: StateIndex<I>,
     index: usize,
     low: usize,
     chain_info: C,
-    choices: IndexRangeIterator<CI>,
-    branches: IndexRangeIterator<BI>,
+    choices: IndexRangeIterator<ChoiceIndex<I>>,
+    branches: IndexRangeIterator<BranchIndex<I>>,
 }
 
 trait ChainTracker {

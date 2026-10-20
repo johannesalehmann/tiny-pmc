@@ -1,11 +1,10 @@
 use super::{PermuteStates, StateOrdering};
 use crate::annotations::{AtomicPropositions, TypedAnnotation};
-use typed_index_collections::{Index, To1};
+use crate::{Ix, StateIndex};
+use typed_index_collections::To1;
 
-impl<SI: Index, AI: Index, AEI: Index> PermuteStates for AtomicPropositions<AI, SI, AEI> {
-    type StateIndex = SI;
-
-    fn permute_states(&self, ordering: &StateOrdering<SI>) -> Self {
+impl<I: Ix> PermuteStates for AtomicPropositions<I> {
+    fn permute_states(&self, ordering: &StateOrdering<StateIndex<I>>) -> Self {
         let mut atomic_propositions = AtomicPropositions::new();
         for (name, old_annotations) in self {
             let n = old_annotations.values().len();
@@ -32,14 +31,13 @@ impl<SI: Index, AI: Index, AEI: Index> PermuteStates for AtomicPropositions<AI, 
 #[cfg(test)]
 mod tests {
     use super::PermuteStates;
+    use crate::Uniform;
     use crate::annotations::{AtomicPropositions, TypedAnnotation};
     use crate::operations::state_reordering::StateOrdering;
     use crate::operations::state_reordering::test_utils::state_ordering;
-    use crate::{AnnotationEntryIndex, AnnotationIndex, StateIndex};
     use typed_index_collections::To1;
 
-    type Aps =
-        AtomicPropositions<AnnotationIndex<usize>, StateIndex<usize>, AnnotationEntryIndex<usize>>;
+    type Aps = AtomicPropositions<Uniform<usize>>;
 
     fn aps(entries: &[(&str, &[bool])]) -> Aps {
         let mut aps = AtomicPropositions::new();

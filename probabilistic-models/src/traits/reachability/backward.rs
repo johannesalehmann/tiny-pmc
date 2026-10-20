@@ -1,21 +1,20 @@
 use crate::traits::StateSet;
 use crate::traits::predecessors::ReadPredecessors;
-use typed_index_collections::{Index, To1};
+use crate::{HasIx, StateIndex};
+use typed_index_collections::To1;
 
-pub trait BackwardReachability {
-    type StateIdx: Index;
-    fn backward_reachable_states<S: StateSet<StateIdx = Self::StateIdx>>(
+pub trait BackwardReachability: HasIx {
+    fn backward_reachable_states<S: StateSet<StateIdx = StateIndex<Self::Ix>>>(
         &self,
         from: S,
-    ) -> To1<Self::StateIdx, bool>;
+    ) -> To1<StateIndex<Self::Ix>, bool>;
 }
 
 impl<M: ReadPredecessors> BackwardReachability for M {
-    type StateIdx = M::StateIdx;
-    fn backward_reachable_states<S: StateSet<StateIdx = Self::StateIdx>>(
+    fn backward_reachable_states<S: StateSet<StateIdx = StateIndex<Self::Ix>>>(
         &self,
         from: S,
-    ) -> To1<Self::StateIdx, bool> {
+    ) -> To1<StateIndex<Self::Ix>, bool> {
         let mut open_states = from.iter().collect::<Vec<_>>();
         let mut buffer = To1::with_entries(vec![false; self.predecessor_states().len()]);
 
@@ -43,7 +42,7 @@ impl<M: ReadPredecessors> BackwardReachability for M {
 mod tests {
     use crate::base_model::Mdp;
     use crate::traits::{AsStateSet, BackwardReachability, BuildChoiceBranchGraph, BuildStates};
-    use crate::{BranchIndex, ChoiceIndex, Model, PredecessorIndex, StateIndex};
+    use crate::{Model, StateIndex, Uniform};
     use typed_index_collections::Index;
 
     #[test]
@@ -51,8 +50,7 @@ mod tests {
         for (self_loop, extra_jump) in [(false, false), (false, true), (true, false), (true, true)]
         {
             for states in 2..5 {
-                let mut mdp =
-                    Mdp::<StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>>::new();
+                let mut mdp = Mdp::<Uniform<usize>>::default();
                 for i in 0..states {
                     assert_eq!(mdp.add_state(), StateIndex::from_raw(i));
                     if i + 1 < states && (!extra_jump || i + 2 >= states) {
@@ -68,7 +66,7 @@ mod tests {
                         mdp.add_choice_from_slice(&[(1.0, StateIndex::from_raw(i))]);
                     }
                 }
-                let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
+                let model = Model::new(mdp).compute_predecessors();
 
                 for check in 0..states {
                     let reachable =

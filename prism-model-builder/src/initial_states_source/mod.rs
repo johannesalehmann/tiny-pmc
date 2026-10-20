@@ -1,5 +1,6 @@
 mod entire_state_space;
 pub use entire_state_space::StartFromEveryState;
+use probabilistic_models::{HasIx, ValuationClassEntryIndex, ValuationClassIndex};
 
 mod reachable;
 pub use reachable::StartFromInitialStates;
@@ -7,8 +8,10 @@ pub use reachable::StartFromInitialStates;
 use crate::expression_context::ExpressionContext;
 use crate::variables::ModelVariableInfo;
 use prism_model::{Identifier, Model, Span, VariableRange, VariableReference};
-use probabilistic_models::valuations::{BareStandaloneValuation, StandaloneValuation};
-use typed_index_collections::Index;
+use probabilistic_models::valuations::{ModelBareStandaloneValuation, ModelStandaloneValuation};
+
+type ClassIdx<C> = ValuationClassIndex<<C as HasIx>::Ix>;
+type ClassEntryIdx<C> = ValuationClassEntryIndex<<C as HasIx>::Ix>;
 
 #[derive(PartialEq, Debug)]
 pub enum VariableValue {
@@ -17,22 +20,19 @@ pub enum VariableValue {
     Bool(bool),
 }
 
-pub trait Context {
+pub trait Context: HasIx {
     type Span: Span;
     type Expression;
     type ExpressionContext: ExpressionContext<Self::Expression>;
-    type ClassIdx: Index;
-    type ClassEntryIdx: Index;
-    type ValuationIdx: Index;
     fn info(
         &mut self,
     ) -> (
         &Model<VariableReference, Self::Span, Self::Expression, Identifier<Self::Span>>,
-        &ModelVariableInfo<Self::ClassIdx, Self::ClassEntryIdx>,
+        &ModelVariableInfo<ClassIdx<Self>, ClassEntryIdx<Self>>,
         &mut Self::ExpressionContext,
     );
 
-    fn initial_values(&mut self) -> Vec<(Self::ClassEntryIdx, VariableValue)> {
+    fn initial_values(&mut self) -> Vec<(ClassEntryIdx<Self>, VariableValue)> {
         let mut values = Vec::new();
 
         let (model, info, eval) = self.info();
@@ -100,7 +100,7 @@ pub trait Context {
         values
     }
 
-    fn min_values(&mut self) -> (Vec<(Self::ClassEntryIdx, VariableValue)>, bool) {
+    fn min_values(&mut self) -> (Vec<(ClassEntryIdx<Self>, VariableValue)>, bool) {
         let mut values = Vec::new();
         let mut exists = true;
 
@@ -136,7 +136,7 @@ pub trait Context {
         (values, exists)
     }
 
-    fn inc_values(&mut self, values: &mut Vec<(Self::ClassEntryIdx, VariableValue)>) -> bool {
+    fn inc_values(&mut self, values: &mut Vec<(ClassEntryIdx<Self>, VariableValue)>) -> bool {
         let (_, info, _) = self.info();
 
         for i in 0..values.len() {
@@ -168,14 +168,8 @@ pub trait Context {
         }
         false
     }
-    fn create_valuation(
-        &self,
-    ) -> StandaloneValuation<'_, Self::ClassIdx, Self::ClassEntryIdx, Self::ValuationIdx>;
-    fn add_state(
-        &mut self,
-        valuation: BareStandaloneValuation<Self::ClassIdx, Self::ValuationIdx>,
-        is_initial: bool,
-    );
+    fn create_valuation(&self) -> ModelStandaloneValuation<'_, Self::Ix>;
+    fn add_state(&mut self, valuation: ModelBareStandaloneValuation<Self::Ix>, is_initial: bool);
 }
 
 pub trait InitialStateSource {

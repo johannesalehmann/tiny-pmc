@@ -8,6 +8,7 @@ mod initial_states_enum;
 pub use initial_states_enum::InitialStatesEnum;
 
 use crate::Model;
+use crate::StateIndex;
 use crate::traits::ReadInitialStates;
 use crate::traits::ReadStateSpace;
 
@@ -55,16 +56,14 @@ impl<M: ReadStateSpace, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Preds>
 {
     pub fn with_initial_state(
         self,
-        initial: M::StateIndex,
-    ) -> Model<M, SingleInitialState<M::StateIndex>, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Preds>
-    {
+        initial: StateIndex<M::Ix>,
+    ) -> Model<M, SingleInitialState<M::Ix>, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Preds> {
         self.map_initial_states(|_| SingleInitialState { index: initial })
     }
     pub fn with_initial_states(
         self,
-        initial: InitialStates<M::StateIndex>,
-    ) -> Model<M, InitialStates<M::StateIndex>, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Preds>
-    {
+        initial: InitialStates<M::Ix>,
+    ) -> Model<M, InitialStates<M::Ix>, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Preds> {
         self.map_initial_states(|_| initial)
     }
 }
@@ -92,7 +91,7 @@ impl<M: ReadStateSpace, Ini, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val, Preds>
         self,
     ) -> Model<
         M,
-        InitialStatesEnum<M::StateIndex, Single, Multiple>,
+        InitialStatesEnum<M::Ix, Single, Multiple>,
         ChLabel,
         BrLabel,
         Obs,
@@ -103,9 +102,9 @@ impl<M: ReadStateSpace, Ini, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val, Preds>
         Preds,
     >
     where
-        Single: ReadInitialStates<StateIdx = M::StateIndex>,
-        Multiple: ReadInitialStates<StateIdx = M::StateIndex>,
-        Ini: Into<InitialStatesEnum<M::StateIndex, Single, Multiple>>,
+        Single: ReadInitialStates<Ix = M::Ix>,
+        Multiple: ReadInitialStates<Ix = M::Ix>,
+        Ini: Into<InitialStatesEnum<M::Ix, Single, Multiple>>,
     {
         self.map_initial_states(|i| i.into())
     }
@@ -113,8 +112,8 @@ impl<M: ReadStateSpace, Ini, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val, Preds>
 
 impl<
     M: ReadStateSpace,
-    Single: ReadInitialStates<StateIdx = M::StateIndex>,
-    Multiple: ReadInitialStates<StateIdx = M::StateIndex>,
+    Single: ReadInitialStates<Ix = M::Ix>,
+    Multiple: ReadInitialStates<Ix = M::Ix>,
     ChLabel,
     BrLabel,
     Obs,
@@ -126,7 +125,7 @@ impl<
 >
     Model<
         M,
-        InitialStatesEnum<M::StateIndex, Single, Multiple>,
+        InitialStatesEnum<M::Ix, Single, Multiple>,
         ChLabel,
         BrLabel,
         Obs,

@@ -1,15 +1,15 @@
 use probabilistic_models::traits::ReadRewards;
-use typed_index_collections::Index;
+use probabilistic_models::{ChoiceIndex, Ix, RewardIndex, StateIndex};
 
-pub trait RewardsSource<StateIdx: Index, ChoiceIdx: Index> {
+pub trait RewardsSource<I: Ix> {
     fn has_state_rewards(&self) -> bool;
     fn has_choice_rewards(&self) -> bool;
 
-    fn state_reward(&self, state: StateIdx) -> f64;
-    fn choice_reward(&self, choice: ChoiceIdx) -> f64;
+    fn state_reward(&self, state: StateIndex<I>) -> f64;
+    fn choice_reward(&self, choice: ChoiceIndex<I>) -> f64;
 }
 
-impl<StateIdx: Index, ChoiceIdx: Index> RewardsSource<StateIdx, ChoiceIdx> for () {
+impl<I: Ix> RewardsSource<I> for () {
     fn has_state_rewards(&self) -> bool {
         false
     }
@@ -18,22 +18,22 @@ impl<StateIdx: Index, ChoiceIdx: Index> RewardsSource<StateIdx, ChoiceIdx> for (
         false
     }
 
-    fn state_reward(&self, _state: StateIdx) -> f64 {
+    fn state_reward(&self, _state: StateIndex<I>) -> f64 {
         panic!("The model does not have state rewards")
     }
 
-    fn choice_reward(&self, _choice: ChoiceIdx) -> f64 {
+    fn choice_reward(&self, _choice: ChoiceIndex<I>) -> f64 {
         panic!("The model does not have choice rewards")
     }
 }
 
 pub struct StateAndChoiceRewards<'a, M: ReadRewards> {
     model: &'a M,
-    rewards_index: M::RewardIdx,
+    rewards_index: RewardIndex<M::Ix>,
 }
 
 impl<'a, M: ReadRewards> StateAndChoiceRewards<'a, M> {
-    pub fn new(model: &'a M, rewards_index: M::RewardIdx) -> Self {
+    pub fn new(model: &'a M, rewards_index: RewardIndex<M::Ix>) -> Self {
         Self {
             model,
             rewards_index,
@@ -41,7 +41,7 @@ impl<'a, M: ReadRewards> StateAndChoiceRewards<'a, M> {
     }
 }
 
-impl<'a, M: ReadRewards> RewardsSource<M::StateIdx, M::ChoiceIdx> for StateAndChoiceRewards<'a, M> {
+impl<'a, M: ReadRewards> RewardsSource<M::Ix> for StateAndChoiceRewards<'a, M> {
     fn has_state_rewards(&self) -> bool {
         self.model.has_state_rewards(self.rewards_index)
     }
@@ -50,18 +50,18 @@ impl<'a, M: ReadRewards> RewardsSource<M::StateIdx, M::ChoiceIdx> for StateAndCh
         self.model.has_choice_rewards(self.rewards_index)
     }
 
-    fn state_reward(&self, state: M::StateIdx) -> f64 {
+    fn state_reward(&self, state: StateIndex<M::Ix>) -> f64 {
         self.model.state_reward(self.rewards_index, state)
     }
 
-    fn choice_reward(&self, choice: M::ChoiceIdx) -> f64 {
+    fn choice_reward(&self, choice: ChoiceIndex<M::Ix>) -> f64 {
         self.model.choice_reward(self.rewards_index, choice)
     }
 }
 
 pub struct UnitStateRewards;
 
-impl<StateIdx: Index, ChoiceIdx: Index> RewardsSource<StateIdx, ChoiceIdx> for UnitStateRewards {
+impl<I: Ix> RewardsSource<I> for UnitStateRewards {
     fn has_state_rewards(&self) -> bool {
         true
     }
@@ -70,11 +70,11 @@ impl<StateIdx: Index, ChoiceIdx: Index> RewardsSource<StateIdx, ChoiceIdx> for U
         false
     }
 
-    fn state_reward(&self, _state: StateIdx) -> f64 {
+    fn state_reward(&self, _state: StateIndex<I>) -> f64 {
         1.0
     }
 
-    fn choice_reward(&self, _choice: ChoiceIdx) -> f64 {
+    fn choice_reward(&self, _choice: ChoiceIndex<I>) -> f64 {
         panic!("The model does not have choice rewards")
     }
 }

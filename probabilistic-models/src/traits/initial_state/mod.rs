@@ -1,93 +1,92 @@
 use crate::Model;
 use crate::initial_states::{InitialStates, SingleInitialState};
 use crate::traits::{AsStateSet, StateSet};
-use typed_index_collections::Index;
+use crate::{HasIx, Ix, StateIndex};
 
-pub trait ReadInitialStates {
-    type StateIdx: Index;
-    fn is_initial(&self, state: Self::StateIdx) -> bool;
-    fn initial_states(&self) -> impl StateSet<StateIdx = Self::StateIdx>;
+pub trait ReadInitialStates: HasIx {
+    fn is_initial(&self, state: StateIndex<Self::Ix>) -> bool;
+    fn initial_states(&self) -> impl StateSet<StateIdx = StateIndex<Self::Ix>>;
 }
 
 impl<T: ReadInitialStates> ReadInitialStates for &T {
-    type StateIdx = T::StateIdx;
-
-    fn is_initial(&self, state: Self::StateIdx) -> bool {
+    fn is_initial(&self, state: StateIndex<Self::Ix>) -> bool {
         (**self).is_initial(state)
     }
 
-    fn initial_states(&self) -> impl StateSet<StateIdx = Self::StateIdx> {
+    fn initial_states(&self) -> impl StateSet<StateIdx = StateIndex<Self::Ix>> {
         (**self).initial_states()
     }
 }
 
 impl<T: ReadInitialStates> ReadInitialStates for &mut T {
-    type StateIdx = T::StateIdx;
-
-    fn is_initial(&self, state: Self::StateIdx) -> bool {
+    fn is_initial(&self, state: StateIndex<Self::Ix>) -> bool {
         (**self).is_initial(state)
     }
 
-    fn initial_states(&self) -> impl StateSet<StateIdx = Self::StateIdx> {
+    fn initial_states(&self) -> impl StateSet<StateIdx = StateIndex<Self::Ix>> {
         (**self).initial_states()
     }
 }
 
 macro_rules! derive_read_initial_states {
     ($subcomponent:ident) => {
-        fn is_initial(&self, state: Self::StateIdx) -> bool {
+        fn is_initial(&self, state: $crate::StateIndex<Self::Ix>) -> bool {
             self.$subcomponent.is_initial(state)
         }
 
-        fn initial_states(&self) -> impl $crate::traits::StateSet<StateIdx = Self::StateIdx> {
+        fn initial_states(
+            &self,
+        ) -> impl $crate::traits::StateSet<StateIdx = $crate::StateIndex<Self::Ix>> {
             self.$subcomponent.initial_states()
         }
     };
 }
 pub(crate) use derive_read_initial_states;
 
-impl<StateIdx: Index> ReadInitialStates for SingleInitialState<StateIdx> {
-    type StateIdx = StateIdx;
-
-    fn is_initial(&self, state: Self::StateIdx) -> bool {
+impl<I: Ix> ReadInitialStates for SingleInitialState<I> {
+    fn is_initial(&self, state: StateIndex<Self::Ix>) -> bool {
         state == self.index
     }
 
-    fn initial_states(&self) -> impl StateSet<StateIdx = StateIdx> {
+    fn initial_states(&self) -> impl StateSet<StateIdx = StateIndex<I>> {
         self.index.as_state_set()
     }
 }
 
-impl<StateIdx: Index> ReadInitialStates for InitialStates<StateIdx> {
-    type StateIdx = StateIdx;
-
-    fn is_initial(&self, state: Self::StateIdx) -> bool {
+impl<I: Ix> ReadInitialStates for InitialStates<I> {
+    fn is_initial(&self, state: StateIndex<Self::Ix>) -> bool {
         self[state]
     }
 
-    fn initial_states(&self) -> impl StateSet<StateIdx = StateIdx> {
+    fn initial_states(&self) -> impl StateSet<StateIdx = StateIndex<I>> {
         self
     }
 }
 
-impl<M, Ini: ReadInitialStates, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>
-    ReadInitialStates for Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>
+impl<
+    M: HasIx,
+    Ini: ReadInitialStates<Ix = M::Ix>,
+    ChLabel,
+    BrLabel,
+    Obs,
+    APs,
+    Rew,
+    Ann,
+    StateVals,
+    Preds,
+> ReadInitialStates for Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>
 {
-    type StateIdx = Ini::StateIdx;
-
     derive_read_initial_states!(initial);
 }
 
-pub trait ReadInitialStatesMaybe {
-    type StateIdx: Index;
-    type WithInitialStates: ReadInitialStates<StateIdx = Self::StateIdx>;
+pub trait ReadInitialStatesMaybe: HasIx {
+    type WithInitialStates: ReadInitialStates<Ix = Self::Ix>;
 
     fn has_initial_states(&self) -> bool;
     fn try_with_initial_states(self) -> Option<Self::WithInitialStates>;
 }
 
 impl<T: ReadInitialStates> ReadInitialStatesMaybe for T {
-    type StateIdx = T::StateIdx;
     type WithInitialStates = T;
 
     fn has_initial_states(&self) -> bool {
@@ -100,7 +99,6 @@ impl<T: ReadInitialStates> ReadInitialStatesMaybe for T {
 }
 
 impl<T: ReadInitialStates> ReadInitialStatesMaybe for Option<T> {
-    type StateIdx = T::StateIdx;
     type WithInitialStates = T;
 
     fn has_initial_states(&self) -> bool {
@@ -112,11 +110,20 @@ impl<T: ReadInitialStates> ReadInitialStatesMaybe for Option<T> {
     }
 }
 
-impl<M, Ini: ReadInitialStates, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>
-    ReadInitialStatesMaybe
+impl<
+    M: HasIx,
+    Ini: ReadInitialStates<Ix = M::Ix>,
+    ChLabel,
+    BrLabel,
+    Obs,
+    APs,
+    Rew,
+    Ann,
+    StateVals,
+    Preds,
+> ReadInitialStatesMaybe
     for Model<M, Option<Ini>, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>
 {
-    type StateIdx = Ini::StateIdx;
     type WithInitialStates = Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>;
 
     fn has_initial_states(&self) -> bool {

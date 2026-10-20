@@ -1,6 +1,6 @@
 use prism_model_builder::UserProvidedConstValue;
 use prism_model_builder::queries::ProcessedQuery;
-use probabilistic_models::AtomicPropositionIndex;
+
 use probabilistic_models::traits::{ReadInitialStatesMaybe, ReadStateSpace};
 
 pub mod checking;
@@ -40,13 +40,7 @@ pub fn build_model(
     input: Inputs,
     constants: impl IntoIterator<Item = (String, UserProvidedConstValue)>,
     options: &ProcessingOptions,
-) -> Result<
-    (
-        OptionalModel,
-        Vec<ProcessedQuery<AtomicPropositionIndex<usize>>>,
-    ),
-    CheckerError,
-> {
+) -> Result<(OptionalModel, Vec<ProcessedQuery<API>>), CheckerError> {
     // TODO: Preserve property names through the following block. The UMB case does this already,
     //  whereas for PRISM, we'd have to change the `with_queries` function to take NamedQueries.
     //  Perhaps it makes sense to add a separate `with_named_queries` function.
@@ -112,7 +106,7 @@ pub fn build_model(
 //  property names for the results.
 pub fn check_model<Out: CheckerOutput>(
     model: OptionalModel,
-    queries: Vec<ProcessedQuery<AtomicPropositionIndex<usize>>>,
+    queries: Vec<ProcessedQuery<API>>,
     checker_options: &CheckerOptions,
     mut output: Out,
 ) -> Result<Out::Return, CheckerError> {

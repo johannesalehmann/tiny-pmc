@@ -11,10 +11,10 @@ macro_rules! mdp {
             use $crate::Index;
             use $crate::base_model::Mdp;
             use $crate::traits::{BuildChoiceBranchGraph, BuildStates};
-            use $crate::{BranchIndex, ChoiceIndex, StateIndex};
+            use $crate::{StateIndex, Uniform};
             use ::std::collections::HashMap;
 
-            let mut state_indices: HashMap<&'static str, StateIndex<usize>> = HashMap::new();
+            let mut state_indices: HashMap<&'static str, StateIndex<Uniform<usize>>> = HashMap::new();
             let mut order: Vec<&'static str> = Vec::new();
             $(
                 state_indices.entry(stringify!($state)).or_insert_with(|| {
@@ -24,11 +24,11 @@ macro_rules! mdp {
                 });
             )*
 
-            let mut choices_by_state: HashMap<&'static str, Vec<Vec<(f64, StateIndex<usize>)>>> =
+            let mut choices_by_state: HashMap<&'static str, Vec<Vec<(f64, StateIndex<Uniform<usize>>)>>> =
                 HashMap::new();
             let mut deadlock_states: Vec<&'static str> = Vec::new();
             $(
-                let branches: Vec<(f64, StateIndex<usize>)> =
+                let branches: Vec<(f64, StateIndex<Uniform<usize>>)> =
                     vec![$( ($p, state_indices[stringify!($dest)]) ),*];
                 #[allow(unused_mut, unused_assignments)]
                 let mut is_deadlock = false;
@@ -64,8 +64,8 @@ macro_rules! mdp {
                 );
             }
 
-            let mut built: Mdp<StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>> =
-                Mdp::new();
+            let mut built: Mdp<Uniform<usize>> =
+                Mdp::default();
             for name in &order {
                 let state = built.add_state();
                 assert_eq!(state, state_indices[name]);
@@ -87,7 +87,7 @@ macro_rules! mdp {
 #[cfg(test)]
 mod tests {
     use crate::traits::ReadStateSpace;
-    use crate::{Index, StateIndex};
+    use crate::{Index, StateIndex, Uniform};
 
     #[test]
     fn deadlock_states() {
@@ -117,7 +117,7 @@ mod tests {
     #[test]
     fn deadlock_state_first_with_trailing_comma() {
         mdp!(model = { s0 -> deadlock, s1 -> 1.0: s0, });
-        let _: StateIndex<usize> = s1;
+        let _: StateIndex<Uniform<usize>> = s1;
         assert_eq!((s0.raw(), s1.raw()), (0, 1));
         assert_eq!(model.choices_of_state(s0).len(), 0);
         assert_eq!(model.choices_of_state(s1).len(), 1);

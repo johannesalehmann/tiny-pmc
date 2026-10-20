@@ -2,9 +2,10 @@ use crate::mecs::Mecs;
 use crate::sccs::Scc;
 use crate::sub_model::{RewardsSource, StateOrdering};
 use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
+use probabilistic_models::{ChoiceIndex, Ix, StateIndex};
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
-use typed_index_collections::{Index, To1};
+use typed_index_collections::To1;
 
 // The attractor algorithm computes which fraction of probability mass is known for each *choice*.
 // This enum specifies how to use the choice values to state values.
@@ -26,12 +27,9 @@ impl Attractor {
 }
 
 impl StateOrdering for Attractor {
-    type Context<SI: Index, CI: Index> = AttractorContext<SI, CI>;
+    type Context<I: Ix> = AttractorContext<I>;
 
-    fn create_context<M: ReadStateSpace>(
-        &self,
-        model: &M,
-    ) -> Self::Context<M::StateIndex, M::ChoiceIndex> {
+    fn create_context<M: ReadStateSpace>(&self, model: &M) -> Self::Context<M::Ix> {
         AttractorContext {
             queue: BinaryHeap::new(),
             known_mass: To1::with_entries(vec![0.0; model.choices().len()]),
@@ -41,24 +39,18 @@ impl StateOrdering for Attractor {
     }
 
     fn compute_ordering<
-        M: ReadStateSpace<StateIndex = SI, ChoiceIndex = CI, BranchIndex = BI>
-            + ReadPredecessors<StateIdx = SI, ChoiceIdx = CI, BranchIdx = BI>,
-        SI: Index,
-        CI: Index,
-        BI: Index,
-        ScI: Index,
-        ScEI: Index,
-        NewSI: Index,
-        Rew: RewardsSource<SI, CI>,
+        M: ReadStateSpace + ReadPredecessors,
+        NewI: Ix,
+        Rew: RewardsSource<M::Ix>,
     >(
         &self,
         model: &M,
-        scc: Scc<'_, ScI, ScEI, SI>,
-        mecs: &Mecs<SI, CI>,
-        _values: &To1<SI, f64>,
+        scc: Scc<'_, M::Ix>,
+        mecs: &Mecs<M::Ix>,
+        _values: &To1<StateIndex<M::Ix>, f64>,
         _rewards: &Rew,
-        context: &mut Self::Context<SI, CI>,
-        to_old_state_index: &mut To1<NewSI, SI>,
+        context: &mut Self::Context<M::Ix>,
+        to_old_state_index: &mut To1<StateIndex<NewI>, StateIndex<M::Ix>>,
     ) {
         for state in scc.states() {
             for choice in model.choices_of_state(state) {
@@ -174,17 +166,17 @@ impl Ord for Priority {
     }
 }
 
-pub struct AttractorContext<SI: Index, CI: Index> {
-    queue: BinaryHeap<(Priority, SI)>,
-    known_mass: To1<CI, f64>,
-    non_self_loop_mass: To1<CI, f64>,
-    visited: To1<SI, bool>,
+pub struct AttractorContext<I: Ix> {
+    queue: BinaryHeap<(Priority, StateIndex<I>)>,
+    known_mass: To1<ChoiceIndex<I>, f64>,
+    non_self_loop_mass: To1<ChoiceIndex<I>, f64>,
+    visited: To1<StateIndex<I>, bool>,
 }
 
-impl<SI: Index, CI: Index> AttractorContext<SI, CI> {
+impl<I: Ix> AttractorContext<I> {
     fn state_priority(
         &self,
-        choices: impl Iterator<Item = CI>,
+        choices: impl Iterator<Item = ChoiceIndex<I>>,
         mode: AttractorChoiceMode,
     ) -> Priority {
         let mut value = 0.0;
@@ -228,13 +220,11 @@ impl<SI: Index, CI: Index> AttractorContext<SI, CI> {
 #[cfg(test)]
 mod tests {
     use crate::mecs::Mecs;
-    use crate::sccs::{ExcludeStatesAndChoices, SccEntryIndex, SccIndex, Sccs};
+    use crate::sccs::{ExcludeStatesAndChoices, SccIndex, Sccs};
     use crate::sub_model::{Attractor, AttractorChoiceMode, StateOrdering};
     use probabilistic_models::base_model::Mdp;
     use probabilistic_models::traits::ReadStateSpace;
-    use probabilistic_models::{
-        BranchIndex, ChoiceIndex, Model, PredecessorIndex, StateIndex, mdp,
-    };
+    use probabilistic_models::{Model, StateIndex, Uniform, mdp};
     use typed_index_collections::{Index, To1};
 
     const ALL_MODES: [AttractorChoiceMode; 3] = [
@@ -244,16 +234,16 @@ mod tests {
     ];
 
     pub fn test_ordering(
-        mdp: Mdp<StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>>,
-        sccs: Vec<Vec<StateIndex<usize>>>,
+        mdp: Mdp<Uniform<usize>>,
+        sccs: Vec<Vec<StateIndex<Uniform<usize>>>>,
         compute_mecs: bool,
         scc_index: usize,
         mode: AttractorChoiceMode,
-        target_ordering: &[StateIndex<usize>],
+        target_ordering: &[StateIndex<Uniform<usize>>],
     ) {
-        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
+        let model = Model::new(mdp).compute_predecessors();
         let scc_count = sccs.len();
-        let sccs: Sccs<_, SccEntryIndex<usize>, _> = Sccs::new(sccs, model.states().len());
+        let sccs: Sccs<Uniform<usize>> = Sccs::new(sccs, model.states().len());
         let mecs = if compute_mecs {
             Mecs::compute(
                 &model,
@@ -269,7 +259,7 @@ mod tests {
         let attractor = Attractor::new(mode);
         let mut context = attractor.create_context(&model);
         let mut compute = |scc_index: usize| {
-            let mut to_old_state_index: To1<StateIndex<usize>, _> = To1::new();
+            let mut to_old_state_index: To1<StateIndex<Uniform<usize>>, _> = To1::new();
             attractor.compute_ordering(
                 &model,
                 sccs.scc(SccIndex::from_raw(scc_index)),

@@ -25,7 +25,7 @@ use probabilistic_models::traits::{
     ReadAtomicPropositionsMaybe, ReadInitialStates, ReadInitialStatesMaybe, ReadPredecessors,
     ReadRewardsMaybe, ReadStateSpace,
 };
-use probabilistic_models::{AsRefComponent, Model};
+use probabilistic_models::{AsRefComponent, AtomicPropositionIndex, Model};
 
 pub enum CheckerError {
     NoSuitableAlgorithm,
@@ -84,24 +84,20 @@ impl CheckerOptions {
     }
 }
 
-pub fn check<'a, B, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds, APIdx>(
+pub fn check<'a, B, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>(
     model: &'a Model<B, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>,
-    query: probabilistic_properties::Query<i64, f64, APIdx>,
+    query: probabilistic_properties::Query<i64, f64, AtomicPropositionIndex<B::Ix>>,
     options: &CheckerOptions,
 ) -> Result<f64, CheckerError>
 where
     B: ReadStateSpace,
     Ini: AsRefComponent,
-    Ini::Output<'a>: ReadInitialStatesMaybe<StateIdx = B::StateIndex>,
+    Ini::Output<'a>: ReadInitialStatesMaybe<Ix = B::Ix>,
     APs: AsRefComponent,
-    APs::Output<'a>: ReadAtomicPropositionsMaybe<StateIdx = B::StateIndex, APIdx = APIdx>,
+    APs::Output<'a>: ReadAtomicPropositionsMaybe<Ix = B::Ix>,
     Rew: AsRefComponent,
-    Rew::Output<'a>: ReadRewardsMaybe<StateIdx = B::StateIndex, ChoiceIdx = B::ChoiceIndex>,
-    Preds: ReadPredecessors<
-            StateIdx = B::StateIndex,
-            ChoiceIdx = B::ChoiceIndex,
-            BranchIdx = B::BranchIndex,
-        >,
+    Rew::Output<'a>: ReadRewardsMaybe<Ix = B::Ix>,
+    Preds: ReadPredecessors<Ix = B::Ix>,
 {
     let initial_states = require_initial_states(model.initial.as_ref())
         .initial_states()

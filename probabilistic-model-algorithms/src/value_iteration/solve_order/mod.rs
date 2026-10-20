@@ -1,5 +1,6 @@
 mod monolithic;
 pub use monolithic::Monolithic;
+use probabilistic_models::StateIndex;
 
 mod topological;
 use crate::mecs::Mecs;
@@ -9,30 +10,25 @@ use crate::value_iteration::non_determinism::NonDeterminismResolver;
 use crate::value_iteration::precomputed_states::PrecomputedStates;
 use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
 pub use topological::{
-    EpsAllocationScheme, SccTimingOutput, SubModelHook, SubModelSolveInfo, Topological,
+    EpsAllocationScheme, SccTimingOutput, SubModelHook, SubModelIx, SubModelSolveInfo, Topological,
 };
-use typed_index_collections::{Index, To1};
+use typed_index_collections::To1;
 
 pub trait OrderedSolver {
     fn find_and_solve_submodels<
         ND: NonDeterminismResolver,
         Solver: super::sub_model_solver::SubModelSolver,
-        M: ReadStateSpace
-            + ReadPredecessors<
-                StateIdx = M::StateIndex,
-                ChoiceIdx = M::ChoiceIndex,
-                BranchIdx = M::BranchIndex,
-            >,
-        P: PrecomputedStates<StateIdx = M::StateIndex>,
-        Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>,
+        M: ReadStateSpace + ReadPredecessors,
+        P: PrecomputedStates<Ix = M::Ix>,
+        Rew: RewardsSource<M::Ix>,
     >(
         self,
         model: &M,
         precomputed_states: &P,
         rewards: Rew,
-        mecs: &Mecs<M::StateIndex, M::ChoiceIndex>,
+        mecs: &Mecs<M::Ix>,
         eps: f64,
-    ) -> To1<M::StateIndex, f64>;
+    ) -> To1<StateIndex<M::Ix>, f64>;
 }
 
 #[derive(Clone)]
@@ -43,10 +39,7 @@ pub struct ModelSize {
 }
 
 impl ModelSize {
-    pub fn from_scc<ScI: Index, ScEI: Index, M: ReadStateSpace>(
-        model: &M,
-        scc: Scc<'_, ScI, ScEI, M::StateIndex>,
-    ) -> Self {
+    pub fn from_scc<M: ReadStateSpace>(model: &M, scc: Scc<'_, M::Ix>) -> Self {
         let states = scc.size();
         let mut choices = 0;
         let mut branches = 0;

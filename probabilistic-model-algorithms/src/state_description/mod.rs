@@ -1,20 +1,19 @@
 use probabilistic_models::traits::{ReadAtomicPropositions, ReadStateSpace};
+use probabilistic_models::{AtomicPropositionIndex, StateIndex};
 use typed_index_collections::{Index, RawIndex, To1};
 
-pub enum StateDescription<
-    'a,
-    M: ReadStateSpace + ReadAtomicPropositions<StateIdx = M::StateIndex>,
-> {
-    AtomicProposition { ap_index: M::APIdx, model: &'a M },
-    Flags(To1<M::StateIndex, bool>),
+pub enum StateDescription<'a, M: ReadStateSpace + ReadAtomicPropositions> {
+    AtomicProposition {
+        ap_index: AtomicPropositionIndex<M::Ix>,
+        model: &'a M,
+    },
+    Flags(To1<StateIndex<M::Ix>, bool>),
     Conjunction(Box<Self>, Box<Self>),
     Disjunction(Box<Self>, Box<Self>),
     Negation(Box<Self>),
 }
 
-impl<'a, M: ReadStateSpace + ReadAtomicPropositions<StateIdx = M::StateIndex>>
-    StateDescription<'a, M>
-{
+impl<'a, M: ReadStateSpace + ReadAtomicPropositions> StateDescription<'a, M> {
     pub fn len(&self) -> usize {
         match self {
             StateDescription::AtomicProposition { model, .. } => model.states().len(),
@@ -41,7 +40,7 @@ impl<'a, M: ReadStateSpace + ReadAtomicPropositions<StateIdx = M::StateIndex>>
         }
     }
 
-    pub fn is_set(&self, state: M::StateIndex) -> bool {
+    pub fn is_set(&self, state: StateIndex<M::Ix>) -> bool {
         match self {
             StateDescription::AtomicProposition { ap_index, model } => {
                 model.is_atomic_proposition_set(state, *ap_index)
@@ -53,7 +52,7 @@ impl<'a, M: ReadStateSpace + ReadAtomicPropositions<StateIdx = M::StateIndex>>
         }
     }
 
-    pub fn write_flags(&self, flags: &mut To1<M::StateIndex, bool>) {
+    pub fn write_flags(&self, flags: &mut To1<StateIndex<M::Ix>, bool>) {
         // We enforce this check because `copy_from_other` also requires this:
         assert_eq!(
             flags.len(),
@@ -65,8 +64,8 @@ impl<'a, M: ReadStateSpace + ReadAtomicPropositions<StateIdx = M::StateIndex>>
             _ => {
                 flags.clear();
                 for state in 0..self.len() {
-                    let state = M::StateIndex::from_raw(
-                        <M::StateIndex as Index>::RawType::from_usize(state),
+                    let state = StateIndex::<M::Ix>::from_raw(
+                        <StateIndex<M::Ix> as Index>::RawType::from_usize(state),
                     );
                     flags.add(self.is_set(state));
                 }

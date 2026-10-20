@@ -1,26 +1,14 @@
 use crate::Model;
 use crate::traits::ReadStateSpace;
 use crate::valuations::Valuations;
-use typed_index_collections::Index;
 
 impl<M: ReadStateSpace, Ini, ChLabel, BrLabel, O, APs, R, A, P>
     Model<M, Ini, ChLabel, BrLabel, O, APs, R, A, (), P>
 {
-    pub fn with_valuations<ClassIdx: Index, ClassEntryIdx: Index, ValuationIdx: Index>(
+    pub fn with_valuations(
         self,
-        valuations: Valuations<M::StateIndex, ClassIdx, ClassEntryIdx, ValuationIdx>,
-    ) -> Model<
-        M,
-        Ini,
-        ChLabel,
-        BrLabel,
-        O,
-        APs,
-        R,
-        A,
-        Valuations<M::StateIndex, ClassIdx, ClassEntryIdx, ValuationIdx>,
-        P,
-    > {
+        valuations: Valuations<M::Ix>,
+    ) -> Model<M, Ini, ChLabel, BrLabel, O, APs, R, A, Valuations<M::Ix>, P> {
         Model {
             base: self.base,
             initial: self.initial,

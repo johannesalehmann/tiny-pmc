@@ -19,71 +19,28 @@ pub use operations::SuccessorOrder;
 pub use typed_index_collections;
 pub use typed_index_collections::{Index, RawIndex};
 
+mod ix;
+pub use ix::{DefaultIx, HasIx, Ix, Sub, Uniform};
+
 use typed_index_collections::index;
 
-index!(StateIndex);
-index!(ChoiceIndex);
-index!(BranchIndex);
-index!(ActionIndex);
-index!(PlayerIndex);
-index!(AnnotationIndex);
-index!(AnnotationEntryIndex);
-index!(ValuationClassIndex);
-index!(ValuationClassEntryIndex);
-index!(ValuationIndex);
-index!(PredecessorIndex);
-index!(AtomicPropositionIndex);
-index!(ChoiceLabelIndex);
-index!(BranchLabelIndex);
-
-// pub struct Dtmc<I: RawIndex = u32> {
-//     choice_to_branch: ChoiceToBranch<I>,
-//     branch_probabilities: To1<BranchIndex<I>, f64>,
-//     branch_targets: To1<BranchIndex<I>, I>,
-// }
-// impl<I: RawIndex> BaseModel<I> for Dtmc<I> {
-//     fn count_states(&self) -> usize {
-//         self.choice_to_branch.count_entries()
-//     }
-// }
-//
-// pub struct TransitionSystem<I: RawIndex = u32> {
-//     state_to_branch: ChoiceToBranch<I>,
-//     branch_targets: To1<BranchIndex<I>, I>,
-// }
-//
-// impl<I: RawIndex> BaseModel<I> for TransitionSystem<I> {
-//     fn count_states(&self) -> usize {
-//         self.state_to_branch.count_entries()
-//     }
-// }
-//
-// pub struct Ctmc<I: RawIndex = u32> {
-//     choice_to_branch: ChoiceToBranch<I>,
-//     branch_probabilities: To1<BranchIndex<I>, f64>,
-//     branch_targets: To1<BranchIndex<I>, I>,
-//     state_to_exit_rate: To1<StateIndex<I>, f64>,
-// }
-//
-// impl<I: RawIndex> BaseModel<I> for Ctmc<I> {
-//     fn count_states(&self) -> usize {
-//         self.choice_to_branch.count_entries()
-//     }
-// }
-//
-// pub struct Ctmdp<I: RawIndex = u32> {
-//     state_to_choice: StateToChoice<I>,
-//     choice_to_branch: ChoiceToBranch<I>,
-//     branch_probabilities: To1<BranchIndex<I>, f64>,
-//     branch_targets: To1<BranchIndex<I>, I>,
-//     state_to_exit_rate: To1<StateIndex<I>, f64>,
-// }
-//
-// impl<I: RawIndex> BaseModel<I> for Ctmdp<I> {
-//     fn count_states(&self) -> usize {
-//         self.state_to_choice.count_entries()
-//     }
-// }
+// State-sized indices
+index!(StateIndex<I: Ix> => I::State);
+index!(ValuationIndex<I: Ix> => I::State);
+index!(ObservationIndex<I: Ix> => I::State);
+// Choice-sized indices
+index!(ChoiceIndex<I: Ix> => I::Choice);
+// Branch-sized indices
+index!(BranchIndex<I: Ix> => I::Branch);
+index!(PredecessorIndex<I: Ix> => I::Branch);
+// Misc indices
+index!(AtomicPropositionIndex<I: Ix> => I::Meta);
+index!(RewardIndex<I: Ix> => I::Meta);
+index!(AnnotationIndex<I: Ix> => I::Meta);
+index!(ActionIndex<I: Ix> => I::Meta);
+index!(PlayerIndex<I: Ix> => I::Meta);
+index!(ValuationClassIndex<I: Ix> => I::Meta);
+index!(ValuationClassEntryIndex<I: Ix> => I::Meta);
 
 pub struct Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds> {
     pub base: M,
@@ -96,6 +53,12 @@ pub struct Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>
     pub annotations: Ann,
     pub state_valuations: StateVals, // TODO: Add fields for other valuations
     pub predecessors: Preds,
+}
+
+impl<M: HasIx, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds> HasIx
+    for Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>
+{
+    type Ix = M::Ix;
 }
 
 impl<M> Model<M, (), (), (), (), (), (), (), (), ()> {

@@ -7,43 +7,29 @@ use probabilistic_models::traits::StateSet;
 use probabilistic_models::traits::{
     BuildChoiceBranchGraph, BuildStates, ReadAtomicPropositions, ReadInitialStates, ReadStateSpace,
 };
+use probabilistic_models::{AtomicPropositionIndex, Ix, StateIndex};
 use typed_index_collections::{Index, RawIndex, To1};
 
 /// Builds a restricted model for checking `restriction U goal`. It contains only the reachable
 /// fragment that satisfies `restriction` and a goal and sink state. The only atomic proposition
 /// is the one marking goal, which is named `goal_name`.
-pub fn rebuild_model_for_until<
-    SI: Index,
-    APEI: Index,
-    M: ReadStateSpace<StateIndex = SI>
-        + ReadAtomicPropositions<StateIdx = SI>
-        + ReadInitialStates<StateIdx = SI>,
->(
+pub fn rebuild_model_for_until<M: ReadStateSpace + ReadAtomicPropositions + ReadInitialStates>(
     model: &M,
     restriction: &StateDescription<M>,
     goal: &StateDescription<M>,
     goal_name: &str,
 ) -> (
-    Model<
-        Mdp<SI, M::ChoiceIndex, M::BranchIndex>,
-        InitialStates<SI>,
-        (),
-        (),
-        (),
-        AtomicPropositions<M::APIdx, SI, APEI>,
-        (),
-        (),
-        (),
-        (),
-    >,
-    M::APIdx,
+    Model<Mdp<M::Ix>, InitialStates<M::Ix>, (), (), (), AtomicPropositions<M::Ix>, (), (), (), ()>,
+    AtomicPropositionIndex<M::Ix>,
 ) {
-    let is_maybe_state = |state: SI| restriction.is_set(state) && !goal.is_set(state);
+    let is_maybe_state =
+        |state: StateIndex<M::Ix>| restriction.is_set(state) && !goal.is_set(state);
 
     // Explore all states that satisfy `restriction` but not `goal` depth-first.
-    let mut old_to_new: To1<SI, Option<SI>> = To1::with_entries(vec![None; model.states().len()]);
-    let mut new_to_old: To1<SI, SI> = To1::new();
-    let mut open_list: Vec<SI> = model.initial_states().iter().collect();
+    let mut old_to_new: To1<StateIndex<M::Ix>, Option<StateIndex<M::Ix>>> =
+        To1::with_entries(vec![None; model.states().len()]);
+    let mut new_to_old: To1<StateIndex<M::Ix>, StateIndex<M::Ix>> = To1::new();
+    let mut open_list: Vec<StateIndex<M::Ix>> = model.initial_states().iter().collect();
     while let Some(state) = open_list.pop() {
         if old_to_new[state].is_some() || !is_maybe_state(state) {
             continue;
@@ -57,8 +43,8 @@ pub fn rebuild_model_for_until<
     }
 
     // Rebuild the model with the goal and sink state at the end.
-    let goal_state = SI::from_raw(SI::RawType::from_usize(new_to_old.len()));
-    let sink_state = goal_state + SI::RawType::one();
+    let goal_state = StateIndex::from_raw(<M::Ix as Ix>::State::from_usize(new_to_old.len()));
+    let sink_state = goal_state + <M::Ix as Ix>::State::one();
     let state_count = new_to_old.len() + 2;
 
     let mut mdp = Mdp::default();
@@ -140,14 +126,12 @@ mod tests {
     use probabilistic_models::base_model::Mdp;
     use probabilistic_models::initial_states::InitialStates;
     use probabilistic_models::traits::ReadStateSpace;
-    use probabilistic_models::{
-        AnnotationEntryIndex, AnnotationIndex, BranchIndex, ChoiceIndex, Model, StateIndex, mdp,
-    };
+    use probabilistic_models::{Model, StateIndex, Uniform, mdp};
     use typed_index_collections::{Index, To1};
 
-    type SI = StateIndex<usize>;
-    type TestMdp = Mdp<SI, ChoiceIndex<usize>, BranchIndex<usize>>;
-    type TestAps = AtomicPropositions<AnnotationIndex<usize>, SI, AnnotationEntryIndex<usize>>;
+    type SI = StateIndex<Uniform<usize>>;
+    type TestMdp = Mdp<Uniform<usize>>;
+    type TestAps = AtomicPropositions<Uniform<usize>>;
 
     fn state_set(state_count: usize, states: &[SI]) -> To1<SI, bool> {
         let mut set = To1::with_entries(vec![false; state_count]);
@@ -191,7 +175,7 @@ mod tests {
             predecessors: (),
         };
 
-        let (result, result_goal_ap) = rebuild_model_for_until::<_, AnnotationEntryIndex<usize>, _>(
+        let (result, result_goal_ap) = rebuild_model_for_until(
             &model,
             &StateDescription::AtomicProposition {
                 ap_index: restriction_ap,
@@ -213,7 +197,8 @@ mod tests {
                 &[SI::from_raw(expected_state_count - 2)],
             )),
         );
-        let expected_initial: InitialStates<SI> = state_set(expected_state_count, expected_initial);
+        let expected_initial: InitialStates<Uniform<usize>> =
+            state_set(expected_state_count, expected_initial);
 
         assert_eq!(result.base, expected);
         assert_eq!(result.initial, expected_initial);

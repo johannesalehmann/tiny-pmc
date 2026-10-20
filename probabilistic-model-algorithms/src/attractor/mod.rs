@@ -1,5 +1,6 @@
 mod buffer;
 pub use buffer::AttractorBuffer;
+use probabilistic_models::{Ix, StateIndex};
 
 mod full_region;
 pub use full_region::{attractor, attractor_with_buffer};
@@ -9,29 +10,21 @@ pub use state_included::{attractor_contains_state, attractor_contains_state_with
 
 use probabilistic_models::base_model::{ReadOwners, TwoPlayer};
 use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
-use typed_index_collections::Index;
 
 // TODO: This algorithm does not work properly on models with stochastic behaviour, but this is not
 //  enforced. Perhaps adding a `ReadNonprobabilisticStateSpace` trait would be a good idea?
 
-trait AttractorCondition {
-    type StateIdx: Index;
+trait AttractorCondition<I: Ix> {
     type Output;
 
-    fn state_attracted(&mut self, index: Self::StateIdx) -> Option<Self::Output>;
+    fn state_attracted(&mut self, index: StateIndex<I>) -> Option<Self::Output>;
     fn result_after_termination(self) -> Self::Output;
 }
 
 fn attractor_internal<
-    M: ReadStateSpace
-        + ReadOwners<StateIdx = M::StateIndex, OwnerType = TwoPlayer>
-        + ReadPredecessors<
-            StateIdx = M::StateIndex,
-            ChoiceIdx = M::ChoiceIndex,
-            BranchIdx = M::BranchIndex,
-        >,
-    R1: Iterator<Item = M::StateIndex>,
-    C: AttractorCondition<StateIdx = M::StateIndex>,
+    M: ReadStateSpace + ReadOwners<OwnerType = TwoPlayer> + ReadPredecessors,
+    R1: Iterator<Item = StateIndex<M::Ix>>,
+    C: AttractorCondition<M::Ix>,
 >(
     model: &M,
     region: R1,
@@ -46,19 +39,14 @@ fn attractor_internal<
 // When calling this method, ensure that owner counts in the buffer are up-to-date, either by
 // calling .reset_owner_counts(...) on the buffer or by setting them manually.
 fn attractor_internal_with_buffer<
-    M: ReadStateSpace
-        + ReadPredecessors<
-            StateIdx = M::StateIndex,
-            ChoiceIdx = M::ChoiceIndex,
-            BranchIdx = M::BranchIndex,
-        >,
-    R1: Iterator<Item = M::StateIndex>,
-    C: AttractorCondition<StateIdx = M::StateIndex>,
+    M: ReadStateSpace + ReadPredecessors,
+    R1: Iterator<Item = StateIndex<M::Ix>>,
+    C: AttractorCondition<M::Ix>,
 >(
     model: &M,
     region: R1,
     mut condition: C,
-    buffer: &mut AttractorBuffer<M::StateIndex>,
+    buffer: &mut AttractorBuffer<M::Ix>,
 ) -> C::Output {
     buffer.open_list.clear();
 

@@ -2,14 +2,11 @@ use crate::ModelBuilder;
 use crate::synchronised_actions::SynchronisedActions;
 use prism_model::{Identifier, Model, RewardsTarget, Span, VariableReference};
 use probabilistic_models::annotations::{RewardAnnotations, Rewards, TypedAnnotation};
+use probabilistic_models::{ChoiceIndex, HasIx, Ix, RewardIndex, StateIndex};
 use std::marker::PhantomData;
-use typed_index_collections::Index;
 
-pub trait RewardsBuilder {
+pub trait RewardsBuilder: HasIx {
     type Rewards;
-    type RewardIdx: Index;
-    type StateIdx: Index;
-    type ChoiceIdx: Index;
 
     fn stores_rewards() -> bool;
     fn register_rewards(
@@ -17,24 +14,33 @@ pub trait RewardsBuilder {
         name: String,
         has_state_rewards: bool,
         has_choice_rewards: bool,
-    ) -> Self::RewardIdx;
-    fn add_state_reward(&mut self, rewards: Self::RewardIdx, state: Self::StateIdx, value: f64);
-    fn add_choice_reward(&mut self, rewards: Self::RewardIdx, choice: Self::ChoiceIdx, value: f64);
+    ) -> RewardIndex<Self::Ix>;
+    fn add_state_reward(
+        &mut self,
+        rewards: RewardIndex<Self::Ix>,
+        state: StateIndex<Self::Ix>,
+        value: f64,
+    );
+    fn add_choice_reward(
+        &mut self,
+        rewards: RewardIndex<Self::Ix>,
+        choice: ChoiceIndex<Self::Ix>,
+        value: f64,
+    );
     fn into_rewards(self) -> Self::Rewards;
 }
 
 #[derive(Default)]
-pub struct NoRewards<RewardIdx: Index, StateIdx: Index, ChoiceIdx: Index> {
-    _phantom_data: PhantomData<(RewardIdx, StateIdx, ChoiceIdx)>,
+pub struct NoRewards<I: Ix> {
+    _phantom_data: PhantomData<I>,
 }
 
-impl<RewardIdx: Index, StateIdx: Index, ChoiceIdx: Index> RewardsBuilder
-    for NoRewards<RewardIdx, StateIdx, ChoiceIdx>
-{
+impl<I: Ix> HasIx for NoRewards<I> {
+    type Ix = I;
+}
+
+impl<I: Ix> RewardsBuilder for NoRewards<I> {
     type Rewards = ();
-    type RewardIdx = RewardIdx;
-    type StateIdx = StateIdx;
-    type ChoiceIdx = ChoiceIdx;
 
     fn stores_rewards() -> bool {
         false
@@ -45,15 +51,20 @@ impl<RewardIdx: Index, StateIdx: Index, ChoiceIdx: Index> RewardsBuilder
         _name: String,
         _has_state_rewards: bool,
         _has_choice_rewards: bool,
-    ) -> Self::RewardIdx {
+    ) -> RewardIndex<Self::Ix> {
         panic!("Cannot register rewards when using `NoRewards`")
     }
 
-    fn add_state_reward(&mut self, _rewards: RewardIdx, _state: StateIdx, _value: f64) {
+    fn add_state_reward(&mut self, _rewards: RewardIndex<I>, _state: StateIndex<I>, _value: f64) {
         panic!("Cannot store rewards when using `NoRewards`")
     }
 
-    fn add_choice_reward(&mut self, _rewards: RewardIdx, _choice: ChoiceIdx, _value: f64) {
+    fn add_choice_reward(
+        &mut self,
+        _rewards: RewardIndex<I>,
+        _choice: ChoiceIndex<I>,
+        _value: f64,
+    ) {
         panic!("Cannot store rewards when using `NoRewards`")
     }
 
@@ -64,52 +75,34 @@ impl<RewardIdx: Index, StateIdx: Index, ChoiceIdx: Index> RewardsBuilder
 
 impl<
     'a,
-    RewardIdx: Index,
     S: Span,
     Q: crate::queries::QueryCollection,
     L: crate::labels::LabelSource,
     IS: crate::initial_states_source::InitialStateSource,
     B: crate::bases::BaseModelBuilder,
-    IB: crate::initial_states_builder::InitialStatesBuilder<StateIdx = B::StateIdx>,
-    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = B::StateIdx>,
-    CL: crate::choice_labels::ChoiceLabelBuilder<ChoiceIdx = B::ChoiceIdx>,
-> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CL, NoRewards<RewardIdx, B::StateIdx, B::ChoiceIdx>>
+    IB: crate::initial_states_builder::InitialStatesBuilder<Ix = B::Ix>,
+    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<Ix = B::Ix>,
+    CL: crate::choice_labels::ChoiceLabelBuilder<Ix = B::Ix>,
+> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CL, NoRewards<B::Ix>>
 {
-    pub fn with_all_rewards<AnnotationEntryIdx: Index>(
+    pub fn with_all_rewards(
         self,
-    ) -> ModelBuilder<
-        'a,
-        S,
-        Q,
-        L,
-        IS,
-        B,
-        IB,
-        APs,
-        CL,
-        RewardVectorsBuilder<RewardIdx, B::StateIdx, B::ChoiceIdx, AnnotationEntryIdx>,
-    > {
+    ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CL, RewardVectorsBuilder<B::Ix>> {
         self.map_rewards(RewardVectorsBuilder::default())
     }
 }
 
 #[derive(Default)]
-pub struct RewardVectorsBuilder<
-    RewardIdx: Index,
-    StateIdx: Index,
-    ChoiceIdx: Index,
-    AnnotationEntryIdx: Index,
-> {
-    rewards: RewardAnnotations<RewardIdx, StateIdx, ChoiceIdx, AnnotationEntryIdx>,
+pub struct RewardVectorsBuilder<I: Ix> {
+    rewards: RewardAnnotations<I>,
 }
 
-impl<RewardIdx: Index, StateIdx: Index, ChoiceIdx: Index, AnnotationEntryIdx: Index> RewardsBuilder
-    for RewardVectorsBuilder<RewardIdx, StateIdx, ChoiceIdx, AnnotationEntryIdx>
-{
-    type Rewards = RewardAnnotations<RewardIdx, StateIdx, ChoiceIdx, AnnotationEntryIdx>;
-    type RewardIdx = RewardIdx;
-    type StateIdx = StateIdx;
-    type ChoiceIdx = ChoiceIdx;
+impl<I: Ix> HasIx for RewardVectorsBuilder<I> {
+    type Ix = I;
+}
+
+impl<I: Ix> RewardsBuilder for RewardVectorsBuilder<I> {
+    type Rewards = RewardAnnotations<I>;
 
     fn stores_rewards() -> bool {
         true
@@ -120,7 +113,7 @@ impl<RewardIdx: Index, StateIdx: Index, ChoiceIdx: Index, AnnotationEntryIdx: In
         name: String,
         has_state_rewards: bool,
         has_choice_rewards: bool,
-    ) -> Self::RewardIdx {
+    ) -> RewardIndex<Self::Ix> {
         let rewards = Rewards {
             states: has_state_rewards.then(TypedAnnotation::default),
             choices: has_choice_rewards.then(TypedAnnotation::default),
@@ -129,12 +122,12 @@ impl<RewardIdx: Index, StateIdx: Index, ChoiceIdx: Index, AnnotationEntryIdx: In
         self.rewards.add_entry(name, rewards)
     }
 
-    fn add_state_reward(&mut self, rewards: RewardIdx, state: StateIdx, value: f64) {
+    fn add_state_reward(&mut self, rewards: RewardIndex<I>, state: StateIndex<I>, value: f64) {
         let rewards = self.rewards.get_mut(rewards).unwrap();
         rewards.states.as_mut().unwrap().add_value(state, value);
     }
 
-    fn add_choice_reward(&mut self, rewards: RewardIdx, choice: ChoiceIdx, value: f64) {
+    fn add_choice_reward(&mut self, rewards: RewardIndex<I>, choice: ChoiceIndex<I>, value: f64) {
         let rewards = self.rewards.get_mut(rewards).unwrap();
         rewards.choices.as_mut().unwrap().add_value(choice, value);
     }
@@ -146,44 +139,19 @@ impl<RewardIdx: Index, StateIdx: Index, ChoiceIdx: Index, AnnotationEntryIdx: In
 
 impl<
     'a,
-    RewardIdx: Index,
-    AnnotationEntryIdx: Index,
     S: Span,
     Q: crate::queries::QueryCollection,
     L: crate::labels::LabelSource,
     IS: crate::initial_states_source::InitialStateSource,
     B: crate::bases::BaseModelBuilder,
-    IB: crate::initial_states_builder::InitialStatesBuilder<StateIdx = B::StateIdx>,
-    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = B::StateIdx>,
-    CL: crate::choice_labels::ChoiceLabelBuilder<ChoiceIdx = B::ChoiceIdx>,
->
-    ModelBuilder<
-        'a,
-        S,
-        Q,
-        L,
-        IS,
-        B,
-        IB,
-        APs,
-        CL,
-        RewardVectorsBuilder<RewardIdx, B::StateIdx, B::ChoiceIdx, AnnotationEntryIdx>,
-    >
+    IB: crate::initial_states_builder::InitialStatesBuilder<Ix = B::Ix>,
+    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<Ix = B::Ix>,
+    CL: crate::choice_labels::ChoiceLabelBuilder<Ix = B::Ix>,
+> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CL, RewardVectorsBuilder<B::Ix>>
 {
     pub fn without_rewards(
         self,
-    ) -> ModelBuilder<
-        'a,
-        S,
-        Q,
-        L,
-        IS,
-        B,
-        IB,
-        APs,
-        CL,
-        NoRewards<RewardIdx, B::StateIdx, B::ChoiceIdx>,
-    > {
+    ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CL, NoRewards<B::Ix>> {
         self.map_rewards(NoRewards::default())
     }
 }
@@ -193,8 +161,8 @@ pub(crate) struct RewardEntry<'m, E> {
     pub value: &'m E,
 }
 
-pub(crate) struct RewardStructure<'m, RewardIdx, E> {
-    pub index: RewardIdx,
+pub(crate) struct RewardStructure<'m, I: Ix, E> {
+    pub index: RewardIndex<I>,
     pub name: String,
     pub state_entries: Vec<RewardEntry<'m, E>>,
     pub unlabelled_entries: Vec<RewardEntry<'m, E>>,
@@ -202,12 +170,12 @@ pub(crate) struct RewardStructure<'m, RewardIdx, E> {
     pub has_choice_rewards: bool,
 }
 
-pub(crate) struct RewardStructures<'m, RewardIdx, E> {
-    pub structures: Vec<RewardStructure<'m, RewardIdx, E>>,
+pub(crate) struct RewardStructures<'m, I: Ix, E> {
+    pub structures: Vec<RewardStructure<'m, I, E>>,
 }
 
-impl<'m, RewardIdx: Index, E> RewardStructures<'m, RewardIdx, E> {
-    pub fn new<S: Span, Rew: RewardsBuilder<RewardIdx = RewardIdx>>(
+impl<'m, I: Ix, E> RewardStructures<'m, I, E> {
+    pub fn new<S: Span, Rew: RewardsBuilder<Ix = I>>(
         model: &'m Model<VariableReference, S, E, Identifier<S>>,
         synchronised_actions: &SynchronisedActions,
         rewards_builder: &mut Rew,
@@ -271,9 +239,9 @@ mod tests {
     use crate::ModelBuilder;
     use probabilistic_models::labels::ReadLabels;
     use probabilistic_models::traits::{ReadRewards, ReadStateSpace};
-    use probabilistic_models::{Index, StateIndex};
+    use probabilistic_models::{Index, StateIndex, Uniform};
 
-    fn state(index: usize) -> StateIndex<usize> {
+    fn state(index: usize) -> StateIndex<Uniform<usize>> {
         StateIndex::from_raw(index)
     }
 

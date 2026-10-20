@@ -78,32 +78,36 @@ pub fn parse_csr<From: Index, To: Index, R: Read>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use probabilistic_models::{ChoiceIndex, StateIndex};
+    use probabilistic_models::{ChoiceIndex, StateIndex, Uniform};
 
     fn bytes(values: &[u64]) -> Vec<u8> {
         values.iter().flat_map(|v| v.to_le_bytes()).collect()
     }
 
-    fn parse<To: Index>(data: Vec<u8>) -> Result<Csr<StateIndex<u32>, To>, CsrError> {
+    fn parse<To: Index>(data: Vec<u8>) -> Result<Csr<StateIndex<Uniform<u32>>, To>, CsrError> {
         parse_csr(data.as_slice())
     }
 
     #[test]
     fn parses_entries_without_leading_zero() {
-        let csr = parse::<ChoiceIndex<u32>>(bytes(&[0, 2, 2, 5])).unwrap();
+        let csr = parse::<ChoiceIndex<Uniform<u32>>>(bytes(&[0, 2, 2, 5])).unwrap();
         let expected: Vec<_> = [2, 2, 5].map(ChoiceIndex::from_raw).into();
         assert_eq!(csr, Csr::with_entries(expected));
     }
 
     #[test]
     fn empty_csr() {
-        assert!(parse::<ChoiceIndex<u32>>(bytes(&[0])).unwrap().is_empty());
+        assert!(
+            parse::<ChoiceIndex<Uniform<u32>>>(bytes(&[0]))
+                .unwrap()
+                .is_empty()
+        );
     }
 
     #[test]
     fn no_first_entry() {
         assert!(matches!(
-            parse::<ChoiceIndex<u32>>(vec![]),
+            parse::<ChoiceIndex<Uniform<u32>>>(vec![]),
             Err(CsrError::NoFirstEntry)
         ));
     }
@@ -111,7 +115,7 @@ mod tests {
     #[test]
     fn nonzero_first_entry() {
         assert!(matches!(
-            parse::<ChoiceIndex<u32>>(bytes(&[1, 2])),
+            parse::<ChoiceIndex<Uniform<u32>>>(bytes(&[1, 2])),
             Err(CsrError::FirstEntryNonZero { value: 1 })
         ));
     }
@@ -119,7 +123,7 @@ mod tests {
     #[test]
     fn value_too_large_for_index() {
         assert!(matches!(
-            parse::<ChoiceIndex<u8>>(bytes(&[0, 255, 256])),
+            parse::<ChoiceIndex<Uniform<u8>>>(bytes(&[0, 255, 256])),
             Err(CsrError::IndexTypeTooNarrow {
                 value: 256,
                 max_allowed: 255
@@ -130,7 +134,7 @@ mod tests {
     #[test]
     fn nonmonotonic_indices() {
         assert!(matches!(
-            parse::<ChoiceIndex<u32>>(bytes(&[0, 3, 2])),
+            parse::<ChoiceIndex<Uniform<u32>>>(bytes(&[0, 3, 2])),
             Err(CsrError::NotMonotonic {
                 index: 2,
                 previous: 3,
@@ -141,7 +145,7 @@ mod tests {
 
     #[test]
     fn max_value_of_index_type_is_accepted() {
-        assert!(parse::<ChoiceIndex<u8>>(bytes(&[0, 255])).is_ok());
+        assert!(parse::<ChoiceIndex<Uniform<u8>>>(bytes(&[0, 255])).is_ok());
     }
 
     #[test]
@@ -149,7 +153,7 @@ mod tests {
         let mut data = bytes(&[0, 1]);
         data.truncate(12);
         assert!(matches!(
-            parse::<ChoiceIndex<u32>>(data),
+            parse::<ChoiceIndex<Uniform<u32>>>(data),
             Err(CsrError::IoError(_))
         ));
     }
@@ -157,7 +161,7 @@ mod tests {
     #[test]
     fn truncated_first_entry_is_io_error() {
         assert!(matches!(
-            parse::<ChoiceIndex<u32>>(vec![0; 4]),
+            parse::<ChoiceIndex<Uniform<u32>>>(vec![0; 4]),
             Err(CsrError::IoError(_))
         ));
     }

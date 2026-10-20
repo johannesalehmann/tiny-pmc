@@ -1,9 +1,12 @@
 use std::marker::PhantomData;
-use typed_index_collections::{Csr, Index, IndexRange, RawIndex, To1};
+use typed_index_collections::{Csr, Index, IndexRange, To1};
 
-pub trait Distribution<From: Index, To: Index> {
-    fn annotations_of_state(&self, state: From) -> IndexRange<To>;
-    fn probability(&self, index: To) -> f32;
+/// Maps entities (e.g. states) to the entries of an annotation that hold their values.
+pub trait Distribution<From: Index> {
+    /// Index of the entries of an annotation using this distribution.
+    type Entry: Index;
+    fn annotations_of_state(&self, state: From) -> IndexRange<Self::Entry>;
+    fn probability(&self, index: Self::Entry) -> f32;
 }
 
 #[allow(unused)] // TODO: Remove once probabilistic annotations are supported
@@ -13,7 +16,9 @@ pub struct ProbabilisticDistribution<From: Index, To: Index> {
     probabilities: To1<To, f32>,
 }
 
-impl<From: Index, To: Index> Distribution<From, To> for ProbabilisticDistribution<From, To> {
+impl<From: Index, To: Index> Distribution<From> for ProbabilisticDistribution<From, To> {
+    type Entry = To;
+
     fn annotations_of_state(&self, state: From) -> IndexRange<To> {
         self.entity_to_annotations.index(state)
     }
@@ -24,21 +29,21 @@ impl<From: Index, To: Index> Distribution<From, To> for ProbabilisticDistributio
 }
 
 #[derive(Default, Debug, PartialEq, Eq)]
-pub struct IdentityDistribution<From: Index, To: Index> {
+pub struct IdentityDistribution<From: Index, To: Index = From> {
     phantom_data: PhantomData<(From, To)>,
 }
 
 impl<From: Index, To: Index> IdentityDistribution<From, To> {
     pub fn annotation_index(&self, from: From) -> To {
-        To::from_raw(To::RawType::from_usize(from.raw().as_usize()))
+        from.reinterpret_as()
     }
 }
 
-impl<From: Index, To: Index> Distribution<From, To> for IdentityDistribution<From, To> {
+impl<From: Index, To: Index> Distribution<From> for IdentityDistribution<From, To> {
+    type Entry = To;
+
     fn annotations_of_state(&self, state: From) -> IndexRange<To> {
-        IndexRange::with_single_index(To::from_raw(To::RawType::from_usize(
-            state.raw().as_usize(),
-        )))
+        IndexRange::with_single_index(state.reinterpret_as())
     }
 
     fn probability(&self, _index: To) -> f32 {
@@ -52,7 +57,9 @@ pub enum MixedDistribution<From: Index, To: Index> {
     Identity(IdentityDistribution<From, To>),
 }
 
-impl<From: Index, To: Index> Distribution<From, To> for MixedDistribution<From, To> {
+impl<From: Index, To: Index> Distribution<From> for MixedDistribution<From, To> {
+    type Entry = To;
+
     fn annotations_of_state(&self, state: From) -> IndexRange<To> {
         match self {
             MixedDistribution::Probabilistic(dist) => dist.annotations_of_state(state),

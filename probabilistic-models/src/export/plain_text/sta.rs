@@ -7,27 +7,13 @@ use std::io::Write;
 use std::path::Path;
 use typed_index_collections::Index;
 
-impl<
-    SI: Index,
-    CI: Index,
-    CEI: Index,
-    VI: Index,
-    M: ReadStateSpace,
-    Ini,
-    ChLabel,
-    BrLabel,
-    Obs,
-    APs,
-    Rew,
-    Ann,
-    P,
-> Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, Valuations<SI, CI, CEI, VI>, P>
+impl<M: ReadStateSpace, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, P>
+    Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, Valuations<M::Ix>, P>
 {
     #[must_use]
     pub fn sta_file(
         &self,
-    ) -> StaFile<'_, M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, Valuations<SI, CI, CEI, VI>, P>
-    {
+    ) -> StaFile<'_, M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, Valuations<M::Ix>, P> {
         StaFile { model: self }
     }
 }
@@ -35,43 +21,16 @@ impl<
 pub struct StaFile<'a, M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, P> {
     model: &'a Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, P>,
 }
-impl<
-    SI: Index,
-    CI: Index,
-    CEI: Index,
-    VI: Index,
-    M: ReadStateSpace<StateIndex = SI>,
-    Ini,
-    ChLabel,
-    BrLabel,
-    Obs,
-    APs,
-    Rew,
-    Ann,
-    P,
-> StaFile<'_, M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, Valuations<SI, CI, CEI, VI>, P>
+impl<M: ReadStateSpace, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, P>
+    StaFile<'_, M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, Valuations<M::Ix>, P>
 {
     pub fn write_to_file(&self, destination: impl AsRef<Path>) -> std::io::Result<()> {
         write!(File::create(destination)?, "{}", self)
     }
 }
 
-impl<
-    SI: Index,
-    CI: Index,
-    CEI: Index,
-    VI: Index,
-    M: ReadStateSpace<StateIndex = SI>,
-    Ini,
-    ChLabel,
-    BrLabel,
-    Obs,
-    APs,
-    Rew,
-    Ann,
-    P,
-> Display
-    for StaFile<'_, M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, Valuations<SI, CI, CEI, VI>, P>
+impl<M: ReadStateSpace, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, P> Display
+    for StaFile<'_, M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, Valuations<M::Ix>, P>
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         let classes = self.model.state_valuations.classes();

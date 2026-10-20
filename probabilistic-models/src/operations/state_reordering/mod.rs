@@ -10,32 +10,28 @@ mod test_utils;
 pub use dfs::SuccessorOrder;
 pub use ordering::StateOrdering;
 
-use crate::Model;
 use crate::traits::{ReadInitialStates, ReadStateSpace};
+use crate::{HasIx, Ix, Model, StateIndex};
 use num_traits::Bounded;
-use typed_index_collections::{Index, RawIndex};
+use typed_index_collections::RawIndex;
 
-pub trait PermuteStates {
-    type StateIndex: Index;
-
-    fn permute_states(&self, ordering: &StateOrdering<Self::StateIndex>) -> Self;
+pub trait PermuteStates: HasIx {
+    fn permute_states(&self, ordering: &StateOrdering<StateIndex<Self::Ix>>) -> Self;
 }
 
-pub trait PermuteStatesWithContext<SI: Index, CI: Index> {
-    fn permute_states_with_context<Base: ReadStateSpace<StateIndex = SI, ChoiceIndex = CI>>(
+pub trait PermuteStatesWithContext<I: Ix> {
+    fn permute_states_with_context<Base: ReadStateSpace<Ix = I>>(
         &self,
-        ordering: &StateOrdering<SI>,
+        ordering: &StateOrdering<StateIndex<I>>,
         old_base: &Base,
         new_base: &Base,
     ) -> Self;
 }
 
-impl<CI: Index, T: PermuteStates> PermuteStatesWithContext<T::StateIndex, CI> for T {
-    fn permute_states_with_context<
-        Base: ReadStateSpace<StateIndex = T::StateIndex, ChoiceIndex = CI>,
-    >(
+impl<T: PermuteStates> PermuteStatesWithContext<T::Ix> for T {
+    fn permute_states_with_context<Base: ReadStateSpace<Ix = T::Ix>>(
         &self,
-        ordering: &StateOrdering<T::StateIndex>,
+        ordering: &StateOrdering<StateIndex<T::Ix>>,
         _old_base: &Base,
         _new_base: &Base,
     ) -> Self {
@@ -43,10 +39,10 @@ impl<CI: Index, T: PermuteStates> PermuteStatesWithContext<T::StateIndex, CI> fo
     }
 }
 
-impl<SI: Index, CI: Index> PermuteStatesWithContext<SI, CI> for () {
-    fn permute_states_with_context<Base: ReadStateSpace<StateIndex = SI, ChoiceIndex = CI>>(
+impl<I: Ix> PermuteStatesWithContext<I> for () {
+    fn permute_states_with_context<Base: ReadStateSpace<Ix = I>>(
         &self,
-        _ordering: &StateOrdering<SI>,
+        _ordering: &StateOrdering<StateIndex<I>>,
         _old_base: &Base,
         _new_base: &Base,
     ) -> Self {
@@ -54,12 +50,10 @@ impl<SI: Index, CI: Index> PermuteStatesWithContext<SI, CI> for () {
     }
 }
 
-impl<SI: Index, CI: Index, T: PermuteStatesWithContext<SI, CI>> PermuteStatesWithContext<SI, CI>
-    for Option<T>
-{
-    fn permute_states_with_context<Base: ReadStateSpace<StateIndex = SI, ChoiceIndex = CI>>(
+impl<I: Ix, T: PermuteStatesWithContext<I>> PermuteStatesWithContext<I> for Option<T> {
+    fn permute_states_with_context<Base: ReadStateSpace<Ix = I>>(
         &self,
-        ordering: &StateOrdering<SI>,
+        ordering: &StateOrdering<StateIndex<I>>,
         old_base: &Base,
         new_base: &Base,
     ) -> Self {
@@ -69,34 +63,32 @@ impl<SI: Index, CI: Index, T: PermuteStatesWithContext<SI, CI>> PermuteStatesWit
 }
 
 impl<
-    SI: Index,
-    CI: Index,
-    M: PermuteStates<StateIndex = SI> + ReadStateSpace<StateIndex = SI, ChoiceIndex = CI>,
-    Ini: PermuteStatesWithContext<SI, CI>,
-    ChLabel: PermuteStatesWithContext<SI, CI>,
-    BrLabel: PermuteStatesWithContext<SI, CI>,
-    Obs: PermuteStatesWithContext<SI, CI>,
-    APs: PermuteStatesWithContext<SI, CI>,
-    Rew: PermuteStatesWithContext<SI, CI>,
-    Ann: PermuteStatesWithContext<SI, CI>,
-    StateVals: PermuteStatesWithContext<SI, CI>,
-    Preds: PermuteStatesWithContext<SI, CI>,
+    M: PermuteStates + ReadStateSpace,
+    Ini: PermuteStatesWithContext<M::Ix>,
+    ChLabel: PermuteStatesWithContext<M::Ix>,
+    BrLabel: PermuteStatesWithContext<M::Ix>,
+    Obs: PermuteStatesWithContext<M::Ix>,
+    APs: PermuteStatesWithContext<M::Ix>,
+    Rew: PermuteStatesWithContext<M::Ix>,
+    Ann: PermuteStatesWithContext<M::Ix>,
+    StateVals: PermuteStatesWithContext<M::Ix>,
+    Preds: PermuteStatesWithContext<M::Ix>,
 > Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>
 {
     #[must_use]
     pub fn reorder_dfs(&self, successor_order: SuccessorOrder) -> Self
     where
-        Self: ReadStateSpace<StateIndex = SI> + ReadInitialStates<StateIdx = SI>,
+        Self: ReadInitialStates<Ix = M::Ix>,
     {
         assert!(
-            self.states().len() < SI::RawType::max_value().as_usize(),
+            self.states().len() < <M::Ix as Ix>::State::max_value().as_usize(),
             "dfs reordering needs the maximal value of the state index type to be larger than the number of states of the model"
         );
         let state_ordering = dfs::compute_dfs_state_ordering(self, successor_order);
         self.reorder(state_ordering)
     }
 
-    pub fn reorder(&self, state_ordering: StateOrdering<SI>) -> Self {
+    pub fn reorder(&self, state_ordering: StateOrdering<StateIndex<M::Ix>>) -> Self {
         let base_model = self.base.permute_states(&state_ordering);
         Model {
             initial: self.initial.permute_states_with_context(

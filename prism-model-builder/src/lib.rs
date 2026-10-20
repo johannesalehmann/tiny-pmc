@@ -1,4 +1,6 @@
 pub use probabilistic_models;
+use probabilistic_models::AtomicPropositionIndex;
+use probabilistic_models::{ValuationClassEntryIndex, ValuationClassIndex};
 
 pub mod atomic_propositions_builder;
 pub mod bases;
@@ -45,10 +47,10 @@ pub struct ModelBuilder<
     Labels: labels::LabelSource,
     IniSource: initial_states_source::InitialStateSource,
     Base: bases::BaseModelBuilder,
-    IniBuilder: initial_states_builder::InitialStatesBuilder<StateIdx = Base::StateIdx>,
-    APs: atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = Base::StateIdx>,
-    CL: choice_labels::ChoiceLabelBuilder<ChoiceIdx = Base::ChoiceIdx>,
-    Rew: rewards_builder::RewardsBuilder<StateIdx = Base::StateIdx, ChoiceIdx = Base::ChoiceIdx>,
+    IniBuilder: initial_states_builder::InitialStatesBuilder<Ix = Base::Ix>,
+    APs: atomic_propositions_builder::AtomicPropositionBuilder<Ix = Base::Ix>,
+    CL: choice_labels::ChoiceLabelBuilder<Ix = Base::Ix>,
+    Rew: rewards_builder::RewardsBuilder<Ix = Base::Ix>,
 > {
     model: &'a mut Model<VariableReference, S, Expression<VariableReference, S>, Identifier<S>>,
     constants: HashMap<String, UserProvidedConstValue>,
@@ -73,10 +75,10 @@ impl<
     Labels: labels::LabelSource,
     IniSource: initial_states_source::InitialStateSource,
     Base: bases::BaseModelBuilder,
-    IniBuilder: initial_states_builder::InitialStatesBuilder<StateIdx = Base::StateIdx>,
-    APs: atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = Base::StateIdx>,
-    CL: choice_labels::ChoiceLabelBuilder<ChoiceIdx = Base::ChoiceIdx>,
-    Rew: rewards_builder::RewardsBuilder<StateIdx = Base::StateIdx, ChoiceIdx = Base::ChoiceIdx>,
+    IniBuilder: initial_states_builder::InitialStatesBuilder<Ix = Base::Ix>,
+    APs: atomic_propositions_builder::AtomicPropositionBuilder<Ix = Base::Ix>,
+    CL: choice_labels::ChoiceLabelBuilder<Ix = Base::Ix>,
+    Rew: rewards_builder::RewardsBuilder<Ix = Base::Ix>,
 > ModelBuilder<'a, S, Queries, Labels, IniSource, Base, IniBuilder, APs, CL, Rew>
 {
     pub fn build_and_return_variable_info(
@@ -95,9 +97,9 @@ impl<
                 Base::Valuation,
                 (),
             >,
-            APs::APIdx,
+            AtomicPropositionIndex<APs::Ix>,
         >,
-        ModelVariableInfo<Base::ClassIdx, Base::ClassEntryIdx>,
+        ModelVariableInfo<ValuationClassIndex<Base::Ix>, ValuationClassEntryIndex<Base::Ix>>,
     ) {
         self.model.replace_empty_updates_with_identity_update();
 
@@ -227,7 +229,7 @@ impl<
             Base::Valuation,
             (),
         >,
-        APs::APIdx,
+        AtomicPropositionIndex<APs::Ix>,
     > {
         let (output, _) = self.build_and_return_variable_info();
         output

@@ -1,27 +1,31 @@
 use crate::ModelBuilder;
 use crate::choice_labels::{CommandIndexLabels, NoChoiceLabels};
 use prism_model::Span;
-use probabilistic_models::labels::Labels;
+use probabilistic_models::labels::ChoiceLabels;
+use probabilistic_models::{ActionIndex, ChoiceIndex, HasIx, Ix};
 use std::collections::HashMap;
-use typed_index_collections::Index;
 
-pub struct ActionNameChoiceLabels<ChoiceIdx: Index, ActionIdx: Index> {
-    labels: Labels<ChoiceIdx, ActionIdx, Option<String>>,
-    name_to_action: HashMap<String, ActionIdx>,
-    none_action: Option<ActionIdx>,
+pub struct ActionNameChoiceLabels<I: Ix> {
+    labels: ChoiceLabels<I, Option<String>>,
+    name_to_action: HashMap<String, ActionIndex<I>>,
+    none_action: Option<ActionIndex<I>>,
 }
 
-impl<ChoiceIdx: Index, ActionIdx: Index> ActionNameChoiceLabels<ChoiceIdx, ActionIdx> {
+impl<I: Ix> HasIx for ActionNameChoiceLabels<I> {
+    type Ix = I;
+}
+
+impl<I: Ix> ActionNameChoiceLabels<I> {
     pub fn new() -> Self {
         Self {
-            labels: Labels::new(),
+            labels: ChoiceLabels::new(),
             name_to_action: HashMap::new(),
             none_action: None,
         }
     }
 }
 
-impl<ChoiceIdx: Index, ActionIdx: Index> Default for ActionNameChoiceLabels<ChoiceIdx, ActionIdx> {
+impl<I: Ix> Default for ActionNameChoiceLabels<I> {
     fn default() -> Self {
         Self::new()
     }
@@ -34,32 +38,27 @@ impl<
     L: crate::labels::LabelSource,
     IS: crate::initial_states_source::InitialStateSource,
     B: crate::bases::BaseModelBuilder,
-    IB: crate::initial_states_builder::InitialStatesBuilder<StateIdx = B::StateIdx>,
-    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = B::StateIdx>,
-    ActionIdx: Index,
-    Rew: crate::rewards_builder::RewardsBuilder<StateIdx = B::StateIdx, ChoiceIdx = B::ChoiceIdx>,
-> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, ActionNameChoiceLabels<B::ChoiceIdx, ActionIdx>, Rew>
+    IB: crate::initial_states_builder::InitialStatesBuilder<Ix = B::Ix>,
+    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<Ix = B::Ix>,
+    Rew: crate::rewards_builder::RewardsBuilder<Ix = B::Ix>,
+> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, ActionNameChoiceLabels<B::Ix>, Rew>
 {
     pub fn without_choice_labels(
         self,
-    ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, NoChoiceLabels<B::ChoiceIdx>, Rew> {
+    ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, NoChoiceLabels<B::Ix>, Rew> {
         self.map_choice_labels(NoChoiceLabels::default())
     }
     pub fn label_choices_with_command_indices(
         self,
-    ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CommandIndexLabels<B::ChoiceIdx, ActionIdx>, Rew>
-    {
+    ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CommandIndexLabels<B::Ix>, Rew> {
         self.map_choice_labels(CommandIndexLabels::default())
     }
 }
 
-impl<ChoiceIdx: Index, ActionIdx: Index> super::ChoiceLabelBuilder
-    for ActionNameChoiceLabels<ChoiceIdx, ActionIdx>
-{
-    type ChoiceIdx = ChoiceIdx;
-    type NameIndex = ActionIdx;
+impl<I: Ix> super::ChoiceLabelBuilder for ActionNameChoiceLabels<I> {
+    type NameIndex = ActionIndex<I>;
     type ContextType = ();
-    type ChoiceLabels = Labels<ChoiceIdx, ActionIdx, Option<String>>;
+    type ChoiceLabels = ChoiceLabels<I, Option<String>>;
 
     fn name_to_index(&mut self, name: Option<&str>) -> Self::NameIndex {
         match name {
@@ -86,7 +85,7 @@ impl<ChoiceIdx: Index, ActionIdx: Index> super::ChoiceLabelBuilder
 
     fn label_choice(
         &mut self,
-        choice: Self::ChoiceIdx,
+        choice: ChoiceIndex<Self::Ix>,
         name: &Self::NameIndex,
         _context: &Self::ContextType,
     ) {

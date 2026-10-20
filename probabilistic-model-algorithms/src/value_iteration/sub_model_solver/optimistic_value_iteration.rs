@@ -2,6 +2,7 @@ use super::{SolveStatistics, SubModelSolver, ValueIteration};
 use crate::value_iteration::non_determinism::NonDeterminismResolver;
 use probabilistic_models::base_model::Mdp;
 use probabilistic_models::traits::ReadStateSpace;
+use probabilistic_models::{BranchIndex, ChoiceIndex, Ix};
 use typed_index_collections::{Index, RawIndex, To1};
 
 pub struct OptimisticValueIteration {
@@ -17,10 +18,10 @@ impl SubModelSolver for OptimisticValueIteration {
         }
     }
 
-    fn solve_with_statistics<'a, ND: NonDeterminismResolver, SI: Index, CI: Index, BI: Index>(
+    fn solve_with_statistics<'a, ND: NonDeterminismResolver, I: Ix>(
         &'a mut self,
-        mdp: &Mdp<SI, CI, BI>,
-        choice_exit_values: &To1<CI, f64>,
+        mdp: &Mdp<I>,
+        choice_exit_values: &To1<ChoiceIndex<I>, f64>,
         mut eps: f64,
         max_value: f64,
     ) -> (&'a [f64], SolveStatistics) {
@@ -39,7 +40,7 @@ impl SubModelSolver for OptimisticValueIteration {
         loop {
             let (values, vi_iterations) =
                 self.base_vi
-                    .solve_raw_with_statistics::<ND, _, _, _>(mdp, choice_exit_values, eps);
+                    .solve_raw_with_statistics::<ND, _>(mdp, choice_exit_values, eps);
             statistics.vi_iterations += vi_iterations;
 
             let verification_bounds = &mut self.verification_bounds[..mdp.states().len()];
@@ -60,7 +61,7 @@ impl SubModelSolver for OptimisticValueIteration {
                 verification_bounds[state.raw().as_usize()] = (value, upper);
             }
 
-            let (verify_result, verification_iterations) = verify_submodel_optimistic::<ND, _, _, _>(
+            let (verify_result, verification_iterations) = verify_submodel_optimistic::<ND, _>(
                 mdp,
                 choice_exit_values,
                 (1.0 / (2.0 * eps)).max(1.0) as usize,
@@ -85,7 +86,7 @@ impl SubModelSolver for OptimisticValueIteration {
                             *upper = *lower;
                         }
                         let (verify_result, verification_iterations) =
-                            verify_submodel_optimistic::<ND, _, _, _>(
+                            verify_submodel_optimistic::<ND, _>(
                                 mdp,
                                 choice_exit_values,
                                 1,
@@ -122,14 +123,9 @@ impl SubModelSolver for OptimisticValueIteration {
     }
 }
 
-fn verify_submodel_optimistic<
-    ND: NonDeterminismResolver,
-    NewSI: Index,
-    NewCI: Index,
-    NewBI: Index,
->(
-    mdp: &Mdp<NewSI, NewCI, NewBI>,
-    choice_exit_values: &To1<NewCI, f64>,
+fn verify_submodel_optimistic<ND: NonDeterminismResolver, NewI: Ix>(
+    mdp: &Mdp<NewI>,
+    choice_exit_values: &To1<ChoiceIndex<NewI>, f64>,
     max_steps: usize,
     max_value: f64,
     verification_bounds: &mut [(f64, f64)],
@@ -139,8 +135,8 @@ fn verify_submodel_optimistic<
         let mut all_up = true;
         let mut all_down = true;
         error = 0.0;
-        let mut current_choice = NewCI::default();
-        let mut current_branch = NewBI::default();
+        let mut current_choice = ChoiceIndex::<NewI>::default();
+        let mut current_branch = BranchIndex::<NewI>::default();
         let mut choices = mdp.graph.choice_to_branch.entries_raw().iter();
         let mut branches = mdp
             .graph
@@ -162,7 +158,7 @@ fn verify_submodel_optimistic<
                     let (lower, upper) = verification_bounds[destination.raw().as_usize()];
                     lower_value += probability * lower;
                     upper_value += probability * upper;
-                    current_branch += NewBI::RawType::one();
+                    current_branch += NewI::Branch::one();
                 }
                 if ND::is_better(new_lower_value, lower_value) {
                     new_lower_value = lower_value;
@@ -170,7 +166,7 @@ fn verify_submodel_optimistic<
                 if ND::is_better(new_upper_value, upper_value) {
                     new_upper_value = upper_value;
                 }
-                current_choice += NewCI::RawType::one();
+                current_choice += NewI::Choice::one();
             }
 
             let new_lower_value = new_lower_value.min(max_value);

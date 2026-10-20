@@ -1,25 +1,15 @@
 use crate::Model;
 use crate::component::OptionalComponent;
 use crate::traits::ReadStateSpace;
+use crate::{BranchIndex, ChoiceIndex, HasIx, Ix, PredecessorIndex, StateIndex};
 use typed_index_collections::{Csr, Index, RawIndex, To1};
 
 impl<M: ReadStateSpace, I, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val>
     Model<M, I, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, ()>
 {
-    pub fn compute_predecessors<PredecessorIdx: Index>(
+    pub fn compute_predecessors(
         self,
-    ) -> Model<
-        M,
-        I,
-        ChLabel,
-        BrLabel,
-        Obs,
-        APs,
-        Rew,
-        Ann,
-        Val,
-        Predecessors<M::StateIndex, M::ChoiceIndex, M::BranchIndex, PredecessorIdx>,
-    > {
+    ) -> Model<M, I, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Predecessors<M::Ix>> {
         let predecessors = Predecessors::compute(&self.base);
         Model {
             base: self.base,
@@ -35,21 +25,10 @@ impl<M: ReadStateSpace, I, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val>
         }
     }
 
-    pub fn with_predecessors<PredecessorIdx: Index>(
+    pub fn with_predecessors(
         self,
-        predecessors: Predecessors<M::StateIndex, M::ChoiceIndex, M::BranchIndex, PredecessorIdx>,
-    ) -> Model<
-        M,
-        I,
-        ChLabel,
-        BrLabel,
-        Obs,
-        APs,
-        Rew,
-        Ann,
-        Val,
-        Predecessors<M::StateIndex, M::ChoiceIndex, M::BranchIndex, PredecessorIdx>,
-    > {
+        predecessors: Predecessors<M::Ix>,
+    ) -> Model<M, I, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Predecessors<M::Ix>> {
         Model {
             base: self.base,
             initial: self.initial,
@@ -65,34 +44,12 @@ impl<M: ReadStateSpace, I, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val>
     }
 }
 
-impl<PI: Index, M: ReadStateSpace, I, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val>
-    Model<
-        M,
-        I,
-        ChLabel,
-        BrLabel,
-        Obs,
-        APs,
-        Rew,
-        Ann,
-        Val,
-        Option<Predecessors<M::StateIndex, M::ChoiceIndex, M::BranchIndex, PI>>,
-    >
+impl<M: ReadStateSpace, I, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val>
+    Model<M, I, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Option<Predecessors<M::Ix>>>
 {
     pub fn unwrap_or_compute_predecessors(
         self,
-    ) -> Model<
-        M,
-        I,
-        ChLabel,
-        BrLabel,
-        Obs,
-        APs,
-        Rew,
-        Ann,
-        Val,
-        Predecessors<M::StateIndex, M::ChoiceIndex, M::BranchIndex, PI>,
-    > {
+    ) -> Model<M, I, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Predecessors<M::Ix>> {
         let predecessors = match self.predecessors {
             Some(p) => p,
             None => Predecessors::compute(&self.base),
@@ -131,26 +88,23 @@ impl<M: ReadStateSpace, I, CL, BL, Obs, APs, Rew, Ann, Val, Pred: OptionalCompon
     }
 }
 
-pub struct Predecessors<StateIdx: Index, ChoiceIdx: Index, BranchIdx: Index, PredecessorIdx: Index>
-{
-    pub state_to_predecessor: Csr<StateIdx, PredecessorIdx>,
-    pub predecessor_to_branch: To1<PredecessorIdx, BranchIdx>,
-    pub branch_to_choice: To1<BranchIdx, ChoiceIdx>,
-    pub choice_to_state: To1<ChoiceIdx, StateIdx>,
+pub struct Predecessors<I: Ix> {
+    pub state_to_predecessor: Csr<StateIndex<I>, PredecessorIndex<I>>,
+    pub predecessor_to_branch: To1<PredecessorIndex<I>, BranchIndex<I>>,
+    pub branch_to_choice: To1<BranchIndex<I>, ChoiceIndex<I>>,
+    pub choice_to_state: To1<ChoiceIndex<I>, StateIndex<I>>,
 }
 
-impl<SI: Index, CI: Index, BI: Index, PI: Index> crate::Component for Predecessors<SI, CI, BI, PI> {}
+impl<I: Ix> crate::Component for Predecessors<I> {}
 
-impl<StateIdx: Index, ChoiceIdx: Index, BranchIdx: Index, PredecessorIdx: Index>
-    Predecessors<StateIdx, ChoiceIdx, BranchIdx, PredecessorIdx>
-{
-    pub fn compute<
-        M: ReadStateSpace<StateIndex = StateIdx, ChoiceIndex = ChoiceIdx, BranchIndex = BranchIdx>,
-    >(
-        model: &M,
-    ) -> Self {
+impl<I: Ix> HasIx for Predecessors<I> {
+    type Ix = I;
+}
+
+impl<I: Ix> Predecessors<I> {
+    pub fn compute<M: ReadStateSpace<Ix = I>>(model: &M) -> Self {
         let mut state_predecessor_count =
-            To1::<StateIdx, usize>::with_entries(vec![0; model.states().len()]);
+            To1::<StateIndex<I>, usize>::with_entries(vec![0; model.states().len()]);
 
         for state in model.states() {
             for choice in model.choices_of_state(state) {
@@ -164,24 +118,21 @@ impl<StateIdx: Index, ChoiceIdx: Index, BranchIdx: Index, PredecessorIdx: Index>
         let mut state_to_predecessor = Csr::new();
         let mut predecessor_to_branch =
             To1::with_entries(vec![
-                BranchIdx::from_raw(BranchIdx::RawType::zero());
+                BranchIndex::from_raw(I::Branch::zero());
                 model.branches().len()
             ]);
-        let mut branch_to_choice =
-            To1::with_entries(vec![
-                ChoiceIdx::from_raw(ChoiceIdx::RawType::zero());
-                model.branches().len()
-            ]);
-        let mut choice_to_state =
-            To1::with_entries(vec![
-                StateIdx::from_raw(StateIdx::RawType::zero());
-                model.choices().len()
-            ]);
+        let mut branch_to_choice = To1::with_entries(vec![
+            ChoiceIndex::from_raw(I::Choice::zero());
+            model.branches().len()
+        ]);
+        let mut choice_to_state = To1::with_entries(vec![
+            StateIndex::from_raw(I::State::zero());
+            model.choices().len()
+        ]);
 
-        let mut predecessor_from = PredecessorIdx::from_raw(PredecessorIdx::RawType::zero());
+        let mut predecessor_from = PredecessorIndex::from_raw(I::Branch::zero());
         for (state, predecessor_count) in state_predecessor_count.enumerate() {
-            let predecessor_to =
-                predecessor_from + PredecessorIdx::RawType::from_usize(*predecessor_count);
+            let predecessor_to = predecessor_from + I::Branch::from_usize(*predecessor_count);
             state_to_predecessor.add_entry(state, predecessor_from, predecessor_to);
 
             predecessor_from = predecessor_to;
@@ -216,7 +167,7 @@ impl<StateIdx: Index, ChoiceIdx: Index, BranchIdx: Index, PredecessorIdx: Index>
 
     // This function makes tests much easier to write, but should not be used in production.
     #[cfg(test)]
-    pub fn nth_predecessor_of_state(&self, state: StateIdx, n: usize) -> BranchIdx {
+    pub fn nth_predecessor_of_state(&self, state: StateIndex<I>, n: usize) -> BranchIndex<I> {
         self.predecessor_to_branch[self.state_to_predecessor.index(state).index(n)]
     }
 }
@@ -225,7 +176,7 @@ impl<StateIdx: Index, ChoiceIdx: Index, BranchIdx: Index, PredecessorIdx: Index>
 mod tests {
     use crate::base_model::Mdp;
     use crate::traits::{BuildChoiceBranchGraph, BuildStates};
-    use crate::{BranchIndex, ChoiceIndex, Model, PredecessorIndex, StateIndex};
+    use crate::{Model, StateIndex, Uniform};
     use typed_index_collections::Index;
 
     #[test]
@@ -234,8 +185,7 @@ mod tests {
             for choices_per_state in 0..2usize {
                 for branches_per_state in 0..2usize {
                     let p = 1.0 / branches_per_state.max(1) as f64;
-                    let mut mdp =
-                        Mdp::<StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>>::new();
+                    let mut mdp = Mdp::<Uniform<usize>>::default();
                     for _ in 0..padding_states {
                         let self_index = mdp.add_state();
 
@@ -251,7 +201,7 @@ mod tests {
                     let choice = mdp.add_choice();
                     let branch = mdp.add_branch(1.0, state);
 
-                    let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
+                    let model = Model::new(mdp).compute_predecessors();
                     assert_eq!(model.predecessors.choice_to_state[choice], state);
                     assert_eq!(model.predecessors.branch_to_choice[branch], choice);
                     let preds = model.predecessors.state_to_predecessor.index(state);
@@ -271,7 +221,7 @@ mod tests {
         //  this test is actually to specific.
         // If this test breaks, first check whether this is the cause.
         // TODO: Use the mdp! macro for this test?
-        let mut mdp = Mdp::<StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>>::new();
+        let mut mdp = Mdp::<Uniform<usize>>::default();
         let s0 = StateIndex::from_raw(0);
         let s1 = StateIndex::from_raw(1);
         let s2 = StateIndex::from_raw(2);
@@ -302,7 +252,7 @@ mod tests {
 
         let c4 = mdp.add_choice();
         let b6 = mdp.add_branch(1.0, s4);
-        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
+        let model = Model::new(mdp).compute_predecessors();
         let preds = model.predecessors;
 
         assert_eq!(preds.state_to_predecessor.index(s0).len(), 0);

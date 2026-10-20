@@ -1,10 +1,8 @@
 mod branch_labels;
 mod choice_labels;
 
+use crate::{ActionIndex, BranchIndex, ChoiceIndex};
 use typed_index_collections::{Index, To1};
-
-// TODO: Typedefs for branch labels (you could still give a branch index to a choice label, but
-//  it would make it easier to find them)
 
 pub trait ReadLabels {
     type EntityIdx: Index;
@@ -22,6 +20,9 @@ pub struct Labels<EntityIdx: Index, ActionIdx: Index, E> {
 }
 
 impl<EI: Index, AI: Index, E> crate::Component for Labels<EI, AI, E> {}
+
+pub type ChoiceLabels<I, E> = Labels<ChoiceIndex<I>, ActionIndex<I>, E>;
+pub type BranchLabels<I, E> = Labels<BranchIndex<I>, ActionIndex<I>, E>;
 
 impl<EntityIdx: Index, ActionIdx: Index, E> Labels<EntityIdx, ActionIdx, E> {
     pub fn new() -> Self {

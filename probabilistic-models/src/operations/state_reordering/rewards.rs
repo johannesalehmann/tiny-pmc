@@ -1,14 +1,13 @@
 use super::{PermuteStatesWithContext, StateOrdering};
 use crate::annotations::{EntityRewards, RewardAnnotations, StateChoiceRewards};
 use crate::traits::ReadStateSpace;
-use typed_index_collections::{Index, To1};
+use crate::{Ix, StateIndex};
+use typed_index_collections::To1;
 
-impl<SI: Index, AI: Index, CI: Index, AEI: Index> PermuteStatesWithContext<SI, CI>
-    for RewardAnnotations<AI, SI, CI, AEI>
-{
-    fn permute_states_with_context<Base: ReadStateSpace<StateIndex = SI, ChoiceIndex = CI>>(
+impl<I: Ix> PermuteStatesWithContext<I> for RewardAnnotations<I> {
+    fn permute_states_with_context<Base: ReadStateSpace<Ix = I>>(
         &self,
-        ordering: &StateOrdering<SI>,
+        ordering: &StateOrdering<StateIndex<I>>,
         old_base: &Base,
         new_base: &Base,
     ) -> Self {
@@ -96,20 +95,15 @@ mod tests {
     use crate::operations::state_reordering::PermuteStates;
     use crate::operations::state_reordering::test_utils::state_ordering;
     use crate::traits::{BuildChoiceBranchGraph, BuildStates};
-    use crate::{AnnotationEntryIndex, AnnotationIndex, BranchIndex, ChoiceIndex, StateIndex};
+    use crate::{StateIndex, Uniform};
     use typed_index_collections::To1;
 
-    type Base = Mdp<StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>>;
-    type Rewards = RewardAnnotations<
-        AnnotationIndex<usize>,
-        StateIndex<usize>,
-        ChoiceIndex<usize>,
-        AnnotationEntryIndex<usize>,
-    >;
+    type Base = Mdp<Uniform<usize>>;
+    type Rewards = RewardAnnotations<Uniform<usize>>;
 
     /// An MDP with the given number of choices per state. Every choice is a self-loop.
     fn base(choices_per_state: &[usize]) -> Base {
-        let mut base = Base::new();
+        let mut base = Base::default();
         for &choices in choices_per_state {
             let state_index = base.add_state();
             for _ in 0..choices {
@@ -121,7 +115,7 @@ mod tests {
 
     fn entity_rewards<E: typed_index_collections::Index>(
         values: Option<&[f64]>,
-    ) -> Option<EntityRewards<E, AnnotationEntryIndex<usize>>> {
+    ) -> Option<EntityRewards<E>> {
         values.map(|values| {
             EntityRewards::with_identity_distribution_and_entries(To1::with_entries(
                 values.to_vec(),
@@ -149,7 +143,7 @@ mod tests {
     fn permuted(
         rewards: &Rewards,
         old_base: &Base,
-        ordering: &StateOrdering<StateIndex<usize>>,
+        ordering: &StateOrdering<StateIndex<Uniform<usize>>>,
     ) -> Rewards {
         let new_base = old_base.permute_states(ordering);
         rewards.permute_states_with_context(ordering, old_base, &new_base)

@@ -1,23 +1,24 @@
 use crate::attractor;
 use probabilistic_models::base_model::{ReadOwners, TwoPlayer};
 use probabilistic_models::traits::{ReadAtomicPropositions, ReadPredecessors, ReadStateSpace};
-use typed_index_collections::{Index, To1};
+use probabilistic_models::{AtomicPropositionIndex, Ix, StateIndex};
+use typed_index_collections::To1;
 
 const REACHING_PLAYER: TwoPlayer = TwoPlayer::Adam;
 
-pub struct SafetyContext<StateIdx: Index> {
-    bad_states: Vec<StateIdx>,
-    owners: To1<StateIdx, TwoPlayer>,
-    buffer: attractor::AttractorBuffer<StateIdx>,
+pub struct SafetyContext<I: Ix> {
+    bad_states: Vec<StateIndex<I>>,
+    owners: To1<StateIndex<I>, TwoPlayer>,
+    buffer: attractor::AttractorBuffer<I>,
     dirty: bool,
 }
 
-impl<StateIdx: Index> SafetyContext<StateIdx> {
-    pub fn owner(&self, state: StateIdx) -> TwoPlayer {
+impl<I: Ix> SafetyContext<I> {
+    pub fn owner(&self, state: StateIndex<I>) -> TwoPlayer {
         self.owners[state]
     }
 
-    pub fn set_owner(&mut self, state: StateIdx, owner: TwoPlayer) {
+    pub fn set_owner(&mut self, state: StateIndex<I>, owner: TwoPlayer) {
         self.owners[state] = owner;
         super::set_owner_count(&mut self.buffer, state, owner, REACHING_PLAYER);
     }
@@ -45,13 +46,11 @@ impl<StateIdx: Index> SafetyContext<StateIdx> {
 }
 
 pub fn create_safety_context<
-    M: ReadStateSpace
-        + ReadOwners<StateIdx = M::StateIndex, OwnerType = TwoPlayer>
-        + ReadAtomicPropositions<StateIdx = M::StateIndex>,
+    M: ReadStateSpace + ReadOwners<OwnerType = TwoPlayer> + ReadAtomicPropositions,
 >(
     model: &M,
-    good_states: <M as ReadAtomicPropositions>::APIdx,
-) -> SafetyContext<M::StateIndex> {
+    good_states: AtomicPropositionIndex<M::Ix>,
+) -> SafetyContext<M::Ix> {
     let mut context = SafetyContext {
         bad_states: super::states_without_ap(model, good_states),
         owners: super::model_owners(model),
@@ -63,33 +62,19 @@ pub fn create_safety_context<
 }
 
 pub fn solve_safety<
-    M: ReadStateSpace
-        + ReadOwners<StateIdx = M::StateIndex, OwnerType = TwoPlayer>
-        + ReadAtomicPropositions<StateIdx = M::StateIndex>
-        + ReadPredecessors<
-            StateIdx = M::StateIndex,
-            ChoiceIdx = M::ChoiceIndex,
-            BranchIdx = M::BranchIndex,
-        >,
+    M: ReadStateSpace + ReadOwners<OwnerType = TwoPlayer> + ReadAtomicPropositions + ReadPredecessors,
 >(
     model: &M,
-    good_states: <M as ReadAtomicPropositions>::APIdx,
-) -> To1<M::StateIndex, bool> {
+    good_states: AtomicPropositionIndex<M::Ix>,
+) -> To1<StateIndex<M::Ix>, bool> {
     let mut context = create_safety_context(model, good_states);
     solve_safety_raw(model, &mut context)
 }
 
-pub fn solve_safety_raw<
-    M: ReadStateSpace
-        + ReadPredecessors<
-            StateIdx = M::StateIndex,
-            ChoiceIdx = M::ChoiceIndex,
-            BranchIdx = M::BranchIndex,
-        >,
->(
+pub fn solve_safety_raw<M: ReadStateSpace + ReadPredecessors>(
     model: &M,
-    context: &mut SafetyContext<M::StateIndex>,
-) -> To1<M::StateIndex, bool> {
+    context: &mut SafetyContext<M::Ix>,
+) -> To1<StateIndex<M::Ix>, bool> {
     context.mark_dirty();
     attractor::attractor_with_buffer(
         model,
@@ -100,34 +85,20 @@ pub fn solve_safety_raw<
 }
 
 pub fn safety_winner_from_state<
-    M: ReadStateSpace
-        + ReadOwners<StateIdx = M::StateIndex, OwnerType = TwoPlayer>
-        + ReadAtomicPropositions<StateIdx = M::StateIndex>
-        + ReadPredecessors<
-            StateIdx = M::StateIndex,
-            ChoiceIdx = M::ChoiceIndex,
-            BranchIdx = M::BranchIndex,
-        >,
+    M: ReadStateSpace + ReadOwners<OwnerType = TwoPlayer> + ReadAtomicPropositions + ReadPredecessors,
 >(
     model: &M,
-    good_states: <M as ReadAtomicPropositions>::APIdx,
-    state: M::StateIndex,
+    good_states: AtomicPropositionIndex<M::Ix>,
+    state: StateIndex<M::Ix>,
 ) -> TwoPlayer {
     let mut context = create_safety_context(model, good_states);
     safety_winner_from_state_raw(model, &mut context, state)
 }
 
-pub fn safety_winner_from_state_raw<
-    M: ReadStateSpace
-        + ReadPredecessors<
-            StateIdx = M::StateIndex,
-            ChoiceIdx = M::ChoiceIndex,
-            BranchIdx = M::BranchIndex,
-        >,
->(
+pub fn safety_winner_from_state_raw<M: ReadStateSpace + ReadPredecessors>(
     model: &M,
-    context: &mut SafetyContext<M::StateIndex>,
-    state: M::StateIndex,
+    context: &mut SafetyContext<M::Ix>,
+    state: StateIndex<M::Ix>,
 ) -> TwoPlayer {
     context.mark_dirty();
     match attractor::attractor_contains_state_with_buffer(

@@ -1,12 +1,10 @@
 use super::{PermuteStates, StateOrdering};
 use crate::base_model::Mdp;
 use crate::traits::{BuildChoiceBranchGraph, BuildStates, ReadStateSpace};
-use typed_index_collections::Index;
+use crate::{Ix, StateIndex};
 
-impl<SI: Index, CI: Index, BI: Index> PermuteStates for Mdp<SI, CI, BI> {
-    type StateIndex = SI;
-
-    fn permute_states(&self, ordering: &StateOrdering<SI>) -> Self {
+impl<I: Ix> PermuteStates for Mdp<I> {
+    fn permute_states(&self, ordering: &StateOrdering<StateIndex<I>>) -> Self {
         let (n, ordering_n) = (self.states().len(), ordering.len());
         assert_eq!(
             n, ordering_n,
@@ -31,15 +29,15 @@ impl<SI: Index, CI: Index, BI: Index> PermuteStates for Mdp<SI, CI, BI> {
 #[cfg(test)]
 mod tests {
     use super::PermuteStates;
+    use crate::Uniform;
     use crate::base_model::Mdp;
     use crate::mdp;
     use crate::operations::state_reordering::StateOrdering;
     use crate::operations::state_reordering::test_utils::{state, state_ordering};
     use crate::traits::ReadStateSpace;
-    use crate::{BranchIndex, ChoiceIndex, StateIndex};
     use typed_index_collections::Index;
 
-    type TestMdp = Mdp<StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>>;
+    type TestMdp = Mdp<Uniform<usize>>;
 
     /// The choices of the state with the given index as a list of branches `(probability, destination)`.
     fn choices_of(mdp: &TestMdp, index: usize) -> Vec<Vec<(f64, usize)>> {

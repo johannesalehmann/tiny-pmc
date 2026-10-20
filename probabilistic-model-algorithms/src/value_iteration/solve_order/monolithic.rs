@@ -1,7 +1,7 @@
 use super::ModelSize;
-use super::topological::{create_value_vector, write_to_global_values};
+use super::topological::{SubModelIx, create_value_vector, write_to_global_values};
 use crate::mecs::Mecs;
-use crate::sccs::{Scc, SccEntryIndex, SccIndex, Sccs};
+use crate::sccs::{Scc, SccIndex, Sccs};
 use crate::sub_model::{
     Attractor, IndexBased, IndexOrderDirection, Legacy, RewardsSource, StateOrdering, SubModel,
     SubModelOrder,
@@ -10,7 +10,7 @@ use crate::value_iteration::non_determinism::NonDeterminismResolver;
 use crate::value_iteration::precomputed_states::PrecomputedStates;
 use crate::value_iteration::sub_model_solver::SubModelSolver;
 use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
-use probabilistic_models::{BranchIndex, ChoiceIndex, StateIndex};
+use probabilistic_models::{Ix, RawIndex, StateIndex};
 use typed_index_collections::{Index, To1};
 
 pub struct Monolithic {
@@ -27,22 +27,17 @@ impl super::OrderedSolver for Monolithic {
     fn find_and_solve_submodels<
         ND: NonDeterminismResolver,
         Solver: SubModelSolver,
-        M: ReadStateSpace
-            + ReadPredecessors<
-                StateIdx = M::StateIndex,
-                ChoiceIdx = M::ChoiceIndex,
-                BranchIdx = M::BranchIndex,
-            >,
-        P: PrecomputedStates<StateIdx = M::StateIndex>,
-        Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>,
+        M: ReadStateSpace + ReadPredecessors,
+        P: PrecomputedStates<Ix = M::Ix>,
+        Rew: RewardsSource<M::Ix>,
     >(
         self,
         model: &M,
         precomputed_states: &P,
         rew: Rew,
-        mecs: &Mecs<M::StateIndex, M::ChoiceIndex>,
+        mecs: &Mecs<M::Ix>,
         eps: f64,
-    ) -> To1<M::StateIndex, f64> {
+    ) -> To1<StateIndex<M::Ix>, f64> {
         match self.sub_model_order {
             SubModelOrder::BackToFront => solve_with_ordering::<ND, Solver, _, _, _, _>(
                 model,
@@ -83,23 +78,18 @@ impl super::OrderedSolver for Monolithic {
 fn solve_with_ordering<
     ND: NonDeterminismResolver,
     Solver: SubModelSolver,
-    M: ReadStateSpace
-        + ReadPredecessors<
-            StateIdx = M::StateIndex,
-            ChoiceIdx = M::ChoiceIndex,
-            BranchIdx = M::BranchIndex,
-        >,
-    P: PrecomputedStates<StateIdx = M::StateIndex>,
-    Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>,
+    M: ReadStateSpace + ReadPredecessors,
+    P: PrecomputedStates<Ix = M::Ix>,
+    Rew: RewardsSource<M::Ix>,
     O: StateOrdering,
 >(
     model: &M,
     precomputed_states: &P,
     rew: Rew,
-    mecs: &Mecs<M::StateIndex, M::ChoiceIndex>,
+    mecs: &Mecs<M::Ix>,
     eps: f64,
     ordering: O,
-) -> To1<M::StateIndex, f64> {
+) -> To1<StateIndex<M::Ix>, f64> {
     let mut values = create_value_vector(model.states(), precomputed_states);
 
     // All maybe states are put into a single (not necessarily strongly connected) pseudo-SCC, so
@@ -110,9 +100,8 @@ fn solve_with_ordering<
         .states()
         .into_iter()
         .filter(|&state| precomputed_states.is_maybe_state(state));
-    let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, _> =
-        Sccs::new([maybe_states], model.states().len());
-    let scc = sccs.scc(SccIndex::from_raw(0));
+    let sccs: Sccs<M::Ix> = Sccs::new([maybe_states], model.states().len());
+    let scc = sccs.scc(SccIndex::from_raw(RawIndex::zero()));
     let size = ModelSize::from_scc(model, scc);
     if size.states == 0 {
         return values;
@@ -120,7 +109,7 @@ fn solve_with_ordering<
 
     let max = precomputed_states.max_value();
     if size.fits_u8() {
-        solve::<ND, Solver, _, _, _, StateIndex<u8>, ChoiceIndex<u8>, BranchIndex<u8>>(
+        solve::<ND, Solver, _, _, _, SubModelIx<u8>>(
             model,
             scc,
             mecs,
@@ -131,7 +120,7 @@ fn solve_with_ordering<
             max,
         );
     } else if size.fits_u16() {
-        solve::<ND, Solver, _, _, _, StateIndex<u16>, ChoiceIndex<u16>, BranchIndex<u16>>(
+        solve::<ND, Solver, _, _, _, SubModelIx<u16>>(
             model,
             scc,
             mecs,
@@ -142,7 +131,7 @@ fn solve_with_ordering<
             max,
         );
     } else if size.fits_u32() {
-        solve::<ND, Solver, _, _, _, StateIndex<u32>, ChoiceIndex<u32>, BranchIndex<u32>>(
+        solve::<ND, Solver, _, _, _, SubModelIx<u32>>(
             model,
             scc,
             mecs,
@@ -153,7 +142,7 @@ fn solve_with_ordering<
             max,
         );
     } else {
-        solve::<ND, Solver, _, _, _, StateIndex<usize>, ChoiceIndex<usize>, BranchIndex<usize>>(
+        solve::<ND, Solver, _, _, _, SubModelIx<usize>>(
             model,
             scc,
             mecs,
@@ -176,30 +165,22 @@ fn solve_with_ordering<
 fn solve<
     ND: NonDeterminismResolver,
     Solver: SubModelSolver,
-    M: ReadStateSpace
-        + ReadPredecessors<
-            StateIdx = M::StateIndex,
-            ChoiceIdx = M::ChoiceIndex,
-            BranchIdx = M::BranchIndex,
-        >,
-    Rew: RewardsSource<M::StateIndex, M::ChoiceIndex>,
+    M: ReadStateSpace + ReadPredecessors,
+    Rew: RewardsSource<M::Ix>,
     O: StateOrdering,
-    SI: Index,
-    CI: Index,
-    BI: Index,
+    NewI: Ix,
 >(
     model: &M,
-    scc: Scc<'_, SccIndex<usize>, SccEntryIndex<usize>, M::StateIndex>,
-    mecs: &Mecs<M::StateIndex, M::ChoiceIndex>,
-    values: &mut To1<M::StateIndex, f64>,
+    scc: Scc<'_, M::Ix>,
+    mecs: &Mecs<M::Ix>,
+    values: &mut To1<StateIndex<M::Ix>, f64>,
     rew: &Rew,
     ordering: &O,
     eps: f64,
     max_value: f64,
 ) {
-    let sm: SubModel<M::StateIndex, SI, CI, BI> =
-        SubModel::from_scc(model, scc, mecs, values, rew, ordering);
+    let sm: SubModel<M::Ix, NewI> = SubModel::from_scc(model, scc, mecs, values, rew, ordering);
     let mut solver = Solver::create(scc.size());
-    let res = solver.solve::<ND, _, _, _>(&sm.mdp, &sm.choice_exit_values, eps, max_value);
+    let res = solver.solve::<ND, _>(&sm.mdp, &sm.choice_exit_values, eps, max_value);
     write_to_global_values(values, &sm, res);
 }

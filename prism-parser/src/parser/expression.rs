@@ -1,9 +1,9 @@
-use crate::parser::{identifier_parser, identifier_parser_potentially_reserved, E};
+use crate::parser::{E, identifier_parser, identifier_parser_potentially_reserved};
 use crate::{ParserSpan, Token};
+use chumsky::IterParser;
 use chumsky::input::ValueInput;
 use chumsky::prelude::{just, recursive};
-use chumsky::IterParser;
-use chumsky::{select, Parser};
+use chumsky::{Parser, select};
 use prism_model::Identifier;
 
 pub fn expression_parser<'a, 'b, I>()

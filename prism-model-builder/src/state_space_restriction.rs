@@ -14,10 +14,10 @@ impl<
     L: LabelSource,
     IS: InitialStateSource,
     B: BaseModelBuilder,
-    IB: InitialStatesBuilder<StateIdx = B::StateIdx>,
-    APs: atomic_propositions_builder::AtomicPropositionBuilder<StateIdx = B::StateIdx>,
-    CL: choice_labels::ChoiceLabelBuilder<ChoiceIdx = B::ChoiceIdx>,
-    Rew: RewardsBuilder<StateIdx = B::StateIdx, ChoiceIdx = B::ChoiceIdx>,
+    IB: InitialStatesBuilder<Ix = B::Ix>,
+    APs: atomic_propositions_builder::AtomicPropositionBuilder<Ix = B::Ix>,
+    CL: choice_labels::ChoiceLabelBuilder<Ix = B::Ix>,
+    Rew: RewardsBuilder<Ix = B::Ix>,
 > ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CL, Rew>
 {
     pub fn with_state_space_restriction(

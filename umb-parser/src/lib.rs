@@ -14,31 +14,27 @@ use probabilistic_models::base_model::{ChoiceBranchGraph, Mdp};
 use probabilistic_models::initial_states::InitialStates;
 use probabilistic_models::typed_index_collections::{Csr, To1, index};
 use probabilistic_models::{
-    AnnotationEntryIndex, AnnotationIndex, AtomicPropositionIndex, BranchIndex, ChoiceIndex, Index,
-    Model, PlayerIndex, StateIndex,
+    BranchIndex, ChoiceIndex, DefaultIx, Index, Model, ObservationIndex, PlayerIndex, StateIndex,
 };
 use std::convert::Infallible;
 use std::path::Path;
 
-type SI = StateIndex<usize>;
-type CI = ChoiceIndex<usize>;
-type BI = BranchIndex<usize>;
-type PI = PlayerIndex<usize>;
-type OI = AnnotationIndex<usize>; // TODO: Figure out which index this should be once observations are fully supported
-type AEI = AnnotationEntryIndex<usize>;
-type API = AtomicPropositionIndex<usize>;
-type RI = AnnotationIndex<usize>;
+type SI = StateIndex<DefaultIx>;
+type CI = ChoiceIndex<DefaultIx>;
+type BI = BranchIndex<DefaultIx>;
+type PI = PlayerIndex<DefaultIx>;
+type OI = ObservationIndex<DefaultIx>;
 pub fn parse_umb<P: AsRef<Path>>(
     path: P,
 ) -> Result<
     Model<
-        Mdp<SI, CI, BI>,
-        Option<InitialStates<SI>>,
+        Mdp<DefaultIx>,
+        Option<InitialStates<DefaultIx>>,
         (),
         (),
         (),
-        Option<AtomicPropositions<API, SI, AEI>>,
-        Option<RewardAnnotations<RI, SI, CI, AEI>>,
+        Option<AtomicPropositions<DefaultIx>>,
+        Option<RewardAnnotations<DefaultIx>>,
         (),
         (),
         (),
@@ -81,7 +77,7 @@ pub fn parse_umb<P: AsRef<Path>>(
             "state-to-choices.bin" => state_to_choice = Some(csr::parse_csr::<SI, CI, _>(entry)?),
             "state-to-player.bin" => {
                 state_to_player =
-                    Some(to1::parse_to1::<SI, u32, _>(entry)?.map(|i| PI::from_raw(*i as usize)))
+                    Some(to1::parse_to1::<SI, u32, _>(entry)?.map(|i| PI::from_raw(*i)))
             }
             "state-is-initial.bin" => {
                 state_is_initial = Some(to1::parse_to1_bool::<SI, _>(
@@ -233,6 +229,7 @@ fn unwrap_to1<From: Index, E: Default + Clone>(
 
 index!(StringIndex);
 index!(SequenceIndex);
+index!(AnnotationEntryIndex);
 
 #[derive(Debug)]
 pub enum UmbError {

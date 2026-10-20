@@ -9,7 +9,8 @@ pub use attractor::{Attractor, AttractorChoiceMode};
 pub use index_based::{IndexBased, IndexOrderDirection};
 pub use legacy::Legacy;
 use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
-use typed_index_collections::{Index, To1};
+use probabilistic_models::{Ix, StateIndex};
+use typed_index_collections::To1;
 
 #[derive(Debug, PartialEq, Clone, Copy)]
 pub enum SubModelOrder {
@@ -20,32 +21,19 @@ pub enum SubModelOrder {
 }
 
 pub trait StateOrdering {
-    type Context<SI: Index, CI: Index>;
+    type Context<I: Ix>;
 
-    fn create_context<M: ReadStateSpace>(
-        &self,
-        model: &M,
-    ) -> Self::Context<M::StateIndex, M::ChoiceIndex>;
+    fn create_context<M: ReadStateSpace>(&self, model: &M) -> Self::Context<M::Ix>;
 
     // Output is stored in to_old_state_index. `context` must be clean when this function is called.
-    fn compute_ordering<
-        M: ReadStateSpace<StateIndex = SI, ChoiceIndex = CI, BranchIndex = BI>
-            + ReadPredecessors<StateIdx = SI, ChoiceIdx = CI, BranchIdx = BI>,
-        SI: Index,
-        CI: Index,
-        BI: Index,
-        ScI: Index,
-        ScEI: Index,
-        NewSI: Index,
-        Rew: RewardsSource<SI, CI>,
-    >(
+    fn compute_ordering<M: ReadStateSpace + ReadPredecessors, NewI: Ix, Rew: RewardsSource<M::Ix>>(
         &self,
         model: &M,
-        scc: Scc<'_, ScI, ScEI, SI>,
-        mecs: &Mecs<SI, CI>,
-        values: &To1<SI, f64>,
+        scc: Scc<'_, M::Ix>,
+        mecs: &Mecs<M::Ix>,
+        values: &To1<StateIndex<M::Ix>, f64>,
         rewards: &Rew,
-        context: &mut Self::Context<SI, CI>,
-        to_old_state_index: &mut To1<NewSI, SI>,
+        context: &mut Self::Context<M::Ix>,
+        to_old_state_index: &mut To1<StateIndex<NewI>, StateIndex<M::Ix>>,
     );
 }

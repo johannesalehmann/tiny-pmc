@@ -1,31 +1,25 @@
 mod distributions;
-pub use distributions::Distribution;
+pub use distributions::{
+    Distribution, IdentityDistribution, MixedDistribution, ProbabilisticDistribution,
+};
 
-use crate::annotations::distributions::IdentityDistribution;
 use crate::traits::ReadStateSpace;
-use crate::{Model, OptionalComponent};
+use crate::{
+    AtomicPropositionIndex, ChoiceIndex, HasIx, Ix, Model, OptionalComponent, RewardIndex,
+    StateIndex,
+};
 use std::marker::PhantomData;
 use typed_index_collections::{Index, MappedIndices, NamedTo1, To1, To1BoolValues};
 
 #[derive(Default, Debug, PartialEq)]
-pub struct TypedAnnotation<
-    EntityIdx: Index,
-    AnnotationEntryIdx: Index,
-    Dist: Distribution<EntityIdx, AnnotationEntryIdx>,
-    Val,
-> {
+pub struct TypedAnnotation<EntityIdx: Index, Dist: Distribution<EntityIdx>, Val> {
     distribution: Dist,
-    values: To1<AnnotationEntryIdx, Val>,
+    values: To1<Dist::Entry, Val>,
     phantom_data: PhantomData<EntityIdx>,
 }
 
 impl<EntityIdx: Index, AnnotationEntryIdx: Index, Val>
-    TypedAnnotation<
-        EntityIdx,
-        AnnotationEntryIdx,
-        IdentityDistribution<EntityIdx, AnnotationEntryIdx>,
-        Val,
-    >
+    TypedAnnotation<EntityIdx, IdentityDistribution<EntityIdx, AnnotationEntryIdx>, Val>
 {
     pub fn with_identity_distribution_and_entries(values: To1<EntityIdx, Val>) -> Self {
         Self {
@@ -55,12 +49,7 @@ impl<EntityIdx: Index, AnnotationEntryIdx: Index, Val>
     }
 }
 impl<EntityIdx: Index, AnnotationEntryIdx: Index>
-    TypedAnnotation<
-        EntityIdx,
-        AnnotationEntryIdx,
-        IdentityDistribution<EntityIdx, AnnotationEntryIdx>,
-        bool,
-    >
+    TypedAnnotation<EntityIdx, IdentityDistribution<EntityIdx, AnnotationEntryIdx>, bool>
 {
     pub fn true_values(
         &self,
@@ -70,12 +59,7 @@ impl<EntityIdx: Index, AnnotationEntryIdx: Index>
 }
 
 impl<EntityIdx: Index, AnnotationEntryIdx: Index, Val> std::ops::Index<EntityIdx>
-    for TypedAnnotation<
-        EntityIdx,
-        AnnotationEntryIdx,
-        IdentityDistribution<EntityIdx, AnnotationEntryIdx>,
-        Val,
-    >
+    for TypedAnnotation<EntityIdx, IdentityDistribution<EntityIdx, AnnotationEntryIdx>, Val>
 {
     type Output = Val;
 
@@ -86,12 +70,7 @@ impl<EntityIdx: Index, AnnotationEntryIdx: Index, Val> std::ops::Index<EntityIdx
 }
 
 impl<EntityIdx: Index, AnnotationEntryIdx: Index, Val> std::ops::IndexMut<EntityIdx>
-    for TypedAnnotation<
-        EntityIdx,
-        AnnotationEntryIdx,
-        IdentityDistribution<EntityIdx, AnnotationEntryIdx>,
-        Val,
-    >
+    for TypedAnnotation<EntityIdx, IdentityDistribution<EntityIdx, AnnotationEntryIdx>, Val>
 {
     fn index_mut(&mut self, index: EntityIdx) -> &mut Self::Output {
         let annotation_index = self.distribution.annotation_index(index);
@@ -99,21 +78,17 @@ impl<EntityIdx: Index, AnnotationEntryIdx: Index, Val> std::ops::IndexMut<Entity
     }
 }
 
-pub enum Annotation<
-    From: Index,
-    AnnotationEntryIdx: Index,
-    Dist: Distribution<From, AnnotationEntryIdx>,
-> {
-    Boolean(TypedAnnotation<From, AnnotationEntryIdx, Dist, bool>),
-    Int(TypedAnnotation<From, AnnotationEntryIdx, Dist, i64>),
-    UInt(TypedAnnotation<From, AnnotationEntryIdx, Dist, u64>),
-    IntInterval(TypedAnnotation<From, AnnotationEntryIdx, Dist, (i64, i64)>),
-    UIntInterval(TypedAnnotation<From, AnnotationEntryIdx, Dist, (u64, u64)>),
-    Double(TypedAnnotation<From, AnnotationEntryIdx, Dist, f64>),
-    DoubleInterval(TypedAnnotation<From, AnnotationEntryIdx, Dist, (f64, f64)>),
-    Rational(TypedAnnotation<From, AnnotationEntryIdx, Dist, (i64, u64)>),
-    RationalInterval(TypedAnnotation<From, AnnotationEntryIdx, Dist, ((i64, u64), (i64, u64))>),
-    String(TypedAnnotation<From, AnnotationEntryIdx, Dist, String>),
+pub enum Annotation<From: Index, Dist: Distribution<From>> {
+    Boolean(TypedAnnotation<From, Dist, bool>),
+    Int(TypedAnnotation<From, Dist, i64>),
+    UInt(TypedAnnotation<From, Dist, u64>),
+    IntInterval(TypedAnnotation<From, Dist, (i64, i64)>),
+    UIntInterval(TypedAnnotation<From, Dist, (u64, u64)>),
+    Double(TypedAnnotation<From, Dist, f64>),
+    DoubleInterval(TypedAnnotation<From, Dist, (f64, f64)>),
+    Rational(TypedAnnotation<From, Dist, (i64, u64)>),
+    RationalInterval(TypedAnnotation<From, Dist, ((i64, u64), (i64, u64))>),
+    String(TypedAnnotation<From, Dist, String>),
 }
 
 impl<M: ReadStateSpace, I, CL, BL, Obs, APs, Rew, Ann: OptionalComponent, Val, Pred>
@@ -135,21 +110,24 @@ impl<M: ReadStateSpace, I, CL, BL, Obs, APs, Rew, Ann: OptionalComponent, Val, P
     }
 }
 
-pub type AnnotationGroup<AnnotationIdx, EntityIdx, AnnotationEntryIdx, Dist> =
-    NamedTo1<AnnotationIdx, Annotation<EntityIdx, AnnotationEntryIdx, Dist>>;
+pub type AnnotationGroup<AnnotationIdx, EntityIdx, Dist> =
+    NamedTo1<AnnotationIdx, Annotation<EntityIdx, Dist>>;
 
-pub type TypedAnnotationGroup<AnnotationIdx, EntityIdx, AnnotationEntryIdx, Dist, Val> =
-    NamedTo1<AnnotationIdx, TypedAnnotation<EntityIdx, AnnotationEntryIdx, Dist, Val>>;
+pub type TypedAnnotationGroup<AnnotationIdx, EntityIdx, Dist, Val> =
+    NamedTo1<AnnotationIdx, TypedAnnotation<EntityIdx, Dist, Val>>;
 
 // TODO: Move atomic propositions to their own module
-pub type AtomicPropositions<AnnotationIdx, StateIdx, AnnotationEntryIdx> = TypedAnnotationGroup<
-    AnnotationIdx,
-    StateIdx,
-    AnnotationEntryIdx,
-    IdentityDistribution<StateIdx, AnnotationEntryIdx>,
+pub type AtomicPropositions<I> = TypedAnnotationGroup<
+    AtomicPropositionIndex<I>,
+    StateIndex<I>,
+    IdentityDistribution<StateIndex<I>>,
     bool,
 >;
-impl<AI: Index, SI: Index, AEI: Index> crate::Component for AtomicPropositions<AI, SI, AEI> {}
+impl<I: Ix> crate::Component for AtomicPropositions<I> {}
+
+impl<I: Ix> HasIx for AtomicPropositions<I> {
+    type Ix = I;
+}
 
 // TODO: Move Rewards to their own module
 #[derive(Debug, PartialEq)]
@@ -159,22 +137,13 @@ pub struct Rewards<States, Choices, Branches> {
     pub branches: Branches,
 }
 
-pub type EntityRewards<EntityIdx, AnnotationEntryIdx> = TypedAnnotation<
-    EntityIdx,
-    AnnotationEntryIdx,
-    IdentityDistribution<EntityIdx, AnnotationEntryIdx>,
-    f64,
->;
+pub type EntityRewards<EntityIdx> =
+    TypedAnnotation<EntityIdx, IdentityDistribution<EntityIdx>, f64>;
 
-pub type StateChoiceRewards<StateIdx, ChoiceIdx, AnnotationEntryIdx> = Rewards<
-    Option<EntityRewards<StateIdx, AnnotationEntryIdx>>,
-    Option<EntityRewards<ChoiceIdx, AnnotationEntryIdx>>,
-    (),
->;
+pub type StateChoiceRewards<I> =
+    Rewards<Option<EntityRewards<StateIndex<I>>>, Option<EntityRewards<ChoiceIndex<I>>>, ()>;
 
-impl<StateIdx: Index, ChoiceIdx: Index, AnnotationEntryIdx: Index>
-    StateChoiceRewards<StateIdx, ChoiceIdx, AnnotationEntryIdx>
-{
+impl<I: Ix> StateChoiceRewards<I> {
     pub fn new() -> Self {
         Self {
             states: None,
@@ -182,16 +151,14 @@ impl<StateIdx: Index, ChoiceIdx: Index, AnnotationEntryIdx: Index>
             branches: (),
         }
     }
-    pub fn with_state_rewards(state_rewards: EntityRewards<StateIdx, AnnotationEntryIdx>) -> Self {
+    pub fn with_state_rewards(state_rewards: EntityRewards<StateIndex<I>>) -> Self {
         Self {
             states: Some(state_rewards),
             choices: None,
             branches: (),
         }
     }
-    pub fn with_choice_rewards(
-        choice_rewards: EntityRewards<ChoiceIdx, AnnotationEntryIdx>,
-    ) -> Self {
+    pub fn with_choice_rewards(choice_rewards: EntityRewards<ChoiceIndex<I>>) -> Self {
         Self {
             states: None,
             choices: Some(choice_rewards),
@@ -199,8 +166,8 @@ impl<StateIdx: Index, ChoiceIdx: Index, AnnotationEntryIdx: Index>
         }
     }
     pub fn with_state_and_choice_rewards(
-        state_rewards: EntityRewards<StateIdx, AnnotationEntryIdx>,
-        choice_rewards: EntityRewards<ChoiceIdx, AnnotationEntryIdx>,
+        state_rewards: EntityRewards<StateIndex<I>>,
+        choice_rewards: EntityRewards<ChoiceIndex<I>>,
     ) -> Self {
         Self {
             states: Some(state_rewards),
@@ -209,24 +176,18 @@ impl<StateIdx: Index, ChoiceIdx: Index, AnnotationEntryIdx: Index>
         }
     }
 
-    pub fn add_state_rewards(
-        &mut self,
-        state_rewards: EntityRewards<StateIdx, AnnotationEntryIdx>,
-    ) {
+    pub fn add_state_rewards(&mut self, state_rewards: EntityRewards<StateIndex<I>>) {
         self.states = Some(state_rewards);
     }
 
-    pub fn add_choice_rewards(
-        &mut self,
-        choice_rewards: EntityRewards<ChoiceIdx, AnnotationEntryIdx>,
-    ) {
+    pub fn add_choice_rewards(&mut self, choice_rewards: EntityRewards<ChoiceIndex<I>>) {
         self.choices = Some(choice_rewards);
     }
 }
 
-pub type RewardAnnotations<AnnotationIdx, StateIdx, ChoiceIdx, AnnotationEntryIdx> =
-    NamedTo1<AnnotationIdx, StateChoiceRewards<StateIdx, ChoiceIdx, AnnotationEntryIdx>>;
-impl<AI: Index, SI: Index, CI: Index, AEI: Index> crate::Component
-    for RewardAnnotations<AI, SI, CI, AEI>
-{
+pub type RewardAnnotations<I> = NamedTo1<RewardIndex<I>, StateChoiceRewards<I>>;
+impl<I: Ix> crate::Component for RewardAnnotations<I> {}
+
+impl<I: Ix> HasIx for RewardAnnotations<I> {
+    type Ix = I;
 }

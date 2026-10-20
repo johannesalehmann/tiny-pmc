@@ -10,30 +10,27 @@ use probabilistic_models::traits::{
     ReadPredecessors, ReadRewards, ReadRewardsMaybe, ReadStateSpace, StateSet,
 };
 use probabilistic_models::typed_index_collections::To1;
-use probabilistic_models::{AnnotationEntryIndex, AsRefComponent, Model, PredecessorIndex};
+use probabilistic_models::{AsRefComponent, Model};
+use probabilistic_models::{AtomicPropositionIndex, StateIndex};
 use probabilistic_properties::{
     NonDeterminismKind, PathFormula, Query, RewardFormula, StateFormula,
 };
 
-pub fn check_mdp<'a, B, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds, APIdx>(
+pub fn check_mdp<'a, B, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>(
     model: &'a Model<B, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>,
-    query: probabilistic_properties::Query<i64, f64, APIdx>,
-    state: B::StateIndex,
+    query: probabilistic_properties::Query<i64, f64, AtomicPropositionIndex<B::Ix>>,
+    state: StateIndex<B::Ix>,
     options: &CheckerOptions,
 ) -> Result<f64, CheckerError>
 where
     B: ReadStateSpace,
     Ini: AsRefComponent,
-    Ini::Output<'a>: ReadInitialStatesMaybe<StateIdx = B::StateIndex>,
+    Ini::Output<'a>: ReadInitialStatesMaybe<Ix = B::Ix>,
     APs: AsRefComponent,
-    APs::Output<'a>: ReadAtomicPropositionsMaybe<StateIdx = B::StateIndex, APIdx = APIdx>,
+    APs::Output<'a>: ReadAtomicPropositionsMaybe<Ix = B::Ix>,
     Rew: AsRefComponent,
-    Rew::Output<'a>: ReadRewardsMaybe<StateIdx = B::StateIndex, ChoiceIdx = B::ChoiceIndex>,
-    Preds: ReadPredecessors<
-            StateIdx = B::StateIndex,
-            ChoiceIdx = B::ChoiceIndex,
-            BranchIdx = B::BranchIndex,
-        >,
+    Rew::Output<'a>: ReadRewardsMaybe<Ix = B::Ix>,
+    Preds: ReadPredecessors<Ix = B::Ix>,
 {
     // We only need initial states, atomic propositions and rewards:
     let model = &sub_model(
@@ -139,21 +136,17 @@ where
 fn compute_until_value<B, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>(
     model: &Model<B, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>,
     non_determinism: Option<NonDeterminismKind>,
-    before: &StateFormula<i64, f64, APs::APIdx>,
-    after: &StateFormula<i64, f64, APs::APIdx>,
-    state: B::StateIndex,
+    before: &StateFormula<i64, f64, AtomicPropositionIndex<APs::Ix>>,
+    after: &StateFormula<i64, f64, AtomicPropositionIndex<APs::Ix>>,
+    state: StateIndex<B::Ix>,
     options: &CheckerOptions,
 ) -> Result<f64, CheckerError>
 where
     B: ReadStateSpace,
-    Ini: Copy + ReadInitialStatesMaybe<StateIdx = B::StateIndex>,
-    APs: Copy + ReadAtomicPropositionsMaybe<StateIdx = B::StateIndex>,
+    Ini: Copy + ReadInitialStatesMaybe<Ix = B::Ix>,
+    APs: Copy + ReadAtomicPropositionsMaybe<Ix = B::Ix>,
     Rew: Copy,
-    Preds: ReadPredecessors<
-            StateIdx = B::StateIndex,
-            ChoiceIdx = B::ChoiceIndex,
-            BranchIdx = B::BranchIndex,
-        >,
+    Preds: ReadPredecessors<Ix = B::Ix>,
 {
     let model = sub_model(
         &model.base,
@@ -168,10 +161,8 @@ where
     );
     let before = compute_state_value(&model, before, options)?;
     let after = compute_state_value(&model, after, options)?;
-    let (restricted, goal) = rebuild_model_for_until::<_, AnnotationEntryIndex<usize>, _>(
-        &model, &before, &after, "goal",
-    );
-    let restricted = restricted.compute_predecessors::<PredecessorIndex<usize>>();
+    let (restricted, goal) = rebuild_model_for_until(&model, &before, &after, "goal");
+    let restricted = restricted.compute_predecessors();
     let initial_states = restricted.initial_states().iter().collect::<Vec<_>>();
     assert_eq!(
         initial_states.len(),
@@ -209,17 +200,13 @@ where
 fn compute_path_value<'a, B, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>(
     model: &'a Model<B, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>,
     non_determinism: Option<NonDeterminismKind>,
-    formula: &PathFormula<i64, f64, APs::APIdx>,
+    formula: &PathFormula<i64, f64, AtomicPropositionIndex<APs::Ix>>,
     options: &CheckerOptions,
-) -> Result<To1<B::StateIndex, f64>, CheckerError>
+) -> Result<To1<StateIndex<B::Ix>, f64>, CheckerError>
 where
     B: ReadStateSpace,
-    APs: ReadAtomicPropositions<StateIdx = B::StateIndex>,
-    Preds: ReadPredecessors<
-            StateIdx = B::StateIndex,
-            ChoiceIdx = B::ChoiceIndex,
-            BranchIdx = B::BranchIndex,
-        >,
+    APs: ReadAtomicPropositions<Ix = B::Ix>,
+    Preds: ReadPredecessors<Ix = B::Ix>,
 {
     match formula {
         PathFormula::Until { .. } => {
@@ -270,18 +257,14 @@ fn compute_reward_value<B, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals,
     model: &Model<B, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>,
     non_determinism: Option<NonDeterminismKind>,
     name: Option<String>,
-    formula: &RewardFormula<i64, f64, APs::APIdx>,
+    formula: &RewardFormula<i64, f64, AtomicPropositionIndex<APs::Ix>>,
     options: &CheckerOptions,
-) -> Result<To1<B::StateIndex, f64>, CheckerError>
+) -> Result<To1<StateIndex<B::Ix>, f64>, CheckerError>
 where
     B: ReadStateSpace,
-    APs: Copy + ReadAtomicPropositionsMaybe<StateIdx = B::StateIndex>,
-    Rew: Copy + ReadRewardsMaybe<StateIdx = B::StateIndex, ChoiceIdx = B::ChoiceIndex>,
-    Preds: ReadPredecessors<
-            StateIdx = B::StateIndex,
-            ChoiceIdx = B::ChoiceIndex,
-            BranchIdx = B::BranchIndex,
-        >,
+    APs: Copy + ReadAtomicPropositionsMaybe<Ix = B::Ix>,
+    Rew: Copy + ReadRewardsMaybe<Ix = B::Ix>,
+    Preds: ReadPredecessors<Ix = B::Ix>,
 {
     let model = sub_model(
         &model.base,
@@ -333,17 +316,13 @@ where
 fn compute_time_value<'a, B, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>(
     model: &'a Model<B, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>,
     non_determinism: Option<NonDeterminismKind>,
-    formula: &RewardFormula<i64, f64, APs::APIdx>,
+    formula: &RewardFormula<i64, f64, AtomicPropositionIndex<APs::Ix>>,
     options: &CheckerOptions,
-) -> Result<To1<B::StateIndex, f64>, CheckerError>
+) -> Result<To1<StateIndex<B::Ix>, f64>, CheckerError>
 where
     B: ReadStateSpace,
-    APs: ReadAtomicPropositions<StateIdx = B::StateIndex>,
-    Preds: ReadPredecessors<
-            StateIdx = B::StateIndex,
-            ChoiceIdx = B::ChoiceIndex,
-            BranchIdx = B::BranchIndex,
-        >,
+    APs: ReadAtomicPropositions<Ix = B::Ix>,
+    Preds: ReadPredecessors<Ix = B::Ix>,
 {
     match formula {
         RewardFormula::Finally { states } => {
@@ -382,7 +361,7 @@ where
 
 fn compute_state_value<'a, B, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>(
     model: &'a Model<B, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>,
-    formula: &StateFormula<i64, f64, APs::APIdx>,
+    formula: &StateFormula<i64, f64, AtomicPropositionIndex<APs::Ix>>,
     options: &CheckerOptions,
 ) -> Result<
     StateDescription<'a, Model<B, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>>,
@@ -390,12 +369,8 @@ fn compute_state_value<'a, B, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVa
 >
 where
     B: ReadStateSpace,
-    APs: ReadAtomicPropositions<StateIdx = B::StateIndex>,
-    Preds: ReadPredecessors<
-            StateIdx = B::StateIndex,
-            ChoiceIdx = B::ChoiceIndex,
-            BranchIdx = B::BranchIndex,
-        >,
+    APs: ReadAtomicPropositions<Ix = B::Ix>,
+    Preds: ReadPredecessors<Ix = B::Ix>,
 {
     match formula {
         StateFormula::Expression(e) => Ok(StateDescription::AtomicProposition {

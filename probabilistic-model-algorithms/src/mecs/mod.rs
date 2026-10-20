@@ -1,17 +1,18 @@
-use crate::sccs::{ExcludeStatesAndChoices, SccEntryIndex, SccIndex, Sccs};
+use crate::sccs::{ExcludeStatesAndChoices, Sccs};
 use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
-use typed_index_collections::{Index, To1};
+use probabilistic_models::{ChoiceIndex, Ix, StateIndex};
+use typed_index_collections::To1;
 
-pub struct Mecs<StateIdx: Index, ChoiceIdx: Index> {
+pub struct Mecs<I: Ix> {
     /// Which state represents the MEC of the given state, if it is in an MEC, otherwise None
-    representative: To1<StateIdx, Option<StateIdx>>,
+    representative: To1<StateIndex<I>, Option<StateIndex<I>>>,
     /// The next member of the MEC (a bit like a linked-list data structure)
-    next_member: To1<StateIdx, Option<StateIdx>>,
+    next_member: To1<StateIndex<I>, Option<StateIndex<I>>>,
     /// Whether a given choice is internal to an MEC
-    internal_choices: To1<ChoiceIdx, bool>,
+    internal_choices: To1<ChoiceIndex<I>, bool>,
 }
 
-impl<StateIdx: Index, ChoiceIdx: Index> Mecs<StateIdx, ChoiceIdx> {
+impl<I: Ix> Mecs<I> {
     pub fn empty() -> Self {
         Self {
             representative: To1::new(),
@@ -20,12 +21,9 @@ impl<StateIdx: Index, ChoiceIdx: Index> Mecs<StateIdx, ChoiceIdx> {
         }
     }
 
-    pub fn compute<
-        M: ReadStateSpace<StateIndex = StateIdx, ChoiceIndex = ChoiceIdx>
-            + ReadPredecessors<StateIdx = StateIdx, ChoiceIdx = ChoiceIdx, BranchIdx = M::BranchIndex>,
-    >(
+    pub fn compute<M: ReadStateSpace<Ix = I> + ReadPredecessors>(
         model: &M,
-        mut exclusion: ExcludeStatesAndChoices<StateIdx, ChoiceIdx>,
+        mut exclusion: ExcludeStatesAndChoices<I>,
     ) -> Self {
         let mut remaining_choices = To1::with_capacity(model.states().len());
         for state in model.states() {
@@ -39,8 +37,7 @@ impl<StateIdx: Index, ChoiceIdx: Index> Mecs<StateIdx, ChoiceIdx> {
 
         let mut newly_excluded_states = Vec::new();
         loop {
-            let sccs: Sccs<SccIndex<usize>, SccEntryIndex<usize>, StateIdx> =
-                Sccs::compute_tarjan(model, &exclusion);
+            let sccs: Sccs<I> = Sccs::compute_tarjan(model, &exclusion);
             let mut changed = false;
 
             for state in model.states() {
@@ -92,10 +89,10 @@ impl<StateIdx: Index, ChoiceIdx: Index> Mecs<StateIdx, ChoiceIdx> {
         }
     }
 
-    fn from_sccs<M: ReadStateSpace<StateIndex = StateIdx, ChoiceIndex = ChoiceIdx>>(
+    fn from_sccs<M: ReadStateSpace<Ix = I>>(
         model: &M,
-        sccs: &Sccs<SccIndex<usize>, SccEntryIndex<usize>, StateIdx>,
-        exclusion: &ExcludeStatesAndChoices<StateIdx, ChoiceIdx>,
+        sccs: &Sccs<I>,
+        exclusion: &ExcludeStatesAndChoices<I>,
     ) -> Self {
         let mut representative = To1::with_entries(vec![None; model.states().len()]);
         let mut next_member = To1::with_entries(vec![None; model.states().len()]);
@@ -127,24 +124,27 @@ impl<StateIdx: Index, ChoiceIdx: Index> Mecs<StateIdx, ChoiceIdx> {
         }
     }
 
-    pub fn representative(&self, state: StateIdx) -> Option<StateIdx> {
+    pub fn representative(&self, state: StateIndex<I>) -> Option<StateIndex<I>> {
         self.representative.get(state).copied().flatten()
     }
 
-    pub fn is_merged_away(&self, state: StateIdx) -> bool {
+    pub fn is_merged_away(&self, state: StateIndex<I>) -> bool {
         self.representative(state)
             .is_some_and(|representative| representative != state)
     }
 
     // For a representative, yields all states of its MEC. For states outside MECs, yields only the
     // state itself.
-    pub fn states_merged_into(&self, state: StateIdx) -> impl Iterator<Item = StateIdx> + '_ {
+    pub fn states_merged_into(
+        &self,
+        state: StateIndex<I>,
+    ) -> impl Iterator<Item = StateIndex<I>> + '_ {
         std::iter::successors(Some(state), |&member| {
             self.next_member.get(member).copied().flatten()
         })
     }
 
-    pub fn is_internal_choice(&self, choice: ChoiceIdx) -> bool {
+    pub fn is_internal_choice(&self, choice: ChoiceIndex<I>) -> bool {
         self.internal_choices.get(choice).copied().unwrap_or(false)
     }
 }
@@ -154,17 +154,17 @@ mod tests {
     use super::Mecs;
     use crate::sccs::ExcludeStatesAndChoices;
     use probabilistic_models::mdp;
-    use probabilistic_models::{ChoiceIndex, Model, PredecessorIndex, StateIndex};
+    use probabilistic_models::{ChoiceIndex, Model, StateIndex, Uniform};
     use typed_index_collections::{Index, To1};
 
-    fn states(indices: &[usize]) -> Vec<StateIndex<usize>> {
+    fn states(indices: &[usize]) -> Vec<StateIndex<Uniform<usize>>> {
         indices.iter().map(|&i| StateIndex::from_raw(i)).collect()
     }
 
     fn sorted_members(
-        mecs: &Mecs<StateIndex<usize>, ChoiceIndex<usize>>,
-        state: StateIndex<usize>,
-    ) -> Vec<StateIndex<usize>> {
+        mecs: &Mecs<Uniform<usize>>,
+        state: StateIndex<Uniform<usize>>,
+    ) -> Vec<StateIndex<Uniform<usize>>> {
         let representative = mecs.representative(state).unwrap();
         let mut members: Vec<_> = mecs.states_merged_into(representative).collect();
         members.sort();
@@ -179,7 +179,7 @@ mod tests {
             s1 -> 1.0: s0,
             s2 -> 1.0: s2
         });
-        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
+        let model = Model::new(mdp).compute_predecessors();
         let mecs = Mecs::compute(
             &model,
             ExcludeStatesAndChoices::new(
@@ -207,7 +207,7 @@ mod tests {
             s1 -> 1.0: s1,
             s2 -> 1.0: s1
         });
-        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
+        let model = Model::new(mdp).compute_predecessors();
         let mecs = Mecs::compute(
             &model,
             ExcludeStatesAndChoices::new(
@@ -231,7 +231,7 @@ mod tests {
             s2 -> 0.5: s0 & 0.5: s3,
             s3 -> 1.0: s3
         });
-        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
+        let model = Model::new(mdp).compute_predecessors();
         let mecs = Mecs::compute(
             &model,
             ExcludeStatesAndChoices::new(
@@ -253,7 +253,7 @@ mod tests {
             s1 -> 1.0: s2,
             s2 -> 1.0: s2
         });
-        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
+        let model = Model::new(mdp).compute_predecessors();
         let mecs = Mecs::compute(
             &model,
             ExcludeStatesAndChoices::new(
@@ -268,7 +268,7 @@ mod tests {
 
     #[test]
     fn empty_mecs() {
-        let mecs = Mecs::<StateIndex<usize>, ChoiceIndex<usize>>::empty();
+        let mecs = Mecs::<Uniform<usize>>::empty();
         let state = StateIndex::from_raw(3);
         assert_eq!(mecs.representative(state), None);
         assert!(!mecs.is_merged_away(state));

@@ -1,12 +1,13 @@
+use super::SccEntryIndex;
 use super::{ExclusionCriterion, Sccs};
 use probabilistic_models::traits::{ReadPredecessors, ReadStateSpace};
-use typed_index_collections::{Csr, Index, IndexRangeIterator, To1, ValuePerIndexSource};
+use probabilistic_models::{BranchIndex, ChoiceIndex, Ix, StateIndex};
+use typed_index_collections::{Csr, IndexRangeIterator, To1, ValuePerIndexSource};
 
-impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
+impl<I: Ix> Sccs<I> {
     pub fn compute_kosaraju<
-        M: ReadStateSpace<StateIndex = SI>
-            + ReadPredecessors<StateIdx = SI, ChoiceIdx = M::ChoiceIndex, BranchIdx = M::BranchIndex>,
-        Ex: ExclusionCriterion<SI, M::ChoiceIndex>,
+        M: ReadStateSpace<Ix = I> + ReadPredecessors<Ix = I>,
+        Ex: ExclusionCriterion<I>,
     >(
         model: &M,
         exclusion_criterion: &Ex,
@@ -74,12 +75,12 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
     /// To this end, it maintains a stack of cursors, where each cursor points to the next successor
     /// of a state that needs to be visited. Once all successors are visited, the cursor is popped
     /// from the stack.
-    fn visit<M: ReadStateSpace<StateIndex = SI>, Ex: ExclusionCriterion<SI, M::ChoiceIndex>>(
+    fn visit<M: ReadStateSpace<Ix = I>, Ex: ExclusionCriterion<I>>(
         model: &M,
         exclusion_criterion: &Ex,
-        visited: &mut To1<SI, bool>,
-        l: &mut Vec<SI>,
-        state: SI,
+        visited: &mut To1<StateIndex<I>, bool>,
+        l: &mut Vec<StateIndex<I>>,
+        state: StateIndex<I>,
     ) {
         let mut stack = vec![Self::cursor(model, state)];
         visited[state] = true;
@@ -103,16 +104,13 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
         }
     }
 
-    fn get_next_unvisited<
-        M: ReadStateSpace<StateIndex = SI>,
-        Ex: ExclusionCriterion<SI, M::ChoiceIndex>,
-    >(
+    fn get_next_unvisited<M: ReadStateSpace<Ix = I>, Ex: ExclusionCriterion<I>>(
         model: &M,
         exclusion_criterion: &Ex,
-        visited: &mut To1<SI, bool>,
-        choices: &mut IndexRangeIterator<M::ChoiceIndex>,
-        branches: &mut IndexRangeIterator<M::BranchIndex>,
-    ) -> Option<SI> {
+        visited: &mut To1<StateIndex<I>, bool>,
+        choices: &mut IndexRangeIterator<ChoiceIndex<I>>,
+        branches: &mut IndexRangeIterator<BranchIndex<I>>,
+    ) -> Option<StateIndex<I>> {
         let mut descend_into = None;
         loop {
             if let Some(branch) = branches.next() {
@@ -133,13 +131,13 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
     }
 
     /// Creates a DFS stack frame for `state`, with its cursor placed before its first successor.
-    fn cursor<M: ReadStateSpace<StateIndex = SI>>(
+    fn cursor<M: ReadStateSpace<Ix = I>>(
         model: &M,
-        state: SI,
+        state: StateIndex<I>,
     ) -> (
-        SI,
-        IndexRangeIterator<M::ChoiceIndex>,
-        IndexRangeIterator<M::BranchIndex>,
+        StateIndex<I>,
+        IndexRangeIterator<ChoiceIndex<I>>,
+        IndexRangeIterator<BranchIndex<I>>,
     ) {
         (
             state,
@@ -148,15 +146,12 @@ impl<ScI: Index, ScEI: Index, SI: Index> Sccs<ScI, ScEI, SI> {
         )
     }
 
-    fn visit_reversed<
-        M: ReadPredecessors<StateIdx = SI>,
-        Ex: ExclusionCriterion<SI, M::ChoiceIdx>,
-    >(
+    fn visit_reversed<M: ReadPredecessors<Ix = I>, Ex: ExclusionCriterion<I>>(
         model: &M,
         exclusion_criterion: &Ex,
-        visited: &mut To1<SI, bool>,
-        state: SI,
-        scc_entries: &mut To1<ScEI, SI>,
+        visited: &mut To1<StateIndex<I>, bool>,
+        state: StateIndex<I>,
+        scc_entries: &mut To1<SccEntryIndex<I>, StateIndex<I>>,
     ) -> bool {
         let mut stack = Vec::new();
         stack.push(state);
@@ -191,18 +186,14 @@ mod tests {
     use crate::sccs::tests::complex_model;
     use crate::sccs::{ExcludeStatesAndChoices, SccEntryIndex, SccIndex, Sccs};
     use probabilistic_models::mdp;
-    use probabilistic_models::{Model, PredecessorIndex, StateIndex};
+    use probabilistic_models::{Model, StateIndex, Uniform};
     use typed_index_collections::{Csr, Index, To1};
 
     #[test]
     fn empty() {
         mdp!(mdp = {});
-        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
-        let sccs =
-            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute_kosaraju(
-                &model,
-                &(),
-            );
+        let model = Model::new(mdp).compute_predecessors();
+        let sccs = Sccs::<Uniform<usize>>::compute_kosaraju(&model, &());
         assert!(sccs.sccs.is_empty());
         assert_eq!(sccs.state_to_scc.len(), 0);
         assert!(sccs.scc_entries.is_empty());
@@ -211,12 +202,8 @@ mod tests {
     #[test]
     fn single() {
         mdp!(mdp = { s0 -> deadlock });
-        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
-        let sccs =
-            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute_kosaraju(
-                &model,
-                &(),
-            );
+        let model = Model::new(mdp).compute_predecessors();
+        let sccs = Sccs::<Uniform<usize>>::compute_kosaraju(&model, &());
         assert_eq!(
             sccs.sccs,
             Csr::with_entries(vec![SccEntryIndex::from_raw(1)])
@@ -234,12 +221,8 @@ mod tests {
     #[test]
     fn single_with_loop() {
         mdp!(mdp = { s0 -> 1.0: s0 });
-        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
-        let sccs =
-            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute_kosaraju(
-                &model,
-                &(),
-            );
+        let model = Model::new(mdp).compute_predecessors();
+        let sccs = Sccs::<Uniform<usize>>::compute_kosaraju(&model, &());
         assert_eq!(
             sccs.sccs,
             Csr::with_entries(vec![SccEntryIndex::from_raw(1)])
@@ -260,12 +243,8 @@ mod tests {
             s0 -> deadlock,
             s1 -> 1.0: s1
         });
-        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
-        let sccs =
-            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute_kosaraju(
-                &model,
-                &(),
-            );
+        let model = Model::new(mdp).compute_predecessors();
+        let sccs = Sccs::<Uniform<usize>>::compute_kosaraju(&model, &());
         assert_eq!(
             sccs.sccs,
             Csr::with_entries(vec![SccEntryIndex::from_raw(1), SccEntryIndex::from_raw(2)])
@@ -291,12 +270,8 @@ mod tests {
             s2 -> 1.0: s2,
             s2 -> 0.5: s2 & 0.5: s1
         });
-        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
-        let sccs =
-            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute_kosaraju(
-                &model,
-                &(),
-            );
+        let model = Model::new(mdp).compute_predecessors();
+        let sccs = Sccs::<Uniform<usize>>::compute_kosaraju(&model, &());
         assert_eq!(
             sccs.sccs,
             Csr::with_entries(vec![SccEntryIndex::from_raw(2), SccEntryIndex::from_raw(3)])
@@ -322,11 +297,7 @@ mod tests {
     #[test]
     fn complex() {
         let model = complex_model();
-        let sccs =
-            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute_kosaraju(
-                &model,
-                &(),
-            );
+        let sccs = Sccs::<Uniform<usize>>::compute_kosaraju(&model, &());
         assert_eq!(
             sccs.sccs,
             Csr::with_entries(vec![
@@ -359,7 +330,7 @@ mod tests {
             ])
         );
 
-        let order: Vec<Vec<StateIndex<usize>>> = sccs
+        let order: Vec<Vec<StateIndex<Uniform<usize>>>> = sccs
             .reverse_topological_ordering()
             .map(|scc| {
                 let mut states: Vec<_> = scc.states().collect();
@@ -391,15 +362,12 @@ mod tests {
             s2 -> 1.0: s1
         });
 
-        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
+        let model = Model::new(mdp).compute_predecessors();
         let exclusion = ExcludeStatesAndChoices::new(
             To1::with_entries(vec![false, false, false]),
             To1::with_entries(vec![false, true, false, false]),
         );
-        let sccs =
-            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute_kosaraju(
-                &model, &exclusion,
-            );
+        let sccs = Sccs::<Uniform<usize>>::compute_kosaraju(&model, &exclusion);
 
         let scc0 = sccs.scc_index_of_state(StateIndex::from_raw(0)).unwrap();
         let scc1 = sccs.scc_index_of_state(StateIndex::from_raw(1)).unwrap();
@@ -423,12 +391,8 @@ mod tests {
             s2 -> 1.0: s1,
         });
 
-        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
-        let sccs =
-            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute_kosaraju(
-                &model,
-                &(),
-            );
+        let model = Model::new(mdp).compute_predecessors();
+        let sccs = Sccs::<Uniform<usize>>::compute_kosaraju(&model, &());
 
         let scc0 = sccs.scc_index_of_state(StateIndex::from_raw(0)).unwrap();
         let scc1 = sccs.scc_index_of_state(StateIndex::from_raw(1)).unwrap();
@@ -459,12 +423,8 @@ mod tests {
             s3 -> 1.0: s1,
         });
 
-        let model = Model::new(mdp).compute_predecessors::<PredecessorIndex<usize>>();
-        let sccs =
-            Sccs::<SccIndex<usize>, SccEntryIndex<usize>, StateIndex<usize>>::compute_kosaraju(
-                &model,
-                &(),
-            );
+        let model = Model::new(mdp).compute_predecessors();
+        let sccs = Sccs::<Uniform<usize>>::compute_kosaraju(&model, &());
 
         let scc0 = sccs.scc_index_of_state(StateIndex::from_raw(0)).unwrap();
         let scc1 = sccs.scc_index_of_state(StateIndex::from_raw(1)).unwrap();

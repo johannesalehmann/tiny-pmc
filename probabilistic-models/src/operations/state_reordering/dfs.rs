@@ -1,5 +1,6 @@
 use super::StateOrdering;
 use crate::traits::{ReadInitialStates, ReadStateSpace, StateSet};
+use crate::{Ix, StateIndex};
 use num_traits::Bounded;
 use typed_index_collections::{Index, RawIndex, To1};
 
@@ -15,20 +16,19 @@ pub enum SuccessorOrder {
     HighestProbabilityFirst,
 }
 
-pub fn compute_dfs_state_ordering<
-    SI: Index,
-    M: ReadStateSpace<StateIndex = SI> + ReadInitialStates<StateIdx = SI>,
->(
+pub fn compute_dfs_state_ordering<M: ReadStateSpace + ReadInitialStates>(
     model: &M,
     successor_order: SuccessorOrder,
-) -> StateOrdering<SI> {
-    let unassigned = SI::from_raw(SI::RawType::max_value());
+) -> StateOrdering<StateIndex<M::Ix>> {
+    let unassigned = StateIndex::from_raw(<M::Ix as Ix>::State::max_value());
 
-    let mut old_to_new: To1<SI, SI> = To1::with_entries(vec![unassigned; model.states().len()]);
-    let mut new_to_old: To1<SI, SI> = To1::with_capacity(model.states().len());
-    let mut state_counter = SI::from_raw(SI::RawType::zero());
+    let mut old_to_new: To1<StateIndex<M::Ix>, StateIndex<M::Ix>> =
+        To1::with_entries(vec![unassigned; model.states().len()]);
+    let mut new_to_old: To1<StateIndex<M::Ix>, StateIndex<M::Ix>> =
+        To1::with_capacity(model.states().len());
+    let mut state_counter = StateIndex::from_raw(<M::Ix as Ix>::State::zero());
 
-    let initial_states: Vec<SI> = model.initial_states().iter().collect();
+    let initial_states: Vec<StateIndex<M::Ix>> = model.initial_states().iter().collect();
     let roots = initial_states.into_iter().chain(model.states());
 
     let mut open_states = Vec::new();
@@ -47,7 +47,7 @@ pub fn compute_dfs_state_ordering<
             }
             old_to_new[state] = state_counter;
             new_to_old.add_checked(state_counter, state);
-            state_counter += SI::RawType::one();
+            state_counter += <M::Ix as Ix>::State::one();
 
             successor_buffer.clear();
             // TODO: For SuccessorOrder::Preserve, adding the states to successor_buffer could be
@@ -82,16 +82,13 @@ mod tests {
     use crate::operations::state_reordering::StateOrdering;
     use crate::operations::state_reordering::test_utils::state;
     use crate::traits::{ReadInitialStates, ReadStateSpace};
-    use crate::{Model, StateIndex, mdp};
+    use crate::{Model, Uniform, mdp};
     use SuccessorOrder::{HighestProbabilityFirst, Preserve};
     use typed_index_collections::{Index, To1};
 
     // Computes the DFS ordering, checks that it is a valid ordering via `StateOrdering` and finally
     // returns the raw indices of the ordering.
-    fn dfs<
-        M: ReadStateSpace<StateIndex = StateIndex<usize>>
-            + ReadInitialStates<StateIdx = StateIndex<usize>>,
-    >(
+    fn dfs<M: ReadStateSpace<Ix = Uniform<usize>> + ReadInitialStates<Ix = Uniform<usize>>>(
         model: &M,
         successor_order: SuccessorOrder,
     ) -> Vec<usize> {
