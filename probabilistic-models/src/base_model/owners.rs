@@ -43,6 +43,17 @@ impl<T: ReadOwners> ReadOwners for &mut T {
     }
 }
 
+pub trait BuildOwners: ReadOwners {
+    // `state` must be the next state index, i.e. the number of states that already have an owner.
+    fn add_state_owner(&mut self, state: Self::StateIdx, owner: Self::OwnerType);
+}
+
+impl<T: BuildOwners> BuildOwners for &mut T {
+    fn add_state_owner(&mut self, state: Self::StateIdx, owner: Self::OwnerType) {
+        (**self).add_state_owner(state, owner)
+    }
+}
+
 // TODO: It would be nice to just require M: SinglePlayer (avoiding the name clash in some way),
 //  instead of M: ReadOwners<OwnerType = SinglePlayer>
 // Owner of every state in a model without multiple players, and also the players component of such
@@ -68,6 +79,23 @@ impl<StateIdx: Index, Owner> Default for TurnBased<StateIdx, Owner> {
         Self {
             state_to_owner: To1::new(),
         }
+    }
+}
+
+impl<StateIdx: Index, Owner: Copy> ReadOwners for TurnBased<StateIdx, Owner> {
+    type OwnerType = Owner;
+    type StateIdx = StateIdx;
+
+    fn state_owner(&self, state: Self::StateIdx) -> Self::OwnerType {
+        self.state_to_owner[state]
+    }
+}
+
+impl<StateIdx: Index, Owner: Copy> BuildOwners for TurnBased<StateIdx, Owner> {
+    fn add_state_owner(&mut self, state: Self::StateIdx, owner: Self::OwnerType) {
+        // TODO: On a mismatch, `add_checked` panics with a bare `left == right` assertion that does
+        //  not mention state owners. Provide a more helpful message.
+        self.state_to_owner.add_checked(state, owner);
     }
 }
 

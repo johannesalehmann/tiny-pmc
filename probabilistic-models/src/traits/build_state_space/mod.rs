@@ -76,3 +76,37 @@ pub(crate) use derive_build_branch_graph;
 pub trait ClearModel {
     fn clear(&mut self);
 }
+
+impl<T: BuildStates> BuildStates for &mut T {
+    fn add_state(&mut self) -> Self::StateIndex {
+        (**self).add_state()
+    }
+}
+
+impl<T: BuildChoiceBranchGraph> BuildChoiceBranchGraph for &mut T {
+    fn add_choice(&mut self) -> Self::ChoiceIndex {
+        (**self).add_choice()
+    }
+
+    fn add_branch(&mut self, probability: f64, destination: Self::StateIndex) -> Self::BranchIndex {
+        (**self).add_branch(probability, destination)
+    }
+}
+
+impl<T: BuildChoiceGraph> BuildChoiceGraph for &mut T {
+    fn add_choice(&mut self, destination: Self::StateIndex) -> Self::ChoiceIndex {
+        (**self).add_choice(destination)
+    }
+}
+
+impl<T: BuildBranchGraph> BuildBranchGraph for &mut T {
+    fn add_branch(&mut self, probability: f64, destination: Self::StateIndex) -> Self::BranchIndex {
+        (**self).add_branch(probability, destination)
+    }
+}
+
+impl<T: ClearModel> ClearModel for &mut T {
+    fn clear(&mut self) {
+        (**self).clear();
+    }
+}

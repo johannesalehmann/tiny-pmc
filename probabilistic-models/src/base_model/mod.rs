@@ -10,13 +10,12 @@ mod graph;
 pub use graph::{BranchGraph, ChoiceBranchGraph, ChoiceGraph};
 
 mod owners;
-#[allow(unused)]
 pub(crate) use owners::derive_read_owners;
-pub use owners::{ReadOwners, SinglePlayer, TurnBased, TwoPlayer};
+pub use owners::{BuildOwners, ReadOwners, SinglePlayer, TurnBased, TwoPlayer};
 
 mod mdp_macro;
 
-#[derive(Default, Debug, Clone, PartialEq)]
+#[derive(Default, Debug, Clone, Copy, PartialEq)]
 pub struct BaseModel<Graph, Players> {
     pub graph: Graph,
     pub players: Players,
@@ -99,24 +98,39 @@ impl<G: ReadStateSpace> ReadOwners for BaseModel<G, SinglePlayer> {
     }
 }
 
-impl<G: ReadStateSpace, Owner: Copy> ReadOwners for BaseModel<G, TurnBased<G::StateIndex, Owner>> {
-    type OwnerType = Owner;
+impl<G: ReadStateSpace, P: ReadOwners<StateIdx = G::StateIndex>> ReadOwners for BaseModel<G, P> {
+    type OwnerType = P::OwnerType;
     type StateIdx = G::StateIndex;
 
-    fn state_owner(&self, state: Self::StateIdx) -> Self::OwnerType {
-        self.players.state_to_owner[state]
+    derive_read_owners!(players);
+}
+
+impl<G: ReadStateSpace, P: ReadOwners<StateIdx = G::StateIndex>> BaseModel<G, P> {
+    pub fn without_players(self) -> BaseModel<G, SinglePlayer> {
+        BaseModel::with_graph(self.graph)
     }
 }
 
-// TODO: Provide analogous functions for non-singleplayer base models
+impl<G: ReadStateSpace> BaseModel<G, SinglePlayer> {
+    pub fn with_players<P: ReadOwners<StateIdx = G::StateIndex>>(
+        self,
+        players: P,
+    ) -> BaseModel<G, P> {
+        BaseModel {
+            graph: self.graph,
+            players,
+        }
+    }
+}
+
 impl<G: BuildStates> BuildStates for BaseModel<G, SinglePlayer> {
     derive_build_states!(graph);
 }
 
-impl<G: BuildStates, Owner> BaseModel<G, TurnBased<G::StateIndex, Owner>> {
-    pub fn add_state(&mut self, owner: Owner) -> G::StateIndex {
+impl<G: BuildStates, P: BuildOwners<StateIdx = G::StateIndex>> BaseModel<G, P> {
+    pub fn add_state(&mut self, owner: P::OwnerType) -> G::StateIndex {
         let state = self.graph.add_state();
-        self.players.state_to_owner.add_checked(state, owner);
+        self.players.add_state_owner(state, owner);
         state
     }
 }

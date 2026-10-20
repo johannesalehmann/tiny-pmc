@@ -4,7 +4,9 @@
 
 use crate::Model;
 use crate::annotations::{AtomicPropositions, RewardAnnotations};
-use crate::base_model::{Mdp, NonstochasticGame, StochasticGame, TransitionSystem};
+use crate::base_model::{
+    BaseModel, BranchGraph, ChoiceBranchGraph, ChoiceGraph, SinglePlayer, TurnBased,
+};
 use crate::initial_states::{InitialStates, InitialStatesEnum, SingleInitialState};
 use crate::labels::Labels;
 use crate::predecessors::Predecessors;
@@ -98,7 +100,27 @@ impl<AI: Index, SI: Index, AEI: Index> AsRefComponent for AtomicPropositions<AI,
     }
 }
 
-impl<SI: Index, CI: Index, BI: Index> AsRefComponent for Mdp<SI, CI, BI> {
+impl<G: AsRefComponent, P: AsRefComponent> BaseModel<G, P> {
+    pub fn as_ref(&self) -> BaseModel<G::Output<'_>, P::Output<'_>> {
+        BaseModel {
+            graph: self.graph.as_ref(),
+            players: self.players.as_ref(),
+        }
+    }
+}
+
+impl<G: AsRefComponent, P: AsRefComponent> AsRefComponent for BaseModel<G, P> {
+    type Output<'a>
+        = BaseModel<G::Output<'a>, P::Output<'a>>
+    where
+        Self: 'a;
+
+    fn as_ref(&self) -> Self::Output<'_> {
+        BaseModel::as_ref(self)
+    }
+}
+
+impl<SI: Index, CI: Index, BI: Index> AsRefComponent for ChoiceBranchGraph<SI, CI, BI> {
     type Output<'a>
         = &'a Self
     where
@@ -109,7 +131,7 @@ impl<SI: Index, CI: Index, BI: Index> AsRefComponent for Mdp<SI, CI, BI> {
     }
 }
 
-impl<SI: Index, CI: Index> AsRefComponent for TransitionSystem<SI, CI> {
+impl<SI: Index, CI: Index> AsRefComponent for ChoiceGraph<SI, CI> {
     type Output<'a>
         = &'a Self
     where
@@ -120,7 +142,7 @@ impl<SI: Index, CI: Index> AsRefComponent for TransitionSystem<SI, CI> {
     }
 }
 
-impl<SI: Index, CI: Index> AsRefComponent for NonstochasticGame<SI, CI> {
+impl<SI: Index, BI: Index> AsRefComponent for BranchGraph<SI, BI> {
     type Output<'a>
         = &'a Self
     where
@@ -131,7 +153,17 @@ impl<SI: Index, CI: Index> AsRefComponent for NonstochasticGame<SI, CI> {
     }
 }
 
-impl<SI: Index, CI: Index, BI: Index> AsRefComponent for StochasticGame<SI, CI, BI> {
+// As `SinglePlayer` is a unit struct, we return it by value. This also ensures
+// impls for `BaseModel<G, SinglePlayer>` still apply
+impl AsRefComponent for SinglePlayer {
+    type Output<'a> = SinglePlayer;
+
+    fn as_ref(&self) -> Self::Output<'_> {
+        SinglePlayer
+    }
+}
+
+impl<SI: Index, Owner> AsRefComponent for TurnBased<SI, Owner> {
     type Output<'a>
         = &'a Self
     where

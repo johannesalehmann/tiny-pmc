@@ -4,7 +4,9 @@
 
 use crate::Model;
 use crate::annotations::{AtomicPropositions, RewardAnnotations};
-use crate::base_model::{Mdp, NonstochasticGame, StochasticGame, TransitionSystem};
+use crate::base_model::{
+    BaseModel, BranchGraph, ChoiceBranchGraph, ChoiceGraph, SinglePlayer, TurnBased,
+};
 use crate::initial_states::{InitialStates, InitialStatesEnum, SingleInitialState};
 use crate::labels::Labels;
 use crate::predecessors::Predecessors;
@@ -89,7 +91,27 @@ impl<AI: Index, SI: Index, AEI: Index> AsMutComponent for AtomicPropositions<AI,
     }
 }
 
-impl<SI: Index, CI: Index, BI: Index> AsMutComponent for Mdp<SI, CI, BI> {
+impl<G: AsMutComponent, P: AsMutComponent> BaseModel<G, P> {
+    pub fn as_mut(&mut self) -> BaseModel<G::Output<'_>, P::Output<'_>> {
+        BaseModel {
+            graph: self.graph.as_mut(),
+            players: self.players.as_mut(),
+        }
+    }
+}
+
+impl<G: AsMutComponent, P: AsMutComponent> AsMutComponent for BaseModel<G, P> {
+    type Output<'a>
+        = BaseModel<G::Output<'a>, P::Output<'a>>
+    where
+        Self: 'a;
+
+    fn as_mut(&mut self) -> Self::Output<'_> {
+        BaseModel::as_mut(self)
+    }
+}
+
+impl<SI: Index, CI: Index, BI: Index> AsMutComponent for ChoiceBranchGraph<SI, CI, BI> {
     type Output<'a>
         = &'a mut Self
     where
@@ -100,7 +122,7 @@ impl<SI: Index, CI: Index, BI: Index> AsMutComponent for Mdp<SI, CI, BI> {
     }
 }
 
-impl<SI: Index, CI: Index> AsMutComponent for TransitionSystem<SI, CI> {
+impl<SI: Index, CI: Index> AsMutComponent for ChoiceGraph<SI, CI> {
     type Output<'a>
         = &'a mut Self
     where
@@ -111,7 +133,7 @@ impl<SI: Index, CI: Index> AsMutComponent for TransitionSystem<SI, CI> {
     }
 }
 
-impl<SI: Index, CI: Index> AsMutComponent for NonstochasticGame<SI, CI> {
+impl<SI: Index, BI: Index> AsMutComponent for BranchGraph<SI, BI> {
     type Output<'a>
         = &'a mut Self
     where
@@ -122,7 +144,17 @@ impl<SI: Index, CI: Index> AsMutComponent for NonstochasticGame<SI, CI> {
     }
 }
 
-impl<SI: Index, CI: Index, BI: Index> AsMutComponent for StochasticGame<SI, CI, BI> {
+// As `SinglePlayer` is a unit struct, we return it by value. This also ensures
+// impls for `BaseModel<G, SinglePlayer>` still apply
+impl AsMutComponent for SinglePlayer {
+    type Output<'a> = SinglePlayer;
+
+    fn as_mut(&mut self) -> Self::Output<'_> {
+        SinglePlayer
+    }
+}
+
+impl<SI: Index, Owner> AsMutComponent for TurnBased<SI, Owner> {
     type Output<'a>
         = &'a mut Self
     where
