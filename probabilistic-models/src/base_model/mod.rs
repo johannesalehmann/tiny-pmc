@@ -4,7 +4,7 @@ use crate::traits::{
     derive_build_choice_branch_graph, derive_build_choice_graph, derive_build_states,
     derive_read_choice_destinations, derive_read_state_branches, derive_read_state_space,
 };
-use crate::{DefaultIx, HasIx, StateIndex};
+use crate::{DefaultIx, HasIx, Model, StateIndex};
 
 mod graph;
 pub use graph::{BranchGraph, ChoiceBranchGraph, ChoiceGraph};
@@ -132,5 +132,49 @@ impl<G: ClearModel, P: ClearModel> ClearModel for BaseModel<G, P> {
     fn clear(&mut self) {
         self.graph.clear();
         self.players.clear();
+    }
+}
+
+impl<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Preds>
+    Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Preds>
+{
+    pub fn map_base<M2, F: FnOnce(M) -> M2>(
+        self,
+        map: F,
+    ) -> Model<M2, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Preds> {
+        Model {
+            base: map(self.base),
+            initial: self.initial,
+            choice_labels: self.choice_labels,
+            branch_labels: self.branch_labels,
+            observations: self.observations,
+            atomic_propositions: self.atomic_propositions,
+            rewards: self.rewards,
+            annotations: self.annotations,
+            state_valuations: self.state_valuations,
+            predecessors: self.predecessors,
+        }
+    }
+
+    // On failure, `map` returns the base model, so that the original model can be returned.
+    pub fn try_map_base<M2, F: FnOnce(M) -> Result<M2, M>>(
+        self,
+        map: F,
+    ) -> Result<Model<M2, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Preds>, Self> {
+        match map(self.base) {
+            Ok(base) => Ok(Model {
+                base,
+                initial: self.initial,
+                choice_labels: self.choice_labels,
+                branch_labels: self.branch_labels,
+                observations: self.observations,
+                atomic_propositions: self.atomic_propositions,
+                rewards: self.rewards,
+                annotations: self.annotations,
+                state_valuations: self.state_valuations,
+                predecessors: self.predecessors,
+            }),
+            Err(base) => Err(Model { base, ..self }),
+        }
     }
 }

@@ -2,7 +2,7 @@ use crate::base_model::{
     BaseModel, BranchGraph, ChoiceBranchGraph, ChoiceGraph, Dtmc, Mdp, NonstochasticGame,
     SinglePlayer, StochasticGame, TransitionSystem, TurnBased, TwoPlayer,
 };
-use crate::{DefaultIx, HasIx, Ix};
+use crate::{DefaultIx, HasIx, Ix, Model};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum BaseModelEnum<TS, D, M, NG, SG> {
@@ -71,6 +71,102 @@ impl<TS, D, M, NG, SG> BaseModelEnum<TS, D, M, NG, SG> {
         is_stochastic_game,
         into_stochastic_game,
         try_into_stochastic_game
+    );
+}
+
+impl<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Preds>
+    Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Preds>
+{
+    pub fn with_base_model_enum<TS, D, M2, NG, SG>(
+        self,
+    ) -> Model<
+        BaseModelEnum<TS, D, M2, NG, SG>,
+        Ini,
+        ChLabel,
+        BrLabel,
+        Obs,
+        APs,
+        Rew,
+        Ann,
+        Val,
+        Preds,
+    >
+    where
+        M: Into<BaseModelEnum<TS, D, M2, NG, SG>>,
+    {
+        self.map_base(|m| m.into())
+    }
+}
+
+macro_rules! model_variant_accessors {
+    (
+        $ty:ident,
+        $is:ident,
+        $try_into:ident,
+        $base_is:ident,
+        $base_into:ident,
+        $base_try_into:ident
+    ) => {
+        pub fn $base_is(&self) -> bool {
+            self.base.$is()
+        }
+
+        pub fn $base_into(
+            self,
+        ) -> Option<Model<$ty, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Preds>> {
+            self.$base_try_into().ok()
+        }
+
+        pub fn $base_try_into(
+            self,
+        ) -> Result<Model<$ty, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Preds>, Self> {
+            self.try_map_base(|m| m.$try_into())
+        }
+    };
+}
+
+impl<TS, D, M, NG, SG, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Preds>
+    Model<BaseModelEnum<TS, D, M, NG, SG>, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Preds>
+{
+    model_variant_accessors!(
+        TS,
+        is_transition_system,
+        try_into_transition_system,
+        base_is_transition_system,
+        base_into_transition_system,
+        base_try_into_transition_system
+    );
+    model_variant_accessors!(
+        D,
+        is_dtmc,
+        try_into_dtmc,
+        base_is_dtmc,
+        base_into_dtmc,
+        base_try_into_dtmc
+    );
+    model_variant_accessors!(
+        M,
+        is_mdp,
+        try_into_mdp,
+        base_is_mdp,
+        base_into_mdp,
+        base_try_into_mdp
+    );
+    model_variant_accessors!(
+        NG,
+        is_nonstochastic_game,
+        try_into_nonstochastic_game,
+        base_is_nonstochastic_game,
+        base_into_nonstochastic_game,
+        base_try_into_nonstochastic_game
+    );
+    model_variant_accessors!(
+        SG,
+        is_stochastic_game,
+        try_into_stochastic_game,
+        base_is_stochastic_game,
+        base_into_stochastic_game,
+        base_try_into_stochastic_game
     );
 }
 
