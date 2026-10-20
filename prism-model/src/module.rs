@@ -81,7 +81,7 @@ pub type ModuleManagerNamedVars<S: Span = FullSpan, A = Identifier<S>> =
 /// #     let update = Update::with_assignments(probability, vec![assignment]);
 /// #     module.commands.push(Command::with_updates(action, guard, vec![update]));
 /// # }
-/// assert_eq!(module_manager.get(index).unwrap().commands.len() == 1);
+/// assert_eq!(module_manager.get(index).unwrap().commands.len(), 1);
 /// ```
 ///
 /// # Renamed modules
