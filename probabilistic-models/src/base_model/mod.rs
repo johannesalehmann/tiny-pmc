@@ -13,6 +13,9 @@ mod owners;
 pub(crate) use owners::derive_read_owners;
 pub use owners::{BuildOwners, ReadOwners, SinglePlayer, TurnBased, TwoPlayer};
 
+mod base_model_enum;
+pub use base_model_enum::{AnyBaseModel, BaseModelEnum};
+
 mod mdp_macro;
 
 #[derive(Default, Debug, Clone, Copy, PartialEq)]
