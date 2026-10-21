@@ -13,6 +13,12 @@ where
         .map_with(|_, e| prism_model::ModelType::Dtmc(e.span()))
         .or(just(Token::Ctmc).map_with(|_, e| prism_model::ModelType::Ctmc(e.span())))
         .or(just(Token::Mdp).map_with(|_, e| prism_model::ModelType::Mdp(e.span())))
+        .or(just(Token::Ts).map_with(|_, e| prism_model::ModelType::TransitionSystem(e.span())))
+        .or(just(Token::Smg)
+            .map_with(|_, e| prism_model::ModelType::TurnBasedStochasticMultiplayerGame(e.span())))
+        .or(just(Token::Mg).map_with(|_, e| {
+            prism_model::ModelType::TurnBasedNonstochasticMultiplayerGame(e.span())
+        }))
         .or(just(Token::Pta).try_map(|_, span: ParserSpan| {
             Err(ValidationError::UnsupportedModelType {
                 model_type: "pta",

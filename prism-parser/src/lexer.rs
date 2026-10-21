@@ -25,6 +25,12 @@ pub enum Token {
     Pomdp,
     /// The keyword `popta`
     Popta,
+    /// The keyword `ts`
+    Ts,
+    /// The keyword `smg`
+    Smg,
+    /// The keyword `mg`
+    Mg,
 
     /// The keyword `module`
     Module,
@@ -200,6 +206,9 @@ impl Display for Token {
             Token::Pta => write!(f, "pta"),
             Token::Pomdp => write!(f, "pomdp"),
             Token::Popta => write!(f, "popta"),
+            Token::Ts => write!(f, "ts"),
+            Token::Smg => write!(f, "smg"),
+            Token::Mg => write!(f, "mg"),
             Token::Module => write!(f, "module"),
             Token::EndModule => write!(f, "endmodule"),
             Token::Const => write!(f, "const"),
@@ -343,6 +352,9 @@ fn lexer<'a, F: Fn(SimpleSpan) -> FullSpan + 'static>() -> impl Parser<
         "pta" => Token::Pta,
         "pomdp" => Token::Pomdp,
         "popta" => Token::Popta,
+        "ts" => Token::Ts,
+        "smg" => Token::Smg,
+        "mg" => Token::Mg,
 
         "module" => Token::Module,
         "endmodule" => Token::EndModule,

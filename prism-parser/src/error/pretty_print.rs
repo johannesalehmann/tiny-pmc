@@ -121,7 +121,9 @@ impl<'a> ParserError<'a, ParserSpan, String> {
                     MaybeLabel::new(&span)
                         .with_message(format!("Model type {} is not supported", model_type)),
                 );
-                builder.add_help("Supported model types are `dtmc`, `mdp` and `ctmc`.");
+                builder.add_help(
+                    "Supported model types are `dtmc`, `ctmc`, `mdp`, `ts`, `smg` and `mg`.",
+                );
                 builder
             }
             ValidationError::MissingModelType => {
