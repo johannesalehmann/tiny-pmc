@@ -37,20 +37,20 @@ impl<
     Q: crate::queries::QueryCollection,
     L: crate::labels::LabelSource,
     IS: crate::initial_states_source::InitialStateSource,
-    B: crate::bases::BaseModelBuilder,
-    IB: crate::initial_states_builder::InitialStatesBuilder<Ix = B::Ix>,
-    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<Ix = B::Ix>,
-    Rew: crate::rewards_builder::RewardsBuilder<Ix = B::Ix>,
-> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, ActionNameChoiceLabels<B::Ix>, Rew>
+    Sel: crate::model_type_selection::ModelTypeSelection,
+    IB: crate::initial_states_builder::InitialStatesBuilder<Ix = Sel::Ix>,
+    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<Ix = Sel::Ix>,
+    Rew: crate::rewards_builder::RewardsBuilder<Ix = Sel::Ix>,
+> ModelBuilder<'a, S, Q, L, IS, Sel, IB, APs, ActionNameChoiceLabels<Sel::Ix>, Rew>
 {
     pub fn without_choice_labels(
         self,
-    ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, NoChoiceLabels<B::Ix>, Rew> {
+    ) -> ModelBuilder<'a, S, Q, L, IS, Sel, IB, APs, NoChoiceLabels<Sel::Ix>, Rew> {
         self.map_choice_labels(NoChoiceLabels::default())
     }
     pub fn label_choices_with_command_indices(
         self,
-    ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CommandIndexLabels<B::Ix>, Rew> {
+    ) -> ModelBuilder<'a, S, Q, L, IS, Sel, IB, APs, CommandIndexLabels<Sel::Ix>, Rew> {
         self.map_choice_labels(CommandIndexLabels::default())
     }
 }

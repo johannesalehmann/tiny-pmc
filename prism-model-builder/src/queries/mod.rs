@@ -79,23 +79,23 @@ impl<
     S: Span,
     L: crate::labels::LabelSource,
     IS: crate::initial_states_source::InitialStateSource,
-    B: crate::bases::BaseModelBuilder,
-    IB: crate::initial_states_builder::InitialStatesBuilder<Ix = B::Ix>,
-    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<Ix = B::Ix>,
-    CL: crate::choice_labels::ChoiceLabelBuilder<Ix = B::Ix>,
-    Rew: crate::rewards_builder::RewardsBuilder<Ix = B::Ix>,
-> ModelBuilder<'a, S, ModelOnly<S>, L, IS, B, IB, APs, CL, Rew>
+    Sel: crate::model_type_selection::ModelTypeSelection,
+    IB: crate::initial_states_builder::InitialStatesBuilder<Ix = Sel::Ix>,
+    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<Ix = Sel::Ix>,
+    CL: crate::choice_labels::ChoiceLabelBuilder<Ix = Sel::Ix>,
+    Rew: crate::rewards_builder::RewardsBuilder<Ix = Sel::Ix>,
+> ModelBuilder<'a, S, ModelOnly<S>, L, IS, Sel, IB, APs, CL, Rew>
 {
     pub fn with_query(
         self,
         query: UnprocessedQuery<S>,
-    ) -> ModelBuilder<'a, S, SingleQuery<S>, L, IS, B, IB, APs, CL, Rew> {
+    ) -> ModelBuilder<'a, S, SingleQuery<S>, L, IS, Sel, IB, APs, CL, Rew> {
         self.map_queries(SingleQuery { query })
     }
     pub fn with_queries<Q: Into<Vec<UnprocessedQuery<S>>>>(
         self,
         queries: Q,
-    ) -> ModelBuilder<'a, S, QueryVector<S>, L, IS, B, IB, APs, CL, Rew> {
+    ) -> ModelBuilder<'a, S, QueryVector<S>, L, IS, Sel, IB, APs, CL, Rew> {
         self.map_queries(QueryVector {
             queries: queries.into(),
         })
@@ -149,17 +149,17 @@ impl<
     S: Span,
     L: crate::labels::LabelSource,
     IS: crate::initial_states_source::InitialStateSource,
-    B: crate::bases::BaseModelBuilder,
-    IB: crate::initial_states_builder::InitialStatesBuilder<Ix = B::Ix>,
-    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<Ix = B::Ix>,
-    CL: crate::choice_labels::ChoiceLabelBuilder<Ix = B::Ix>,
-    Rew: crate::rewards_builder::RewardsBuilder<Ix = B::Ix>,
-> ModelBuilder<'a, S, SingleQuery<S>, L, IS, B, IB, APs, CL, Rew>
+    Sel: crate::model_type_selection::ModelTypeSelection,
+    IB: crate::initial_states_builder::InitialStatesBuilder<Ix = Sel::Ix>,
+    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<Ix = Sel::Ix>,
+    CL: crate::choice_labels::ChoiceLabelBuilder<Ix = Sel::Ix>,
+    Rew: crate::rewards_builder::RewardsBuilder<Ix = Sel::Ix>,
+> ModelBuilder<'a, S, SingleQuery<S>, L, IS, Sel, IB, APs, CL, Rew>
 {
     pub fn and_with_query(
         self,
         query: UnprocessedQuery<S>,
-    ) -> ModelBuilder<'a, S, QueryVector<S>, L, IS, B, IB, APs, CL, Rew> {
+    ) -> ModelBuilder<'a, S, QueryVector<S>, L, IS, Sel, IB, APs, CL, Rew> {
         self.map_queries_with(|q| QueryVector {
             queries: vec![q.query, query],
         })
@@ -167,7 +167,7 @@ impl<
     pub fn and_with_queries(
         self,
         queries: Vec<UnprocessedQuery<S>>,
-    ) -> ModelBuilder<'a, S, QueryVector<S>, L, IS, B, IB, APs, CL, Rew> {
+    ) -> ModelBuilder<'a, S, QueryVector<S>, L, IS, Sel, IB, APs, CL, Rew> {
         self.map_queries_with(|q| QueryVector {
             queries: std::iter::once(q.query)
                 .chain(queries.into_iter())
@@ -231,17 +231,17 @@ impl<
     S: Span,
     L: crate::labels::LabelSource,
     IS: crate::initial_states_source::InitialStateSource,
-    B: crate::bases::BaseModelBuilder,
-    IB: crate::initial_states_builder::InitialStatesBuilder<Ix = B::Ix>,
-    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<Ix = B::Ix>,
-    CL: crate::choice_labels::ChoiceLabelBuilder<Ix = B::Ix>,
-    Rew: crate::rewards_builder::RewardsBuilder<Ix = B::Ix>,
-> ModelBuilder<'a, S, QueryVector<S>, L, IS, B, IB, APs, CL, Rew>
+    Sel: crate::model_type_selection::ModelTypeSelection,
+    IB: crate::initial_states_builder::InitialStatesBuilder<Ix = Sel::Ix>,
+    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<Ix = Sel::Ix>,
+    CL: crate::choice_labels::ChoiceLabelBuilder<Ix = Sel::Ix>,
+    Rew: crate::rewards_builder::RewardsBuilder<Ix = Sel::Ix>,
+> ModelBuilder<'a, S, QueryVector<S>, L, IS, Sel, IB, APs, CL, Rew>
 {
     pub fn and_with_query(
         self,
         query: UnprocessedQuery<S>,
-    ) -> ModelBuilder<'a, S, QueryVector<S>, L, IS, B, IB, APs, CL, Rew> {
+    ) -> ModelBuilder<'a, S, QueryVector<S>, L, IS, Sel, IB, APs, CL, Rew> {
         self.map_queries_with(|mut qs| {
             qs.queries.push(query);
             QueryVector {
@@ -252,7 +252,7 @@ impl<
     pub fn and_with_queries(
         self,
         mut queries: Vec<UnprocessedQuery<S>>,
-    ) -> ModelBuilder<'a, S, QueryVector<S>, L, IS, B, IB, APs, CL, Rew> {
+    ) -> ModelBuilder<'a, S, QueryVector<S>, L, IS, Sel, IB, APs, CL, Rew> {
         self.map_queries_with(|mut qs| {
             qs.queries.append(&mut queries);
             QueryVector {

@@ -60,15 +60,16 @@ impl<
     Q: crate::queries::QueryCollection,
     L: crate::labels::LabelSource,
     IS: crate::initial_states_source::InitialStateSource,
-    B: crate::bases::BaseModelBuilder,
-    IB: crate::initial_states_builder::InitialStatesBuilder<Ix = B::Ix>,
-    CL: crate::choice_labels::ChoiceLabelBuilder<Ix = B::Ix>,
-    Rew: crate::rewards_builder::RewardsBuilder<Ix = B::Ix>,
-> ModelBuilder<'a, S, Q, L, IS, B, IB, UntrackedAtomicPropositionBuilder<B::Ix>, CL, Rew>
+    Sel: crate::model_type_selection::ModelTypeSelection,
+    IB: crate::initial_states_builder::InitialStatesBuilder<Ix = Sel::Ix>,
+    CL: crate::choice_labels::ChoiceLabelBuilder<Ix = Sel::Ix>,
+    Rew: crate::rewards_builder::RewardsBuilder<Ix = Sel::Ix>,
+> ModelBuilder<'a, S, Q, L, IS, Sel, IB, UntrackedAtomicPropositionBuilder<Sel::Ix>, CL, Rew>
 {
     pub fn with_atomic_proposition_vector(
         self,
-    ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, AtomicPropositionVectorsBuilder<B::Ix>, CL, Rew> {
+    ) -> ModelBuilder<'a, S, Q, L, IS, Sel, IB, AtomicPropositionVectorsBuilder<Sel::Ix>, CL, Rew>
+    {
         self.map_atomic_propositions(AtomicPropositionVectorsBuilder::default())
     }
 }
@@ -113,15 +114,15 @@ impl<
     Q: crate::queries::QueryCollection,
     L: crate::labels::LabelSource,
     IS: crate::initial_states_source::InitialStateSource,
-    B: crate::bases::BaseModelBuilder,
-    IB: crate::initial_states_builder::InitialStatesBuilder<Ix = B::Ix>,
-    CL: crate::choice_labels::ChoiceLabelBuilder<Ix = B::Ix>,
-    Rew: crate::rewards_builder::RewardsBuilder<Ix = B::Ix>,
-> ModelBuilder<'a, S, Q, L, IS, B, IB, AtomicPropositionVectorsBuilder<B::Ix>, CL, Rew>
+    Sel: crate::model_type_selection::ModelTypeSelection,
+    IB: crate::initial_states_builder::InitialStatesBuilder<Ix = Sel::Ix>,
+    CL: crate::choice_labels::ChoiceLabelBuilder<Ix = Sel::Ix>,
+    Rew: crate::rewards_builder::RewardsBuilder<Ix = Sel::Ix>,
+> ModelBuilder<'a, S, Q, L, IS, Sel, IB, AtomicPropositionVectorsBuilder<Sel::Ix>, CL, Rew>
 {
     pub fn without_atomic_proposition_vector(
         self,
-    ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, UntrackedAtomicPropositionBuilder<B::Ix>, CL, Rew>
+    ) -> ModelBuilder<'a, S, Q, L, IS, Sel, IB, UntrackedAtomicPropositionBuilder<Sel::Ix>, CL, Rew>
     {
         self.map_atomic_propositions(UntrackedAtomicPropositionBuilder::default())
     }

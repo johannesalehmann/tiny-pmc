@@ -1,7 +1,7 @@
-use crate::bases::BaseModelBuilder;
 use crate::initial_states_builder::InitialStatesBuilder;
 use crate::initial_states_source::InitialStateSource;
 use crate::labels::LabelSource;
+use crate::model_type_selection::ModelTypeSelection;
 use crate::queries::QueryCollection;
 use crate::rewards_builder::RewardsBuilder;
 use crate::{ModelBuilder, atomic_propositions_builder, choice_labels};
@@ -13,30 +13,31 @@ impl<
     Q: QueryCollection,
     L: LabelSource,
     IS: InitialStateSource,
-    B: BaseModelBuilder,
-    IB: InitialStatesBuilder<Ix = B::Ix>,
-    APs: atomic_propositions_builder::AtomicPropositionBuilder<Ix = B::Ix>,
-    CL: choice_labels::ChoiceLabelBuilder<Ix = B::Ix>,
-    Rew: RewardsBuilder<Ix = B::Ix>,
-> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CL, Rew>
+    Sel: ModelTypeSelection,
+    IB: InitialStatesBuilder<Ix = Sel::Ix>,
+    APs: atomic_propositions_builder::AtomicPropositionBuilder<Ix = Sel::Ix>,
+    CL: choice_labels::ChoiceLabelBuilder<Ix = Sel::Ix>,
+    Rew: RewardsBuilder<Ix = Sel::Ix>,
+> ModelBuilder<'a, S, Q, L, IS, Sel, IB, APs, CL, Rew>
 {
     pub fn with_state_space_restriction(
         self,
         condition: Expression<VariableReference, S>,
-    ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CL, Rew> {
+    ) -> ModelBuilder<'a, S, Q, L, IS, Sel, IB, APs, CL, Rew> {
         self.with_state_space_restriction_maybe(Some(condition))
     }
 
     pub fn with_state_space_restriction_maybe(
         self,
         condition: Option<Expression<VariableReference, S>>,
-    ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CL, Rew> {
+    ) -> ModelBuilder<'a, S, Q, L, IS, Sel, IB, APs, CL, Rew> {
         ModelBuilder {
             model: self.model,
             constants: self.constants,
             queries: self.queries,
             labels: self.labels,
             initial_state_source: self.initial_state_source,
+            selection: self.selection,
             base: self.base,
             initial_states_builder: self.initial_states_builder,
             atomic_propositions: self.atomic_propositions,

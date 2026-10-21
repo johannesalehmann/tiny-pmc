@@ -1,3 +1,4 @@
+use crate::bases::MdpBuilder;
 use crate::choice_labels::Context;
 use crate::expression_context::ExpressionContext;
 use crate::expressions::ValuationSource;
@@ -19,7 +20,7 @@ use probabilistic_models::valuations::{
     ValuationBitsMut, ValuationEntry,
 };
 use probabilistic_models::{
-    AtomicPropositionIndex, ChoiceIndex, HasIx, StateIndex, ValuationClassEntryIndex,
+    AtomicPropositionIndex, ChoiceIndex, HasIx, Ix, StateIndex, ValuationClassEntryIndex,
     ValuationClassIndex, ValuationIndex,
 };
 use std::collections::VecDeque;
@@ -31,17 +32,19 @@ pub struct StateBuilder<
     S: Span,
     E,
     EC: ExpressionContext<E>,
-    Base: crate::bases::BaseModelBuilder,
+    I: Ix,
+    Own: OwnersBuilder<Ix = I>,
     IniBuilder: crate::initial_states_builder::InitialStatesBuilder,
     APs: crate::atomic_propositions_builder::AtomicPropositionBuilder,
-    CL: choice_labels::ChoiceLabelBuilder<Ix = Base::Ix>,
-    Rew: RewardsBuilder<Ix = Base::Ix>,
+    CL: choice_labels::ChoiceLabelBuilder<Ix = I>,
+    Rew: RewardsBuilder<Ix = I>,
 > {
     pub synchronising_action: SynchronisedActions,
     pub labels: &'a Labels<AtomicPropositionIndex<APs::Ix>, E>,
     pub reward_structures: &'a RewardStructures<'a, Rew::Ix, E>,
 
-    pub base: &'a mut Base,
+    pub base: &'a mut MdpBuilder<I>,
+    pub owners: &'a mut Own,
     pub initial_states_builder: &'a mut IniBuilder,
     pub atomic_propositions: &'a mut APs,
     pub choice_labels: &'a mut CL,
@@ -52,11 +55,11 @@ pub struct StateBuilder<
     pub unlabelled_rewards_computed: bool,
     pub synchronised_rewards: Vec<f64>,
 
-    pub open_states: VecDeque<StateIndex<Base::Ix>>,
+    pub open_states: VecDeque<StateIndex<I>>,
 
     pub expand_state_condition: Option<E>,
 
-    pub variables: StateBuilderVariables<'a, S, E, EC, Base>,
+    pub variables: StateBuilderVariables<'a, S, E, EC, I>,
 }
 
 impl<
@@ -64,24 +67,19 @@ impl<
     S: Span,
     E,
     EC: ExpressionContext<E>,
-    Base: crate::bases::BaseModelBuilder,
+    I: Ix,
+    Own: OwnersBuilder<Ix = I>,
     IniBuilder: crate::initial_states_builder::InitialStatesBuilder,
     APs: crate::atomic_propositions_builder::AtomicPropositionBuilder,
-    CL: choice_labels::ChoiceLabelBuilder<Ix = Base::Ix>,
-    Rew: RewardsBuilder<Ix = Base::Ix>,
-> HasIx for StateBuilder<'a, S, E, EC, Base, IniBuilder, APs, CL, Rew>
+    CL: choice_labels::ChoiceLabelBuilder<Ix = I>,
+    Rew: RewardsBuilder<Ix = I>,
+> HasIx for StateBuilder<'a, S, E, EC, I, Own, IniBuilder, APs, CL, Rew>
 {
-    type Ix = Base::Ix;
+    type Ix = I;
 }
 
-pub struct StateBuilderVariables<
-    'a,
-    S: Span,
-    E,
-    EC: ExpressionContext<E>,
-    Base: crate::bases::BaseModelBuilder,
-> {
-    pub info: ModelVariableInfo<ValuationClassIndex<Base::Ix>, ValuationClassEntryIndex<Base::Ix>>,
+pub struct StateBuilderVariables<'a, S: Span, E, EC: ExpressionContext<E>, I: Ix> {
+    pub info: ModelVariableInfo<ValuationClassIndex<I>, ValuationClassEntryIndex<I>>,
     pub model: &'a Model<VariableReference, S, E, Identifier<S>>,
     pub expr_context: &'a mut EC,
 }
@@ -91,12 +89,13 @@ impl<
     S: Span,
     E,
     EC: ExpressionContext<E>,
-    Base: crate::bases::BaseModelBuilder,
-    IniBuilder: crate::initial_states_builder::InitialStatesBuilder<Ix = Base::Ix>,
-    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<Ix = Base::Ix>,
-    CL: choice_labels::ChoiceLabelBuilder<Ix = Base::Ix>,
-    Rew: RewardsBuilder<Ix = Base::Ix>,
-> initial_states_source::Context for StateBuilder<'a, S, E, EC, Base, IniBuilder, APs, CL, Rew>
+    I: Ix,
+    Own: OwnersBuilder<Ix = I>,
+    IniBuilder: crate::initial_states_builder::InitialStatesBuilder<Ix = I>,
+    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<Ix = I>,
+    CL: choice_labels::ChoiceLabelBuilder<Ix = I>,
+    Rew: RewardsBuilder<Ix = I>,
+> initial_states_source::Context for StateBuilder<'a, S, E, EC, I, Own, IniBuilder, APs, CL, Rew>
 {
     type Span = S;
     type Expression = E;
@@ -138,12 +137,13 @@ impl<
     S: Span,
     E,
     EC: ExpressionContext<E>,
-    Base: crate::bases::BaseModelBuilder,
-    IniBuilder: crate::initial_states_builder::InitialStatesBuilder<Ix = Base::Ix>,
-    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<Ix = Base::Ix>,
-    CL: choice_labels::ChoiceLabelBuilder<Ix = Base::Ix>,
-    Rew: RewardsBuilder<Ix = Base::Ix>,
-> StateBuilder<'a, S, E, EC, Base, IniBuilder, APs, CL, Rew>
+    I: Ix,
+    Own: OwnersBuilder<Ix = I>,
+    IniBuilder: crate::initial_states_builder::InitialStatesBuilder<Ix = I>,
+    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<Ix = I>,
+    CL: choice_labels::ChoiceLabelBuilder<Ix = I>,
+    Rew: RewardsBuilder<Ix = I>,
+> StateBuilder<'a, S, E, EC, I, Own, IniBuilder, APs, CL, Rew>
 {
     pub fn create_initial_states<IniSource: InitialStateSource>(
         &mut self,
@@ -159,7 +159,7 @@ impl<
         }
         Ok(())
     }
-    fn process_state(&mut self, state: StateIndex<Base::Ix>) -> Result<(), ModelBuildingError> {
+    fn process_state(&mut self, state: StateIndex<I>) -> Result<(), ModelBuildingError> {
         self.variables.expr_context.reset_context();
         self.base.add_state(state);
 
@@ -219,12 +219,12 @@ impl<
             }
         }
 
-        self.base.owners_mut().finish_state(state)
+        self.owners.finish_state(state)
     }
 
     fn process_nonsynchronised_command(
         &mut self,
-        state: StateIndex<Base::Ix>,
+        state: StateIndex<I>,
         module_index: usize,
         command_index: usize,
         command: &'a Command<VariableReference, S, E, Identifier<S>>,
@@ -277,9 +277,7 @@ impl<
                 .label_choice(choice_index, &index, &context);
 
             self.base.finish_choice();
-            self.base
-                .owners_mut()
-                .unsynchronised_choice_added(module_index);
+            self.owners.unsynchronised_choice_added(module_index);
             1 // 1 new choice was added to the model
         } else {
             0 // 0 new choices were added to the model
@@ -288,7 +286,7 @@ impl<
 
     fn process_synchronising_action(
         &mut self,
-        state: StateIndex<Base::Ix>,
+        state: StateIndex<I>,
         synchronised_action_index: usize,
     ) -> usize {
         let synchronised_action = &self.synchronising_action[synchronised_action_index];
@@ -455,8 +453,7 @@ impl<
 
                 choices_added += 1;
                 self.base.finish_choice();
-                self.base
-                    .owners_mut()
+                self.owners
                     .synchronised_choice_added(synchronised_action_index);
 
                 for i in (0..n).rev() {
@@ -478,7 +475,7 @@ impl<
         choices_added
     }
 
-    fn evaluate_atomic_propositions(&mut self, state_index: StateIndex<Base::Ix>) {
+    fn evaluate_atomic_propositions(&mut self, state_index: StateIndex<I>) {
         let valuation = self.base.state_valuations().entry(state_index);
         let val_source = self.variables.info.get_valuation_source(&valuation);
         for (i, (_, atomic_proposition)) in self.labels.into_iter().enumerate() {
@@ -490,7 +487,7 @@ impl<
         }
     }
 
-    fn evaluate_state_rewards(&mut self, state_index: StateIndex<Base::Ix>) {
+    fn evaluate_state_rewards(&mut self, state_index: StateIndex<I>) {
         let valuation = self.base.state_valuations().entry(state_index);
         let val_source = self.variables.info.get_valuation_source(&valuation);
         for structure in &self.reward_structures.structures {
@@ -510,7 +507,7 @@ impl<
 
     fn evaluate_choice_rewards(
         &mut self,
-        state_index: StateIndex<Base::Ix>,
+        state_index: StateIndex<I>,
         synchronised_action_index: Option<usize>,
     ) {
         let valuation = self.base.state_valuations().entry(state_index);
@@ -559,7 +556,7 @@ impl<
         rewards: &mut Rew,
         reward_structures: &RewardStructures<'a, Rew::Ix, E>,
         values: &[f64],
-        choice_index: ChoiceIndex<Base::Ix>,
+        choice_index: ChoiceIndex<I>,
     ) {
         for (structure, &value) in reward_structures.structures.iter().zip(values) {
             if structure.has_choice_rewards {
@@ -569,14 +566,13 @@ impl<
     }
 
     pub fn get_or_add_state<
-        Val: GetValuationData<ValuationIndex<Base::Ix>>
-            + GetValuationClassIndex<ValuationClassIndex<Base::Ix>>,
+        Val: GetValuationData<ValuationIndex<I>> + GetValuationClassIndex<ValuationClassIndex<I>>,
     >(
-        base: &mut Base,
+        base: &mut MdpBuilder<I>,
         initial_states_builder: &mut IniBuilder,
-        open_states: &mut VecDeque<StateIndex<Base::Ix>>,
+        open_states: &mut VecDeque<StateIndex<I>>,
         valuation: Val,
-    ) -> StateIndex<Base::Ix> {
+    ) -> StateIndex<I> {
         let index = base.state_by_valuation(&valuation);
         match index {
             Some(index) => index,
@@ -591,11 +587,8 @@ impl<
 
     #[allow(unused)]
     fn print_valuation(
-        valuation: ModelValuationEntry<'_, Base::Ix>,
-        variable_info: &ModelVariableInfo<
-            ValuationClassIndex<Base::Ix>,
-            ValuationClassEntryIndex<Base::Ix>,
-        >,
+        valuation: ModelValuationEntry<'_, I>,
+        variable_info: &ModelVariableInfo<ValuationClassIndex<I>, ValuationClassEntryIndex<I>>,
         model: &Model<VariableReference, S, Expression<VariableReference, S>, Identifier<S>>,
     ) {
         print!("(");
@@ -627,14 +620,12 @@ impl<
     }
 }
 
-impl<'a, S: Span, E, EC: ExpressionContext<E>, Base: crate::bases::BaseModelBuilder>
-    StateBuilderVariables<'a, S, E, EC, Base>
-{
+impl<'a, S: Span, E, EC: ExpressionContext<E>, I: Ix> StateBuilderVariables<'a, S, E, EC, I> {
     fn apply_assignments(
         &mut self,
-        valuation: &ModelValuationEntry<'_, Base::Ix>,
+        valuation: &ModelValuationEntry<'_, I>,
         updates: impl IntoIterator<Item = &'a Update<VariableReference, S, E>>,
-    ) -> ModelBareStandaloneValuation<Base::Ix> {
+    ) -> ModelBareStandaloneValuation<I> {
         let mut new_valuation = valuation.clone_into_standalone_valuation();
         for update in updates {
             new_valuation.apply_assignments(

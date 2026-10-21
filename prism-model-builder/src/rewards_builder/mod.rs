@@ -79,15 +79,15 @@ impl<
     Q: crate::queries::QueryCollection,
     L: crate::labels::LabelSource,
     IS: crate::initial_states_source::InitialStateSource,
-    B: crate::bases::BaseModelBuilder,
-    IB: crate::initial_states_builder::InitialStatesBuilder<Ix = B::Ix>,
-    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<Ix = B::Ix>,
-    CL: crate::choice_labels::ChoiceLabelBuilder<Ix = B::Ix>,
-> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CL, NoRewards<B::Ix>>
+    Sel: crate::model_type_selection::ModelTypeSelection,
+    IB: crate::initial_states_builder::InitialStatesBuilder<Ix = Sel::Ix>,
+    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<Ix = Sel::Ix>,
+    CL: crate::choice_labels::ChoiceLabelBuilder<Ix = Sel::Ix>,
+> ModelBuilder<'a, S, Q, L, IS, Sel, IB, APs, CL, NoRewards<Sel::Ix>>
 {
     pub fn with_all_rewards(
         self,
-    ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CL, RewardVectorsBuilder<B::Ix>> {
+    ) -> ModelBuilder<'a, S, Q, L, IS, Sel, IB, APs, CL, RewardVectorsBuilder<Sel::Ix>> {
         self.map_rewards(RewardVectorsBuilder::default())
     }
 }
@@ -143,15 +143,15 @@ impl<
     Q: crate::queries::QueryCollection,
     L: crate::labels::LabelSource,
     IS: crate::initial_states_source::InitialStateSource,
-    B: crate::bases::BaseModelBuilder,
-    IB: crate::initial_states_builder::InitialStatesBuilder<Ix = B::Ix>,
-    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<Ix = B::Ix>,
-    CL: crate::choice_labels::ChoiceLabelBuilder<Ix = B::Ix>,
-> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CL, RewardVectorsBuilder<B::Ix>>
+    Sel: crate::model_type_selection::ModelTypeSelection,
+    IB: crate::initial_states_builder::InitialStatesBuilder<Ix = Sel::Ix>,
+    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<Ix = Sel::Ix>,
+    CL: crate::choice_labels::ChoiceLabelBuilder<Ix = Sel::Ix>,
+> ModelBuilder<'a, S, Q, L, IS, Sel, IB, APs, CL, RewardVectorsBuilder<Sel::Ix>>
 {
     pub fn without_rewards(
         self,
-    ) -> ModelBuilder<'a, S, Q, L, IS, B, IB, APs, CL, NoRewards<B::Ix>> {
+    ) -> ModelBuilder<'a, S, Q, L, IS, Sel, IB, APs, CL, NoRewards<Sel::Ix>> {
         self.map_rewards(NoRewards::default())
     }
 }

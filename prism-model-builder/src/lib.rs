@@ -1,5 +1,6 @@
 pub use probabilistic_models;
 use probabilistic_models::AtomicPropositionIndex;
+use probabilistic_models::base_model::BaseModelType;
 use probabilistic_models::{ValuationClassEntryIndex, ValuationClassIndex};
 
 pub mod atomic_propositions_builder;
@@ -12,7 +13,8 @@ pub mod initial_states_builder;
 pub mod initial_states_source;
 pub mod labels;
 mod map;
-pub mod owners;
+pub mod model_type_selection;
+mod owners;
 pub mod queries;
 pub mod rewards_builder;
 mod state_builder;
@@ -24,17 +26,23 @@ pub use constants::UserProvidedConstValue;
 
 pub use state_builder::UpdatableValuation;
 
+use crate::bases::MdpBuilder;
 use crate::expressions::stack_based_expressions::{
     StackBasedExpression, SubExpressionManager, SubExpressionManagerWithCache,
     SubExpressionProvider,
 };
 use crate::expressions::{TreeWalkingEvaluator, ValuationSource, VariableType};
-use crate::owners::{OwnersBuilder, PlayerControl};
+use crate::model_type_selection::{Fixed, ModelTypeSelection};
+use crate::owners::{NoOwners, OwnersBuilder, PlayerControl, TurnBasedOwnersBuilder};
 use crate::synchronised_actions::SynchronisedActions;
 use crate::variables::ModelVariableInfo;
 use prism_model::{
-    Expression, Identifier, Model, RewardsManager, Span, VariableRange, VariableReference,
+    Expression, Identifier, Model, ModelType, RewardsManager, Span, VariableRange,
+    VariableReference,
 };
+use probabilistic_models::Uniform;
+use probabilistic_models::base_model::{BaseModel, ChoiceBranchGraph, Mdp};
+use probabilistic_models::valuations::Valuations;
 use std::collections::{HashMap, VecDeque};
 
 use crate::expression_context::{ExpressionContext, SubExpressionExpressionContext};
@@ -48,11 +56,11 @@ pub struct ModelBuilder<
     Queries: queries::QueryCollection,
     Labels: labels::LabelSource,
     IniSource: initial_states_source::InitialStateSource,
-    Base: bases::BaseModelBuilder,
-    IniBuilder: initial_states_builder::InitialStatesBuilder<Ix = Base::Ix>,
-    APs: atomic_propositions_builder::AtomicPropositionBuilder<Ix = Base::Ix>,
-    CL: choice_labels::ChoiceLabelBuilder<Ix = Base::Ix>,
-    Rew: rewards_builder::RewardsBuilder<Ix = Base::Ix>,
+    Sel: ModelTypeSelection,
+    IniBuilder: initial_states_builder::InitialStatesBuilder<Ix = Sel::Ix>,
+    APs: atomic_propositions_builder::AtomicPropositionBuilder<Ix = Sel::Ix>,
+    CL: choice_labels::ChoiceLabelBuilder<Ix = Sel::Ix>,
+    Rew: rewards_builder::RewardsBuilder<Ix = Sel::Ix>,
 > {
     model: &'a mut Model<VariableReference, S, Expression<VariableReference, S>, Identifier<S>>,
     constants: HashMap<String, UserProvidedConstValue>,
@@ -61,7 +69,8 @@ pub struct ModelBuilder<
     labels: Labels,
     initial_state_source: IniSource,
 
-    base: Base,
+    selection: Sel,
+    base: MdpBuilder<Sel::Ix>,
     initial_states_builder: IniBuilder,
     atomic_propositions: APs,
     choice_labels: CL,
@@ -76,20 +85,20 @@ impl<
     Queries: queries::QueryCollection<Span = S>,
     Labels: labels::LabelSource,
     IniSource: initial_states_source::InitialStateSource,
-    Base: bases::BaseModelBuilder,
-    IniBuilder: initial_states_builder::InitialStatesBuilder<Ix = Base::Ix>,
-    APs: atomic_propositions_builder::AtomicPropositionBuilder<Ix = Base::Ix>,
-    CL: choice_labels::ChoiceLabelBuilder<Ix = Base::Ix>,
-    Rew: rewards_builder::RewardsBuilder<Ix = Base::Ix>,
-> ModelBuilder<'a, S, Queries, Labels, IniSource, Base, IniBuilder, APs, CL, Rew>
+    Sel: ModelTypeSelection,
+    IniBuilder: initial_states_builder::InitialStatesBuilder<Ix = Sel::Ix>,
+    APs: atomic_propositions_builder::AtomicPropositionBuilder<Ix = Sel::Ix>,
+    CL: choice_labels::ChoiceLabelBuilder<Ix = Sel::Ix>,
+    Rew: rewards_builder::RewardsBuilder<Ix = Sel::Ix>,
+> ModelBuilder<'a, S, Queries, Labels, IniSource, Sel, IniBuilder, APs, CL, Rew>
 {
     pub fn build_and_return_variable_info(
-        mut self,
+        self,
     ) -> Result<
         (
             Queries::OutputType<
                 probabilistic_models::Model<
-                    Base::BaseModel,
+                    Sel::BaseModel,
                     IniBuilder::InitialStates,
                     CL::ChoiceLabels,
                     (),
@@ -97,12 +106,59 @@ impl<
                     APs::AtomicPropositions,
                     Rew::Rewards,
                     (),
-                    Base::Valuation,
+                    Valuations<Sel::Ix>,
                     (),
                 >,
                 AtomicPropositionIndex<APs::Ix>,
             >,
-            ModelVariableInfo<ValuationClassIndex<Base::Ix>, ValuationClassEntryIndex<Base::Ix>>,
+            ModelVariableInfo<ValuationClassIndex<Sel::Ix>, ValuationClassEntryIndex<Sel::Ix>>,
+        ),
+        ModelBuildingError,
+    > {
+        let has_players = !self.model.players.is_empty();
+        self.selection.check_players(has_players)?;
+        if has_players {
+            self.build_with_owners(TurnBasedOwnersBuilder::new, |selection, declared, game| {
+                selection.select_with_owners(declared, game)
+            })
+        } else {
+            self.build_with_owners(
+                |_| NoOwners::new(),
+                |selection, declared, mdp: Mdp<Sel::Ix>| {
+                    selection.select_without_owners(declared, mdp)
+                },
+            )
+        }
+    }
+
+    // First builds an MDP (and additionally tracks owners using struct `Own`)
+    // Then narrows the MDP using `Sel`.
+    fn build_with_owners<Own: OwnersBuilder<Ix = Sel::Ix>>(
+        mut self,
+        create_owners: impl FnOnce(PlayerControl) -> Own,
+        select: impl FnOnce(
+            &Sel,
+            Option<&ModelType<S>>,
+            BaseModel<ChoiceBranchGraph<Sel::Ix>, Own::Owners>,
+        ) -> Result<Sel::BaseModel, ModelBuildingError>,
+    ) -> Result<
+        (
+            Queries::OutputType<
+                probabilistic_models::Model<
+                    Sel::BaseModel,
+                    IniBuilder::InitialStates,
+                    CL::ChoiceLabels,
+                    (),
+                    (),
+                    APs::AtomicPropositions,
+                    Rew::Rewards,
+                    (),
+                    Valuations<Sel::Ix>,
+                    (),
+                >,
+                AtomicPropositionIndex<APs::Ix>,
+            >,
+            ModelVariableInfo<ValuationClassIndex<Sel::Ix>, ValuationClassEntryIndex<Sel::Ix>>,
         ),
         ModelBuildingError,
     > {
@@ -159,8 +215,7 @@ impl<
         };
 
         let synchronising_action = SynchronisedActions::from_prism(&model);
-        let player_control = PlayerControl::new(&model, &synchronising_action)?;
-        self.base.owners_mut().initialise(player_control)?;
+        let mut owners = create_owners(PlayerControl::new(&model, &synchronising_action)?);
         let reward_structures =
             RewardStructures::new(&model, &synchronising_action, &mut self.rewards);
 
@@ -169,6 +224,7 @@ impl<
             labels: &labels,
             reward_structures: &reward_structures,
             base: &mut self.base,
+            owners: &mut owners,
             initial_states_builder: &mut self.initial_states_builder,
             atomic_propositions: &mut self.atomic_propositions,
             choice_labels: &mut self.choice_labels,
@@ -198,7 +254,12 @@ impl<
         state_builder.expand_states()?;
         let variable_info = state_builder.variables.info;
 
-        let (base, state_valuations) = self.base.into_base_and_valuations();
+        let (graph, state_valuations) = self.base.into_graph_and_valuations();
+        let base = BaseModel {
+            graph,
+            players: owners.into_owners(),
+        };
+        let base = select(&self.selection, self.model.model_type.as_ref(), base)?;
         Ok((
             Queries::output(
                 probabilistic_models::Model {
@@ -224,7 +285,7 @@ impl<
     ) -> Result<
         Queries::OutputType<
             probabilistic_models::Model<
-                Base::BaseModel,
+                Sel::BaseModel,
                 IniBuilder::InitialStates,
                 CL::ChoiceLabels,
                 (),
@@ -232,7 +293,7 @@ impl<
                 APs::AtomicPropositions,
                 Rew::Rewards,
                 (),
-                Base::Valuation,
+                Valuations<Sel::Ix>,
                 (),
             >,
             AtomicPropositionIndex<APs::Ix>,
@@ -255,11 +316,56 @@ impl<
     }
 }
 
+impl<'a, S: Span>
+    ModelBuilder<
+        'a,
+        S,
+        queries::ModelOnly<S>,
+        labels::OnlyNecessary,
+        initial_states_source::StartFromInitialStates,
+        Fixed<Mdp<Uniform<usize>>>,
+        initial_states_builder::SingleInitialStatesBuilder<Uniform<usize>>,
+        atomic_propositions_builder::AtomicPropositionVectorsBuilder<Uniform<usize>>,
+        choice_labels::ActionNameChoiceLabels<Uniform<usize>>,
+        rewards_builder::RewardVectorsBuilder<Uniform<usize>>,
+    >
+{
+    pub fn new_mdp_builder(
+        model: &'a mut Model<VariableReference, S, Expression<VariableReference, S>, Identifier<S>>,
+    ) -> Self {
+        Self {
+            model,
+            selection: Default::default(),
+            base: Default::default(),
+            initial_state_source: Default::default(),
+            initial_states_builder: Default::default(),
+            atomic_propositions: Default::default(),
+            queries: Default::default(),
+            constants: Default::default(),
+            labels: Default::default(),
+            choice_labels: Default::default(),
+            rewards: Default::default(),
+            state_space_restriction: Default::default(),
+        }
+    }
+}
+
 #[derive(Debug)]
 pub enum ModelBuildingError {
-    /// The model defines players, but the builder does not track state ownership. Use
-    /// [`ModelBuilder::with_owners()`] to build a game instead.
+    /// The model defines players, but the selected model type is not a game.
     ModelHasPlayers,
+    /// The selected model type is a game, but the model defines no players.
+    ModelHasNoPlayers,
+    /// The built model does not fit the requested model type. `narrowest` is the narrowest type
+    /// the model fits.
+    ModelTypeMismatch {
+        requested: BaseModelType,
+        narrowest: BaseModelType,
+    },
+    /// The model type is not supported by the model builder.
+    UnsupportedModelType {
+        model_type: String,
+    },
     UnknownPlayerModule {
         player: String,
         module: String,

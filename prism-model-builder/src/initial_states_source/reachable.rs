@@ -37,16 +37,16 @@ impl<
     S: Span,
     Q: crate::queries::QueryCollection,
     L: crate::labels::LabelSource,
-    B: crate::bases::BaseModelBuilder,
-    IB: crate::initial_states_builder::InitialStatesBuilder<Ix = B::Ix>,
-    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<Ix = B::Ix>,
-    CL: crate::choice_labels::ChoiceLabelBuilder<Ix = B::Ix>,
-    Rew: crate::rewards_builder::RewardsBuilder<Ix = B::Ix>,
-> ModelBuilder<'a, S, Q, L, StartFromInitialStates, B, IB, APs, CL, Rew>
+    Sel: crate::model_type_selection::ModelTypeSelection,
+    IB: crate::initial_states_builder::InitialStatesBuilder<Ix = Sel::Ix>,
+    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<Ix = Sel::Ix>,
+    CL: crate::choice_labels::ChoiceLabelBuilder<Ix = Sel::Ix>,
+    Rew: crate::rewards_builder::RewardsBuilder<Ix = Sel::Ix>,
+> ModelBuilder<'a, S, Q, L, StartFromInitialStates, Sel, IB, APs, CL, Rew>
 {
     pub fn with_full_state_space(
         self,
-    ) -> ModelBuilder<'a, S, Q, L, StartFromEveryState, B, IB, APs, CL, Rew> {
+    ) -> ModelBuilder<'a, S, Q, L, StartFromEveryState, Sel, IB, APs, CL, Rew> {
         self.map_initial_state_source(StartFromEveryState::default())
     }
 }

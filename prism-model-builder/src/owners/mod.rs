@@ -12,7 +12,7 @@ use typed_index_collections::{Index, RawIndex};
 /// or if the action is internal to a single module (i.e. it is unlabelled or does not synchronise
 /// with any other module) and that module is controlled by the player. Choices of synchronising
 /// actions that are not listed by any player are uncontrolled.
-pub struct PlayerControl {
+pub(crate) struct PlayerControl {
     player_names: Vec<String>,
     unsynchronised_owners: Vec<Option<usize>>,
     synchronised_owners: Vec<Option<usize>>,
@@ -118,19 +118,17 @@ impl PlayerControl {
 /// For every state, the state builder reports each added choice (except choices added to fix
 /// deadlocks) and then calls [`OwnersBuilder::finish_state()`]. States are finished in order of
 /// their indices.
-pub trait OwnersBuilder: HasIx {
+pub(crate) trait OwnersBuilder: HasIx {
     type Owners;
 
-    /// Called once before any state is built.
-    fn initialise(&mut self, control: PlayerControl) -> Result<(), ModelBuildingError>;
     fn unsynchronised_choice_added(&mut self, module_index: usize);
     fn synchronised_choice_added(&mut self, synchronised_action_index: usize);
     fn finish_state(&mut self, state: StateIndex<Self::Ix>) -> Result<(), ModelBuildingError>;
     fn into_owners(self) -> Self::Owners;
 }
 
-/// Builds models without state ownership. Building fails if the model defines players.
-pub struct NoOwners<I: Ix> {
+/// Used for models without players.
+pub(crate) struct NoOwners<I: Ix> {
     _phantom_data: PhantomData<I>,
 }
 
@@ -146,22 +144,8 @@ impl<I: Ix> NoOwners<I> {
     }
 }
 
-impl<I: Ix> Default for NoOwners<I> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl<I: Ix> OwnersBuilder for NoOwners<I> {
     type Owners = SinglePlayer;
-
-    fn initialise(&mut self, control: PlayerControl) -> Result<(), ModelBuildingError> {
-        if control.player_count() == 0 {
-            Ok(())
-        } else {
-            Err(ModelBuildingError::ModelHasPlayers)
-        }
-    }
 
     fn unsynchronised_choice_added(&mut self, _module_index: usize) {}
 
@@ -181,8 +165,8 @@ impl<I: Ix> OwnersBuilder for NoOwners<I> {
 /// Building fails if a state has choices, but none of them is controlled. States without choices
 /// (deadlock states and states excluded by the state space restriction) are owned by the first
 /// player.
-pub struct TurnBasedOwnersBuilder<I: Ix> {
-    control: Option<PlayerControl>,
+pub(crate) struct TurnBasedOwnersBuilder<I: Ix> {
+    control: PlayerControl,
     owners: TurnBased<I, TwoPlayer>,
     // The owner of the current state, if any of its choices so far is controlled
     current_owner: Option<usize>,
@@ -197,20 +181,21 @@ impl<I: Ix> HasIx for TurnBasedOwnersBuilder<I> {
 }
 
 impl<I: Ix> TurnBasedOwnersBuilder<I> {
-    pub fn new() -> Self {
+    pub fn new(control: PlayerControl) -> Self {
+        // TODO: Support more than two players
+        if control.player_count() > 2 {
+            panic!(
+                "Models with more than two players are not yet supported, the model has {} players",
+                control.player_count()
+            );
+        }
         Self {
-            control: None,
+            control,
             owners: TurnBased::default(),
             current_owner: None,
             conflicting_owner: None,
             has_choices: false,
         }
-    }
-
-    fn control(&self) -> &PlayerControl {
-        self.control
-            .as_ref()
-            .expect("`initialise` must be called before building states")
     }
 
     fn choice_added(&mut self, owner: Option<usize>) {
@@ -227,34 +212,16 @@ impl<I: Ix> TurnBasedOwnersBuilder<I> {
     }
 }
 
-impl<I: Ix> Default for TurnBasedOwnersBuilder<I> {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 impl<I: Ix> OwnersBuilder for TurnBasedOwnersBuilder<I> {
     type Owners = TurnBased<I, TwoPlayer>;
 
-    fn initialise(&mut self, control: PlayerControl) -> Result<(), ModelBuildingError> {
-        // TODO: Support more than two players
-        if control.player_count() > 2 {
-            panic!(
-                "Models with more than two players are not yet supported, the model has {} players",
-                control.player_count()
-            );
-        }
-        self.control = Some(control);
-        Ok(())
-    }
-
     fn unsynchronised_choice_added(&mut self, module_index: usize) {
-        let owner = self.control().unsynchronised_owner(module_index);
+        let owner = self.control.unsynchronised_owner(module_index);
         self.choice_added(owner);
     }
 
     fn synchronised_choice_added(&mut self, synchronised_action_index: usize) {
-        let owner = self.control().synchronised_owner(synchronised_action_index);
+        let owner = self.control.synchronised_owner(synchronised_action_index);
         self.choice_added(owner);
     }
 
@@ -270,12 +237,11 @@ impl<I: Ix> OwnersBuilder for TurnBasedOwnersBuilder<I> {
             }
         };
         if let Some(other) = self.conflicting_owner.take() {
-            let control = self.control();
             return Err(ModelBuildingError::StateControlledByMultiplePlayers {
                 state: state.raw().as_usize(),
                 players: (
-                    control.player_name(owner).to_string(),
-                    control.player_name(other).to_string(),
+                    self.control.player_name(owner).to_string(),
+                    self.control.player_name(other).to_string(),
                 ),
             });
         }

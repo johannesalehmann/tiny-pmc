@@ -1,5 +1,5 @@
 use crate::{
-    ModelBuilder, atomic_propositions_builder, bases, choice_labels, initial_states_source, labels,
+    ModelBuilder, atomic_propositions_builder, choice_labels, initial_states_source, labels,
     queries,
 };
 use prism_model::Span;
@@ -52,20 +52,21 @@ impl<
     Q: queries::QueryCollection,
     L: labels::LabelSource,
     IS: initial_states_source::InitialStateSource,
-    B: bases::BaseModelBuilder,
-    APs: atomic_propositions_builder::AtomicPropositionBuilder<Ix = B::Ix>,
-    CL: choice_labels::ChoiceLabelBuilder<Ix = B::Ix>,
-    Rew: crate::rewards_builder::RewardsBuilder<Ix = B::Ix>,
-> ModelBuilder<'a, S, Q, L, IS, B, UntrackedInitialStatesBuilder<B::Ix>, APs, CL, Rew>
+    Sel: crate::model_type_selection::ModelTypeSelection,
+    APs: atomic_propositions_builder::AtomicPropositionBuilder<Ix = Sel::Ix>,
+    CL: choice_labels::ChoiceLabelBuilder<Ix = Sel::Ix>,
+    Rew: crate::rewards_builder::RewardsBuilder<Ix = Sel::Ix>,
+> ModelBuilder<'a, S, Q, L, IS, Sel, UntrackedInitialStatesBuilder<Sel::Ix>, APs, CL, Rew>
 {
     pub fn with_single_initial_state(
         self,
-    ) -> ModelBuilder<'a, S, Q, L, IS, B, SingleInitialStatesBuilder<B::Ix>, APs, CL, Rew> {
+    ) -> ModelBuilder<'a, S, Q, L, IS, Sel, SingleInitialStatesBuilder<Sel::Ix>, APs, CL, Rew> {
         self.map_initial_states_builder(SingleInitialStatesBuilder::default())
     }
     pub fn with_initial_state_vector(
         self,
-    ) -> ModelBuilder<'a, S, Q, L, IS, B, MultipleInitialStatesBuilder<B::Ix>, APs, CL, Rew> {
+    ) -> ModelBuilder<'a, S, Q, L, IS, Sel, MultipleInitialStatesBuilder<Sel::Ix>, APs, CL, Rew>
+    {
         self.map_initial_states_builder(MultipleInitialStatesBuilder::default())
     }
 }
@@ -111,20 +112,22 @@ impl<
     Q: queries::QueryCollection,
     L: labels::LabelSource,
     IS: initial_states_source::InitialStateSource,
-    B: bases::BaseModelBuilder,
-    APs: atomic_propositions_builder::AtomicPropositionBuilder<Ix = B::Ix>,
-    CL: choice_labels::ChoiceLabelBuilder<Ix = B::Ix>,
-    Rew: crate::rewards_builder::RewardsBuilder<Ix = B::Ix>,
-> ModelBuilder<'a, S, Q, L, IS, B, SingleInitialStatesBuilder<B::Ix>, APs, CL, Rew>
+    Sel: crate::model_type_selection::ModelTypeSelection,
+    APs: atomic_propositions_builder::AtomicPropositionBuilder<Ix = Sel::Ix>,
+    CL: choice_labels::ChoiceLabelBuilder<Ix = Sel::Ix>,
+    Rew: crate::rewards_builder::RewardsBuilder<Ix = Sel::Ix>,
+> ModelBuilder<'a, S, Q, L, IS, Sel, SingleInitialStatesBuilder<Sel::Ix>, APs, CL, Rew>
 {
     pub fn without_initial_states(
         self,
-    ) -> ModelBuilder<'a, S, Q, L, IS, B, UntrackedInitialStatesBuilder<B::Ix>, APs, CL, Rew> {
+    ) -> ModelBuilder<'a, S, Q, L, IS, Sel, UntrackedInitialStatesBuilder<Sel::Ix>, APs, CL, Rew>
+    {
         self.map_initial_states_builder(UntrackedInitialStatesBuilder::default())
     }
     pub fn with_initial_state_vector(
         self,
-    ) -> ModelBuilder<'a, S, Q, L, IS, B, MultipleInitialStatesBuilder<B::Ix>, APs, CL, Rew> {
+    ) -> ModelBuilder<'a, S, Q, L, IS, Sel, MultipleInitialStatesBuilder<Sel::Ix>, APs, CL, Rew>
+    {
         self.map_initial_states_builder(MultipleInitialStatesBuilder::default())
     }
 }
@@ -164,20 +167,21 @@ impl<
     Q: queries::QueryCollection,
     L: labels::LabelSource,
     IS: initial_states_source::InitialStateSource,
-    B: bases::BaseModelBuilder,
-    APs: atomic_propositions_builder::AtomicPropositionBuilder<Ix = B::Ix>,
-    CL: choice_labels::ChoiceLabelBuilder<Ix = B::Ix>,
-    Rew: crate::rewards_builder::RewardsBuilder<Ix = B::Ix>,
-> ModelBuilder<'a, S, Q, L, IS, B, MultipleInitialStatesBuilder<B::Ix>, APs, CL, Rew>
+    Sel: crate::model_type_selection::ModelTypeSelection,
+    APs: atomic_propositions_builder::AtomicPropositionBuilder<Ix = Sel::Ix>,
+    CL: choice_labels::ChoiceLabelBuilder<Ix = Sel::Ix>,
+    Rew: crate::rewards_builder::RewardsBuilder<Ix = Sel::Ix>,
+> ModelBuilder<'a, S, Q, L, IS, Sel, MultipleInitialStatesBuilder<Sel::Ix>, APs, CL, Rew>
 {
     pub fn without_initial_states(
         self,
-    ) -> ModelBuilder<'a, S, Q, L, IS, B, UntrackedInitialStatesBuilder<B::Ix>, APs, CL, Rew> {
+    ) -> ModelBuilder<'a, S, Q, L, IS, Sel, UntrackedInitialStatesBuilder<Sel::Ix>, APs, CL, Rew>
+    {
         self.map_initial_states_builder(UntrackedInitialStatesBuilder::default())
     }
     pub fn with_single_initial_state(
         self,
-    ) -> ModelBuilder<'a, S, Q, L, IS, B, SingleInitialStatesBuilder<B::Ix>, APs, CL, Rew> {
+    ) -> ModelBuilder<'a, S, Q, L, IS, Sel, SingleInitialStatesBuilder<Sel::Ix>, APs, CL, Rew> {
         self.map_initial_states_builder(SingleInitialStatesBuilder::default())
     }
 }
