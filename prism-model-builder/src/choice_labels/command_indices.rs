@@ -155,7 +155,7 @@ mod tests {
 
     #[test]
     fn test_unsynchronised() {
-        let mut prism: Model = Model::new(ModelType::mdp());
+        let mut prism: Model = Model::new(Some(ModelType::mdp()));
         let var = VariableInfo::global_var(Identifier::new_unchecked("x"), VariableRange::bool());
         let var_ref = prism.variable_manager.add_variable(var).unwrap();
         prism
@@ -205,7 +205,7 @@ mod tests {
 
     #[test]
     fn test_synchronised() {
-        let mut prism: Model = Model::new(ModelType::mdp());
+        let mut prism: Model = Model::new(Some(ModelType::mdp()));
         let var = VariableInfo::global_var(Identifier::new_unchecked("x"), VariableRange::bool());
         let var_ref = prism.variable_manager.add_variable(var).unwrap();
         prism

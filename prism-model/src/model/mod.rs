@@ -41,7 +41,7 @@ pub type ModelNamedVars<S: Span = FullSpan, A = Identifier<S>> =
 /// ```
 /// # use prism_model::*;
 /// // Use ModelNamedVars to refer to variables by name instead of reference.
-/// let mut model: ModelNamedVars = Model::new(ModelType::mdp());
+/// let mut model: ModelNamedVars = Model::new(Some(ModelType::mdp()));
 /// let x_name = Identifier::new("x").unwrap();
 ///
 /// // label "goal" = x=10;
@@ -154,8 +154,8 @@ pub struct Model<V = VariableReference, S: Span = FullSpan, E = Expression<V, S>
 {
     /// The type of model.
     ///
-    /// Currently, this is mandatory (unlike in PRISM itself, where the model type can be omitted)
-    pub model_type: ModelType<S>,
+    /// If `None`, then the model builder will infer the narrowest-possible type.
+    pub model_type: Option<ModelType<S>>,
 
     /// The variables and constants of the model, including local variables.
     pub variable_manager: VariableManager<S, E>,
@@ -199,12 +199,12 @@ pub struct Model<V = VariableReference, S: Span = FullSpan, E = Expression<V, S>
 }
 
 impl<V, S: Span, E, A> Model<V, S, E, A> {
-    /// Constructs an empty model with the given model type.
+    /// Constructs an empty model with the given (optional) model type.
     ///
     /// The model will have no variables, no modules, no labels and formulas and no rewards.
     ///
     /// The model's [`Span`] is empty. Use [`Model::new_spanned()`] to use a custom span.
-    pub fn new(model_type: ModelType<S>) -> Self {
+    pub fn new(model_type: Option<ModelType<S>>) -> Self {
         Self::new_spanned(model_type, S::empty())
     }
 
@@ -213,7 +213,7 @@ impl<V, S: Span, E, A> Model<V, S, E, A> {
     /// The model will have no variables, no modules, no labels and formulas and no rewards.
     ///
     /// To construct a model with empty span, use [`Model::new()`].
-    pub fn new_spanned(model_type: ModelType<S>, span: S) -> Self {
+    pub fn new_spanned(model_type: Option<ModelType<S>>, span: S) -> Self {
         Self {
             model_type,
             variable_manager: VariableManager::new(),
@@ -232,7 +232,7 @@ impl<V, S: Span, E, A> Model<V, S, E, A> {
     ///
     /// See [`Model`] for details on the parameters.
     pub fn from_components(
-        model_type: ModelType<S>,
+        model_type: Option<ModelType<S>>,
         variable_manager: VariableManager<S, E>,
         formulas: FormulaManager<S, E>,
         modules: ModuleManager<V, S, E, A>,
@@ -394,7 +394,7 @@ impl<V, S: Span, A> Model<V, S, Expression<V, S>, A> {
     /// examples.
     pub fn map_span<S2: Span, F: Fn(S) -> S2>(self, map: &F) -> Model<V, S2, Expression<V, S2>, A> {
         Model {
-            model_type: self.model_type.map_span(map),
+            model_type: self.model_type.map(|t| t.map_span(map)),
             variable_manager: self.variable_manager.map_span(map),
             formulas: self.formulas.map_span(map),
             modules: self.modules.map_span(map),
@@ -839,8 +839,10 @@ impl<Ctx, A: Display, E: Displayable<Ctx>, V: Displayable<Ctx>, S: Span> Display
     for Model<V, S, E, A>
 {
     fn fmt_internal(&self, f: &mut Formatter<'_>, context: &Ctx) -> std::fmt::Result {
-        writeln!(f, "{}", self.model_type)?;
-        writeln!(f, "")?;
+        if let Some(model_type) = &self.model_type {
+            writeln!(f, "{}", model_type)?;
+            writeln!(f, "")?;
+        }
         for player in &self.players {
             writeln!(f, "{}", player)?;
         }
@@ -926,7 +928,7 @@ mod tests {
 
         #[test]
         pub fn add_unnamed_actions_simple() {
-            let mut model: Model = Model::new(ModelType::mdp());
+            let mut model: Model = Model::new(Some(ModelType::mdp()));
 
             let mut module = Module::new(Identifier::new("main").unwrap());
 
@@ -949,7 +951,7 @@ mod tests {
 
         #[test]
         pub fn add_unnamed_actions_non_zero_existing() {
-            let mut model: Model = Model::new(ModelType::mdp());
+            let mut model: Model = Model::new(Some(ModelType::mdp()));
 
             let mut module = Module::new(Identifier::new("main").unwrap());
 
@@ -975,7 +977,7 @@ mod tests {
         }
         #[test]
         pub fn add_unnamed_actions_complex() {
-            let mut model: Model = Model::new(ModelType::mdp());
+            let mut model: Model = Model::new(Some(ModelType::mdp()));
 
             let mut module = Module::new(Identifier::new("main").unwrap());
 

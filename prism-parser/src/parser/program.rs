@@ -9,7 +9,7 @@ use chumsky::IterParser;
 use chumsky::Parser;
 use chumsky::input::ValueInput;
 use prism_model::{
-    AddVariableError, Expression, Identifier, ModelType, ModuleManager, Span, VariableExists,
+    AddVariableError, Expression, Identifier, ModelType, ModuleManager, VariableExists,
     VariableInfo, VariableManager, VariableScope,
 };
 
@@ -211,14 +211,6 @@ fn build_program_from_type_and_elements<'a>(
             }
         }
     }
-
-    let model_type = match model_type {
-        None => {
-            emitter.emit(ValidationError::MissingModelType.into());
-            ModelType::Mdp(ParserSpan::empty())
-        }
-        Some(model_type) => model_type,
-    };
 
     prism_model::Model::from_components(
         model_type,

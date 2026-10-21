@@ -1189,7 +1189,7 @@ impl<S: Span> VariableRange<S, Expression<Identifier<S>, S>> {
 ///
 /// ```
 /// # use prism_model::*;
-/// let mut model: ModelNamedVars = Model::new(ModelType::mdp());
+/// let mut model: ModelNamedVars = Model::new(Some(ModelType::mdp()));
 /// // Add constant N:
 /// let n_ref = model.variable_manager.add_variable(
 ///     VariableInfo::global_const(Identifier::new("N").unwrap(), VariableRange::unbounded_int()),

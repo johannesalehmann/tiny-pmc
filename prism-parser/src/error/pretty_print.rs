@@ -126,13 +126,6 @@ impl<'a> ParserError<'a, ParserSpan, String> {
                 );
                 builder
             }
-            ValidationError::MissingModelType => {
-                let mut builder = MaybeReportBuilder::new_error(&ParserSpan::empty());
-                builder.set_message("Missing model type");
-                builder.add_label(MaybeLabel::new(&ParserSpan::from_range(0..1)));
-                builder.add_help("Add a line with `dtmc`, `mdp` or `ctmc` to your model.");
-                builder
-            }
             ValidationError::DuplicateModelType {
                 first_occurrence,
                 duplicate_occurrence,

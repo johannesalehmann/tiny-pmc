@@ -75,7 +75,7 @@ mod tests {
 
     #[test]
     pub fn simple() {
-        let mut prism: Model = Model::new(ModelType::mdp());
+        let mut prism: Model = Model::new(Some(ModelType::mdp()));
         let x_info = VariableInfo::global_var(Identifier::new("x").unwrap(), VariableRange::bool());
         prism.variable_manager.add_variable(x_info).unwrap();
         let y_info = VariableInfo::global_var(

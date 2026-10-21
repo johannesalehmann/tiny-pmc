@@ -108,7 +108,7 @@ mod tests {
 
     #[test]
     fn test_unlabelled() {
-        let mut prism: Model = Model::new(ModelType::mdp());
+        let mut prism: Model = Model::new(Some(ModelType::mdp()));
         let var = VariableInfo::global_var(Identifier::new_unchecked("x"), VariableRange::bool());
         prism.variable_manager.add_variable(var).unwrap();
         let mut module = Module::new(Identifier::new("main").unwrap());
@@ -125,7 +125,7 @@ mod tests {
 
     #[test]
     fn test_labelled() {
-        let mut prism: Model = Model::new(ModelType::mdp());
+        let mut prism: Model = Model::new(Some(ModelType::mdp()));
         let var = VariableInfo::global_var(Identifier::new_unchecked("x"), VariableRange::bool());
         prism.variable_manager.add_variable(var).unwrap();
         let mut module = Module::new(Identifier::new("main").unwrap());
@@ -146,7 +146,7 @@ mod tests {
 
     #[test]
     fn test_labelled_synchronising() {
-        let mut prism: Model = Model::new(ModelType::mdp());
+        let mut prism: Model = Model::new(Some(ModelType::mdp()));
         let var = VariableInfo::global_var(Identifier::new_unchecked("x"), VariableRange::bool());
         prism.variable_manager.add_variable(var).unwrap();
         let mut m1 = Module::new(Identifier::new("m1").unwrap());

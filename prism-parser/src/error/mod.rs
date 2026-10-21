@@ -97,12 +97,6 @@ pub enum ValidationError<S: prism_model::Span> {
         span: S,
     },
 
-    /// The model does not have a model type.
-    ///
-    /// PRISM actually allows omitting the model type and will infer it from context, but this is
-    /// not yet supported by this crate.
-    MissingModelType,
-
     /// The model contains two model type declarations.
     DuplicateModelType {
         /// The span where the model type is declared first.

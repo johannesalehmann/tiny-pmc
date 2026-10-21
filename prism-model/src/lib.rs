@@ -21,7 +21,7 @@
 //!
 //! ```
 //! use prism_model::*;
-//! let mut model: Model = Model::new(ModelType::mdp());
+//! let mut model: Model = Model::new(Some(ModelType::mdp()));
 //!
 //! // Create global variable `var1` with bounds `[-3..5]`
 //! let var = model.variable_manager.add_variable(VariableInfo::global_var(
