@@ -16,6 +16,7 @@ pub use owners::{BuildOwners, ReadOwners, SinglePlayer, TurnBased, TwoPlayer};
 mod base_model_enum;
 pub use base_model_enum::{AnyBaseModel, BaseModelEnum, BaseModelType};
 
+mod narrowest;
 mod narrowing;
 
 mod mdp_macro;
