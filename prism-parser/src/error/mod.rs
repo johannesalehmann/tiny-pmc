@@ -244,6 +244,8 @@ pub enum ElementKind {
     Reward,
     /// A module
     Module,
+    /// A player
+    Player,
     /// An attribute ([see here](crate::Attributes) for more information on this extension of the
     /// PRISM language)
     Attribute,

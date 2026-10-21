@@ -79,7 +79,7 @@ fn build_program_from_type_and_elements<'a>(
     let mut formulas = prism_model::FormulaManager::new();
     let mut init_constraint = None;
     let mut rewards = prism_model::RewardsManager::new();
-    let mut players = Vec::new();
+    let mut players = prism_model::PlayerManager::new();
 
     for element in elements {
         match element {
@@ -192,7 +192,23 @@ fn build_program_from_type_and_elements<'a>(
                     }
                 }
             }
-            ProgramElement::Player(p) => players.push(p),
+            ProgramElement::Player(p) => {
+                let span = p.span;
+                match players.add(p) {
+                    Ok(_) => {}
+                    Err(prism_model::PlayerExists { index }) => {
+                        let previous = players.get(index).unwrap();
+                        emitter.emit(
+                            ValidationError::DuplicateElement {
+                                previous_occurrence: previous.span,
+                                new_definition: span,
+                                kind: ElementKind::Player,
+                            }
+                            .into(),
+                        )
+                    }
+                }
+            }
         }
     }
 

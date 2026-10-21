@@ -14,7 +14,7 @@ use crate::module::RenamedModule;
 use crate::rewards::RewardsManager;
 use crate::spans::{FullSpan, Span};
 use crate::{
-    Displayable, Expression, Identifier, LabelManager, ModuleManager, Player, VariableInfo,
+    Displayable, Expression, Identifier, LabelManager, ModuleManager, PlayerManager, VariableInfo,
     VariableManager, VariablePrintingStyle, VariableRange, VariableReference,
 };
 use std::fmt::{Display, Formatter};
@@ -179,7 +179,7 @@ pub struct Model<V = VariableReference, S: Span = FullSpan, E = Expression<V, S>
 
     /// The players of the model, corresponding to PRISM-games syntax
     /// `player p1 M1, [a] endplayer`. See [`Player`] for details on their semantics.
-    pub players: Vec<Player<S>>,
+    pub players: PlayerManager<S>,
 
     /// The initial states constraint. If present, all states that satisfy this constraint are
     /// initial states.
@@ -220,7 +220,7 @@ impl<V, S: Span, E, A> Model<V, S, E, A> {
             formulas: FormulaManager::new(),
             modules: ModuleManager::new(),
             renamed_modules: Vec::new(),
-            players: Vec::new(),
+            players: PlayerManager::new(),
             init_constraint: None,
             labels: LabelManager::new(),
             rewards: RewardsManager::new(),
@@ -237,7 +237,7 @@ impl<V, S: Span, E, A> Model<V, S, E, A> {
         formulas: FormulaManager<S, E>,
         modules: ModuleManager<V, S, E, A>,
         renamed_modules: Vec<RenamedModule<S>>,
-        players: Vec<Player<S>>,
+        players: PlayerManager<S>,
         init_constraint: Option<E>,
         labels: LabelManager<S, E>,
         rewards: RewardsManager<S, E, A>,
@@ -403,7 +403,7 @@ impl<V, S: Span, A> Model<V, S, Expression<V, S>, A> {
                 .into_iter()
                 .map(|m| m.map_span(map))
                 .collect(),
-            players: self.players.into_iter().map(|p| p.map_span(map)).collect(),
+            players: self.players.map_span(map),
             init_constraint: self.init_constraint.map(|i| i.map_span(map)),
             labels: self.labels.map_span(map),
             rewards: self.rewards.map_span(map),
