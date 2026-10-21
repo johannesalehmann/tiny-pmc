@@ -13,6 +13,15 @@ pub enum BaseModelEnum<TS, D, M, NG, SG> {
     StochasticGame(SG),
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BaseModelType {
+    TransitionSystem,
+    Dtmc,
+    Mdp,
+    NonstochasticGame,
+    StochasticGame,
+}
+
 pub type AnyBaseModel<I = DefaultIx> =
     BaseModelEnum<TransitionSystem<I>, Dtmc<I>, Mdp<I>, NonstochasticGame<I>, StochasticGame<I>>;
 
@@ -49,6 +58,16 @@ macro_rules! variant_accessors {
 }
 
 impl<TS, D, M, NG, SG> BaseModelEnum<TS, D, M, NG, SG> {
+    pub fn model_type(&self) -> BaseModelType {
+        match self {
+            BaseModelEnum::TransitionSystem(_) => BaseModelType::TransitionSystem,
+            BaseModelEnum::Dtmc(_) => BaseModelType::Dtmc,
+            BaseModelEnum::Mdp(_) => BaseModelType::Mdp,
+            BaseModelEnum::NonstochasticGame(_) => BaseModelType::NonstochasticGame,
+            BaseModelEnum::StochasticGame(_) => BaseModelType::StochasticGame,
+        }
+    }
+
     variant_accessors!(
         TransitionSystem,
         TS,

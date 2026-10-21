@@ -81,6 +81,14 @@ impl<From: Index, To: Index> Csr<From, To> {
         self.entries.clear();
     }
 
+    // Reinterprets the key type without copying the entries.
+    pub fn change_key_type<From2: Index>(self) -> Csr<From2, To> {
+        Csr {
+            entries: self.entries,
+            phantom_data: PhantomData,
+        }
+    }
+
     // TODO: Offer `.values()` function instead, then this function can be replaced by
     //  .values().end()
     pub fn end(&self) -> To {
