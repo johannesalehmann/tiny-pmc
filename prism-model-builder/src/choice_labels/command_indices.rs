@@ -179,7 +179,8 @@ mod tests {
 
         let model = ModelBuilder::new_mdp_builder(&mut prism)
             .label_choices_with_command_indices()
-            .build();
+            .build()
+            .unwrap();
         let states = model.states();
         assert_eq!(states.len(), 2);
         let choices = model.choices_of_state(states.index(0));
@@ -240,7 +241,8 @@ mod tests {
 
         let model = ModelBuilder::new_mdp_builder(&mut prism)
             .label_choices_with_command_indices()
-            .build();
+            .build()
+            .unwrap();
         let states = model.states();
         assert_eq!(states.len(), 2);
         let choices = model.choices_of_state(states.index(0));

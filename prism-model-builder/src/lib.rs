@@ -12,6 +12,7 @@ pub mod initial_states_builder;
 pub mod initial_states_source;
 pub mod labels;
 mod map;
+pub mod owners;
 pub mod queries;
 pub mod rewards_builder;
 mod state_builder;
@@ -28,6 +29,7 @@ use crate::expressions::stack_based_expressions::{
     SubExpressionProvider,
 };
 use crate::expressions::{TreeWalkingEvaluator, ValuationSource, VariableType};
+use crate::owners::{OwnersBuilder, PlayerControl};
 use crate::synchronised_actions::SynchronisedActions;
 use crate::variables::ModelVariableInfo;
 use prism_model::{
@@ -83,24 +85,27 @@ impl<
 {
     pub fn build_and_return_variable_info(
         mut self,
-    ) -> (
-        Queries::OutputType<
-            probabilistic_models::Model<
-                Base::BaseModel,
-                IniBuilder::InitialStates,
-                CL::ChoiceLabels,
-                (),
-                (),
-                APs::AtomicPropositions,
-                Rew::Rewards,
-                (),
-                Base::Valuation,
-                (),
+    ) -> Result<
+        (
+            Queries::OutputType<
+                probabilistic_models::Model<
+                    Base::BaseModel,
+                    IniBuilder::InitialStates,
+                    CL::ChoiceLabels,
+                    (),
+                    (),
+                    APs::AtomicPropositions,
+                    Rew::Rewards,
+                    (),
+                    Base::Valuation,
+                    (),
+                >,
+                AtomicPropositionIndex<APs::Ix>,
             >,
-            AtomicPropositionIndex<APs::Ix>,
-        >,
-        ModelVariableInfo<ValuationClassIndex<Base::Ix>, ValuationClassEntryIndex<Base::Ix>>,
-    ) {
+            ModelVariableInfo<ValuationClassIndex<Base::Ix>, ValuationClassEntryIndex<Base::Ix>>,
+        ),
+        ModelBuildingError,
+    > {
         self.model.replace_empty_updates_with_identity_update();
 
         let mut labels = self.labels.extract_labels(self.model);
@@ -154,6 +159,8 @@ impl<
         };
 
         let synchronising_action = SynchronisedActions::from_prism(&model);
+        let player_control = PlayerControl::new(&model, &synchronising_action)?;
+        self.base.owners_mut().initialise(player_control)?;
         let reward_structures =
             RewardStructures::new(&model, &synchronising_action, &mut self.rewards);
 
@@ -187,14 +194,12 @@ impl<
                 "Cannot use a state space restriction when building the entire state space of the model"
             );
         }
-        state_builder
-            .create_initial_states(self.initial_state_source)
-            .unwrap();
-        state_builder.expand_states().unwrap();
+        state_builder.create_initial_states(self.initial_state_source)?;
+        state_builder.expand_states()?;
         let variable_info = state_builder.variables.info;
 
         let (base, state_valuations) = self.base.into_base_and_valuations();
-        (
+        Ok((
             Queries::output(
                 probabilistic_models::Model {
                     base,
@@ -211,28 +216,31 @@ impl<
                 processed,
             ),
             variable_info,
-        )
+        ))
     }
 
     pub fn build(
         self,
-    ) -> Queries::OutputType<
-        probabilistic_models::Model<
-            Base::BaseModel,
-            IniBuilder::InitialStates,
-            CL::ChoiceLabels,
-            (),
-            (),
-            APs::AtomicPropositions,
-            Rew::Rewards,
-            (),
-            Base::Valuation,
-            (),
+    ) -> Result<
+        Queries::OutputType<
+            probabilistic_models::Model<
+                Base::BaseModel,
+                IniBuilder::InitialStates,
+                CL::ChoiceLabels,
+                (),
+                (),
+                APs::AtomicPropositions,
+                Rew::Rewards,
+                (),
+                Base::Valuation,
+                (),
+            >,
+            AtomicPropositionIndex<APs::Ix>,
         >,
-        AtomicPropositionIndex<APs::Ix>,
+        ModelBuildingError,
     > {
-        let (output, _) = self.build_and_return_variable_info();
-        output
+        let (output, _) = self.build_and_return_variable_info()?;
+        Ok(output)
     }
 
     fn model_with_sub_expressions(
@@ -248,4 +256,33 @@ impl<
 }
 
 #[derive(Debug)]
-pub enum ModelBuildingError {}
+pub enum ModelBuildingError {
+    /// The model defines players, but the builder does not track state ownership. Use
+    /// [`ModelBuilder::with_owners()`] to build a game instead.
+    ModelHasPlayers,
+    UnknownPlayerModule {
+        player: String,
+        module: String,
+    },
+    UnknownPlayerAction {
+        player: String,
+        action: String,
+    },
+    ModuleControlledByMultiplePlayers {
+        module: String,
+        players: (String, String),
+    },
+    ActionControlledByMultiplePlayers {
+        action: String,
+        players: (String, String),
+    },
+    /// The choices of a state are controlled by more than one player.
+    StateControlledByMultiplePlayers {
+        state: usize,
+        players: (String, String),
+    },
+    /// A state has choices, but none of them is controlled by any player.
+    StateWithoutOwner {
+        state: usize,
+    },
+}

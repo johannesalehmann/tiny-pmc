@@ -3,6 +3,8 @@ pub use mdp::MdpBuilder;
 use probabilistic_models::{BranchIndex, ChoiceIndex, StateIndex};
 use probabilistic_models::{HasIx, ValuationClassIndex, ValuationIndex};
 
+use crate::owners::OwnersBuilder;
+
 mod valuation_builder;
 pub use valuation_builder::ValuationBuilder;
 
@@ -14,6 +16,7 @@ use probabilistic_models::valuations::{
 pub trait BaseModelBuilder: HasIx {
     type BaseModel;
     type Valuation;
+    type Owners: OwnersBuilder<Ix = Self::Ix>;
 
     fn state_by_valuation<
         Val: GetValuationClassIndex<ValuationClassIndex<Self::Ix>>
@@ -38,6 +41,7 @@ pub trait BaseModelBuilder: HasIx {
     }
     fn valuation_builder(&self) -> &ValuationBuilder<Self::Ix>;
     fn valuation_builder_mut(&mut self) -> &mut ValuationBuilder<Self::Ix>;
+    fn owners_mut(&mut self) -> &mut Self::Owners;
     fn create_valuation(
         &self,
         class_index: ValuationClassIndex<Self::Ix>,

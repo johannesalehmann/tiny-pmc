@@ -70,7 +70,8 @@ mod tests {
         let restriction = Expression::var_or_const(x).less_than(Expression::int(2));
         let model = ModelBuilder::new_mdp_builder(&mut prism)
             .with_state_space_restriction(restriction)
-            .build();
+            .build()
+            .unwrap();
         assert_eq!(model.states().len(), 3);
         for i in 0..2 {
             assert_eq!(
@@ -84,7 +85,7 @@ mod tests {
     fn no_restriction() {
         let source = SIMPLE_MODEL;
         let mut prism = prism_parser::parse_model(source).unwrap();
-        let model = ModelBuilder::new_mdp_builder(&mut prism).build();
+        let model = ModelBuilder::new_mdp_builder(&mut prism).build().unwrap();
         assert_eq!(model.states().len(), 5);
         for i in 0..=4 {
             assert_eq!(
@@ -101,7 +102,8 @@ mod tests {
         let restriction = Expression::bool(true);
         let model = ModelBuilder::new_mdp_builder(&mut prism)
             .with_state_space_restriction(restriction)
-            .build();
+            .build()
+            .unwrap();
         assert_eq!(model.states().len(), 5);
         for i in 0..=4 {
             assert_eq!(
@@ -119,7 +121,8 @@ mod tests {
         let restriction = Expression::var_or_const(x).greater_or_equal(Expression::int(2));
         let model = ModelBuilder::new_mdp_builder(&mut prism)
             .with_state_space_restriction(restriction)
-            .build();
+            .build()
+            .unwrap();
         assert_eq!(model.states().len(), 1);
         assert_eq!(
             model.state_valuation(StateIndex::from_raw(0)).to_string(),
@@ -146,7 +149,8 @@ mod tests {
         let restriction = Expression::var_or_const(y).less_than(Expression::int(2));
         let model = ModelBuilder::new_mdp_builder(&mut prism)
             .with_state_space_restriction(restriction)
-            .build();
+            .build()
+            .unwrap();
         assert_eq!(model.states().len(), 3);
         for i in 0..=2 {
             assert_eq!(
@@ -177,7 +181,8 @@ mod tests {
         let restriction = Expression::var_or_const(x).less_than(Expression::var_or_const(c));
         let model = ModelBuilder::new_mdp_builder(&mut prism)
             .with_state_space_restriction(restriction)
-            .build();
+            .build()
+            .unwrap();
         assert_eq!(model.states().len(), 3);
         for i in 0..=2 {
             assert_eq!(
@@ -199,6 +204,7 @@ mod tests {
         ModelBuilder::new_mdp_builder(&mut prism)
             .with_state_space_restriction(restriction)
             .with_full_state_space()
-            .build();
+            .build()
+            .unwrap();
     }
 }

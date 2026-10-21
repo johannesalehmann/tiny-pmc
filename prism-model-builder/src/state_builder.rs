@@ -4,6 +4,7 @@ use crate::expressions::ValuationSource;
 use crate::initial_states_source;
 use crate::initial_states_source::InitialStateSource;
 use crate::labels::Labels;
+use crate::owners::OwnersBuilder;
 use crate::rewards_builder::{RewardEntry, RewardStructures, RewardsBuilder};
 use crate::synchronised_actions::SynchronisedActions;
 use crate::variables::ModelVariableInfo;
@@ -218,7 +219,7 @@ impl<
             }
         }
 
-        Ok(())
+        self.base.owners_mut().finish_state(state)
     }
 
     fn process_nonsynchronised_command(
@@ -276,6 +277,9 @@ impl<
                 .label_choice(choice_index, &index, &context);
 
             self.base.finish_choice();
+            self.base
+                .owners_mut()
+                .unsynchronised_choice_added(module_index);
             1 // 1 new choice was added to the model
         } else {
             0 // 0 new choices were added to the model
@@ -451,6 +455,9 @@ impl<
 
                 choices_added += 1;
                 self.base.finish_choice();
+                self.base
+                    .owners_mut()
+                    .synchronised_choice_added(synchronised_action_index);
 
                 for i in (0..n).rev() {
                     if indices[i] + 1 < satisfied_guards_indices[i].len() {

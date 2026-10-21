@@ -62,7 +62,7 @@ pub fn build_model(
                 .with_initial_state_vector()
                 .with_state_space_restriction_maybe(state_space_restriction);
 
-            let builder_output = builder.build();
+            let builder_output = builder.build().map_err(CheckerError::ModelBuilding)?;
             // TODO: Make this output configurable
             println!("Built model in {:?}", start_build.elapsed());
             (builder_output.model.into_optional(), builder_output.queries)

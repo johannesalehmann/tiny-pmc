@@ -1,8 +1,9 @@
 use crate::ModelBuilder;
 use crate::bases::{BaseModelBuilder, ValuationBuilder};
 use crate::choice_labels::ActionNameChoiceLabels;
+use crate::owners::{NoOwners, OwnersBuilder, TurnBasedOwnersBuilder};
 use prism_model::{Expression, Identifier, Span, VariableReference};
-use probabilistic_models::base_model::Mdp;
+use probabilistic_models::base_model::{BaseModel, ChoiceBranchGraph, Mdp};
 use probabilistic_models::traits::{BuildChoiceBranchGraph, BuildStates};
 use probabilistic_models::valuations::{GetValuationClassIndex, GetValuationData, Valuations};
 use probabilistic_models::{
@@ -11,19 +12,35 @@ use probabilistic_models::{
 use typed_index_collections::RawIndex;
 
 #[derive(Default)]
-pub struct MdpBuilder<I: Ix> {
+pub struct MdpBuilder<I: Ix, Own: OwnersBuilder<Ix = I> = NoOwners<I>> {
     mdp: Mdp<I>,
     valuation: ValuationBuilder<I>,
     next_state_index: StateIndex<I>,
+    owners: Own,
 }
 
-impl<I: Ix> HasIx for MdpBuilder<I> {
+impl<I: Ix, Own: OwnersBuilder<Ix = I>> HasIx for MdpBuilder<I, Own> {
     type Ix = I;
 }
 
-impl<I: Ix> BaseModelBuilder for MdpBuilder<I> {
-    type BaseModel = Mdp<I>;
+impl<I: Ix, Own: OwnersBuilder<Ix = I>> MdpBuilder<I, Own> {
+    pub(crate) fn with_owners<Own2: OwnersBuilder<Ix = I>>(
+        self,
+        owners: Own2,
+    ) -> MdpBuilder<I, Own2> {
+        MdpBuilder {
+            mdp: self.mdp,
+            valuation: self.valuation,
+            next_state_index: self.next_state_index,
+            owners,
+        }
+    }
+}
+
+impl<I: Ix, Own: OwnersBuilder<Ix = I>> BaseModelBuilder for MdpBuilder<I, Own> {
+    type BaseModel = BaseModel<ChoiceBranchGraph<I>, Own::Owners>;
     type Valuation = Valuations<I>;
+    type Owners = Own;
 
     fn state_by_valuation<
         Val: GetValuationClassIndex<ValuationClassIndex<I>> + GetValuationData<ValuationIndex<I>>,
@@ -60,6 +77,10 @@ impl<I: Ix> BaseModelBuilder for MdpBuilder<I> {
         &mut self.valuation
     }
 
+    fn owners_mut(&mut self) -> &mut Own {
+        &mut self.owners
+    }
+
     fn start_choice(&mut self) -> ChoiceIndex<I> {
         self.mdp.add_choice()
     }
@@ -73,7 +94,11 @@ impl<I: Ix> BaseModelBuilder for MdpBuilder<I> {
     }
 
     fn into_base_and_valuations(self) -> (Self::BaseModel, Valuations<I>) {
-        (self.mdp, self.valuation.into_state_valuations())
+        let base = BaseModel {
+            graph: self.mdp.graph,
+            players: self.owners.into_owners(),
+        };
+        (base, self.valuation.into_state_valuations())
     }
 }
 
@@ -112,5 +137,47 @@ impl<'a, S: Span>
             rewards: Default::default(),
             state_space_restriction: Default::default(),
         }
+    }
+}
+
+impl<
+    'a,
+    S: Span,
+    Q: crate::queries::QueryCollection,
+    L: crate::labels::LabelSource,
+    IS: crate::initial_states_source::InitialStateSource,
+    I: Ix,
+    IB: crate::initial_states_builder::InitialStatesBuilder<Ix = I>,
+    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<Ix = I>,
+    CL: crate::choice_labels::ChoiceLabelBuilder<Ix = I>,
+    Rew: crate::rewards_builder::RewardsBuilder<Ix = I>,
+> ModelBuilder<'a, S, Q, L, IS, MdpBuilder<I, NoOwners<I>>, IB, APs, CL, Rew>
+{
+    /// Tracks state ownership according to the players of the model, producing a turn-based game.
+    pub fn with_owners(
+        self,
+    ) -> ModelBuilder<'a, S, Q, L, IS, MdpBuilder<I, TurnBasedOwnersBuilder<I>>, IB, APs, CL, Rew>
+    {
+        self.map_base(|base| base.with_owners(TurnBasedOwnersBuilder::new()))
+    }
+}
+
+impl<
+    'a,
+    S: Span,
+    Q: crate::queries::QueryCollection,
+    L: crate::labels::LabelSource,
+    IS: crate::initial_states_source::InitialStateSource,
+    I: Ix,
+    IB: crate::initial_states_builder::InitialStatesBuilder<Ix = I>,
+    APs: crate::atomic_propositions_builder::AtomicPropositionBuilder<Ix = I>,
+    CL: crate::choice_labels::ChoiceLabelBuilder<Ix = I>,
+    Rew: crate::rewards_builder::RewardsBuilder<Ix = I>,
+> ModelBuilder<'a, S, Q, L, IS, MdpBuilder<I, TurnBasedOwnersBuilder<I>>, IB, APs, CL, Rew>
+{
+    pub fn without_owners(
+        self,
+    ) -> ModelBuilder<'a, S, Q, L, IS, MdpBuilder<I, NoOwners<I>>, IB, APs, CL, Rew> {
+        self.map_base(|base| base.with_owners(NoOwners::new()))
     }
 }

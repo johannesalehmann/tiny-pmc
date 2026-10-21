@@ -30,6 +30,7 @@ use probabilistic_models::{AsRefComponent, AtomicPropositionIndex, Model};
 pub enum CheckerError {
     NoSuitableAlgorithm,
     UnknownRewardStructure { name: Option<String> },
+    ModelBuilding(prism_model_builder::ModelBuildingError),
 }
 impl std::fmt::Debug for CheckerError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -42,6 +43,7 @@ impl std::fmt::Debug for CheckerError {
                 };
                 write!(f, "The model has no reward structure{name}")
             }
+            CheckerError::ModelBuilding(error) => write!(f, "Failed to build model: {error:?}"),
         }
     }
 }

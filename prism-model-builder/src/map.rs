@@ -39,6 +39,24 @@ impl<
             state_space_restriction: self.state_space_restriction,
         }
     }
+    pub(crate) fn map_base<B2: BaseModelBuilder<Ix = B::Ix>>(
+        self,
+        map: impl FnOnce(B) -> B2,
+    ) -> ModelBuilder<'a, S, Q, L, IS, B2, IB, APs, CL, Rew> {
+        ModelBuilder {
+            model: self.model,
+            constants: self.constants,
+            queries: self.queries,
+            labels: self.labels,
+            initial_state_source: self.initial_state_source,
+            base: map(self.base),
+            initial_states_builder: self.initial_states_builder,
+            atomic_propositions: self.atomic_propositions,
+            choice_labels: self.choice_labels,
+            rewards: self.rewards,
+            state_space_restriction: self.state_space_restriction,
+        }
+    }
     pub(crate) fn map_queries_with<Q2: QueryCollection>(
         self,
         map: impl FnOnce(Q) -> Q2,

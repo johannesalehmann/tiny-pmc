@@ -88,7 +88,8 @@ mod tests {
 
         let model = ModelBuilder::new_mdp_builder(&mut prism)
             .with_full_state_space()
-            .build();
+            .build()
+            .unwrap();
         assert_eq!(model.states().len(), 2 * 6 * 2);
         let mut index = 0;
         for z in [false, true] {
