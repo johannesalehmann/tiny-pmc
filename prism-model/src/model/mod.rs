@@ -657,6 +657,38 @@ pub enum ModelType<S: Span = FullSpan> {
     ///
     /// Construct this type using [`ModelType::mdp()`] and [`ModelType::mdp_spanned()`].
     Mdp(S),
+
+    /// Transition system
+    ///
+    /// This is a model with non-deterministic choices and no probabilistic behaviour.
+    ///
+    /// This model type is not present in the original PRISM language specification, but is a
+    /// sensible extension thereof.
+    ///
+    /// Construct this type using [`ModelType::transition_system()`] and
+    /// [`ModelType::transition_system_spanned()`]
+    TransitionSystem(S),
+
+    /// Turn-based stochastic multiplayer game
+    ///
+    /// This extends an [`Mdp`](Self::Mdp) with state ownership, where each state is owned by exactly one
+    /// player.
+    ///
+    /// Construct this type using [`ModelType::turn_based_stochastic_multiplayer_game()`] and
+    /// [`ModelType::turn_based_stochastic_multiplayer_game_spanned()`].
+    TurnBasedStochasticMultiplayerGame(S),
+
+    /// Turn-based (non-stochastic) multiplayer game
+    ///
+    /// This model type is not present in the original PRISM language specification, but is a
+    /// sensible extension thereof.
+    ///
+    /// This extends a [transition system](Self::TransitionSystem) with state ownership, where each
+    /// state is owned by exactly one player.
+    ///
+    /// Construct this type using [`ModelType::turn_based_nonstochastic_multiplayer_game()`] and
+    /// [`ModelType::turn_based_nonstochastic_multiplayer_game_spanned()`].
+    TurnBasedNonstochasticMultiplayerGame(S),
 }
 
 impl<S: Span> ModelType<S> {
@@ -702,12 +734,57 @@ impl<S: Span> ModelType<S> {
         Self::Mdp(span)
     }
 
+    /// Constructs [`ModelType::TransitionSystem`] with empty [`Span`].
+    ///
+    /// Use [`ModelType::transition_system_spanned()`] to use a given span.
+    pub fn transition_system() -> Self {
+        Self::TransitionSystem(S::empty())
+    }
+
+    /// Constructs [`ModelType::TransitionSystem`] with given [`Span`].
+    ///
+    /// Use [`ModelType::transition_system()`] to use an empty span.
+    pub fn transition_system_spanned(span: S) -> Self {
+        Self::TransitionSystem(span)
+    }
+
+    /// Constructs [`ModelType::TurnBasedStochasticMultiplayerGame`] with empty [`Span`].
+    ///
+    /// Use [`ModelType::turn_based_stochastic_multiplayer_game_spanned()`] to use a given span.
+    pub fn turn_based_stochastic_multiplayer_game() -> Self {
+        Self::TurnBasedStochasticMultiplayerGame(S::empty())
+    }
+
+    /// Constructs [`ModelType::TurnBasedStochasticMultiplayerGame`] with given [`Span`].
+    ///
+    /// Use [`ModelType::turn_based_stochastic_multiplayer_game()`] to use an empty span.
+    pub fn turn_based_stochastic_multiplayer_game_spanned(span: S) -> Self {
+        Self::TurnBasedStochasticMultiplayerGame(span)
+    }
+
+    /// Constructs [`ModelType::TurnBasedNonstochasticMultiplayerGame`] with empty [`Span`].
+    ///
+    /// Use [`ModelType::turn_based_nonstochastic_multiplayer_game_spanned()`] to use a given span.
+    pub fn turn_based_nonstochastic_multiplayer_game() -> Self {
+        Self::TurnBasedNonstochasticMultiplayerGame(S::empty())
+    }
+
+    /// Constructs [`ModelType::TurnBasedNonstochasticMultiplayerGame`] with given [`Span`].
+    ///
+    /// Use [`ModelType::turn_based_nonstochastic_multiplayer_game()`] to use an empty span.
+    pub fn turn_based_nonstochastic_multiplayer_game_spanned(span: S) -> Self {
+        Self::TurnBasedNonstochasticMultiplayerGame(span)
+    }
+
     /// Returns the [`Span`] of the model type.
     pub fn span(&self) -> &S {
         match self {
             ModelType::Dtmc(s) => s,
             ModelType::Ctmc(s) => s,
             ModelType::Mdp(s) => s,
+            ModelType::TransitionSystem(s) => s,
+            ModelType::TurnBasedStochasticMultiplayerGame(s) => s,
+            ModelType::TurnBasedNonstochasticMultiplayerGame(s) => s,
         }
     }
 
@@ -721,6 +798,13 @@ impl<S: Span> ModelType<S> {
             ModelType::Dtmc(span) => ModelType::Dtmc(map(span)),
             ModelType::Ctmc(span) => ModelType::Ctmc(map(span)),
             ModelType::Mdp(span) => ModelType::Mdp(map(span)),
+            ModelType::TransitionSystem(span) => ModelType::TransitionSystem(map(span)),
+            ModelType::TurnBasedStochasticMultiplayerGame(span) => {
+                ModelType::TurnBasedStochasticMultiplayerGame(map(span))
+            }
+            ModelType::TurnBasedNonstochasticMultiplayerGame(span) => {
+                ModelType::TurnBasedNonstochasticMultiplayerGame(map(span))
+            }
         }
     }
 }
@@ -736,6 +820,15 @@ impl<S: Span> Display for ModelType<S> {
             }
             ModelType::Mdp(_) => {
                 write!(f, "mdp")
+            }
+            ModelType::TransitionSystem(_) => {
+                write!(f, "ts")
+            }
+            ModelType::TurnBasedStochasticMultiplayerGame(_) => {
+                write!(f, "smg")
+            }
+            ModelType::TurnBasedNonstochasticMultiplayerGame(_) => {
+                write!(f, "mg")
             }
         }
     }
