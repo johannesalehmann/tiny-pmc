@@ -46,6 +46,10 @@ pub enum Token {
     Rewards,
     /// The keyword `endrewards`
     EndRewards,
+    /// The keyword `player`
+    Player,
+    /// The keyword `endplayer`
+    EndPlayer,
 
     /// The type keyword `int`
     Int,
@@ -206,6 +210,8 @@ impl Display for Token {
             Token::EndInit => write!(f, "endinit"),
             Token::Rewards => write!(f, "rewards"),
             Token::EndRewards => write!(f, "endrewards"),
+            Token::Player => write!(f, "player"),
+            Token::EndPlayer => write!(f, "endplayer"),
             Token::Int => write!(f, "int"),
             Token::Double => write!(f, "double"),
             Token::Bool => write!(f, "bool"),
@@ -348,6 +354,8 @@ fn lexer<'a, F: Fn(SimpleSpan) -> FullSpan + 'static>() -> impl Parser<
         "endinit" => Token::EndInit,
         "rewards" => Token::Rewards,
         "endrewards" => Token::EndRewards,
+        "player" => Token::Player,
+        "endplayer" => Token::EndPlayer,
 
         "int" => Token::Int,
         "double" => Token::Double,

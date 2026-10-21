@@ -1,6 +1,7 @@
 use super::{
     E, const_parser, formula_parser, global_variable_declaration_parser, init_constraint_parser,
-    label_parser, model_type_parser, module_parser, renamed_module_parser, rewards_parser,
+    label_parser, model_type_parser, module_parser, player_parser, renamed_module_parser,
+    rewards_parser,
 };
 use crate::error::ElementKind;
 use crate::{ParserError, ParserSpan, Token, ValidationError};
@@ -78,6 +79,7 @@ fn build_program_from_type_and_elements<'a>(
     let mut formulas = prism_model::FormulaManager::new();
     let mut init_constraint = None;
     let mut rewards = prism_model::RewardsManager::new();
+    let mut players = Vec::new();
 
     for element in elements {
         match element {
@@ -190,6 +192,7 @@ fn build_program_from_type_and_elements<'a>(
                     }
                 }
             }
+            ProgramElement::Player(p) => players.push(p),
         }
     }
 
@@ -207,7 +210,7 @@ fn build_program_from_type_and_elements<'a>(
         formulas,
         modules,
         renamed_modules,
-        Vec::new(),
+        players,
         init_constraint.map(|(i, _)| i),
         labels,
         rewards,
@@ -244,6 +247,7 @@ enum ProgramElement {
             Identifier<ParserSpan>,
         >,
     ),
+    Player(prism_model::Player<ParserSpan>),
 }
 
 fn program_element_parser<'a, 'b, I>() -> impl Parser<'a, I, ProgramElement, E<'a>>
@@ -259,5 +263,6 @@ where
         .or(formula_parser().map(ProgramElement::Formula))
         .or(global_variable_declaration_parser().map(ProgramElement::GlobalVariable))
         .or(rewards_parser().map(ProgramElement::Rewards))
+        .or(player_parser().map(ProgramElement::Player))
         .or(init_constraint_parser().map(|(i, e)| ProgramElement::InitConstraint(i, e)))
 }
