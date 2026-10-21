@@ -207,6 +207,7 @@ fn build_program_from_type_and_elements<'a>(
         formulas,
         modules,
         renamed_modules,
+        Vec::new(),
         init_constraint.map(|(i, _)| i),
         labels,
         rewards,

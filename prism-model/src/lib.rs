@@ -141,5 +141,8 @@ mod displayable;
 pub(crate) use displayable::private;
 pub use displayable::{Displayable, DisplayableWithContext};
 
+mod players;
+pub use players::Player;
+
 mod spans;
 pub use spans::{FullSpan, Span};

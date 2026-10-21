@@ -138,6 +138,7 @@ impl<V: Clone, S: Span, E, A: Clone> super::Model<V, S, E, A> {
             formulas,
             modules,
             renamed_modules: self.renamed_modules.iter().map(|r| r.clone()).collect(),
+            players: self.players.clone(),
             init_constraint,
             labels,
             rewards,

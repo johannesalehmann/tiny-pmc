@@ -139,6 +139,7 @@ impl<V, S: Span, E, A> super::Model<V, S, E, A> {
             formulas,
             modules,
             renamed_modules: self.renamed_modules,
+            players: self.players,
             init_constraint,
             labels,
             rewards,

@@ -224,6 +224,7 @@ impl<S: Span> Model<Identifier<S>, S, Expression<Identifier<S>, S>, Identifier<S
                 formulas,
                 modules,
                 renamed_modules,
+                self.players,
                 init_constraint,
                 labels,
                 rewards,
