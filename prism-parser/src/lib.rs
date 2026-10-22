@@ -545,7 +545,7 @@ fn substitute_labels_and_formulas_in_property<'a>(
         (Err(_), _) => return Err(Vec::new()),
     };
 
-    property.query.substitute_labels(&model.labels);
+    property.query.substitute_nested_labels(&model.labels);
     match property.query.substitute_formulas(&model.formulas) {
         Ok(_) => Ok(property),
         Err(err) => return Err(vec![err.into()]),

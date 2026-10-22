@@ -5,7 +5,7 @@ use prism_model::{
 use probabilistic_properties::Query;
 
 pub trait SubstitutableQuery<S: Span> {
-    fn substitute_labels(&mut self, labels: &LabelManager<S, Expression<Identifier<S>, S>>);
+    fn substitute_nested_labels(&mut self, labels: &LabelManager<S, Expression<Identifier<S>, S>>);
 
     fn substitute_formulas(
         &mut self,
@@ -31,9 +31,14 @@ impl<S: Span> SubstitutableQuery<S>
         Expression<Identifier<S>, S>,
     >
 {
-    fn substitute_labels(&mut self, labels: &LabelManager<S, Expression<Identifier<S>, S>>) {
+    fn substitute_nested_labels(&mut self, labels: &LabelManager<S, Expression<Identifier<S>, S>>) {
         self.as_mut().map_e(&mut |ex| {
-            ex.substitute_labels(labels);
+            // A label that forms an entire state formula is kept, so that the model builder can
+            // reuse the label as an atomic proposition. Nested labels must be substituted, as
+            // they cannot be evaluated.
+            if !matches!(ex, Expression::Label(..)) {
+                ex.substitute_labels(labels);
+            }
         });
         self.as_mut().map_f(&mut |ex| {
             ex.substitute_labels(labels);

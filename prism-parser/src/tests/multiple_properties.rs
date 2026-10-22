@@ -280,8 +280,9 @@ fn duplicate_name_in_two_files() {
 }
 
 #[test]
-fn labels_are_substituted() {
-    let properties = &["P=? [F x=2]", "P=? [F \"goal\"]"];
+fn nested_labels_are_substituted() {
+    // A label forming an entire state formula is kept, nested labels are substituted
+    let properties = &["P=? [F x=2 | \"goal\"]", "P=? [F \"goal\"]"];
     let parse = crate::parse_model_and_props(MODEL, properties);
     let model = parse.model.as_ref().unwrap();
 
@@ -302,10 +303,10 @@ fn labels_are_substituted() {
 
     let file_0 = parse.properties.result_for_input_file(0).unwrap();
     assert_eq!(file_0.len(), 1);
-    assert_eq!(condition(&file_0[0]), "x=2");
+    assert_eq!(condition(&file_0[0]), "x=2|x=3");
     let file_1 = parse.properties.result_for_input_file(1).unwrap();
     assert_eq!(file_1.len(), 1);
-    assert_eq!(condition(&file_1[0]), "x=3");
+    assert_eq!(condition(&file_1[0]), "\"goal\"");
 }
 
 #[test]
