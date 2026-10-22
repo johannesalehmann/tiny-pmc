@@ -10,6 +10,11 @@ pub trait ReadAtomicPropositions: HasIx {
     ) -> bool;
 
     fn atomic_proposition_by_name(&self, name: &str) -> Option<AtomicPropositionIndex<Self::Ix>>;
+
+    /// All atomic propositions of the model together with their names.
+    fn atomic_propositions(
+        &self,
+    ) -> impl Iterator<Item = (AtomicPropositionIndex<Self::Ix>, &str)>;
 }
 
 macro_rules! derive_read_atomic_propositions {
@@ -28,6 +33,11 @@ macro_rules! derive_read_atomic_propositions {
         ) -> Option<$crate::AtomicPropositionIndex<Self::Ix>> {
             self.$subcomponent.atomic_proposition_by_name(name)
         }
+        fn atomic_propositions(
+            &self,
+        ) -> impl Iterator<Item = ($crate::AtomicPropositionIndex<Self::Ix>, &str)> {
+            self.$subcomponent.atomic_propositions()
+        }
     };
 }
 
@@ -44,6 +54,14 @@ impl<I: Ix> ReadAtomicPropositions for AtomicPropositions<I> {
 
     fn atomic_proposition_by_name(&self, name: &str) -> Option<AtomicPropositionIndex<Self::Ix>> {
         self.index_by_name(name)
+    }
+
+    fn atomic_propositions(
+        &self,
+    ) -> impl Iterator<Item = (AtomicPropositionIndex<Self::Ix>, &str)> {
+        self.into_iter()
+            .enumerate()
+            .map(|(index, (name, _))| (index, name))
     }
 }
 
@@ -74,6 +92,11 @@ impl<T: ReadAtomicPropositions> ReadAtomicPropositions for &T {
     fn atomic_proposition_by_name(&self, name: &str) -> Option<AtomicPropositionIndex<Self::Ix>> {
         (**self).atomic_proposition_by_name(name)
     }
+    fn atomic_propositions(
+        &self,
+    ) -> impl Iterator<Item = (AtomicPropositionIndex<Self::Ix>, &str)> {
+        (**self).atomic_propositions()
+    }
 }
 
 impl<T: ReadAtomicPropositions> ReadAtomicPropositions for &mut T {
@@ -86,6 +109,11 @@ impl<T: ReadAtomicPropositions> ReadAtomicPropositions for &mut T {
     }
     fn atomic_proposition_by_name(&self, name: &str) -> Option<AtomicPropositionIndex<Self::Ix>> {
         (**self).atomic_proposition_by_name(name)
+    }
+    fn atomic_propositions(
+        &self,
+    ) -> impl Iterator<Item = (AtomicPropositionIndex<Self::Ix>, &str)> {
+        (**self).atomic_propositions()
     }
 }
 

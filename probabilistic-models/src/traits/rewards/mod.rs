@@ -11,6 +11,9 @@ pub trait ReadRewards: HasIx {
     fn has_choice_rewards(&self, rewards: RewardIndex<Self::Ix>) -> bool;
     fn state_reward(&self, rewards: RewardIndex<Self::Ix>, state: StateIndex<Self::Ix>) -> f64;
     fn choice_reward(&self, rewards: RewardIndex<Self::Ix>, choice: ChoiceIndex<Self::Ix>) -> f64;
+
+    /// All reward structures of the model together with their names.
+    fn reward_structures(&self) -> impl Iterator<Item = (RewardIndex<Self::Ix>, &str)>;
 }
 
 macro_rules! derive_read_rewards {
@@ -41,6 +44,12 @@ macro_rules! derive_read_rewards {
             choice: $crate::ChoiceIndex<Self::Ix>,
         ) -> f64 {
             self.$subcomponent.choice_reward(rewards, choice)
+        }
+
+        fn reward_structures(
+            &self,
+        ) -> impl Iterator<Item = ($crate::RewardIndex<Self::Ix>, &str)> {
+            self.$subcomponent.reward_structures()
         }
     };
 }
@@ -76,6 +85,12 @@ impl<I: Ix> ReadRewards for RewardAnnotations<I> {
             None => 0.0,
         }
     }
+
+    fn reward_structures(&self) -> impl Iterator<Item = (RewardIndex<Self::Ix>, &str)> {
+        self.into_iter()
+            .enumerate()
+            .map(|(index, (name, _))| (index, name))
+    }
 }
 
 impl<M: HasIx, Ini, ChLabel, BrLabel, Obs, APs, Rew: ReadRewards<Ix = M::Ix>, Ann, StateVals, Preds>
@@ -100,6 +115,9 @@ impl<T: ReadRewards> ReadRewards for &T {
     fn choice_reward(&self, rewards: RewardIndex<Self::Ix>, choice: ChoiceIndex<Self::Ix>) -> f64 {
         (**self).choice_reward(rewards, choice)
     }
+    fn reward_structures(&self) -> impl Iterator<Item = (RewardIndex<Self::Ix>, &str)> {
+        (**self).reward_structures()
+    }
 }
 
 impl<T: ReadRewards> ReadRewards for &mut T {
@@ -117,6 +135,9 @@ impl<T: ReadRewards> ReadRewards for &mut T {
     }
     fn choice_reward(&self, rewards: RewardIndex<Self::Ix>, choice: ChoiceIndex<Self::Ix>) -> f64 {
         (**self).choice_reward(rewards, choice)
+    }
+    fn reward_structures(&self) -> impl Iterator<Item = (RewardIndex<Self::Ix>, &str)> {
+        (**self).reward_structures()
     }
 }
 
