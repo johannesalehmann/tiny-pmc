@@ -46,9 +46,7 @@ macro_rules! derive_read_rewards {
             self.$subcomponent.choice_reward(rewards, choice)
         }
 
-        fn reward_structures(
-            &self,
-        ) -> impl Iterator<Item = ($crate::RewardIndex<Self::Ix>, &str)> {
+        fn reward_structures(&self) -> impl Iterator<Item = ($crate::RewardIndex<Self::Ix>, &str)> {
             self.$subcomponent.reward_structures()
         }
     };

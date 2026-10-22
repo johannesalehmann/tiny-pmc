@@ -12,9 +12,14 @@ pub trait ReadAtomicPropositions: HasIx {
     fn atomic_proposition_by_name(&self, name: &str) -> Option<AtomicPropositionIndex<Self::Ix>>;
 
     /// All atomic propositions of the model together with their names.
-    fn atomic_propositions(
+    fn atomic_propositions(&self)
+    -> impl Iterator<Item = (AtomicPropositionIndex<Self::Ix>, &str)>;
+
+    /// All states in which the given atomic proposition is set.
+    fn states_with_atomic_proposition(
         &self,
-    ) -> impl Iterator<Item = (AtomicPropositionIndex<Self::Ix>, &str)>;
+        atomic_proposition: AtomicPropositionIndex<Self::Ix>,
+    ) -> impl Iterator<Item = StateIndex<Self::Ix>>;
 }
 
 macro_rules! derive_read_atomic_propositions {
@@ -37,6 +42,13 @@ macro_rules! derive_read_atomic_propositions {
             &self,
         ) -> impl Iterator<Item = ($crate::AtomicPropositionIndex<Self::Ix>, &str)> {
             self.$subcomponent.atomic_propositions()
+        }
+        fn states_with_atomic_proposition(
+            &self,
+            atomic_proposition: $crate::AtomicPropositionIndex<Self::Ix>,
+        ) -> impl Iterator<Item = $crate::StateIndex<Self::Ix>> {
+            self.$subcomponent
+                .states_with_atomic_proposition(atomic_proposition)
         }
     };
 }
@@ -62,6 +74,13 @@ impl<I: Ix> ReadAtomicPropositions for AtomicPropositions<I> {
         self.into_iter()
             .enumerate()
             .map(|(index, (name, _))| (index, name))
+    }
+
+    fn states_with_atomic_proposition(
+        &self,
+        atomic_proposition: AtomicPropositionIndex<Self::Ix>,
+    ) -> impl Iterator<Item = StateIndex<Self::Ix>> {
+        self.entries()[atomic_proposition].true_values().into_iter()
     }
 }
 
@@ -97,6 +116,12 @@ impl<T: ReadAtomicPropositions> ReadAtomicPropositions for &T {
     ) -> impl Iterator<Item = (AtomicPropositionIndex<Self::Ix>, &str)> {
         (**self).atomic_propositions()
     }
+    fn states_with_atomic_proposition(
+        &self,
+        atomic_proposition: AtomicPropositionIndex<Self::Ix>,
+    ) -> impl Iterator<Item = StateIndex<Self::Ix>> {
+        (**self).states_with_atomic_proposition(atomic_proposition)
+    }
 }
 
 impl<T: ReadAtomicPropositions> ReadAtomicPropositions for &mut T {
@@ -114,6 +139,12 @@ impl<T: ReadAtomicPropositions> ReadAtomicPropositions for &mut T {
         &self,
     ) -> impl Iterator<Item = (AtomicPropositionIndex<Self::Ix>, &str)> {
         (**self).atomic_propositions()
+    }
+    fn states_with_atomic_proposition(
+        &self,
+        atomic_proposition: AtomicPropositionIndex<Self::Ix>,
+    ) -> impl Iterator<Item = StateIndex<Self::Ix>> {
+        (**self).states_with_atomic_proposition(atomic_proposition)
     }
 }
 
