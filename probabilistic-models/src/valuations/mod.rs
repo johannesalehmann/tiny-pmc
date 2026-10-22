@@ -76,6 +76,22 @@ impl<I: Ix, EntityIdx: Index> Valuations<I, EntityIdx> {
         }
     }
 
+    pub fn entries(&self) -> impl Iterator<Item = (EntityIdx, ModelValuationEntry<'_, I>)> {
+        self.entity_to_class
+            .enumerate()
+            .map(move |(entity, class_index)| {
+                let index = self.entity_to_index[entity];
+                let class_index = *class_index;
+                let valuation = ValuationEntry {
+                    class_index,
+                    class: &self.classes[class_index],
+                    class_data: &self.valuations[class_index],
+                    index,
+                };
+                (entity, valuation)
+            })
+    }
+
     pub fn entry_mut(&mut self, entity: EntityIdx) -> ModelValuationEntryMut<'_, I> {
         let class_index = self.entity_to_class[entity];
         let index = self.entity_to_index[entity];

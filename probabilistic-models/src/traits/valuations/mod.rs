@@ -3,6 +3,10 @@ use crate::{HasIx, Ix, Model, StateIndex};
 
 pub trait ReadValuations: HasIx {
     fn state_valuation(&self, state: StateIndex<Self::Ix>) -> ModelValuationEntry<'_, Self::Ix>;
+
+    fn state_valuations(
+        &self,
+    ) -> impl Iterator<Item = (StateIndex<Self::Ix>, ModelValuationEntry<'_, Self::Ix>)>;
 }
 
 macro_rules! derive_read_valuations {
@@ -13,6 +17,17 @@ macro_rules! derive_read_valuations {
         ) -> $crate::valuations::ModelValuationEntry<'_, Self::Ix> {
             self.$subcomponent.state_valuation(state)
         }
+
+        fn state_valuations(
+            &self,
+        ) -> impl Iterator<
+            Item = (
+                $crate::StateIndex<Self::Ix>,
+                $crate::valuations::ModelValuationEntry<'_, Self::Ix>,
+            ),
+        > {
+            self.$subcomponent.state_valuations()
+        }
     };
 }
 pub(crate) use derive_read_valuations;
@@ -20,6 +35,12 @@ pub(crate) use derive_read_valuations;
 impl<I: Ix> ReadValuations for Valuations<I> {
     fn state_valuation(&self, state: StateIndex<I>) -> ModelValuationEntry<'_, I> {
         self.entry(state)
+    }
+
+    fn state_valuations(
+        &self,
+    ) -> impl Iterator<Item = (StateIndex<I>, ModelValuationEntry<'_, I>)> {
+        self.entries()
     }
 }
 
@@ -43,11 +64,23 @@ impl<T: ReadValuations> ReadValuations for &T {
     fn state_valuation(&self, state: StateIndex<Self::Ix>) -> ModelValuationEntry<'_, Self::Ix> {
         (**self).state_valuation(state)
     }
+
+    fn state_valuations(
+        &self,
+    ) -> impl Iterator<Item = (StateIndex<Self::Ix>, ModelValuationEntry<'_, Self::Ix>)> {
+        (**self).state_valuations()
+    }
 }
 
 impl<T: ReadValuations> ReadValuations for &mut T {
     fn state_valuation(&self, state: StateIndex<Self::Ix>) -> ModelValuationEntry<'_, Self::Ix> {
         (**self).state_valuation(state)
+    }
+
+    fn state_valuations(
+        &self,
+    ) -> impl Iterator<Item = (StateIndex<Self::Ix>, ModelValuationEntry<'_, Self::Ix>)> {
+        (**self).state_valuations()
     }
 }
 
