@@ -126,7 +126,7 @@ impl<
             &mut self.open_states,
             valuation,
         );
-        if is_initial {
+        if is_initial && IniBuilder::stores_initial_states() {
             self.initial_states_builder.mark_state(index);
         }
     }
