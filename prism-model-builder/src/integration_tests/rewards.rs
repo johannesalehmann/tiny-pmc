@@ -74,6 +74,7 @@ fn action_transition_rewards() {
             x : [0..2] init 0;
             [] x=0 -> (x'=1);
             [a] x=0 -> (x'=1);
+            [b] x=0 -> (x'=2);
             [a] x=1 -> (x'=2);
             [b] x=2 -> true;
         endmodule
@@ -93,6 +94,7 @@ fn action_transition_rewards() {
         [
             (None, 0.0),
             (Some("a"), 3.0),
+            (Some("b"), 4.0),
             (Some("a"), 1.0),
             (Some("b"), 4.0)
         ]

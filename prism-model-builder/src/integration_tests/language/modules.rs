@@ -125,7 +125,7 @@ fn module_renaming() {
         module mb = ma [x=y, a=b] endmodule
         module mc
             z: [0..1] init 0;
-            [b] x=1 & z=0 -> (z'=1);
+            [b] z=0 -> (z'=1);
         endmodule
     ";
     let model = build!(SOURCE, .with_mdp_model_type()).unwrap();
@@ -133,12 +133,32 @@ fn module_renaming() {
     // renamed variable `y` comes last.
     assert_eq!(
         valuations(&model),
-        ["x=0,z=0,y=0", "x=1,z=0,y=0", "x=1,z=1,y=1"]
+        ["x=0,z=0,y=0", "x=1,z=0,y=0", "x=0,z=1,y=1", "x=1,z=1,y=1"]
     );
     mdp!(expected = {
         s000 -> 1.0: s100,
+        s000 -> 1.0: s011,
         s100 -> 1.0: s111,
+        s011 -> 1.0: s111,
         s111 -> 1.0: s111,
+    });
+    assert_eq!(transitions(&model), transitions(&expected));
+}
+
+#[test]
+fn actions_in_order_of_first_occurrence() {
+    let model = build!(
+        "mdp module a x: [0..2] init 0; [b] x=0 -> (x'=2); [a] x=0 -> (x'=1); endmodule module b [a] true -> true; [b] true -> true; endmodule",
+        .with_mdp_model_type()
+    )
+    .unwrap();
+    // `[b]` occurs before `[a]`, so its choice comes first
+    assert_eq!(valuations(&model), ["x=0", "x=2", "x=1"]);
+    mdp!(expected = {
+        x0 -> 1.0: x2,
+        x0 -> 1.0: x1,
+        x2 -> 1.0: x2,
+        x1 -> 1.0: x1,
     });
     assert_eq!(transitions(&model), transitions(&expected));
 }

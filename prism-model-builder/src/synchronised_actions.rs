@@ -1,5 +1,5 @@
+use indexmap::IndexMap;
 use prism_model::{Identifier, Model, Span, VariableReference};
-use std::collections::HashMap;
 
 pub struct SynchronisedActions {
     actions: Vec<SynchronisedAction>,
@@ -44,10 +44,10 @@ pub struct SynchronisedActionModule {
 
 impl SynchronisedActions {
     pub fn from_prism<S: Span, E>(model: &Model<VariableReference, S, E, Identifier<S>>) -> Self {
-        let mut actions: HashMap<String, SynchronisedAction> = HashMap::new();
+        let mut actions: IndexMap<String, SynchronisedAction> = IndexMap::new();
 
         for (module_index, module) in model.modules.iter().enumerate() {
-            let mut module_actions: HashMap<String, SynchronisedActionModule> = HashMap::new();
+            let mut module_actions: IndexMap<String, SynchronisedActionModule> = IndexMap::new();
             for (command_index, command) in module.commands.iter().enumerate() {
                 if let Some(action) = &command.action {
                     if let Some(module_action) = module_actions.get_mut(&action.name) {

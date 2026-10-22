@@ -2462,6 +2462,7 @@ dependencies = [
 name = "prism-model-builder"
 version = "0.1.0"
 dependencies = [
+ "indexmap",
  "paste",
  "prism-model",
  "prism-parser",
