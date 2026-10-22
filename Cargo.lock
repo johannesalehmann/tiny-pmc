@@ -3330,6 +3330,7 @@ name = "umb-parser"
 version = "0.1.0"
 dependencies = [
  "flate2",
+ "indexmap",
  "num-traits",
  "probabilistic-models",
  "serde",

@@ -1,338 +1,151 @@
-use crate::csr::parse_csr;
-use crate::index::{Annotation, TransitionSystem};
-use crate::to1::{BoolTo1Error, FromLeBytes, To1Error, parse_to1, parse_to1_bool};
-use crate::{AnnotationEntryIndex, BI, CI, OI, PI, SI, SequenceIndex, StringIndex};
+use crate::archive::UmbArchive;
+use crate::index::{Annotation, EntityKind, TransitionSystem, Type, TypeKind};
+use crate::to1::{BoolTo1Error, To1Error, parse_to1, parse_to1_bool};
+use crate::{CI, SI, UmbError};
 use probabilistic_models::annotations::{
     AtomicPropositions, EntityRewards, RewardAnnotations, StateChoiceRewards, TypedAnnotation,
 };
-use probabilistic_models::typed_index_collections::{Csr, To1};
+use probabilistic_models::typed_index_collections::To1;
 use probabilistic_models::{DefaultIx, Index};
 use std::collections::HashMap;
-use std::io::Read;
+use std::convert::Infallible;
 
 #[derive(Debug)]
 pub enum AnnotationError<E> {
-    InvalidPath {
+    InvalidValues {
         path: String,
+        error: To1Error<E>,
     },
-    InvalidTarget {
-        target: String,
-        path: String,
+    UnsupportedType {
+        id: String,
+        value_type: Type,
     },
-    EntryError {
-        path: String,
-        error: AnnotationEntryError<E>,
+    /// Annotations whose values are distributions are not supported yet
+    UnsupportedDistribution {
+        id: String,
+    },
+    UnsupportedTarget {
+        id: String,
+        target: EntityKind,
+    },
+    MissingTarget {
+        id: String,
+        target: EntityKind,
     },
 }
 
-#[derive(Debug)]
-pub enum AnnotationEntryError<E> {
-    InvalidValueFile(To1Error<E>),
-    InvalidStringMappingFile, // TODO: Add underlying error for the `Invalid...File` variants
-    InvalidStringsFile,
-    InvalidDistributionMappingFile,
-    InvalidProbabilitiesFile,
-    InvalidFile { file: String },
+fn values_path(group: &str, id: &str, target: EntityKind) -> String {
+    format!(
+        "annotations/{group}/{id}/{}/values.bin",
+        target.directory_name()
+    )
 }
 
-#[derive(Default)]
-pub struct AnnotationGroupInProgress<E> {
-    entries: HashMap<String, AnnotationEntryInProgress<E>>,
+fn check_supported<E>(
+    id: &str,
+    annotation: &Annotation,
+    kind: TypeKind,
+) -> Result<(), AnnotationError<E>> {
+    // TODO: For floats, check that the specified size is correct
+    if annotation.value_type.kind != kind {
+        return Err(AnnotationError::UnsupportedType {
+            id: id.into(),
+            value_type: annotation.value_type,
+        });
+    }
+    if annotation.probability_type.is_some() {
+        return Err(AnnotationError::UnsupportedDistribution { id: id.into() });
+    }
+    Ok(())
 }
 
-impl<E: ParseTo1> AnnotationGroupInProgress<E> {
-    fn get_mut_or_add(&mut self, id: &str) -> &mut AnnotationEntryInProgress<E> {
-        if self.entries.get_mut(id).is_none() {
-            self.entries
-                .insert(id.to_string(), AnnotationEntryInProgress::default());
+pub fn parse_aps(
+    archive: &mut UmbArchive,
+    annotations: &HashMap<String, Annotation>,
+    sizes: &TransitionSystem,
+) -> Result<AtomicPropositions<DefaultIx>, UmbError> {
+    let error = UmbError::AtomicPropositionsError;
+    let mut aps: AtomicPropositions<DefaultIx> = Default::default();
+    for (id, annotation) in annotations {
+        check_supported(id, annotation, TypeKind::Bool).map_err(error)?;
+        if let Some(&target) = annotation
+            .applies_to
+            .iter()
+            .find(|&&target| target != EntityKind::States)
+        {
+            return Err(error(AnnotationError::UnsupportedTarget {
+                id: id.clone(),
+                target,
+            }));
         }
-        self.entries.get_mut(id).unwrap()
-    }
+        if !annotation.applies_to.contains(&EntityKind::States) {
+            return Err(error(AnnotationError::MissingTarget {
+                id: id.clone(),
+                target: EntityKind::States,
+            }));
+        }
 
-    pub fn process_file<R: Read>(
-        &mut self,
-        path: &str,
-        contents: R,
-        sizes: &TransitionSystem,
-    ) -> Result<(), AnnotationError<E::Error>> {
-        let segments = path.split("/").collect::<Vec<_>>();
-        if segments.len() != 5 {
-            return Err(AnnotationError::InvalidPath { path: path.into() });
-        }
-        if segments[0] != "annotations" {
-            panic!("Can only call `process_file` on files with path prefix `annotations`");
-        }
-        let id = segments[2];
-        let target = segments[3];
-        let file = segments[4];
-        match target {
-            "states" => self
-                .get_mut_or_add(id)
-                .get_mut_state()
-                .process_file(file, contents, sizes.num_states)
-                .map_err(|error| AnnotationError::EntryError {
-                    error,
-                    path: path.to_string(),
-                }),
-            "choices" => self
-                .get_mut_or_add(id)
-                .get_mut_choice()
-                .process_file(file, contents, sizes.num_choices)
-                .map_err(|error| AnnotationError::EntryError {
-                    error,
-                    path: path.to_string(),
-                }),
-            "branches" => self
-                .get_mut_or_add(id)
-                .get_mut_branch()
-                .process_file(file, contents, sizes.num_branches)
-                .map_err(|error| AnnotationError::EntryError {
-                    error,
-                    path: path.to_string(),
-                }),
-            "observations" => self
-                .get_mut_or_add(id)
-                .get_mut_observation()
-                .process_file(file, contents, sizes.num_observations)
-                .map_err(|error| AnnotationError::EntryError {
-                    error,
-                    path: path.to_string(),
-                }),
-            "players" => self
-                .get_mut_or_add(id)
-                .get_mut_player()
-                .process_file(file, contents, sizes.num_players as u64)
-                .map_err(|error| AnnotationError::EntryError {
-                    error,
-                    path: path.to_string(),
-                }),
-            _ => Err(AnnotationError::InvalidTarget {
-                target: target.into(),
-                path: path.into(),
-            }),
-        }
+        let path = values_path("aps", id, EntityKind::States);
+        let values = parse_to1_bool::<SI, _>(
+            archive.read_required_file(&path)?,
+            sizes.num_states as usize,
+        )
+        .map_err(|e: BoolTo1Error| {
+            error(AnnotationError::InvalidValues {
+                path,
+                error: e.into(),
+            })
+        })?;
+        let name = annotation.alias.clone().unwrap_or_else(|| id.clone());
+        aps.add_entry(
+            name,
+            TypedAnnotation::with_identity_distribution_and_entries(values),
+        );
     }
+    Ok(aps)
 }
 
-impl AnnotationGroupInProgress<bool> {
-    pub fn finish_as_aps(
-        self,
-        annotations: &HashMap<String, Annotation>,
-    ) -> AtomicPropositions<DefaultIx> {
-        let mut aps: AtomicPropositions<DefaultIx> = Default::default();
-        for (name, entry) in self.entries {
-            let name = annotations[&name].alias.clone().unwrap_or(name);
-
-            // TODO: Return an error here instead of panicing
-            if entry.state_annotations.is_none() {
-                panic!("Atomic proposition `{name}` does not have an entry for states");
+pub fn parse_rewards(
+    archive: &mut UmbArchive,
+    annotations: &HashMap<String, Annotation>,
+) -> Result<RewardAnnotations<DefaultIx>, UmbError> {
+    let error = UmbError::RewardsError;
+    let mut rewards: RewardAnnotations<DefaultIx> = RewardAnnotations::new();
+    for (id, annotation) in annotations {
+        check_supported(id, annotation, TypeKind::Double).map_err(error)?;
+        let mut rewards_entry: StateChoiceRewards<DefaultIx> = StateChoiceRewards::new();
+        for &target in &annotation.applies_to {
+            let path = values_path("rewards", id, target);
+            match target {
+                EntityKind::States => rewards_entry.add_state_rewards(
+                    EntityRewards::with_identity_distribution_and_entries(parse_f64_values::<SI>(
+                        archive, path,
+                    )?),
+                ),
+                EntityKind::Choices => rewards_entry.add_choice_rewards(
+                    EntityRewards::with_identity_distribution_and_entries(parse_f64_values::<CI>(
+                        archive, path,
+                    )?),
+                ),
+                _ => {
+                    return Err(error(AnnotationError::UnsupportedTarget {
+                        id: id.clone(),
+                        target,
+                    }));
+                }
             }
-            if entry.choice_annotations.is_some() {
-                panic!("Atomic proposition `{name}` has an entry for choices");
-            }
-            if entry.branch_annotations.is_some() {
-                panic!("Atomic proposition `{name}` has an entry for branches");
-            }
-            if entry.observation_annotations.is_some() {
-                panic!("Atomic proposition `{name}` has an entry for observations");
-            }
-            if entry.player_annotations.is_some() {
-                panic!("Atomic proposition `{name}` has an entry for players");
-            }
-            let states = entry.state_annotations.unwrap();
-            if states.strings.is_some() || states.string_mapping.is_some() {
-                panic!("Atomic proposition `{name}` contains strings");
-            }
-            if states.probabilities.is_some() || states.distribution.is_some() {
-                panic!("Atomic proposition `{name}` is probabilistic")
-            }
-            let Some(values) = states.values else {
-                panic!("Atomic proposition `{name}` does not contain state values");
-            };
-
-            aps.add_entry(
-                name,
-                TypedAnnotation::with_identity_distribution_and_entries(values),
-            );
         }
-        aps
+        let name = annotation.alias.clone().unwrap_or_else(|| id.clone());
+        rewards.add_entry(name, rewards_entry);
     }
-}
-impl AnnotationGroupInProgress<f64> {
-    pub fn finish_as_rewards(
-        self,
-        annotations: &HashMap<String, Annotation>,
-    ) -> RewardAnnotations<DefaultIx> {
-        // TODO: This function barely does any verification on its inputs, e.g. ignoring any other
-        //  files present (such as distributions, strings), annotations besides states and choices.
-        let mut rewards: RewardAnnotations<DefaultIx> = RewardAnnotations::new();
-        for (name, entry) in self.entries {
-            let name = annotations[&name].alias.clone().unwrap_or(name);
-            let mut rewards_entry: StateChoiceRewards<DefaultIx> = StateChoiceRewards::new();
-            if let Some(states) = entry.state_annotations {
-                let values = states
-                    .values
-                    .unwrap_or_else(|| panic!("No values provided for state reward `{name}`."));
-                rewards_entry.add_state_rewards(
-                    EntityRewards::with_identity_distribution_and_entries(values),
-                );
-            }
-            if let Some(choice) = entry.choice_annotations {
-                let values = choice
-                    .values
-                    .unwrap_or_else(|| panic!("No values provided for state reward `{name}`."));
-                rewards_entry.add_choice_rewards(
-                    EntityRewards::with_identity_distribution_and_entries(values),
-                );
-            }
-            rewards.add_entry(name, rewards_entry);
-        }
-        rewards
-    }
+    Ok(rewards)
 }
 
-struct AnnotationEntryInProgress<E> {
-    state_annotations: Option<AnnotationInProgress<SI, E>>,
-    choice_annotations: Option<AnnotationInProgress<CI, E>>,
-    branch_annotations: Option<AnnotationInProgress<BI, E>>,
-    observation_annotations: Option<AnnotationInProgress<OI, E>>,
-    player_annotations: Option<AnnotationInProgress<PI, E>>,
-}
-
-impl<E> Default for AnnotationEntryInProgress<E> {
-    fn default() -> Self {
-        Self {
-            state_annotations: None,
-            choice_annotations: None,
-            branch_annotations: None,
-            observation_annotations: None,
-            player_annotations: None,
-        }
-    }
-}
-
-impl<E> AnnotationEntryInProgress<E> {
-    fn get_mut_state(&mut self) -> &mut AnnotationInProgress<SI, E> {
-        if self.state_annotations.is_none() {
-            self.state_annotations = Some(Default::default());
-        }
-        self.state_annotations.as_mut().unwrap()
-    }
-    fn get_mut_choice(&mut self) -> &mut AnnotationInProgress<CI, E> {
-        if self.choice_annotations.is_none() {
-            self.choice_annotations = Some(Default::default());
-        }
-        self.choice_annotations.as_mut().unwrap()
-    }
-    fn get_mut_branch(&mut self) -> &mut AnnotationInProgress<BI, E> {
-        if self.branch_annotations.is_none() {
-            self.branch_annotations = Some(Default::default());
-        }
-        self.branch_annotations.as_mut().unwrap()
-    }
-    fn get_mut_observation(&mut self) -> &mut AnnotationInProgress<OI, E> {
-        if self.observation_annotations.is_none() {
-            self.observation_annotations = Some(Default::default());
-        }
-        self.observation_annotations.as_mut().unwrap()
-    }
-    fn get_mut_player(&mut self) -> &mut AnnotationInProgress<PI, E> {
-        if self.player_annotations.is_none() {
-            self.player_annotations = Some(Default::default());
-        }
-        self.player_annotations.as_mut().unwrap()
-    }
-}
-
-struct AnnotationInProgress<I: Index, E> {
-    values: Option<To1<I, E>>,
-    distribution: Option<Csr<I, AnnotationEntryIndex<u64>>>,
-    probabilities: Option<To1<AnnotationEntryIndex<u64>, f64>>,
-    string_mapping: Option<Csr<StringIndex<u64>, SequenceIndex<u64>>>,
-    strings: Option<String>,
-}
-
-impl<I: Index, E> Default for AnnotationInProgress<I, E> {
-    fn default() -> Self {
-        Self {
-            values: None,
-            distribution: None,
-            probabilities: None,
-            string_mapping: None,
-            strings: None,
-        }
-    }
-}
-
-impl<I: Index, E: ParseTo1> AnnotationInProgress<I, E> {
-    pub fn process_file<R: Read>(
-        &mut self,
-        file: &str,
-        mut contents: R,
-        entity_count: u64,
-    ) -> Result<(), AnnotationEntryError<E::Error>> {
-        match file {
-            "values.bin" => {
-                let values = E::parse_to1(contents, entity_count)
-                    .map_err(|e| AnnotationEntryError::InvalidValueFile(e))?;
-                self.values = Some(values);
-                Ok(())
-            }
-            "string-mapping.bin" => Ok(()),
-            "strings.bin" => {
-                let mut strings = "".to_string();
-                contents
-                    .read_to_string(&mut strings)
-                    .map_err(|_| AnnotationEntryError::InvalidStringsFile)?;
-                self.strings = Some(strings);
-                Ok(())
-            }
-            "distribution-mapping.bin" => {
-                let distribution_mapping = parse_csr(contents)
-                    .map_err(|_| AnnotationEntryError::InvalidDistributionMappingFile)?;
-                self.distribution = Some(distribution_mapping);
-                Ok(())
-            }
-            "probabilities.bin" => {
-                let probabilities = parse_to1(contents)
-                    .map_err(|_| AnnotationEntryError::InvalidProbabilitiesFile)?;
-                self.probabilities = Some(probabilities);
-                Ok(())
-            }
-            _ => Err(AnnotationEntryError::InvalidFile { file: file.into() }),
-        }
-    }
-}
-
-// TODO: Could this be used elsewhere in the crate?
-pub trait ParseTo1 {
-    type Error;
-    fn parse_to1<R: Read, From: Index>(
-        file: R,
-        len: u64,
-    ) -> Result<To1<From, Self>, To1Error<Self::Error>>
-    where
-        Self: Sized;
-}
-
-impl<LE: FromLeBytes> ParseTo1 for LE {
-    type Error = LE::Error;
-
-    fn parse_to1<R: Read, From: Index>(
-        file: R,
-        _len: u64,
-    ) -> Result<To1<From, Self>, To1Error<LE::Error>> {
-        Ok(parse_to1(file)?)
-    }
-}
-impl ParseTo1 for bool {
-    type Error = BoolTo1Error;
-
-    fn parse_to1<R: Read, From: Index>(
-        file: R,
-        len: u64,
-    ) -> Result<To1<From, Self>, To1Error<BoolTo1Error>> {
-        // TODO: Figure out whether `len` should be usize or u64 everywhere
-        Ok(parse_to1_bool(file, len as usize)?)
-    }
+fn parse_f64_values<I: Index>(
+    archive: &mut UmbArchive,
+    path: String,
+) -> Result<To1<I, f64>, UmbError> {
+    parse_to1(archive.read_required_file(&path)?).map_err(|error: To1Error<Infallible>| {
+        UmbError::RewardsError(AnnotationError::InvalidValues { path, error })
+    })
 }

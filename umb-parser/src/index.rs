@@ -110,6 +110,19 @@ pub enum EntityKind {
     Players,
 }
 
+impl EntityKind {
+    /// The name of the directory containing files for this kind of entity
+    pub fn directory_name(self) -> &'static str {
+        match self {
+            EntityKind::States => "states",
+            EntityKind::Choices => "choices",
+            EntityKind::Branches => "branches",
+            EntityKind::Observations => "observations",
+            EntityKind::Players => "players",
+        }
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub struct Annotation {
@@ -176,19 +189,15 @@ pub fn parse_index<R: Read>(reader: R) -> Result<IndexFile, serde_json::Error> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::archive::UmbArchive;
     use crate::file_input::get_contents;
 
     // TODO: More comprehensive tests
 
     fn index_of(path: &str) -> IndexFile {
-        let mut archive = get_contents(path).unwrap();
-        let entry = archive
-            .entries()
-            .unwrap()
-            .map(Result::unwrap)
-            .find(|e| e.path().unwrap().to_str() == Some("index.json"))
-            .unwrap();
-        parse_index(entry).unwrap()
+        let bytes = get_contents(path).unwrap();
+        let mut archive = UmbArchive::new(&bytes).unwrap();
+        parse_index(archive.read_required_file("index.json").unwrap()).unwrap()
     }
 
     #[test]

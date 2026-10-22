@@ -1,7 +1,6 @@
 use flate2::read::GzDecoder;
-use std::io::{Cursor, Read};
+use std::io::Read;
 use std::path::Path;
-use tar::Archive;
 use xz2::read::XzDecoder;
 
 #[derive(Clone, Debug, PartialEq)]
@@ -23,7 +22,8 @@ pub enum InputError {
     },
 }
 
-pub fn get_contents<P: AsRef<Path>>(path: P) -> Result<Archive<Cursor<Vec<u8>>>, InputError> {
+/// Reads and decompresses the file at `path`, returning the bytes of the contained tar file
+pub fn get_contents<P: AsRef<Path>>(path: P) -> Result<Vec<u8>, InputError> {
     let bytes = std::fs::read(path).map_err(InputError::IoError)?;
     let (decompressed_bytes, decompression_method) =
         if bytes.len() >= 3 && &bytes[0..3] == &[0x1F, 0x8B, 0x08] {
@@ -54,8 +54,7 @@ pub fn get_contents<P: AsRef<Path>>(path: P) -> Result<Archive<Cursor<Vec<u8>>>,
     if decompressed_bytes.len() >= 262
         && &decompressed_bytes[257..262] == &[0x75, 0x73, 0x74, 0x61, 0x72]
     {
-        let archive = Archive::new(Cursor::new(decompressed_bytes));
-        Ok(archive)
+        Ok(decompressed_bytes)
     } else {
         Err(InputError::NotATarFile {
             decompression_method,
@@ -65,15 +64,13 @@ pub fn get_contents<P: AsRef<Path>>(path: P) -> Result<Archive<Cursor<Vec<u8>>>,
 
 #[cfg(test)]
 mod tests {
+    use crate::archive::UmbArchive;
     use crate::file_input::get_contents;
 
     fn test_model(path: &str) {
-        let mut archive = get_contents(path).unwrap();
-        let entries = archive
-            .entries()
-            .unwrap()
-            .map(|e| e.unwrap().path().unwrap().to_string_lossy().into_owned())
-            .collect::<Vec<_>>();
+        let bytes = get_contents(path).unwrap();
+        let archive = UmbArchive::new(&bytes).unwrap();
+        let entries = archive.unread_files().collect::<Vec<_>>();
         assert_eq!(
             entries,
             vec![
