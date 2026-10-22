@@ -86,7 +86,8 @@ mod tests {
         let z_info = VariableInfo::global_var(Identifier::new("z").unwrap(), VariableRange::bool());
         prism.variable_manager.add_variable(z_info).unwrap();
 
-        let model = ModelBuilder::new_mdp_builder(&mut prism)
+        let model = ModelBuilder::new(&mut prism)
+            .with_mdp_model_type()
             .with_full_state_space()
             .build()
             .unwrap();

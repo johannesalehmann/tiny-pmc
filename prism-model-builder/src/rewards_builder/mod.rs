@@ -265,7 +265,10 @@ mod tests {
             endrewards"#,
         )
         .unwrap();
-        let model = ModelBuilder::new_mdp_builder(&mut prism).build().unwrap();
+        let model = ModelBuilder::new(&mut prism)
+            .with_mdp_model_type()
+            .build()
+            .unwrap();
 
         let steps = model.reward_structure(Some("steps")).unwrap();
         let unnamed_state = model.reward_structure(Some("#1")).unwrap();
@@ -328,7 +331,10 @@ mod tests {
             endrewards"#,
         )
         .unwrap();
-        let model = ModelBuilder::new_mdp_builder(&mut prism).build().unwrap();
+        let model = ModelBuilder::new(&mut prism)
+            .with_mdp_model_type()
+            .build()
+            .unwrap();
         let rewards = model.reward_structure(None).unwrap();
         assert!(!model.has_state_rewards(rewards));
 
@@ -363,6 +369,9 @@ mod tests {
             endrewards"#,
         )
         .unwrap();
-        ModelBuilder::new_mdp_builder(&mut prism).build().unwrap();
+        ModelBuilder::new(&mut prism)
+            .with_mdp_model_type()
+            .build()
+            .unwrap();
     }
 }

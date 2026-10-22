@@ -11,6 +11,8 @@ mod expression_context;
 pub mod expressions;
 pub mod initial_states_builder;
 pub mod initial_states_source;
+#[cfg(test)]
+mod integration_tests;
 pub mod labels;
 mod map;
 pub mod model_type_selection;
@@ -32,7 +34,7 @@ use crate::expressions::stack_based_expressions::{
     SubExpressionProvider,
 };
 use crate::expressions::{TreeWalkingEvaluator, ValuationSource, VariableType};
-use crate::model_type_selection::{Fixed, ModelTypeSelection};
+use crate::model_type_selection::{Auto, ModelTypeSelection};
 use crate::owners::{NoOwners, OwnersBuilder, PlayerControl, TurnBasedOwnersBuilder};
 use crate::synchronised_actions::SynchronisedActions;
 use crate::variables::ModelVariableInfo;
@@ -323,14 +325,14 @@ impl<'a, S: Span>
         queries::ModelOnly<S>,
         labels::OnlyNecessary,
         initial_states_source::StartFromInitialStates,
-        Fixed<Mdp<Uniform<usize>>>,
+        Auto<Uniform<usize>>,
         initial_states_builder::SingleInitialStatesBuilder<Uniform<usize>>,
         atomic_propositions_builder::AtomicPropositionVectorsBuilder<Uniform<usize>>,
         choice_labels::ActionNameChoiceLabels<Uniform<usize>>,
         rewards_builder::RewardVectorsBuilder<Uniform<usize>>,
     >
 {
-    pub fn new_mdp_builder(
+    pub fn new(
         model: &'a mut Model<VariableReference, S, Expression<VariableReference, S>, Identifier<S>>,
     ) -> Self {
         Self {

@@ -117,7 +117,10 @@ mod tests {
             .push(Command::new(None, Expression::bool(true)));
         prism.modules.add(module).unwrap();
 
-        let model = ModelBuilder::new_mdp_builder(&mut prism).build().unwrap();
+        let model = ModelBuilder::new(&mut prism)
+            .with_mdp_model_type()
+            .build()
+            .unwrap();
 
         let choices = model.choices();
         assert_eq!(*model.choice_labels.label(choices.index(0)), None);
@@ -135,7 +138,10 @@ mod tests {
         ));
         prism.modules.add(module).unwrap();
 
-        let model = ModelBuilder::new_mdp_builder(&mut prism).build().unwrap();
+        let model = ModelBuilder::new(&mut prism)
+            .with_mdp_model_type()
+            .build()
+            .unwrap();
 
         let choices = model.choices();
         assert_eq!(
@@ -162,7 +168,10 @@ mod tests {
         ));
         prism.modules.add(m2).unwrap();
 
-        let model = ModelBuilder::new_mdp_builder(&mut prism).build().unwrap();
+        let model = ModelBuilder::new(&mut prism)
+            .with_mdp_model_type()
+            .build()
+            .unwrap();
 
         let choices = model.choices();
         assert_eq!(

@@ -54,7 +54,8 @@ pub fn build_model(
 
             let start_build = std::time::Instant::now();
 
-            let builder = prism_model_builder::ModelBuilder::new_mdp_builder(&mut model)
+            let builder = prism_model_builder::ModelBuilder::new(&mut model)
+                .with_mdp_model_type()
                 .with_necessary_labels()
                 .with_queries(queries)
                 .with_constants(constants)

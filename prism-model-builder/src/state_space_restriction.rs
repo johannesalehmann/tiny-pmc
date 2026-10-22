@@ -69,7 +69,8 @@ mod tests {
         let mut prism = prism_parser::parse_model(source).unwrap();
         let x = prism.variable_manager.get_reference_by_str("x").unwrap();
         let restriction = Expression::var_or_const(x).less_than(Expression::int(2));
-        let model = ModelBuilder::new_mdp_builder(&mut prism)
+        let model = ModelBuilder::new(&mut prism)
+            .with_mdp_model_type()
             .with_state_space_restriction(restriction)
             .build()
             .unwrap();
@@ -86,7 +87,10 @@ mod tests {
     fn no_restriction() {
         let source = SIMPLE_MODEL;
         let mut prism = prism_parser::parse_model(source).unwrap();
-        let model = ModelBuilder::new_mdp_builder(&mut prism).build().unwrap();
+        let model = ModelBuilder::new(&mut prism)
+            .with_mdp_model_type()
+            .build()
+            .unwrap();
         assert_eq!(model.states().len(), 5);
         for i in 0..=4 {
             assert_eq!(
@@ -101,7 +105,8 @@ mod tests {
         let source = SIMPLE_MODEL;
         let mut prism = prism_parser::parse_model(source).unwrap();
         let restriction = Expression::bool(true);
-        let model = ModelBuilder::new_mdp_builder(&mut prism)
+        let model = ModelBuilder::new(&mut prism)
+            .with_mdp_model_type()
             .with_state_space_restriction(restriction)
             .build()
             .unwrap();
@@ -120,7 +125,8 @@ mod tests {
         let mut prism = prism_parser::parse_model(source).unwrap();
         let x = prism.variable_manager.get_reference_by_str("x").unwrap();
         let restriction = Expression::var_or_const(x).greater_or_equal(Expression::int(2));
-        let model = ModelBuilder::new_mdp_builder(&mut prism)
+        let model = ModelBuilder::new(&mut prism)
+            .with_mdp_model_type()
             .with_state_space_restriction(restriction)
             .build()
             .unwrap();
@@ -148,7 +154,8 @@ mod tests {
         let mut prism = prism_parser::parse_model(source).unwrap();
         let y = prism.variable_manager.get_reference_by_str("y").unwrap();
         let restriction = Expression::var_or_const(y).less_than(Expression::int(2));
-        let model = ModelBuilder::new_mdp_builder(&mut prism)
+        let model = ModelBuilder::new(&mut prism)
+            .with_mdp_model_type()
             .with_state_space_restriction(restriction)
             .build()
             .unwrap();
@@ -180,7 +187,8 @@ mod tests {
             .get_reference_by_str("CUTOFF")
             .unwrap();
         let restriction = Expression::var_or_const(x).less_than(Expression::var_or_const(c));
-        let model = ModelBuilder::new_mdp_builder(&mut prism)
+        let model = ModelBuilder::new(&mut prism)
+            .with_mdp_model_type()
             .with_state_space_restriction(restriction)
             .build()
             .unwrap();
@@ -202,7 +210,8 @@ mod tests {
         let mut prism = prism_parser::parse_model(source).unwrap();
         let x = prism.variable_manager.get_reference_by_str("x").unwrap();
         let restriction = Expression::var_or_const(x).less_than(Expression::int(2));
-        ModelBuilder::new_mdp_builder(&mut prism)
+        ModelBuilder::new(&mut prism)
+            .with_mdp_model_type()
             .with_state_space_restriction(restriction)
             .with_full_state_space()
             .build()
