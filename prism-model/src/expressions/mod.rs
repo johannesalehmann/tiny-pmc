@@ -1649,7 +1649,7 @@ impl<V, S: Span> Expression<V, S> {
     }
 }
 
-impl<S: Span> Expression<Identifier<S>, S> {
+impl<V: Clone, S: Span> Expression<V, S> {
     /// Replaces every [`Expression::Label`] in this expression whose name matches a label in
     /// `labels` with that label's condition expression.
     ///
@@ -1692,7 +1692,7 @@ impl<S: Span> Expression<Identifier<S>, S> {
     /// expr.substitute_labels(&labels);
     /// assert_eq!(expr, Expression::bool(true).and(Expression::bool(false)));
     /// ```
-    pub fn substitute_labels(&mut self, labels: &LabelManager<S, Expression<Identifier<S>, S>>) {
+    pub fn substitute_labels(&mut self, labels: &LabelManager<S, Expression<V, S>>) {
         for label in labels {
             let mut visitor = LabelSubstitutionVisitor {
                 label_name: &label.name,
@@ -1703,6 +1703,9 @@ impl<S: Span> Expression<Identifier<S>, S> {
             *self = condition.visit(&mut visitor);
         }
     }
+}
+
+impl<S: Span> Expression<Identifier<S>, S> {
 
     /// Replaces every [`Expression::VarOrConst`] in this expression whose name matches a formula
     /// in `formulas` with that formula's condition expression.

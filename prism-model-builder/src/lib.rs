@@ -195,8 +195,12 @@ impl<
         let expand_state_condition = match &self.state_space_restriction {
             None => None,
             Some(condition) => {
+                // Queries may contain labels, which are not supported by stack-based expressions.
+                // Thus, we expand all labels in the following:
+                let mut condition = condition.clone();
+                condition.substitute_labels(&self.model.labels);
                 let stack =
-                    StackBasedExpression::from_expression(condition, &model.variable_manager);
+                    StackBasedExpression::from_expression(&condition, &model.variable_manager);
                 Some(sub_exprs.add_sub_expression(stack))
             }
         };
