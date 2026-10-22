@@ -55,6 +55,9 @@ use typed_index_collections::{IndexRange, IndexRangeIterator, SemiboundedIndexRa
 /// A branch together with the choice and state it belongs to.
 pub type StateChoiceBranch<I> = (StateIndex<I>, ChoiceIndex<I>, BranchIndex<I>);
 
+/// A branch (probability and destintation) together with the choice and state it belongs to
+pub type Transition<I> = (StateIndex<I>, ChoiceIndex<I>, f64, StateIndex<I>);
+
 pub trait ReadStateSpace: HasIx {
     fn states(&self) -> SemiboundedIndexRange<StateIndex<Self::Ix>>;
     fn choices(&self) -> SemiboundedIndexRange<ChoiceIndex<Self::Ix>>;
@@ -98,6 +101,23 @@ pub trait ReadStateSpace: HasIx {
                         .map(move |branch| (state, choice, branch))
                 })
         })
+    }
+
+    /// All (state, choice, probability, destination) tuples, ordered by state, then choice, then
+    /// branch.
+    fn transitions(&self) -> impl Iterator<Item = Transition<Self::Ix>>
+    where
+        Self: Sized,
+    {
+        self.state_choice_branch_triples()
+            .map(move |(state, choice, branch)| {
+                (
+                    state,
+                    choice,
+                    self.branch_probability(branch),
+                    self.branch_destination(branch),
+                )
+            })
     }
 }
 
@@ -187,6 +207,13 @@ macro_rules! derive_read_state_space {
             Self: Sized,
         {
             self.$subcomponent.state_choice_branch_triples()
+        }
+
+        fn transitions(&self) -> impl Iterator<Item = $crate::traits::Transition<Self::Ix>>
+        where
+            Self: Sized,
+        {
+            self.$subcomponent.transitions()
         }
     };
 }
@@ -308,6 +335,12 @@ impl<T: ReadStateSpace> ReadStateSpace for &T {
     {
         (**self).state_choice_branch_triples()
     }
+    fn transitions(&self) -> impl Iterator<Item = Transition<Self::Ix>>
+    where
+        Self: Sized,
+    {
+        (**self).transitions()
+    }
 }
 
 impl<T: ReadStateSpace> ReadStateSpace for &mut T {
@@ -349,6 +382,12 @@ impl<T: ReadStateSpace> ReadStateSpace for &mut T {
         Self: Sized,
     {
         (**self).state_choice_branch_triples()
+    }
+    fn transitions(&self) -> impl Iterator<Item = Transition<Self::Ix>>
+    where
+        Self: Sized,
+    {
+        (**self).transitions()
     }
 }
 
