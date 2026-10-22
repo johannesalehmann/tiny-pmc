@@ -50,20 +50,22 @@ fn expected_mdp() -> Mdp<Ix> {
 
 fn expected_stochastic_game() -> StochasticGame<Ix> {
     smg!(m = {
-        s00 (Eve) -> 0.5: s10 & 0.5: s00,
-        s10 (Adam) -> 1.0: s11,
-        s11 (Eve) -> 0.5: s01 & 0.5: s11,
-        s01 (Adam) -> 1.0: s00,
+        players: [p1, p2],
+        s00 (p1) -> 0.5: s10 & 0.5: s00,
+        s10 (p2) -> 1.0: s11,
+        s11 (p1) -> 0.5: s01 & 0.5: s11,
+        s01 (p2) -> 1.0: s00,
     });
     m
 }
 
 fn expected_nonstochastic_game() -> StochasticGame<Ix> {
     smg!(m = {
-        s00 (Eve) -> 1.0: s10,
-        s10 (Adam) -> 1.0: s11,
-        s11 (Eve) -> 1.0: s01,
-        s01 (Adam) -> 1.0: s00,
+        players: [p1, p2],
+        s00 (p1) -> 1.0: s10,
+        s10 (p2) -> 1.0: s11,
+        s11 (p1) -> 1.0: s01,
+        s01 (p2) -> 1.0: s00,
     });
     m
 }

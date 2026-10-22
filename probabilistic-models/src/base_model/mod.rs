@@ -10,8 +10,8 @@ mod graph;
 pub use graph::{BranchGraph, ChoiceBranchGraph, ChoiceGraph};
 
 mod owners;
-pub(crate) use owners::derive_read_owners;
-pub use owners::{BuildOwners, ReadOwners, SinglePlayer, TurnBased, TwoPlayer};
+pub use owners::{BuildOwners, ReadOwners, ReadPlayers, SinglePlayer, TurnBased, TwoPlayer};
+pub(crate) use owners::{derive_read_owners, derive_read_players};
 
 mod base_model_enum;
 pub use base_model_enum::{AnyBaseModel, BaseModelEnum, BaseModelType};
@@ -35,8 +35,8 @@ pub type TransitionSystem<I = DefaultIx> = BaseModel<ChoiceGraph<I>, SinglePlaye
 pub type Dtmc<I = DefaultIx> = BaseModel<BranchGraph<I>, SinglePlayer>;
 pub type Mdp<I = DefaultIx> = BaseModel<ChoiceBranchGraph<I>, SinglePlayer>;
 
-pub type NonstochasticGame<I = DefaultIx> = BaseModel<ChoiceGraph<I>, TurnBased<I, TwoPlayer>>;
-pub type StochasticGame<I = DefaultIx> = BaseModel<ChoiceBranchGraph<I>, TurnBased<I, TwoPlayer>>;
+pub type NonstochasticGame<I = DefaultIx> = BaseModel<ChoiceGraph<I>, TurnBased<I>>;
+pub type StochasticGame<I = DefaultIx> = BaseModel<ChoiceBranchGraph<I>, TurnBased<I>>;
 
 // `new` creates models with the default index profile, so that `Mdp::new()` needs no type
 // annotations (default type parameters are not used for inference). Models with other profiles
@@ -90,6 +90,10 @@ impl<G: ReadStateSpace, P: ReadOwners<Ix = G::Ix>> ReadOwners for BaseModel<G, P
     type OwnerType = P::OwnerType;
 
     derive_read_owners!(players);
+}
+
+impl<G: ReadStateSpace, P: ReadPlayers<Ix = G::Ix>> ReadPlayers for BaseModel<G, P> {
+    derive_read_players!(players);
 }
 
 impl<G: ReadStateSpace, P: ReadOwners<Ix = G::Ix>> BaseModel<G, P> {

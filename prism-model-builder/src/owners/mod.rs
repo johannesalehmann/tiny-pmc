@@ -1,8 +1,8 @@
 use crate::ModelBuildingError;
 use crate::synchronised_actions::SynchronisedActions;
 use prism_model::{Identifier, Model, Span, VariableReference};
-use probabilistic_models::base_model::{BuildOwners, SinglePlayer, TurnBased, TwoPlayer};
-use probabilistic_models::{HasIx, Ix, StateIndex};
+use probabilistic_models::base_model::{BuildOwners, SinglePlayer, TurnBased};
+use probabilistic_models::{HasIx, Ix, PlayerIndex, StateIndex};
 use std::marker::PhantomData;
 use typed_index_collections::{Index, RawIndex};
 
@@ -96,8 +96,8 @@ impl PlayerControl {
         }
     }
 
-    pub fn player_count(&self) -> usize {
-        self.player_names.len()
+    pub fn player_names(&self) -> &[String] {
+        &self.player_names
     }
 
     pub fn player_name(&self, player_index: usize) -> &str {
@@ -167,7 +167,7 @@ impl<I: Ix> OwnersBuilder for NoOwners<I> {
 /// player.
 pub(crate) struct TurnBasedOwnersBuilder<I: Ix> {
     control: PlayerControl,
-    owners: TurnBased<I, TwoPlayer>,
+    owners: TurnBased<I>,
     // The owner of the current state, if any of its choices so far is controlled
     current_owner: Option<usize>,
     // A second player controlling a choice of the current state, if any
@@ -182,16 +182,9 @@ impl<I: Ix> HasIx for TurnBasedOwnersBuilder<I> {
 
 impl<I: Ix> TurnBasedOwnersBuilder<I> {
     pub fn new(control: PlayerControl) -> Self {
-        // TODO: Support more than two players
-        if control.player_count() > 2 {
-            panic!(
-                "Models with more than two players are not yet supported, the model has {} players",
-                control.player_count()
-            );
-        }
         Self {
+            owners: TurnBased::with_players(control.player_names().iter().cloned()),
             control,
-            owners: TurnBased::default(),
             current_owner: None,
             conflicting_owner: None,
             has_choices: false,
@@ -213,7 +206,7 @@ impl<I: Ix> TurnBasedOwnersBuilder<I> {
 }
 
 impl<I: Ix> OwnersBuilder for TurnBasedOwnersBuilder<I> {
-    type Owners = TurnBased<I, TwoPlayer>;
+    type Owners = TurnBased<I>;
 
     fn unsynchronised_choice_added(&mut self, module_index: usize) {
         let owner = self.control.unsynchronised_owner(module_index);
@@ -245,10 +238,7 @@ impl<I: Ix> OwnersBuilder for TurnBasedOwnersBuilder<I> {
                 ),
             });
         }
-        let owner = match owner {
-            0 => TwoPlayer::Eve,
-            _ => TwoPlayer::Adam,
-        };
+        let owner = PlayerIndex::from_raw(RawIndex::from_usize(owner));
         self.owners.add_state_owner(state, owner);
         Ok(())
     }

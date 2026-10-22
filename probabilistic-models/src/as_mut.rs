@@ -196,7 +196,7 @@ impl AsMutComponent for SinglePlayer {
     }
 }
 
-impl<I: Ix, Owner> AsMutComponent for TurnBased<I, Owner> {
+impl<I: Ix> AsMutComponent for TurnBased<I> {
     type Output<'a>
         = &'a mut Self
     where

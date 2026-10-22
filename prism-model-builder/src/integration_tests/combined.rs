@@ -4,7 +4,7 @@ use crate::choice_labels::{CommandIndexComponent, CommandIndices};
 use crate::queries::{ModelAndQuery, ProcessedQuery};
 use probabilistic_models::AtomicPropositionIndex;
 use probabilistic_models::annotations::{AtomicPropositions, RewardAnnotations};
-use probabilistic_models::base_model::{Dtmc, ReadOwners, StochasticGame, TwoPlayer};
+use probabilistic_models::base_model::{Dtmc, ReadOwners, ReadPlayers, StochasticGame};
 use probabilistic_models::initial_states::InitialStates;
 use probabilistic_models::labels::ChoiceLabels;
 use probabilistic_models::traits::{ReadChoiceLabels, ReadInitialStates, ReadRewards};
@@ -135,19 +135,20 @@ fn everything_enabled_game() {
     let _: &ProcessedQuery<AtomicPropositionIndex<Ix>> = &query;
 
     smg!(expected = {
-        s0 (Eve) -> 0.5: s1 & 0.5: s0,
-        s0 (Eve) -> 1.0: s1,
-        s1 (Adam) -> 1.0: s2,
-        s2 (Eve) -> 1.0: s2,
+        players: [p1, p2],
+        s0 (p1) -> 0.5: s1 & 0.5: s0,
+        s0 (p1) -> 1.0: s1,
+        s1 (p2) -> 1.0: s2,
+        s2 (p1) -> 1.0: s2,
     });
     assert_eq!(valuations(&model), ["x=0,y=0", "x=1,y=0", "x=1,y=1"]);
     assert_eq!(transitions(&model), transitions(&expected));
     let owners: Vec<_> = model
         .states()
         .into_iter()
-        .map(|s| model.base.state_owner(s))
+        .map(|s| model.base.player_name(model.base.state_owner(s)))
         .collect();
-    assert_eq!(owners, [TwoPlayer::Eve, TwoPlayer::Adam, TwoPlayer::Eve]);
+    assert_eq!(owners, ["p1", "p2", "p1"]);
     assert!(model.is_initial(state(&model, "x=0,y=0")));
     assert!(!model.is_initial(state(&model, "x=1,y=0")));
     assert_eq!(states_with(&model, "done"), ["x=1,y=1"]);

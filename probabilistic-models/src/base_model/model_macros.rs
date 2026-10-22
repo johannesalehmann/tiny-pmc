@@ -5,22 +5,24 @@ macro_rules! mdp {
             $($state:ident -> $($p:literal: $dest:ident)&* $($deadlock:ident)?),* $(,)?
         }
     ) => {
-        $crate::__choice_branch_model!(mdp $mdp = {
+        $crate::__choice_branch_model!(mdp $mdp = [] {
             $($state -> $($p: $dest)&* $($deadlock)?),*
         });
     };
 }
 
-// Like `mdp!`, but every line names the owner of its state, e.g. `s0 (Eve) -> 1.0: s1`. All lines
-// of a state must name the same owner.
+// Like `mdp!`, but first lists the players and then every line names the owner of its state, e.g.
+// `players: [p1, p2], s0 (p1) -> 1.0: s1`. Players are indexed in the order in which they are
+// listed. All lines of a state must name the same owner.
 #[macro_export]
 macro_rules! smg {
     (
         $smg:ident = {
+            players: [$($player:ident),* $(,)?],
             $($state:ident ($owner:ident) -> $($p:literal: $dest:ident)&* $($deadlock:ident)?),* $(,)?
         }
     ) => {
-        $crate::__choice_branch_model!(smg $smg = {
+        $crate::__choice_branch_model!(smg $smg = [$($player),*] {
             $($state ($owner) -> $($p: $dest)&* $($deadlock)?),*
         });
     };
@@ -34,6 +36,13 @@ macro_rules! __choice_branch_model {
     (@model_type mdp) => { $crate::base_model::Mdp<$crate::Uniform<usize>> };
     (@model_type smg) => { $crate::base_model::StochasticGame<$crate::Uniform<usize>> };
 
+    (@add_players mdp $built:ident, $players:ident) => {};
+    (@add_players smg $built:ident, $players:ident) => {
+        for player in &$players {
+            $built.players.add_player(player.to_string());
+        }
+    };
+
     (@add_state mdp $built:ident, $owner_by_state:ident, $name:ident) => {
         $crate::traits::BuildStates::add_state(&mut $built)
     };
@@ -42,7 +51,7 @@ macro_rules! __choice_branch_model {
     };
 
     (
-        $mode:ident $model:ident = {
+        $mode:ident $model:ident = [$($player:ident),*] {
             $($state:ident $(($owner:ident))? -> $($p:literal: $dest:ident)&* $($deadlock:ident)?),*
         }
     ) => {
@@ -50,9 +59,8 @@ macro_rules! __choice_branch_model {
         let (mut $model, __model_state_indices) = {
             #[allow(unused_imports)]
             use $crate::Index;
-            use $crate::base_model::TwoPlayer;
             use $crate::traits::BuildChoiceBranchGraph;
-            use $crate::{StateIndex, Uniform};
+            use $crate::{PlayerIndex, StateIndex, Uniform};
             use ::std::collections::HashMap;
 
             let mut state_indices: HashMap<&'static str, StateIndex<Uniform<usize>>> = HashMap::new();
@@ -65,18 +73,38 @@ macro_rules! __choice_branch_model {
                 });
             )*
 
+            #[allow(unused_variables)]
+            let players: Vec<&'static str> = vec![$(stringify!($player)),*];
+            for (index, player) in players.iter().enumerate() {
+                assert!(
+                    !players[..index].contains(player),
+                    "Player `{player}` is listed more than once."
+                );
+            }
+
             #[allow(unused_mut, unused_variables)]
-            let mut owner_by_state: HashMap<&'static str, TwoPlayer> = HashMap::new();
+            let mut owner_by_state: HashMap<&'static str, PlayerIndex<Uniform<usize>>> =
+                HashMap::new();
             $($(
-                let owner = TwoPlayer::$owner;
+                let owner_name = stringify!($owner);
+                let owner = PlayerIndex::from_raw(
+                    players
+                        .iter()
+                        .position(|player| *player == owner_name)
+                        .unwrap_or_else(|| {
+                            panic!(
+                                "`{}` is owned by `{owner_name}`, which is not listed as a player.",
+                                stringify!($state)
+                            )
+                        }) as u32,
+                );
                 let previous = *owner_by_state.entry(stringify!($state)).or_insert(owner);
                 assert_eq!(
                     previous,
                     owner,
-                    "`{}` cannot be owned by both {:?} and {:?}.",
+                    "`{}` cannot be owned by both `{}` and `{owner_name}`.",
                     stringify!($state),
-                    previous,
-                    owner
+                    players[previous.raw() as usize]
                 );
             )?)*
 
@@ -121,6 +149,7 @@ macro_rules! __choice_branch_model {
             }
 
             let mut built: $crate::__choice_branch_model!(@model_type $mode) = Default::default();
+            $crate::__choice_branch_model!(@add_players $mode built, players);
             for name in &order {
                 let state = $crate::__choice_branch_model!(@add_state $mode built, owner_by_state, name);
                 assert_eq!(state, state_indices[name]);

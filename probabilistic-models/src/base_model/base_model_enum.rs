@@ -1,6 +1,6 @@
 use crate::base_model::{
     BaseModel, BranchGraph, ChoiceBranchGraph, ChoiceGraph, Dtmc, Mdp, NonstochasticGame,
-    SinglePlayer, StochasticGame, TransitionSystem, TurnBased, TwoPlayer,
+    SinglePlayer, StochasticGame, TransitionSystem, TurnBased,
 };
 use crate::{DefaultIx, HasIx, Ix, Model};
 
@@ -196,8 +196,8 @@ macro_rules! from_impls {
                 BaseModel<ChoiceGraph<I>, SinglePlayer>,
                 BaseModel<BranchGraph<I>, SinglePlayer>,
                 BaseModel<ChoiceBranchGraph<I>, SinglePlayer>,
-                BaseModel<ChoiceGraph<I>, TurnBased<I, TwoPlayer>>,
-                BaseModel<ChoiceBranchGraph<I>, TurnBased<I, TwoPlayer>>,
+                BaseModel<ChoiceGraph<I>, TurnBased<I>>,
+                BaseModel<ChoiceBranchGraph<I>, TurnBased<I>>,
             >
         {
             fn from(value: BaseModel<$graph<I>, from_impls!(@owned $players, I)>) -> Self {
@@ -210,8 +210,8 @@ macro_rules! from_impls {
                 BaseModel<&'a ChoiceGraph<I>, SinglePlayer>,
                 BaseModel<&'a BranchGraph<I>, SinglePlayer>,
                 BaseModel<&'a ChoiceBranchGraph<I>, SinglePlayer>,
-                BaseModel<&'a ChoiceGraph<I>, &'a TurnBased<I, TwoPlayer>>,
-                BaseModel<&'a ChoiceBranchGraph<I>, &'a TurnBased<I, TwoPlayer>>,
+                BaseModel<&'a ChoiceGraph<I>, &'a TurnBased<I>>,
+                BaseModel<&'a ChoiceBranchGraph<I>, &'a TurnBased<I>>,
             >
         {
             fn from(value: BaseModel<&'a $graph<I>, from_impls!(@ref $players, I, 'a)>) -> Self {
@@ -224,8 +224,8 @@ macro_rules! from_impls {
                 BaseModel<&'a mut ChoiceGraph<I>, SinglePlayer>,
                 BaseModel<&'a mut BranchGraph<I>, SinglePlayer>,
                 BaseModel<&'a mut ChoiceBranchGraph<I>, SinglePlayer>,
-                BaseModel<&'a mut ChoiceGraph<I>, &'a mut TurnBased<I, TwoPlayer>>,
-                BaseModel<&'a mut ChoiceBranchGraph<I>, &'a mut TurnBased<I, TwoPlayer>>,
+                BaseModel<&'a mut ChoiceGraph<I>, &'a mut TurnBased<I>>,
+                BaseModel<&'a mut ChoiceBranchGraph<I>, &'a mut TurnBased<I>>,
             >
         {
             fn from(
@@ -237,15 +237,15 @@ macro_rules! from_impls {
     };
     // `SinglePlayer` is returned by value from `as_ref` and `as_mut`
     (@owned SinglePlayer, $I:ident) => { SinglePlayer };
-    (@owned TwoPlayer, $I:ident) => { TurnBased<$I, TwoPlayer> };
+    (@owned TurnBased, $I:ident) => { TurnBased<$I> };
     (@ref SinglePlayer, $I:ident, $a:lifetime) => { SinglePlayer };
-    (@ref TwoPlayer, $I:ident, $a:lifetime) => { &$a TurnBased<$I, TwoPlayer> };
+    (@ref TurnBased, $I:ident, $a:lifetime) => { &$a TurnBased<$I> };
     (@mut SinglePlayer, $I:ident, $a:lifetime) => { SinglePlayer };
-    (@mut TwoPlayer, $I:ident, $a:lifetime) => { &$a mut TurnBased<$I, TwoPlayer> };
+    (@mut TurnBased, $I:ident, $a:lifetime) => { &$a mut TurnBased<$I> };
 }
 
 from_impls!(TransitionSystem, ChoiceGraph, SinglePlayer);
 from_impls!(Dtmc, BranchGraph, SinglePlayer);
 from_impls!(Mdp, ChoiceBranchGraph, SinglePlayer);
-from_impls!(NonstochasticGame, ChoiceGraph, TwoPlayer);
-from_impls!(StochasticGame, ChoiceBranchGraph, TwoPlayer);
+from_impls!(NonstochasticGame, ChoiceGraph, TurnBased);
+from_impls!(StochasticGame, ChoiceBranchGraph, TurnBased);

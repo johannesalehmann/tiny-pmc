@@ -205,7 +205,7 @@ impl AsRefComponent for SinglePlayer {
     }
 }
 
-impl<I: Ix, Owner> AsRefComponent for TurnBased<I, Owner> {
+impl<I: Ix> AsRefComponent for TurnBased<I> {
     type Output<'a>
         = &'a Self
     where

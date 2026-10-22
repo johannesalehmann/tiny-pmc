@@ -2,7 +2,7 @@ use crate::to1::To1;
 use crate::{Index, RawIndex, SemiboundedIndexRange, ValuePerIndexSource};
 use std::collections::HashMap;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct NamedTo1<InternalIndex: Index, E> {
     store: To1<InternalIndex, E>,
     names: To1<InternalIndex, String>,

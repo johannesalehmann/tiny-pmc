@@ -1,7 +1,7 @@
 use super::*;
 use probabilistic_models::RewardIndex;
 use probabilistic_models::annotations::RewardAnnotations;
-use probabilistic_models::base_model::{Dtmc, ReadOwners, StochasticGame, TwoPlayer};
+use probabilistic_models::base_model::{Dtmc, ReadOwners, ReadPlayers, StochasticGame};
 use probabilistic_models::traits::{ReadChoiceLabels, ReadRewards};
 
 /// State rewards of all states, in state order.
@@ -209,9 +209,9 @@ fn rewards_on_dtmc_and_game() {
     let owners: Vec<_> = game
         .states()
         .into_iter()
-        .map(|s| game.base.state_owner(s))
+        .map(|s| game.base.player_name(game.base.state_owner(s)))
         .collect();
-    assert_eq!(owners, [TwoPlayer::Eve, TwoPlayer::Adam, TwoPlayer::Eve]);
+    assert_eq!(owners, ["p1", "p2", "p1"]);
     assert_eq!(
         choice_rewards(&game, r),
         [(None, 3.0), (None, 3.0), (None, 2.0), (None, 0.0)]
