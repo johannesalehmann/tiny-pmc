@@ -5,12 +5,53 @@ macro_rules! mdp {
             $($state:ident -> $($p:literal: $dest:ident)&* $($deadlock:ident)?),* $(,)?
         }
     ) => {
+        $crate::__choice_branch_model!(mdp $mdp = {
+            $($state -> $($p: $dest)&* $($deadlock)?),*
+        });
+    };
+}
+
+// Like `mdp!`, but every line names the owner of its state, e.g. `s0 (Eve) -> 1.0: s1`. All lines
+// of a state must name the same owner.
+#[macro_export]
+macro_rules! smg {
+    (
+        $smg:ident = {
+            $($state:ident ($owner:ident) -> $($p:literal: $dest:ident)&* $($deadlock:ident)?),* $(,)?
+        }
+    ) => {
+        $crate::__choice_branch_model!(smg $smg = {
+            $($state ($owner) -> $($p: $dest)&* $($deadlock)?),*
+        });
+    };
+}
+
+// Shared implementation of `mdp!` and `smg!`. The public macros restrict which lines may name an
+// owner, so the `mdp` mode never sees owners and the `smg` mode always does.
+#[doc(hidden)]
+#[macro_export]
+macro_rules! __choice_branch_model {
+    (@model_type mdp) => { $crate::base_model::Mdp<$crate::Uniform<usize>> };
+    (@model_type smg) => { $crate::base_model::StochasticGame<$crate::Uniform<usize>> };
+
+    (@add_state mdp $built:ident, $owner_by_state:ident, $name:ident) => {
+        $crate::traits::BuildStates::add_state(&mut $built)
+    };
+    (@add_state smg $built:ident, $owner_by_state:ident, $name:ident) => {
+        $built.add_state($owner_by_state[$name])
+    };
+
+    (
+        $mode:ident $model:ident = {
+            $($state:ident $(($owner:ident))? -> $($p:literal: $dest:ident)&* $($deadlock:ident)?),*
+        }
+    ) => {
         #[allow(unused_mut)]
-        let (mut $mdp, __mdp_state_indices) = {
+        let (mut $model, __model_state_indices) = {
             #[allow(unused_imports)]
             use $crate::Index;
-            use $crate::base_model::Mdp;
-            use $crate::traits::{BuildChoiceBranchGraph, BuildStates};
+            use $crate::base_model::TwoPlayer;
+            use $crate::traits::BuildChoiceBranchGraph;
             use $crate::{StateIndex, Uniform};
             use ::std::collections::HashMap;
 
@@ -23,6 +64,21 @@ macro_rules! mdp {
                     index
                 });
             )*
+
+            #[allow(unused_mut, unused_variables)]
+            let mut owner_by_state: HashMap<&'static str, TwoPlayer> = HashMap::new();
+            $($(
+                let owner = TwoPlayer::$owner;
+                let previous = *owner_by_state.entry(stringify!($state)).or_insert(owner);
+                assert_eq!(
+                    previous,
+                    owner,
+                    "`{}` cannot be owned by both {:?} and {:?}.",
+                    stringify!($state),
+                    previous,
+                    owner
+                );
+            )?)*
 
             let mut choices_by_state: HashMap<&'static str, Vec<Vec<(f64, StateIndex<Uniform<usize>>)>>> =
                 HashMap::new();
@@ -64,10 +120,9 @@ macro_rules! mdp {
                 );
             }
 
-            let mut built: Mdp<Uniform<usize>> =
-                Mdp::default();
+            let mut built: $crate::__choice_branch_model!(@model_type $mode) = Default::default();
             for name in &order {
-                let state = built.add_state();
+                let state = $crate::__choice_branch_model!(@add_state $mode built, owner_by_state, name);
                 assert_eq!(state, state_indices[name]);
                 if let Some(choices) = choices_by_state.get(name) {
                     for choice in choices {
@@ -79,7 +134,7 @@ macro_rules! mdp {
         };
         $(
             #[allow(unused_variables)]
-            let $state = __mdp_state_indices[stringify!($state)];
+            let $state = __model_state_indices[stringify!($state)];
         )*
     };
 }

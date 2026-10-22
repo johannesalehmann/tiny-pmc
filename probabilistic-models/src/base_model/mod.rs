@@ -19,7 +19,7 @@ pub use base_model_enum::{AnyBaseModel, BaseModelEnum, BaseModelType};
 mod narrowest;
 mod narrowing;
 
-mod mdp_macro;
+mod model_macros;
 
 #[derive(Default, Debug, Clone, Copy, PartialEq)]
 pub struct BaseModel<Graph, Players> {
