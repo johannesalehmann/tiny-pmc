@@ -69,7 +69,7 @@ impl<M: ReadStateSpace, I, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val>
     }
 }
 
-impl<M: ReadStateSpace, I, CL, BL, Obs, APs, Rew, Ann, Val, Pred: OptionalComponent>
+impl<M, I, CL, BL, Obs, APs, Rew, Ann, Val, Pred: OptionalComponent>
     Model<M, I, CL, BL, Obs, APs, Rew, Ann, Val, Pred>
 {
     pub fn without_predecessors(self) -> Model<M, I, CL, BL, Obs, APs, Rew, Ann, Val, ()> {
