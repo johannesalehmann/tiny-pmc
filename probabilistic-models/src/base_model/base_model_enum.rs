@@ -249,3 +249,70 @@ from_impls!(Dtmc, BranchGraph, SinglePlayer);
 from_impls!(Mdp, ChoiceBranchGraph, SinglePlayer);
 from_impls!(NonstochasticGame, ChoiceGraph, TurnBased);
 from_impls!(StochasticGame, ChoiceBranchGraph, TurnBased);
+
+// Runs `$body` once per variant of a model with a `BaseModelEnum` base, with `$m` bound to the
+// model with the concrete base. This monomorphizes the body for every variant. The main use case is
+// to call functions that need `ReadStateSpace`, which is intentionally not implemented for
+// `BaseModelEnum` (to prevent it from being used in hot loops).
+#[macro_export]
+macro_rules! for_concrete_base {
+    ($model:expr, |$m:ident| $body:expr) => {{
+        let (base, rest) = $model.replace_base(());
+        match base {
+            $crate::base_model::BaseModelEnum::TransitionSystem(b) => {
+                let $m = rest.replace_base(b).1;
+                $body
+            }
+            $crate::base_model::BaseModelEnum::Dtmc(b) => {
+                let $m = rest.replace_base(b).1;
+                $body
+            }
+            $crate::base_model::BaseModelEnum::Mdp(b) => {
+                let $m = rest.replace_base(b).1;
+                $body
+            }
+            $crate::base_model::BaseModelEnum::NonstochasticGame(b) => {
+                let $m = rest.replace_base(b).1;
+                $body
+            }
+            $crate::base_model::BaseModelEnum::StochasticGame(b) => {
+                let $m = rest.replace_base(b).1;
+                $body
+            }
+        }
+    }};
+}
+
+// Similar to `for_concrete_base`, but for functions `$body` that return a model. On the base of
+// that returned model, Into::into is then called. This ensures that every base has the same type.
+// This macro works both if the result should be turned back into a `BaseModelEnum` and if every
+// branch of the function produces the same output, e.g. if every model type is transformed into a
+// stochastic game.
+#[macro_export]
+macro_rules! map_for_concrete_base {
+    ($model:expr, |$m:ident| $body:expr) => {{
+        let (base, rest) = $model.replace_base(());
+        match base {
+            $crate::base_model::BaseModelEnum::TransitionSystem(b) => {
+                let $m = rest.replace_base(b).1;
+                ($body).map_base(::std::convert::Into::into)
+            }
+            $crate::base_model::BaseModelEnum::Dtmc(b) => {
+                let $m = rest.replace_base(b).1;
+                ($body).map_base(::std::convert::Into::into)
+            }
+            $crate::base_model::BaseModelEnum::Mdp(b) => {
+                let $m = rest.replace_base(b).1;
+                ($body).map_base(::std::convert::Into::into)
+            }
+            $crate::base_model::BaseModelEnum::NonstochasticGame(b) => {
+                let $m = rest.replace_base(b).1;
+                ($body).map_base(::std::convert::Into::into)
+            }
+            $crate::base_model::BaseModelEnum::StochasticGame(b) => {
+                let $m = rest.replace_base(b).1;
+                ($body).map_base(::std::convert::Into::into)
+            }
+        }
+    }};
+}

@@ -1,37 +1,9 @@
-use super::{PermuteStates, StateOrdering};
-use crate::base_model::Mdp;
-use crate::traits::{BuildChoiceBranchGraph, BuildStates, ReadStateSpace};
-use crate::{Ix, StateIndex};
-
-impl<I: Ix> PermuteStates for Mdp<I> {
-    fn permute_states(&self, ordering: &StateOrdering<StateIndex<I>>) -> Self {
-        let (n, ordering_n) = (self.states().len(), ordering.len());
-        assert_eq!(
-            n, ordering_n,
-            "The MDP has {n} states, but the state ordering covers {ordering_n} states."
-        );
-        let mut new_mdp = Mdp::default();
-        for &old_state in &ordering.new_to_old {
-            new_mdp.add_state();
-            for choice in self.choices_of_state(old_state) {
-                new_mdp.add_choice();
-                for branch in self.branches_of_choice(choice) {
-                    let p = self.branch_probability(branch);
-                    let dest = self.branch_destination(branch);
-                    new_mdp.add_branch(p, ordering.old_to_new[dest]);
-                }
-            }
-        }
-        new_mdp
-    }
-}
-
 #[cfg(test)]
 mod tests {
-    use super::PermuteStates;
     use crate::Uniform;
     use crate::base_model::Mdp;
     use crate::mdp;
+    use crate::operations::state_reordering::PermuteStates;
     use crate::operations::state_reordering::StateOrdering;
     use crate::operations::state_reordering::test_utils::{state, state_ordering};
     use crate::traits::ReadStateSpace;
@@ -226,7 +198,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "The MDP has 3 states, but the state ordering covers 2")]
+    #[should_panic(expected = "The model has 3 states, but the state ordering covers 2")]
     fn ordering_too_short() {
         mdp!(input = {
             s0 -> 1.0: s1,
@@ -237,7 +209,7 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected = "The MDP has 3 states, but the state ordering covers 4")]
+    #[should_panic(expected = "The model has 3 states, but the state ordering covers 4")]
     fn ordering_too_long() {
         mdp!(input = {
             s0 -> 1.0: s1,

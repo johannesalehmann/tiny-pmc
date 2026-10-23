@@ -64,6 +64,35 @@ impl<M: HasIx, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds> HasI
     type Ix = M::Ix;
 }
 
+impl<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>
+    Model<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>
+{
+    /// Replaces the base, returning the old one together with the model that has the new base.
+    pub fn replace_base<N>(
+        self,
+        base: N,
+    ) -> (
+        M,
+        Model<N, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>,
+    ) {
+        (
+            self.base,
+            Model {
+                base,
+                initial: self.initial,
+                choice_labels: self.choice_labels,
+                branch_labels: self.branch_labels,
+                observations: self.observations,
+                atomic_propositions: self.atomic_propositions,
+                rewards: self.rewards,
+                annotations: self.annotations,
+                state_valuations: self.state_valuations,
+                predecessors: self.predecessors,
+            },
+        )
+    }
+}
+
 impl<M> Model<M, (), (), (), (), (), (), (), (), ()> {
     pub fn new(base: M) -> Self {
         Self {

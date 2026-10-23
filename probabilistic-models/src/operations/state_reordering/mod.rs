@@ -1,7 +1,9 @@
 mod atomic_propositions;
 mod dfs;
+mod graph;
 mod initial_states;
 mod mdp;
+mod models;
 mod ordering;
 mod rewards;
 #[cfg(test)]
@@ -47,6 +49,17 @@ impl<I: Ix> PermuteStatesWithContext<I> for () {
         _new_base: &Base,
     ) -> Self {
         ()
+    }
+}
+
+impl<I: Ix> PermuteStatesWithContext<I> for std::convert::Infallible {
+    fn permute_states_with_context<Base: ReadStateSpace<Ix = I>>(
+        &self,
+        _ordering: &StateOrdering<StateIndex<I>>,
+        _old_base: &Base,
+        _new_base: &Base,
+    ) -> Self {
+        match *self {}
     }
 }
 

@@ -4,7 +4,7 @@ use crate::traits::{
     derive_build_choice_branch_graph, derive_build_choice_graph, derive_build_states,
     derive_read_choice_destinations, derive_read_state_branches, derive_read_state_space,
 };
-use crate::{DefaultIx, HasIx, Model, StateIndex};
+use crate::{DefaultIx, HasIx, Ix, Model, StateIndex};
 
 mod graph;
 pub use graph::{BranchGraph, ChoiceBranchGraph, ChoiceGraph};
@@ -63,6 +63,12 @@ impl<G> BaseModel<G, SinglePlayer> {
             graph,
             players: SinglePlayer,
         }
+    }
+}
+
+impl<G, I: Ix> BaseModel<G, TurnBased<I>> {
+    pub fn with_graph_and_players(graph: G, players: TurnBased<I>) -> Self {
+        Self { graph, players }
     }
 }
 

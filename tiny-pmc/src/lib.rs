@@ -1,7 +1,7 @@
 use prism_model_builder::UserProvidedConstValue;
 use prism_model_builder::queries::ProcessedQuery;
 
-use probabilistic_models::traits::{ReadInitialStatesMaybe, ReadStateSpace};
+use probabilistic_models::traits::ReadInitialStatesMaybe;
 
 pub mod checking;
 pub mod parsing;
@@ -55,7 +55,6 @@ pub fn build_model(
             let start_build = std::time::Instant::now();
 
             let builder = prism_model_builder::ModelBuilder::new(&mut model)
-                .with_mdp_model_type()
                 .with_necessary_labels()
                 .with_queries(queries)
                 .with_constants(constants)
@@ -83,19 +82,19 @@ pub fn build_model(
                 .without_choice_labels()
                 .without_branch_labels()
                 .without_valuations()
-                .without_predecessors()
-                .without_observations()
-                .without_annotations();
-            if let Some(model) = model.try_with_initial_states() {
-                let start_reorder = std::time::Instant::now();
-                let model = model.reorder_dfs(dfs.into());
-                println!("Reordered states (dfs) in {:?}", start_reorder.elapsed());
-                model.into_optional()
-            } else {
-                panic!(
-                    "Cannot reorder model in depth-first order because the model has no initial states"
-                );
-            }
+                .without_predecessors();
+            probabilistic_models::map_for_concrete_base!(model, |model| {
+                if let Some(model) = model.try_with_initial_states() {
+                    let start_reorder = std::time::Instant::now();
+                    let model = model.reorder_dfs(dfs.into());
+                    println!("Reordered states (dfs) in {:?}", start_reorder.elapsed());
+                    model.into_optional()
+                } else {
+                    panic!(
+                        "Cannot reorder model in depth-first order because the model has no initial states"
+                    );
+                }
+            })
         }
     };
 
@@ -110,14 +109,16 @@ pub fn check_model<Out: CheckerOutput>(
     checker_options: &CheckerOptions,
     mut output: Out,
 ) -> Result<Out::Return, CheckerError> {
-    let model = model.unwrap_or_compute_predecessors();
+    probabilistic_models::for_concrete_base!(model, |model| {
+        let model = model.unwrap_or_compute_predecessors();
 
-    for property in queries {
-        output.started_check();
-        let result = crate::checking::check(&model, property, &checker_options)?;
-        output.finished_check(result);
-    }
-    Ok(output.into_return())
+        for property in queries {
+            output.started_check();
+            let result = crate::checking::check(&model, property, &checker_options)?;
+            output.finished_check(result);
+        }
+        Ok(output.into_return())
+    })
 }
 
 pub trait CheckerOutput {

@@ -1,6 +1,6 @@
 use prism_model::{Expression, FullSpan, Identifier, VariableReference};
 use probabilistic_models::annotations::{AtomicPropositions, RewardAnnotations};
-use probabilistic_models::base_model::Mdp;
+use probabilistic_models::base_model::AnyBaseModel;
 use probabilistic_models::initial_states::InitialStates;
 use probabilistic_models::labels::{BranchLabels, ChoiceLabels};
 use probabilistic_models::predecessors::Predecessors;
@@ -32,7 +32,7 @@ pub type UnprocessedPrismQueries = probabilistic_properties::NamedQueries<
 
 pub type API = AtomicPropositionIndex<DefaultIx>;
 pub type ExplicitModel = Model<
-    Mdp<DefaultIx>,
+    AnyBaseModel<DefaultIx>,
     Option<InitialStates<DefaultIx>>,
     (),
     (),
@@ -47,7 +47,7 @@ pub type ExplicitQueries = probabilistic_properties::NamedQueries<i64, f64, API>
 
 // The model that can be given to the model checker
 pub type OptionalModel = Model<
-    Mdp<DefaultIx>,
+    AnyBaseModel<DefaultIx>,
     Option<InitialStates<DefaultIx>>,
     Option<ChoiceLabels<DefaultIx, String>>,
     Option<BranchLabels<DefaultIx, String>>,
