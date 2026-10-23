@@ -4,7 +4,7 @@ use std::convert::Infallible;
 
 impl crate::Component for Infallible {} // TODO: This is temporary -- remove once Observations and Annotations have been properly implemented
 
-impl<M: ReadStateSpace, I, CL, BL, Obs: OptionalComponent, APs, Rew, Ann, Val, Pred>
+impl<M, I, CL, BL, Obs: OptionalComponent, APs, Rew, Ann, Val, Pred>
     Model<M, I, CL, BL, Obs, APs, Rew, Ann, Val, Pred>
 {
     pub fn without_observations(self) -> Model<M, I, CL, BL, (), APs, Rew, Ann, Val, Pred> {

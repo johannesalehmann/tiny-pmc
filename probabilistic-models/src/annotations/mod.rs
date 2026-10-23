@@ -91,7 +91,7 @@ pub enum Annotation<From: Index, Dist: Distribution<From>> {
     String(TypedAnnotation<From, Dist, String>),
 }
 
-impl<M: ReadStateSpace, I, CL, BL, Obs, APs, Rew, Ann: OptionalComponent, Val, Pred>
+impl<M, I, CL, BL, Obs, APs, Rew, Ann: OptionalComponent, Val, Pred>
     Model<M, I, CL, BL, Obs, APs, Rew, Ann, Val, Pred>
 {
     pub fn without_annotations(self) -> Model<M, I, CL, BL, Obs, APs, Rew, (), Val, Pred> {
