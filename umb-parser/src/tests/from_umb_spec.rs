@@ -14,7 +14,7 @@ fn parse_from_umb_spec() {
 
         x2true -> 1.0: x2true
     });
-    assert_eq!(parsed.base, expected_mdp);
+    assert_eq!(parsed.base.into_mdp().unwrap(), expected_mdp);
 
     let initial = parsed.initial.unwrap();
     assert_eq!(initial.entries(), &[true, false, false, false]);

@@ -1,5 +1,6 @@
 mod annotations;
 mod archive;
+mod base_model;
 mod csr;
 mod file_input;
 mod index;
@@ -11,7 +12,7 @@ use crate::archive::UmbArchive;
 use crate::index::{Time, Type, TypeKind};
 use crate::to1::BoolTo1Error;
 use probabilistic_models::annotations::{AtomicPropositions, RewardAnnotations};
-use probabilistic_models::base_model::{ChoiceBranchGraph, Mdp};
+use probabilistic_models::base_model::AnyBaseModel;
 use probabilistic_models::initial_states::InitialStates;
 use probabilistic_models::typed_index_collections::index;
 use probabilistic_models::{BranchIndex, ChoiceIndex, DefaultIx, Index, Model, StateIndex};
@@ -25,7 +26,7 @@ pub fn parse_umb<P: AsRef<Path>>(
     path: P,
 ) -> Result<
     Model<
-        Mdp<DefaultIx>,
+        AnyBaseModel<DefaultIx>,
         Option<InitialStates<DefaultIx>>,
         (),
         (),
@@ -44,10 +45,6 @@ pub fn parse_umb<P: AsRef<Path>>(
     let sizes = &index.transition_system;
 
     assert_eq!(
-        sizes.num_players, 1,
-        "The UMB parser currently only supports 1-player games"
-    );
-    assert_eq!(
         sizes.time,
         Time::Discrete,
         "The UMB parser currently only supports discrete-time models"
@@ -63,14 +60,52 @@ pub fn parse_umb<P: AsRef<Path>>(
         // TODO: For floats, check that the specified size is correct (or do so above)
         panic!("Missing, invalid or unsupported branch probability type")
     }
+    let is_probabilistic = match sizes.branch_probability_type {
+        None => false,
+        Some(Type {
+            kind: TypeKind::Double,
+            size,
+        }) => {
+            if let Some(size) = size {
+                if size != 64 {
+                    panic!("If branch probability type is `Double`, its size must be 64")
+                }
+            }
+            true
+        }
+        Some(kind) => panic!(
+            "The UMB parser currently only supports branch probabilities of type `Double`. Found {:?}",
+            kind
+        ),
+    };
+    assert_eq!(
+        sizes.num_players, 1,
+        "The UMB parser currently only supports 1-player games"
+    );
+    let base = match sizes.num_players {
+        0 => {
+            if is_probabilistic {
+                base_model::parse_dtmc(&mut archive, sizes)?.into()
+            } else {
+                panic!("A game with 0 players must be probabilistic.")
+            }
+        }
+        1 => {
+            if is_probabilistic {
+                base_model::parse_mdp(&mut archive, sizes)?.into()
+            } else {
+                base_model::parse_ts(&mut archive, sizes)?.into()
+            }
+        }
+        n => {
+            if is_probabilistic {
+                base_model::parse_smg(&mut archive, sizes)?.into()
+            } else {
+                base_model::parse_nonstochastic_game(&mut archive, sizes)?.into()
+            }
+        }
+    };
 
-    let state_to_choice = archive.csr_or_identity("state-to-choices.bin", sizes.num_states)?;
-    let choice_to_branch = archive.csr_or_identity("choice-to-branches.bin", sizes.num_choices)?;
-    let branch_destinations =
-        to1::parse_to1::<BI, u64, _>(archive.read_required_file("branch-to-target.bin")?)?
-            .map(|i| SI::from_raw(*i as usize));
-    let branch_probabilities =
-        to1::parse_to1::<BI, f64, _>(archive.read_required_file("branch-to-probability.bin")?)?;
     let initial = archive
         .read_file("state-is-initial.bin")
         .map(|contents| to1::parse_to1_bool::<SI, _>(contents, sizes.num_states as usize))
@@ -94,15 +129,8 @@ pub fn parse_umb<P: AsRef<Path>>(
         println!("Warning: The UMB parser ignored the unsupported or unexpected file {path}");
     }
 
-    let mdp = Mdp::with_graph(ChoiceBranchGraph {
-        state_to_choice,
-        choice_to_branch,
-        branch_probabilities,
-        branch_destinations,
-    });
-
     Ok(Model {
-        base: mdp,
+        base,
         initial,
         choice_labels: (),
         branch_labels: (),

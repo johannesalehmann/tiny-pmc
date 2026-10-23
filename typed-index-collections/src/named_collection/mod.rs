@@ -46,6 +46,15 @@ impl<InternalIndex: Index, E> NamedTo1<InternalIndex, E> {
         }
     }
 
+    pub fn with_entries<Iter: Iterator<Item = (String, E)>>(entries: Iter) -> Self {
+        let mut res = Self::new();
+        for (name, value) in entries {
+            res.add_entry(name, value);
+        }
+        res
+    }
+
+    // TODO: Instead of panicking, return Option<InternalIndex>?
     pub fn add_entry(&mut self, name: String, entry: E) -> InternalIndex {
         if self.name_to_index.contains_key(&name) {
             panic!("Cannot add a second entry with name `{name}` to this `NamedTo1` collection.")
