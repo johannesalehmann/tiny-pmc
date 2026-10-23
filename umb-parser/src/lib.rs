@@ -15,7 +15,7 @@ use probabilistic_models::annotations::{AtomicPropositions, RewardAnnotations};
 use probabilistic_models::base_model::AnyBaseModel;
 use probabilistic_models::initial_states::InitialStates;
 use probabilistic_models::typed_index_collections::index;
-use probabilistic_models::{BranchIndex, ChoiceIndex, DefaultIx, Index, Model, StateIndex};
+use probabilistic_models::{BranchIndex, ChoiceIndex, DefaultIx, Model, StateIndex};
 use std::convert::Infallible;
 use std::path::Path;
 
@@ -97,7 +97,7 @@ pub fn parse_umb<P: AsRef<Path>>(
                 base_model::parse_ts(&mut archive, sizes)?.into()
             }
         }
-        n => {
+        _n => {
             if is_probabilistic {
                 base_model::parse_smg(&mut archive, sizes)?.into()
             } else {

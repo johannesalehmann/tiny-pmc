@@ -127,6 +127,7 @@ fn state_space_restriction_keeps_frontier() {
     assert_eq!(transitions(&model), transitions(&expected));
 }
 
+#[test]
 fn state_space_restriction_excludes_initial_state() {
     let mut prism =
         prism_parser::parse_model("mdp module m x: [0..4] init 0; [] x<4 -> (x'=x+1); endmodule")

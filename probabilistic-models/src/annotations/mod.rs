@@ -3,7 +3,6 @@ pub use distributions::{
     Distribution, IdentityDistribution, MixedDistribution, ProbabilisticDistribution,
 };
 
-use crate::traits::ReadStateSpace;
 use crate::{
     AtomicPropositionIndex, ChoiceIndex, HasIx, Ix, Model, OptionalComponent, RewardIndex,
     StateIndex,
