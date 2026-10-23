@@ -17,6 +17,12 @@ pub enum CommandIndices {
     DeadlockFix,
 }
 
+// This trait is used by probabilistic_models to print information about the model, e.g.
+//     Choices are labelled (with `CommandIndices`)
+impl probabilistic_models::PrintLabelInfo for CommandIndices {
+    const LABEL_INFO_NAME: &'static str = "CommandIndices";
+}
+
 #[derive(Clone, PartialEq, Eq, Hash, Debug)]
 pub struct CommandIndexComponent {
     pub module_index: usize,

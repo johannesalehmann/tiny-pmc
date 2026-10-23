@@ -72,8 +72,7 @@ pub fn build_model(
     };
     // let model = model.without_predecessors();
 
-    // TODO: Print more information about the model (but make this also configurable)
-    println!("Model has {} states", model.states().len());
+    println!("{}", model.info());
 
     let model = match options.dfs {
         None => model,
