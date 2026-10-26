@@ -1,31 +1,32 @@
-// mod markov_chains;
-// pub use markov_chains::check_markov_chain;
+mod markov_chains;
+pub use markov_chains::check_dtmc;
 
-// mod stochastic_games;
-// pub use stochastic_games::check_stochastic_game;
+mod stochastic_games;
+pub use stochastic_games::check_stochastic_game;
 
-// mod transition_systems;
-// pub use transition_systems::check_transition_system;
+mod transition_systems;
+pub use transition_systems::check_transition_system;
 
 mod markov_decision_processes;
-
 pub use markov_decision_processes::check_mdp;
+
+mod nonstochastic_games;
+pub use nonstochastic_games::check_nonstochastic_game;
+
 use std::fmt::Formatter;
 
 use probabilistic_models::traits::StateSet;
-// mod nonstochastic_games;
-// pub use nonstochastic_games::check_nonstochastic_game;
 
 pub use probabilistic_model_algorithms::sub_model::{AttractorChoiceMode, SubModelOrder};
 use probabilistic_model_algorithms::value_iteration::config::ValueIterationConfig;
 pub use probabilistic_model_algorithms::value_iteration::config::{
     CollapseMecs, EpsAllocationScheme, SccTimingOutput, SolveOrder, SubModelHook,
 };
+use probabilistic_models::Model;
+use probabilistic_models::initial_states::SingleInitialState;
 use probabilistic_models::traits::{
-    ReadAtomicPropositionsMaybe, ReadInitialStates, ReadInitialStatesMaybe, ReadPredecessors,
-    ReadRewardsMaybe, ReadStateSpace,
+    ReadAtomicPropositionsMaybe, ReadInitialStates, ReadInitialStatesMaybe, ReadRewardsMaybe,
 };
-use probabilistic_models::{AsRefComponent, AtomicPropositionIndex, Model};
 
 pub enum CheckerError {
     NoSuitableAlgorithm,
@@ -86,22 +87,10 @@ impl CheckerOptions {
     }
 }
 
-pub fn check<'a, B, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>(
-    model: &'a Model<B, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>,
-    query: probabilistic_properties::Query<i64, f64, AtomicPropositionIndex<B::Ix>>,
-    options: &CheckerOptions,
-) -> Result<f64, CheckerError>
-where
-    B: ReadStateSpace,
-    Ini: AsRefComponent,
-    Ini::Output<'a>: ReadInitialStatesMaybe<Ix = B::Ix>,
-    APs: AsRefComponent,
-    APs::Output<'a>: ReadAtomicPropositionsMaybe<Ix = B::Ix>,
-    Rew: AsRefComponent,
-    Rew::Output<'a>: ReadRewardsMaybe<Ix = B::Ix>,
-    Preds: ReadPredecessors<Ix = B::Ix>,
-{
-    let initial_states = require_initial_states(model.initial.as_ref())
+pub fn into_single_initial_state<Ini: ReadInitialStatesMaybe>(
+    initial: Ini,
+) -> SingleInitialState<Ini::Ix> {
+    let initial_states = require_initial_states(initial)
         .initial_states()
         .iter()
         .collect::<Vec<_>>();
@@ -110,8 +99,9 @@ where
         1,
         "The model checker does not yet support models with multiple initial states"
     );
-    let initial_state = initial_states[0];
-    markov_decision_processes::check_mdp(model, query, initial_state, options)
+    SingleInitialState {
+        index: initial_states[0],
+    }
 }
 
 fn require_initial_states<Ini: ReadInitialStatesMaybe>(initial: Ini) -> Ini::WithInitialStates {

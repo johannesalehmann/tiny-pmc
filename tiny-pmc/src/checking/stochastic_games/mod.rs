@@ -1,20 +1,35 @@
-use probabilistic_models::{
-    ActionVector, AtomicProposition, DistributionVector, ModelTypes, ProbabilisticModel, TwoPlayer,
-    VectorPredecessors,
+use crate::checking::{CheckerError, CheckerOptions};
+use probabilistic_models::base_model::ReadPlayers;
+use probabilistic_models::initial_states::SingleInitialState;
+use probabilistic_models::traits::{
+    ReadAtomicPropositionsMaybe, ReadPredecessors, ReadRewardsMaybe, ReadStateSpace,
 };
-use probabilistic_properties::Query;
+use probabilistic_models::{AsRefComponent, AtomicPropositionIndex, Model};
 
-pub fn check_stochastic_game<
-    M: ModelTypes<
-            Predecessors = VectorPredecessors,
-            Distribution = DistributionVector,
-            ActionCollection = ActionVector<DistributionVector>,
-            Owners = TwoPlayer,
-        >,
->(
-    model: ProbabilisticModel<M>,
-    query: Query<i64, f64, AtomicProposition>,
-) -> Result<f64, super::CheckerError> {
-    let _ = (model, query);
-    Err(super::CheckerError::NoSuitableAlgorithm)
+pub fn check_stochastic_game<'a, B, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>(
+    model: &'a Model<
+        B,
+        SingleInitialState<B::Ix>,
+        ChLabel,
+        BrLabel,
+        Obs,
+        APs,
+        Rew,
+        Ann,
+        StateVals,
+        Preds,
+    >,
+    query: probabilistic_properties::Query<i64, f64, AtomicPropositionIndex<B::Ix>>,
+    options: &CheckerOptions,
+) -> Result<f64, CheckerError>
+where
+    B: ReadStateSpace + ReadPlayers,
+    APs: AsRefComponent,
+    APs::Output<'a>: ReadAtomicPropositionsMaybe<Ix = B::Ix>,
+    Rew: AsRefComponent,
+    Rew::Output<'a>: ReadRewardsMaybe<Ix = B::Ix>,
+    Preds: ReadPredecessors<Ix = B::Ix>,
+{
+    let _ = (model, query, options);
+    Err(CheckerError::NoSuitableAlgorithm)
 }

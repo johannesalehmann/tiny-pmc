@@ -1,6 +1,8 @@
 use prism_model_builder::UserProvidedConstValue;
 use prism_model_builder::queries::ProcessedQuery;
 
+use probabilistic_models::Model;
+use probabilistic_models::base_model::{AnyBaseModel, BaseModelType};
 use probabilistic_models::traits::ReadInitialStatesMaybe;
 
 pub mod checking;
@@ -108,16 +110,54 @@ pub fn check_model<Out: CheckerOutput>(
     checker_options: &CheckerOptions,
     mut output: Out,
 ) -> Result<Out::Return, CheckerError> {
-    probabilistic_models::for_concrete_base!(model, |model| {
-        let model = model.unwrap_or_compute_predecessors();
-
-        for property in queries {
-            output.started_check();
-            let result = crate::checking::check(&model, property, &checker_options)?;
-            output.finished_check(result);
+    let model = model.map_initial_states(checking::into_single_initial_state);
+    let model: Model<AnyBaseModel, _, _, _, _, _, _, _, _, _> =
+        probabilistic_models::map_for_concrete_base!(model, |model| {
+            model.unwrap_or_compute_predecessors()
+        });
+    match model.base.model_type() {
+        BaseModelType::TransitionSystem => {
+            let model = model.base_into_transition_system().unwrap();
+            for property in queries {
+                output.started_check();
+                let result = checking::check_transition_system(&model, property, checker_options)?;
+                output.finished_check(result);
+            }
         }
-        Ok(output.into_return())
-    })
+        BaseModelType::Dtmc => {
+            let model = model.base_into_dtmc().unwrap();
+            for property in queries {
+                output.started_check();
+                let result = checking::check_dtmc(&model, property, checker_options)?;
+                output.finished_check(result);
+            }
+        }
+        BaseModelType::Mdp => {
+            let model = model.base_into_mdp().unwrap();
+            for property in queries {
+                output.started_check();
+                let result = checking::check_mdp(&model, property, checker_options)?;
+                output.finished_check(result);
+            }
+        }
+        BaseModelType::NonstochasticGame => {
+            let model = model.base_into_nonstochastic_game().unwrap();
+            for property in queries {
+                output.started_check();
+                let result = checking::check_nonstochastic_game(&model, property, checker_options)?;
+                output.finished_check(result);
+            }
+        }
+        BaseModelType::StochasticGame => {
+            let model = model.base_into_stochastic_game().unwrap();
+            for property in queries {
+                output.started_check();
+                let result = checking::check_stochastic_game(&model, property, checker_options)?;
+                output.finished_check(result);
+            }
+        }
+    }
+    Ok(output.into_return())
 }
 
 pub trait CheckerOutput {

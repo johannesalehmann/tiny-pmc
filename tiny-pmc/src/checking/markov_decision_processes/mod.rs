@@ -5,6 +5,7 @@ use crate::checking::{
 use probabilistic_model_algorithms::state_description::StateDescription;
 use probabilistic_model_algorithms::value_iteration::NonDeterminism;
 use probabilistic_model_algorithms::value_iteration::until::rebuild_model_for_until;
+use probabilistic_models::initial_states::SingleInitialState;
 use probabilistic_models::traits::{
     ReadAtomicPropositions, ReadAtomicPropositionsMaybe, ReadInitialStates, ReadInitialStatesMaybe,
     ReadPredecessors, ReadRewards, ReadRewardsMaybe, ReadStateSpace, StateSet,
@@ -16,26 +17,35 @@ use probabilistic_properties::{
     NonDeterminismKind, PathFormula, Query, RewardFormula, StateFormula,
 };
 
-pub fn check_mdp<'a, B, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>(
-    model: &'a Model<B, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>,
+pub fn check_mdp<'a, B, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>(
+    model: &'a Model<
+        B,
+        SingleInitialState<B::Ix>,
+        ChLabel,
+        BrLabel,
+        Obs,
+        APs,
+        Rew,
+        Ann,
+        StateVals,
+        Preds,
+    >,
     query: probabilistic_properties::Query<i64, f64, AtomicPropositionIndex<B::Ix>>,
-    state: StateIndex<B::Ix>,
     options: &CheckerOptions,
 ) -> Result<f64, CheckerError>
 where
     B: ReadStateSpace,
-    Ini: AsRefComponent,
-    Ini::Output<'a>: ReadInitialStatesMaybe<Ix = B::Ix>,
     APs: AsRefComponent,
     APs::Output<'a>: ReadAtomicPropositionsMaybe<Ix = B::Ix>,
     Rew: AsRefComponent,
     Rew::Output<'a>: ReadRewardsMaybe<Ix = B::Ix>,
     Preds: ReadPredecessors<Ix = B::Ix>,
 {
+    let state = model.initial.index;
     // We only need initial states, atomic propositions and rewards:
     let model = &sub_model(
         &model.base,
-        model.initial.as_ref(),
+        model.initial,
         model.atomic_propositions.as_ref(),
         model.rewards.as_ref(),
         &model.predecessors,
