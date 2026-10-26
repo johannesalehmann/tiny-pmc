@@ -58,7 +58,6 @@ pub fn build_model(
                 .with_necessary_labels()
                 .with_queries(queries)
                 .with_constants(constants)
-                .without_choice_labels()
                 .with_initial_state_vector()
                 .with_state_space_restriction_maybe(state_space_restriction);
 

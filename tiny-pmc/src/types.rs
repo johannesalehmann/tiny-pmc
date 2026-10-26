@@ -49,7 +49,7 @@ pub type ExplicitQueries = probabilistic_properties::NamedQueries<i64, f64, API>
 pub type OptionalModel = Model<
     AnyBaseModel<DefaultIx>,
     Option<InitialStates<DefaultIx>>,
-    Option<ChoiceLabels<DefaultIx, String>>,
+    Option<ChoiceLabels<DefaultIx, Option<String>>>,
     Option<BranchLabels<DefaultIx, String>>,
     Option<Infallible>, // Infallible because Observations currently cannot be constructed
     Option<AtomicPropositions<DefaultIx>>,

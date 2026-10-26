@@ -185,6 +185,10 @@ impl PrintLabelInfo for String {
     const LABEL_INFO_NAME: &'static str = "String";
 }
 
+impl PrintLabelInfo for Option<String> {
+    const LABEL_INFO_NAME: &'static str = "Option<String>";
+}
+
 impl<I: Ix, AI: Index, E: PrintLabelInfo> WriteInfo for Labels<ChoiceIndex<I>, AI, E> {
     fn write_info(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         writeln!(f, "Choices are labelled (with `{}`)", E::LABEL_INFO_NAME)
