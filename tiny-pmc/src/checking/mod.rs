@@ -13,6 +13,9 @@ pub use markov_decision_processes::check_mdp;
 mod nonstochastic_games;
 pub use nonstochastic_games::check_nonstochastic_game;
 
+mod result;
+pub use result::{CheckingResult, StateValue, TypedCheckingResult, TypedCheckingResultIter};
+
 use std::fmt::Formatter;
 
 use probabilistic_models::traits::StateSet;

@@ -1,4 +1,4 @@
-use crate::checking::{CheckerError, CheckerOptions};
+use crate::checking::{CheckerError, CheckerOptions, CheckingResult};
 use probabilistic_models::initial_states::SingleInitialState;
 use probabilistic_models::traits::{
     ReadAtomicPropositionsMaybe, ReadPredecessors, ReadRewardsMaybe, ReadStateBranches,
@@ -20,7 +20,7 @@ pub fn check_dtmc<'a, B, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>
     >,
     query: probabilistic_properties::Query<i64, f64, AtomicPropositionIndex<B::Ix>>,
     options: &CheckerOptions,
-) -> Result<f64, CheckerError>
+) -> Result<CheckingResult<B::Ix>, CheckerError>
 where
     B: ReadStateBranches,
     APs: AsRefComponent,

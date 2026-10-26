@@ -1,6 +1,6 @@
 use crate::checking::{
-    CheckerError, CheckerOptions, require_atomic_propositions, require_initial_states,
-    require_rewards, sub_model,
+    CheckerError, CheckerOptions, CheckingResult, TypedCheckingResult, require_atomic_propositions,
+    require_initial_states, require_rewards, sub_model,
 };
 use probabilistic_model_algorithms::state_description::StateDescription;
 use probabilistic_model_algorithms::value_iteration::NonDeterminism;
@@ -32,7 +32,7 @@ pub fn check_mdp<'a, B, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>(
     >,
     query: probabilistic_properties::Query<i64, f64, AtomicPropositionIndex<B::Ix>>,
     options: &CheckerOptions,
-) -> Result<f64, CheckerError>
+) -> Result<CheckingResult<B::Ix>, CheckerError>
 where
     B: ReadStateSpace,
     APs: AsRefComponent,
@@ -54,7 +54,13 @@ where
         Query::ProbabilityValue {
             non_determinism,
             path: PathFormula::Until { before, after },
-        } => compute_until_value(model, non_determinism, &before, &after, state, options),
+        } => {
+            let result =
+                compute_until_value(model, non_determinism, &before, &after, state, options)?;
+            Ok(CheckingResult::Float(
+                TypedCheckingResult::for_single_state(state, result),
+            ))
+        }
         Query::ProbabilityValue {
             non_determinism,
             path,
@@ -67,7 +73,9 @@ where
                 &model.predecessors,
             );
             let result = compute_path_value(&model, non_determinism, &path, options)?;
-            Ok(result[state])
+            Ok(CheckingResult::Float(
+                TypedCheckingResult::for_single_state(state, result[state]),
+            ))
         }
         Query::StateFormula(state_formula) => {
             let model = sub_model(
@@ -78,11 +86,10 @@ where
                 &model.predecessors,
             );
             let result = compute_state_value(&model, &state_formula, options)?;
-            let as_float = match result.is_set(state) {
-                false => 0.0,
-                true => 1.0,
-            };
-            Ok(as_float)
+            Ok(CheckingResult::Bool(TypedCheckingResult::for_single_state(
+                state,
+                result.is_set(state),
+            )))
         }
         Query::RewardBound {
             non_determinism,
@@ -91,11 +98,10 @@ where
             reward,
         } => {
             let result = compute_reward_value(model, non_determinism, name, &reward, options)?;
-            let as_float = match bound.accepts(result[state]) {
-                false => 0.0,
-                true => 1.0,
-            };
-            Ok(as_float)
+            Ok(CheckingResult::Bool(TypedCheckingResult::for_single_state(
+                state,
+                bound.accepts(result[state]),
+            )))
         }
         Query::RewardValue {
             non_determinism,
@@ -103,7 +109,9 @@ where
             reward,
         } => {
             let result = compute_reward_value(model, non_determinism, name, &reward, options)?;
-            Ok(result[state])
+            Ok(CheckingResult::Float(
+                TypedCheckingResult::for_single_state(state, result[state]),
+            ))
         }
         Query::TimeBound {
             non_determinism,
@@ -118,11 +126,10 @@ where
                 &model.predecessors,
             );
             let result = compute_time_value(&model, non_determinism, &reward, options)?;
-            let as_float = match bound.accepts(result[state]) {
-                false => 0.0,
-                true => 1.0,
-            };
-            Ok(as_float)
+            Ok(CheckingResult::Bool(TypedCheckingResult::for_single_state(
+                state,
+                bound.accepts(result[state]),
+            )))
         }
         Query::TimeValue {
             non_determinism,
@@ -136,7 +143,9 @@ where
                 &model.predecessors,
             );
             let result = compute_time_value(&model, non_determinism, &reward, options)?;
-            Ok(result[state])
+            Ok(CheckingResult::Float(
+                TypedCheckingResult::for_single_state(state, result[state]),
+            ))
         }
     }
 }

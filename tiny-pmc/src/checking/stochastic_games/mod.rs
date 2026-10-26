@@ -1,4 +1,4 @@
-use crate::checking::{CheckerError, CheckerOptions};
+use crate::checking::{CheckerError, CheckerOptions, CheckingResult};
 use probabilistic_models::base_model::ReadPlayers;
 use probabilistic_models::initial_states::SingleInitialState;
 use probabilistic_models::traits::{
@@ -21,7 +21,7 @@ pub fn check_stochastic_game<'a, B, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateV
     >,
     query: probabilistic_properties::Query<i64, f64, AtomicPropositionIndex<B::Ix>>,
     options: &CheckerOptions,
-) -> Result<f64, CheckerError>
+) -> Result<CheckingResult<B::Ix>, CheckerError>
 where
     B: ReadStateSpace + ReadPlayers,
     APs: AsRefComponent,

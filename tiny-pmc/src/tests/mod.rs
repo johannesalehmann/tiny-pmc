@@ -1,5 +1,5 @@
 use crate::parsing::Inputs;
-use crate::{CheckerOptions, OutputReturner, ProcessingOptions};
+use crate::{CheckerOptions, OutputReturner, ProcessingOptions, StateValue};
 
 #[test]
 fn test_umb() {
@@ -17,5 +17,10 @@ fn test_umb() {
     )
     .unwrap();
     // TODO: Make an epsilon comparison here, as value iteration is not guaranteed to always be exact
-    assert_eq!(results.results, [0.8, 0.0]);
+    let values = results
+        .results
+        .iter()
+        .flat_map(|result| result.iter().map(|(_, value)| value))
+        .collect::<Vec<_>>();
+    assert_eq!(values, [StateValue::Float(0.8), StateValue::Float(0.0)]);
 }

@@ -1,9 +1,9 @@
 use prism_model_builder::UserProvidedConstValue;
 use prism_model_builder::queries::ProcessedQuery;
 
-use probabilistic_models::Model;
 use probabilistic_models::base_model::{AnyBaseModel, BaseModelType};
 use probabilistic_models::traits::ReadInitialStatesMaybe;
+use probabilistic_models::{DefaultIx, Index, Model, RawIndex};
 
 pub mod checking;
 pub mod parsing;
@@ -12,7 +12,9 @@ pub mod state_space_restriction;
 mod tests;
 pub mod types;
 
-pub use crate::checking::{CheckerError, CheckerOptions};
+pub use crate::checking::{
+    CheckerError, CheckerOptions, CheckingResult, StateValue, TypedCheckingResult,
+};
 use crate::parsing::Inputs;
 pub use types::*;
 
@@ -163,7 +165,7 @@ pub fn check_model<Out: CheckerOutput>(
 pub trait CheckerOutput {
     type Return;
     fn started_check(&mut self);
-    fn finished_check(&mut self, result: f64);
+    fn finished_check(&mut self, result: CheckingResult<DefaultIx>);
     fn into_return(self) -> Self::Return;
 }
 
@@ -190,12 +192,15 @@ impl CheckerOutput for OutputPrinter {
         println!("Checking property {}...", self.counter);
     }
 
-    fn finished_check(&mut self, result: f64) {
+    fn finished_check(&mut self, result: CheckingResult<DefaultIx>) {
         println!(
-            "Property {}: {result} (in {:?})",
+            "Property {} (in {:?}):",
             self.counter,
             self.start_time.elapsed()
         );
+        for (state, value) in result.iter() {
+            println!("  State {}: {value}", state.raw().as_usize());
+        }
     }
 
     fn into_return(self) -> Self::Return {
@@ -204,7 +209,7 @@ impl CheckerOutput for OutputPrinter {
 }
 
 pub struct OutputReturner {
-    results: Vec<f64>,
+    results: Vec<CheckingResult<DefaultIx>>,
 }
 
 impl OutputReturner {
@@ -220,7 +225,7 @@ impl CheckerOutput for OutputReturner {
 
     fn started_check(&mut self) {}
 
-    fn finished_check(&mut self, result: f64) {
+    fn finished_check(&mut self, result: CheckingResult<DefaultIx>) {
         self.results.push(result);
     }
 
