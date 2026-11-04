@@ -4,13 +4,15 @@ use crate::traits::{
     derive_build_choice_branch_graph, derive_build_choice_graph, derive_build_states,
     derive_read_choice_destinations, derive_read_state_branches, derive_read_state_space,
 };
-use crate::{DefaultIx, HasIx, Ix, Model, StateIndex};
+use crate::{DefaultIx, HasIx, Ix, Model, PlayerIndex, StateIndex};
 
 mod graph;
 pub use graph::{BranchGraph, ChoiceBranchGraph, ChoiceGraph};
 
 mod owners;
-pub use owners::{BuildOwners, ReadOwners, ReadPlayers, SinglePlayer, TurnBased, TwoPlayer};
+pub use owners::{
+    BuildOwners, ReadOwners, ReadPlayers, SinglePlayer, TurnBased, TwoPlayer, TwoPlayerTurnBased,
+};
 pub(crate) use owners::{derive_read_owners, derive_read_players};
 
 mod base_model_enum;
@@ -38,6 +40,11 @@ pub type Mdp<I = DefaultIx> = BaseModel<ChoiceBranchGraph<I>, SinglePlayer>;
 
 pub type NonstochasticGame<I = DefaultIx> = BaseModel<ChoiceGraph<I>, TurnBased<I>>;
 pub type StochasticGame<I = DefaultIx> = BaseModel<ChoiceBranchGraph<I>, TurnBased<I>>;
+
+pub type TwoPlayerNonstochasticGame<I = DefaultIx> =
+    BaseModel<ChoiceGraph<I>, TwoPlayerTurnBased<I>>;
+pub type TwoPlayerStochasticGame<I = DefaultIx> =
+    BaseModel<ChoiceBranchGraph<I>, TwoPlayerTurnBased<I>>;
 
 // `new` creates models with the default index profile, so that `Mdp::new()` needs no type
 // annotations (default type parameters are not used for inference). Models with other profiles
@@ -83,6 +90,20 @@ impl<G: ReadStateBranches, P> ReadStateBranches for BaseModel<G, P> {
 
 impl<G: ReadChoiceDestinations, P> ReadChoiceDestinations for BaseModel<G, P> {
     derive_read_choice_destinations!(graph);
+}
+
+impl<G, I: Ix> BaseModel<G, TurnBased<I>> {
+    /// Reduces the game to two players, see [`TurnBased::into_two_player`]. In the resulting game,
+    /// [`TwoPlayer::Eve`] owns the states in `coalition` and [`TwoPlayer::Adam`] the others.
+    pub fn into_two_player_game(
+        self,
+        coalition: impl IntoIterator<Item = PlayerIndex<I>>,
+    ) -> BaseModel<G, TwoPlayerTurnBased<I>> {
+        BaseModel {
+            graph: self.graph,
+            players: self.players.into_two_player(coalition),
+        }
+    }
 }
 
 impl<G: ReadStateSpace> ReadOwners for BaseModel<G, SinglePlayer> {
@@ -190,5 +211,27 @@ impl<M, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Preds>
             }),
             Err(base) => Err(Model { base, ..self }),
         }
+    }
+}
+
+impl<G, I: Ix, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Preds>
+    Model<BaseModel<G, TurnBased<I>>, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, Val, Preds>
+{
+    pub fn into_two_player_game(
+        self,
+        coalition: impl IntoIterator<Item = PlayerIndex<I>>,
+    ) -> Model<
+        BaseModel<G, TwoPlayerTurnBased<I>>,
+        Ini,
+        ChLabel,
+        BrLabel,
+        Obs,
+        APs,
+        Rew,
+        Ann,
+        Val,
+        Preds,
+    > {
+        self.map_base(|base| base.into_two_player_game(coalition))
     }
 }

@@ -203,8 +203,70 @@ impl<I: Ix> BuildOwners for TurnBased<I> {
     }
 }
 
+impl<I: Ix> TurnBased<I> {
+    pub fn into_two_player(
+        self,
+        coalition: impl IntoIterator<Item = PlayerIndex<I>>,
+    ) -> TwoPlayerTurnBased<I> {
+        let mut in_coalition: To1<PlayerIndex<I>, bool> =
+            To1::with_entries(vec![false; self.players.len()]);
+        for player in coalition {
+            let Some(entry) = in_coalition.get_mut(player) else {
+                panic!(
+                    "{player:?} is not a player of this game, which has {} players",
+                    self.players.len()
+                );
+            };
+            *entry = true;
+        }
+        TwoPlayerTurnBased {
+            state_to_owner: self.state_to_owner.map(|&owner| match in_coalition[owner] {
+                true => TwoPlayer::Eve,
+                false => TwoPlayer::Adam,
+            }),
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq)]
+pub struct TwoPlayerTurnBased<I: Ix> {
+    pub state_to_owner: To1<StateIndex<I>, TwoPlayer>,
+}
+
+impl<I: Ix> HasIx for TwoPlayerTurnBased<I> {
+    type Ix = I;
+}
+
+impl<I: Ix> Default for TwoPlayerTurnBased<I> {
+    fn default() -> Self {
+        Self {
+            state_to_owner: To1::new(),
+        }
+    }
+}
+
+impl<I: Ix> ReadOwners for TwoPlayerTurnBased<I> {
+    type OwnerType = TwoPlayer;
+
+    fn state_owner(&self, state: StateIndex<Self::Ix>) -> TwoPlayer {
+        self.state_to_owner[state]
+    }
+}
+
+impl<I: Ix> BuildOwners for TwoPlayerTurnBased<I> {
+    fn add_state_owner(&mut self, state: StateIndex<Self::Ix>, owner: Self::OwnerType) {
+        self.state_to_owner.add_checked(state, owner);
+    }
+}
+
 impl ClearModel for SinglePlayer {
     fn clear(&mut self) {}
+}
+
+impl<I: Ix> ClearModel for TwoPlayerTurnBased<I> {
+    fn clear(&mut self) {
+        self.state_to_owner.clear();
+    }
 }
 
 // Removes all state owners, but keeps the players.
