@@ -1,7 +1,8 @@
 use crate::{ModelBuilder, ModelBuildingError};
 use prism_model::{ModelType, Span};
 use probabilistic_models::base_model::{
-    AnyBaseModel, BaseModelType, Dtmc, Mdp, NonstochasticGame, StochasticGame, TransitionSystem,
+    AnyBaseModel, BaseModelType, Dtmc, Mdp, Narrowable, NonstochasticGame, StochasticGame,
+    TransitionSystem,
 };
 use probabilistic_models::{HasIx, Ix};
 use std::marker::PhantomData;

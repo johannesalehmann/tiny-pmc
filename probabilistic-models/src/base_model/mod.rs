@@ -17,6 +17,7 @@ mod base_model_enum;
 pub use base_model_enum::{AnyBaseModel, BaseModelEnum, BaseModelType};
 
 mod narrowest;
+pub use narrowest::Narrowable;
 mod narrowing;
 
 mod model_macros;

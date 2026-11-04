@@ -3,7 +3,7 @@ use crate::base_model::{
     NonstochasticGame, StochasticGame, TransitionSystem,
 };
 use crate::{ChoiceIndex, Ix, StateIndex};
-use typed_index_collections::{Index, RawIndex};
+use typed_index_collections::{Csr, Index, RawIndex};
 
 // Narrowing moves the underlying vectors and only reinterprets index types. All state, choice and
 // branch indices are preserved, so other model components (rewards, labels, ...) stay valid.
@@ -47,6 +47,37 @@ impl<I: Ix> ChoiceBranchGraph<I> {
             branch_probabilities: self.branch_probabilities,
             branch_destinations: self.branch_destinations,
         })
+    }
+}
+
+impl<I: Ix> BranchGraph<I> {
+    pub fn every_state_has_one_branch(&self) -> bool {
+        all_ranges_have_one_entry(self.state_to_branch.entries_raw())
+    }
+
+    pub fn try_into_choice_graph(self) -> Result<ChoiceGraph<I>, Self> {
+        if !self.every_state_has_one_branch() {
+            return Err(self);
+        }
+        Ok(ChoiceGraph {
+            state_to_choice: Csr::identity(self.state_to_branch.entries_raw().len()),
+            choice_destinations: self.branch_destinations.change_key_type::<ChoiceIndex<I>>(),
+        })
+    }
+}
+
+impl<I: Ix, P> BaseModel<BranchGraph<I>, P> {
+    pub fn try_into_choice_graph(self) -> Result<BaseModel<ChoiceGraph<I>, P>, Self> {
+        match self.graph.try_into_choice_graph() {
+            Ok(graph) => Ok(BaseModel {
+                graph,
+                players: self.players,
+            }),
+            Err(graph) => Err(BaseModel {
+                graph,
+                players: self.players,
+            }),
+        }
     }
 }
 
@@ -95,6 +126,22 @@ impl<I: Ix> Mdp<I> {
             BaseModelType::Dtmc => self.try_into_dtmc().map(Into::into),
             BaseModelType::Mdp => Ok(self.into()),
             BaseModelType::NonstochasticGame | BaseModelType::StochasticGame => Err(self),
+        }
+    }
+}
+
+impl<I: Ix> Dtmc<I> {
+    pub fn try_into_transition_system(self) -> Result<TransitionSystem<I>, Self> {
+        self.try_into_choice_graph()
+    }
+
+    pub fn try_narrow_to(self, target: BaseModelType) -> Result<AnyBaseModel<I>, Self> {
+        match target {
+            BaseModelType::TransitionSystem => self.try_into_transition_system().map(Into::into),
+            BaseModelType::Dtmc => Ok(self.into()),
+            BaseModelType::Mdp
+            | BaseModelType::NonstochasticGame
+            | BaseModelType::StochasticGame => Err(self),
         }
     }
 }
