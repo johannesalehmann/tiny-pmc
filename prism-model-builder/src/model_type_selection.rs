@@ -120,7 +120,7 @@ impl<I: Ix> ModelTypeSelection for Auto<I> {
             return Ok(mdp.narrow());
         };
         let requested = declared_base_model_type(declared)?;
-        mdp.try_narrow_to(requested)
+        mdp.try_convert_to(requested)
             .map_err(|mdp| ModelBuildingError::ModelTypeMismatch {
                 requested,
                 narrowest: mdp.narrowest_type(),
@@ -136,7 +136,7 @@ impl<I: Ix> ModelTypeSelection for Auto<I> {
             return Ok(game.narrow());
         };
         let requested = declared_base_model_type(declared)?;
-        game.try_narrow_to(requested)
+        game.try_convert_to(requested)
             .map_err(|game| ModelBuildingError::ModelTypeMismatch {
                 requested,
                 narrowest: game.narrowest_type(),
