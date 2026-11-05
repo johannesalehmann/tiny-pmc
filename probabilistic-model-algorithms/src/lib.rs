@@ -15,4 +15,5 @@ pub mod qualitative_reachability;
 pub mod sccs;
 pub mod state_description;
 pub mod sub_model;
+pub mod transition_systems;
 pub mod value_iteration;

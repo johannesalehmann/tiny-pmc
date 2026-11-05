@@ -1,45 +1,43 @@
-use probabilistic_models::{
-    AtomicPropositions, InitialStates, ProbabilisticModel, SingleStateDistribution,
+use probabilistic_models::traits::{
+    ReadAtomicPropositions, ReadChoiceDestinations, ReadInitialStates, StateSet,
 };
-use std::collections::HashMap;
+use probabilistic_models::{AtomicPropositionIndex, ChoiceIndex, Ix, StateIndex};
+use std::collections::VecDeque;
+use typed_index_collections::To1;
 
-pub fn is_reachable<M: probabilistic_models::ModelTypes<Distribution = SingleStateDistribution>>(
-    model: &ProbabilisticModel<M>,
-    objective_ap_index: usize,
-) -> ReachableResult {
-    let mut open_list = Vec::new();
-    let mut predecessors = HashMap::new();
-    for &initial in model.initial_states.iter() {
-        if model.states[initial]
-            .atomic_propositions
-            .get_value(objective_ap_index)
-        {
-            return ReachableResult::Reachable(get_path(predecessors, initial));
+pub fn is_reachable<M>(
+    model: &M,
+    objective: AtomicPropositionIndex<M::Ix>,
+) -> ReachableResult<M::Ix>
+where
+    M: ReadChoiceDestinations + ReadInitialStates + ReadAtomicPropositions,
+{
+    let mut open_list = VecDeque::new();
+    let mut predecessors = To1::with_entries(vec![Predecessor::Unvisited; model.states().len()]);
+    for initial in model.initial_states().iter() {
+        if !matches!(predecessors[initial], Predecessor::Unvisited) {
+            continue;
+        }
+        predecessors[initial] = Predecessor::Initial;
+
+        if model.is_atomic_proposition_set(initial, objective) {
+            return ReachableResult::Reachable(get_path(&predecessors, initial));
         }
 
-        open_list.push(initial);
-        predecessors.insert(initial, Predecessor::None);
+        open_list.push_back(initial);
     }
 
-    while let Some(state) = open_list.pop() {
-        for successor in model.states.get(state).unwrap().get_all_successors() {
-            let index = successor.target_index;
-            if !predecessors.contains_key(&index) {
-                if model.states[index]
-                    .atomic_propositions
-                    .get_value(objective_ap_index)
-                {
-                    return ReachableResult::Reachable(get_path(predecessors, index));
+    while let Some(state) = open_list.pop_front() {
+        for choice in model.choices_of_state(state) {
+            let destination = model.choice_destination(choice);
+            if matches!(predecessors[destination], Predecessor::Unvisited) {
+                predecessors[destination] = Predecessor::Some { state, choice };
+
+                if model.is_atomic_proposition_set(destination, objective) {
+                    return ReachableResult::Reachable(get_path(&predecessors, destination));
                 }
 
-                open_list.push(index);
-                predecessors.insert(
-                    index,
-                    Predecessor::Some {
-                        index: state,
-                        action_index: successor.action_index,
-                    },
-                );
+                open_list.push_back(destination);
             }
         }
     }
@@ -47,38 +45,43 @@ pub fn is_reachable<M: probabilistic_models::ModelTypes<Distribution = SingleSta
     ReachableResult::Unreachable
 }
 
-fn get_path(predecessors: HashMap<usize, Predecessor>, target: usize) -> Path {
-    let mut states = Vec::new();
-    let mut actions = Vec::new();
-    states.push(target);
+fn get_path<I: Ix>(
+    predecessors: &To1<StateIndex<I>, Predecessor<I>>,
+    target: StateIndex<I>,
+) -> Path<I> {
+    let mut states = vec![target];
+    let mut choices = Vec::new();
     let mut current = target;
-    while let Predecessor::Some {
-        index,
-        action_index,
-    } = predecessors[&current]
-    {
-        actions.push(action_index);
-        states.push(index);
-        current = index;
+    while let Predecessor::Some { state, choice } = predecessors[current] {
+        choices.push(choice);
+        states.push(state);
+        current = state;
     }
 
     states.reverse();
-    actions.reverse();
+    choices.reverse();
 
-    Path { states, actions }
+    Path { states, choices }
 }
 
-pub enum ReachableResult {
-    Reachable(Path),
+pub enum ReachableResult<I: Ix> {
+    Reachable(Path<I>),
     Unreachable,
 }
 
-pub struct Path {
-    pub states: Vec<usize>,
-    pub actions: Vec<usize>,
+/// A path through the model. `choices[i]` is the choice taken in `states[i]` to reach
+/// `states[i + 1]`.
+pub struct Path<I: Ix> {
+    pub states: Vec<StateIndex<I>>,
+    pub choices: Vec<ChoiceIndex<I>>,
 }
 
-enum Predecessor {
-    None,
-    Some { index: usize, action_index: usize },
+#[derive(Clone, Copy)]
+enum Predecessor<I: Ix> {
+    Unvisited,
+    Initial,
+    Some {
+        state: StateIndex<I>,
+        choice: ChoiceIndex<I>,
+    },
 }
