@@ -157,7 +157,10 @@ impl<From: Index> To1<From, bool> {
         }
     }
 
-    pub fn with_true_values<'a>(true_values: impl Iterator<Item = &'a From>, length: usize) -> Self
+    pub fn with_true_values<'a>(
+        true_values: impl IntoIterator<Item = &'a From>,
+        length: usize,
+    ) -> Self
     where
         From: 'a,
     {
@@ -169,7 +172,7 @@ impl<From: Index> To1<From, bool> {
     }
 
     pub fn with_false_values<'a>(
-        false_values: impl Iterator<Item = &'a From>,
+        false_values: impl IntoIterator<Item = &'a From>,
         length: usize,
     ) -> Self
     where
