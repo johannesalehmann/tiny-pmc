@@ -156,6 +156,31 @@ impl<From: Index> To1<From, bool> {
             to1: &self,
         }
     }
+
+    pub fn with_true_values<'a>(true_values: impl Iterator<Item = &'a From>, length: usize) -> Self
+    where
+        From: 'a,
+    {
+        let mut res = Self::with_entries(vec![false; length]);
+        for &true_value in true_values {
+            res[true_value] = true;
+        }
+        res
+    }
+
+    pub fn with_false_values<'a>(
+        false_values: impl Iterator<Item = &'a From>,
+        length: usize,
+    ) -> Self
+    where
+        From: 'a,
+    {
+        let mut res = Self::with_entries(vec![true; length]);
+        for &false_value in false_values {
+            res[false_value] = false;
+        }
+        res
+    }
 }
 
 // TODO: This trait is written in a rather ad-hoc matter. Its use should be expanded, so that most
