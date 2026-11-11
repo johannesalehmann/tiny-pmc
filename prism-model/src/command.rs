@@ -498,10 +498,7 @@ impl<Ctx, V: Displayable<Ctx>, S: Span, E: Displayable<Ctx>> Displayable<Ctx> fo
         //     }
         // }
 
-        // TODO: For similar reasons to above, we cannot inspect whether the expression needs to be
-        //  wrapped in parentheses. PRISM seems to require the probability to be surrounded if it is
-        //  not an atomic (i.e. not a variable, literal, etc.).
-        write!(f, "({}) : ", self.probability.displayable(context))?;
+        write!(f, "{} : ", self.probability.displayable(context))?;
 
         if self.assignments.is_empty() {
             write!(f, "true")?;
