@@ -129,13 +129,17 @@ where
         );
         let implication = implication.boxed();
 
+        // The else branch uses `expr` instead of `implication`, as it is allowed to contain e.g.
+        // another ternary operator without parentheses, i.e. `a ? b : c ? d : e` parses (and is
+        // equivalent to `a ? b: (c ? d: e)`), but `a ? b ? c : d : e` does not parse. This matches
+        // the parsing behaviour of PRISM.
         let ternary = implication
             .clone()
             .then(
                 just(Token::Questionmark)
                     .ignore_then(implication.clone())
                     .then_ignore(just(Token::Colon))
-                    .then(implication)
+                    .then(expr)
                     .or_not(),
             )
             .map_with(|(lhs, rest), e| match rest {

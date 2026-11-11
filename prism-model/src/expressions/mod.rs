@@ -1706,7 +1706,6 @@ impl<V: Clone, S: Span> Expression<V, S> {
 }
 
 impl<S: Span> Expression<Identifier<S>, S> {
-
     /// Replaces every [`Expression::VarOrConst`] in this expression whose name matches a formula
     /// in `formulas` with that formula's condition expression.
     ///
@@ -2090,7 +2089,8 @@ impl<V, S: Span> Expression<V, S> {
                 write!(f, "?")?;
                 lhs.fmt_internal(f, precedence + 1, variable_to_display.clone())?;
                 write!(f, ":")?;
-                rhs.fmt_internal(f, precedence + 1, variable_to_display)?;
+                // rhs has lower precedence to avoid unnecessary parentheses around nested ternaries
+                rhs.fmt_internal(f, precedence, variable_to_display)?;
             }
         }
 
