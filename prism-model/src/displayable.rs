@@ -57,6 +57,14 @@ pub trait Displayable<Ctx>: private::Sealed {
     fn fmt_internal(&self, f: &mut Formatter<'_>, context: &Ctx) -> std::fmt::Result;
 }
 
+/// A [`Displayable`] expression. This provides an `is_one` check that is used by the printer to
+/// omit such probabilities. For example, it prints `1/2: (x'=1)`, but `(y'=1)` instead of
+/// `1: (y'=1)`
+pub trait DisplayableExpression<Ctx>: Displayable<Ctx> {
+    /// Returns `true` if the expression is the literal `1`.
+    fn is_one(&self) -> bool;
+}
+
 /// Encapsulates `element` and the context necessary to display it.
 ///
 /// Usually used in combination with [`Displayable`] for PRISM components that require additional

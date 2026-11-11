@@ -835,8 +835,8 @@ impl<S: Span> Display for ModelType<S> {
 }
 
 impl<A, E, V, S: Span> crate::private::Sealed for Model<V, S, E, A> {}
-impl<Ctx, A: Display, E: Displayable<Ctx>, V: Displayable<Ctx>, S: Span> Displayable<Ctx>
-    for Model<V, S, E, A>
+impl<Ctx, A: Display, E: crate::DisplayableExpression<Ctx>, V: Displayable<Ctx>, S: Span>
+    Displayable<Ctx> for Model<V, S, E, A>
 {
     fn fmt_internal(&self, f: &mut Formatter<'_>, context: &Ctx) -> std::fmt::Result {
         if let Some(model_type) = &self.model_type {

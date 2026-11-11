@@ -2194,3 +2194,9 @@ impl<Ctx, V: Displayable<Ctx>, S: Span> Displayable<Ctx> for Expression<V, S> {
         self.fmt_internal(f, 0, |v| format!("{}", v.displayable(context)))
     }
 }
+
+impl<Ctx, V: Displayable<Ctx>, S: Span> crate::DisplayableExpression<Ctx> for Expression<V, S> {
+    fn is_one(&self) -> bool {
+        matches!(self, Expression::Int(1, _))
+    }
+}

@@ -1,7 +1,7 @@
 use crate::expressions::Expression;
 use crate::module::RenameRules;
 use crate::spans::{FullSpan, Span};
-use crate::{Attributes, Displayable, Identifier, VariableReference};
+use crate::{Attributes, Displayable, DisplayableExpression, Identifier, VariableReference};
 use std::fmt::{Display, Formatter};
 
 /// A [`Command`] using [`Identifier`] to refer to variables in expressions, instead of the default of
@@ -340,7 +340,7 @@ impl<S: Span> Command<Identifier<S>, S, Expression<Identifier<S>, S>, Identifier
 }
 
 impl<V, S: Span, E, A> crate::private::Sealed for Command<V, S, E, A> {}
-impl<Ctx, V: Displayable<Ctx>, S: Span, E: Displayable<Ctx>, A: Display> Displayable<Ctx>
+impl<Ctx, V: Displayable<Ctx>, S: Span, E: DisplayableExpression<Ctx>, A: Display> Displayable<Ctx>
     for Command<V, S, E, A>
 {
     fn fmt_internal(&self, f: &mut Formatter<'_>, context: &Ctx) -> std::fmt::Result {
@@ -487,18 +487,13 @@ impl<S: Span> Update<Identifier<S>, S, Expression<Identifier<S>, S>> {
 }
 
 impl<V, S: Span, E> crate::private::Sealed for Update<V, S, E> {}
-impl<Ctx, V: Displayable<Ctx>, S: Span, E: Displayable<Ctx>> Displayable<Ctx> for Update<V, S, E> {
+impl<Ctx, V: Displayable<Ctx>, S: Span, E: DisplayableExpression<Ctx>> Displayable<Ctx>
+    for Update<V, S, E>
+{
     fn fmt_internal(&self, f: &mut Formatter<'_>, context: &Ctx) -> std::fmt::Result {
-        // This would produce nicer output, but require E to provide some way of inspecting its
-        // value, e.g. by requiring a separate IsOne trait.
-        // match &self.probability {
-        //     Expression::Int(1, _) => {}
-        //     e => {
-        //         write!(f, "{} : ", e)?;
-        //     }
-        // }
-
-        write!(f, "{} : ", self.probability.displayable(context))?;
+        if !self.probability.is_one() {
+            write!(f, "{} : ", self.probability.displayable(context))?;
+        }
 
         if self.assignments.is_empty() {
             write!(f, "true")?;

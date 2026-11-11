@@ -139,7 +139,7 @@ pub use identifier::{Identifier, InvalidName};
 
 mod displayable;
 pub(crate) use displayable::private;
-pub use displayable::{Displayable, DisplayableWithContext};
+pub use displayable::{Displayable, DisplayableExpression, DisplayableWithContext};
 
 mod players;
 pub use players::{Player, PlayerExists, PlayerManager};

@@ -396,7 +396,7 @@ impl<V, S: Span, A> Module<V, S, Expression<V, S>, A> {
 }
 
 impl<V, S: Span, E, A> crate::private::Sealed for Module<V, S, E, A> {}
-impl<'a, 'b, Ctx, V: Displayable<Ctx>, S: Span, E: Displayable<Ctx>, A: Display>
+impl<'a, 'b, Ctx, V: Displayable<Ctx>, S: Span, E: crate::DisplayableExpression<Ctx>, A: Display>
     Displayable<(usize, &VariableManager<S, E>, &Ctx)> for Module<V, S, E, A>
 {
     fn fmt_internal(
