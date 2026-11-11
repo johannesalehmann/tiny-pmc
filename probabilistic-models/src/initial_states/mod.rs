@@ -96,8 +96,8 @@ impl<M: ReadStateSpace, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val, Preds>
     }
 }
 
-impl<M: ReadStateSpace, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val, Preds>
-    Model<M, InitialStates<M::Ix>, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val, Preds>
+impl<M, Ix: crate::ix::Ix, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val, Preds>
+    Model<M, InitialStates<Ix>, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val, Preds>
 {
     /// Replaces the [`InitialStates`] vector by an equivalent [`SingleInitialState`].
     ///
@@ -106,7 +106,7 @@ impl<M: ReadStateSpace, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val, Preds>
     pub fn try_convert_initial_states_to_single(
         self,
     ) -> Result<
-        Model<M, SingleInitialState<M::Ix>, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val, Preds>,
+        Model<M, SingleInitialState<Ix>, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val, Preds>,
         (Self, NotSingleInitialStateError),
     > {
         match SingleInitialState::try_from_initial_states(&self.initial) {
