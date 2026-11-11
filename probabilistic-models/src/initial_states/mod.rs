@@ -1,5 +1,5 @@
 mod single;
-pub use single::SingleInitialState;
+pub use single::{NotSingleInitialStateError, SingleInitialState};
 
 mod multiple;
 pub use multiple::InitialStates;
@@ -81,6 +81,38 @@ impl<M, I: ReadInitialStates, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val, Preds>
         self,
     ) -> Model<M, (), ChLabel, BrLabel, Obs, APs, Rew, Anno, Val, Preds> {
         self.map_initial_states(|_| ())
+    }
+}
+
+impl<M: ReadStateSpace, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val, Preds>
+    Model<M, SingleInitialState<M::Ix>, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val, Preds>
+{
+    /// Replaces the [`SingleInitialState`] by an equivalent [`InitialStates`] vector.
+    pub fn convert_initial_state_to_multiple(
+        self,
+    ) -> Model<M, InitialStates<M::Ix>, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val, Preds> {
+        let num_states = self.base.states().len();
+        self.map_initial_states(|i| i.to_initial_states(num_states))
+    }
+}
+
+impl<M: ReadStateSpace, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val, Preds>
+    Model<M, InitialStates<M::Ix>, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val, Preds>
+{
+    /// Replaces the [`InitialStates`] vector by an equivalent [`SingleInitialState`].
+    ///
+    /// If the `InitialStates` vector does not contain exactly a single initial state, then the
+    /// unchanged model and the reason for failure is returned.
+    pub fn try_convert_initial_states_to_single(
+        self,
+    ) -> Result<
+        Model<M, SingleInitialState<M::Ix>, ChLabel, BrLabel, Obs, APs, Rew, Anno, Val, Preds>,
+        (Self, NotSingleInitialStateError),
+    > {
+        match SingleInitialState::try_from_initial_states(&self.initial) {
+            Ok(single) => Ok(self.map_initial_states(|_| single)),
+            Err(e) => Err((self, e)),
+        }
     }
 }
 
