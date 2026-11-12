@@ -1,5 +1,6 @@
-use crate::valuations::{ModelValuationEntry, ValuationLookupTable, Valuations};
-use crate::{HasIx, Ix, Model, StateIndex};
+use crate::valuations::{ModelValuationEntry, ValuationClass, ValuationLookupTable, Valuations};
+use crate::{HasIx, Ix, Model, StateIndex, ValuationClassEntryIndex, ValuationClassIndex};
+use typed_index_collections::SemiboundedIndexRange;
 
 pub trait ReadValuations: HasIx {
     fn state_valuation(&self, state: StateIndex<Self::Ix>) -> ModelValuationEntry<'_, Self::Ix>;
@@ -9,6 +10,13 @@ pub trait ReadValuations: HasIx {
     ) -> impl Iterator<Item = (StateIndex<Self::Ix>, ModelValuationEntry<'_, Self::Ix>)>;
 
     fn generate_valuation_lookup(&self) -> ValuationLookupTable<Self::Ix, StateIndex<Self::Ix>>;
+
+    fn valuation_classes(&self) -> SemiboundedIndexRange<ValuationClassIndex<Self::Ix>>;
+
+    fn valuation_class(
+        &self,
+        class: ValuationClassIndex<Self::Ix>,
+    ) -> &ValuationClass<ValuationClassEntryIndex<Self::Ix>>;
 }
 
 macro_rules! derive_read_valuations {
@@ -36,6 +44,21 @@ macro_rules! derive_read_valuations {
         ) -> ValuationLookupTable<Self::Ix, StateIndex<Self::Ix>> {
             self.$subcomponent.generate_valuation_lookup()
         }
+
+        fn valuation_classes(
+            &self,
+        ) -> $crate::typed_index_collections::SemiboundedIndexRange<
+            $crate::ValuationClassIndex<Self::Ix>,
+        > {
+            self.$subcomponent.valuation_classes()
+        }
+
+        fn valuation_class(
+            &self,
+            class: $crate::ValuationClassIndex<Self::Ix>,
+        ) -> &$crate::valuations::ValuationClass<$crate::ValuationClassEntryIndex<Self::Ix>> {
+            self.$subcomponent.valuation_class(class)
+        }
     };
 }
 pub(crate) use derive_read_valuations;
@@ -53,6 +76,17 @@ impl<I: Ix> ReadValuations for Valuations<I> {
 
     fn generate_valuation_lookup(&self) -> ValuationLookupTable<Self::Ix, StateIndex<Self::Ix>> {
         ValuationLookupTable::from_valuations(self)
+    }
+
+    fn valuation_classes(&self) -> SemiboundedIndexRange<ValuationClassIndex<I>> {
+        self.classes()
+    }
+
+    fn valuation_class(
+        &self,
+        class: ValuationClassIndex<I>,
+    ) -> &ValuationClass<ValuationClassEntryIndex<I>> {
+        self.class(class)
     }
 }
 
@@ -86,6 +120,17 @@ impl<T: ReadValuations> ReadValuations for &T {
     fn generate_valuation_lookup(&self) -> ValuationLookupTable<Self::Ix, StateIndex<Self::Ix>> {
         (**self).generate_valuation_lookup()
     }
+
+    fn valuation_classes(&self) -> SemiboundedIndexRange<ValuationClassIndex<Self::Ix>> {
+        (**self).valuation_classes()
+    }
+
+    fn valuation_class(
+        &self,
+        class: ValuationClassIndex<Self::Ix>,
+    ) -> &ValuationClass<ValuationClassEntryIndex<Self::Ix>> {
+        (**self).valuation_class(class)
+    }
 }
 
 impl<T: ReadValuations> ReadValuations for &mut T {
@@ -101,6 +146,17 @@ impl<T: ReadValuations> ReadValuations for &mut T {
 
     fn generate_valuation_lookup(&self) -> ValuationLookupTable<Self::Ix, StateIndex<Self::Ix>> {
         (**self).generate_valuation_lookup()
+    }
+
+    fn valuation_classes(&self) -> SemiboundedIndexRange<ValuationClassIndex<Self::Ix>> {
+        (**self).valuation_classes()
+    }
+
+    fn valuation_class(
+        &self,
+        class: ValuationClassIndex<Self::Ix>,
+    ) -> &ValuationClass<ValuationClassEntryIndex<Self::Ix>> {
+        (**self).valuation_class(class)
     }
 }
 
