@@ -224,6 +224,34 @@ fn assert_type(variable: &ValuationClassEntry, expected_type: Type) {
     }
 }
 
+// Checks that `stored` fits in the width available for variable.
+fn assert_uint_fits(variable: &ValuationClassEntry, stored: u64, value: impl Display) {
+    let width = variable.location.len();
+    assert!(
+        width >= 64 || stored >> width == 0,
+        "Value {value} does not fit into uint field {} ({width} bits, offset {})",
+        variable.name,
+        variable.value_offset
+    );
+}
+
+// Checks that `stored` fits in the width available
+fn assert_int_fits(variable: &ValuationClassEntry, stored: i64, value: impl Display) {
+    let width = variable.location.len();
+    // Arithmetic shift: all bits from the sign bit of the field upwards must be equal, i.e. the
+    // result is either 0 (non-negative value) or -1 (negative value).
+    let fits = match width {
+        0 => stored == 0,
+        64.. => true,
+        _ => stored >> (width - 1) == 0 || stored >> (width - 1) == -1, // -1 is the result for negative variables
+    };
+    assert!(
+        fits,
+        "Value {value} does not fit into int field {} ({width} bits, offset {})",
+        variable.name, variable.value_offset
+    );
+}
+
 pub trait ValuationBits<ClassEntryIdx: Index, ValuationIdx: Index> {
     fn class_and_index(
         &self,
@@ -418,11 +446,11 @@ pub trait ValuationBitsMut<ClassEntryIdx: Index, ValuationIdx: Index> {
         let variable = class.get(variable_index);
         assert_optional(variable, false);
         if variable.variable_type == Type::Int {
-            class_data.valuations.set_int(
-                index,
-                variable.location.clone(),
-                value - variable.value_offset,
-            )
+            let stored = value - variable.value_offset;
+            assert_int_fits(variable, stored, value);
+            class_data
+                .valuations
+                .set_int(index, variable.location.clone(), stored)
         } else if variable.variable_type == Type::Uint {
             if value < variable.value_offset {
                 panic!(
@@ -430,11 +458,11 @@ pub trait ValuationBitsMut<ClassEntryIdx: Index, ValuationIdx: Index> {
                     variable.value_offset
                 );
             }
-            class_data.valuations.set_uint(
-                index,
-                variable.location.clone(),
-                (value - variable.value_offset) as u64,
-            )
+            let stored = value.abs_diff(variable.value_offset); // like value - offset, but avoids overflow
+            assert_uint_fits(variable, stored, value);
+            class_data
+                .valuations
+                .set_uint(index, variable.location.clone(), stored)
         } else {
             panic!(
                 "Cannot store variable of type {:?} in an int",
@@ -448,9 +476,18 @@ pub trait ValuationBitsMut<ClassEntryIdx: Index, ValuationIdx: Index> {
         let variable = class.get(variable_index);
         assert_optional(variable, false);
         assert_type(variable, Type::Uint);
+        let stored = value
+            .checked_sub_signed(variable.value_offset)
+            .unwrap_or_else(|| {
+                panic!(
+                    "cannot store {value} in variable `{}`, which is a `Uint` variable with offset {}",
+                    variable.name, variable.value_offset
+                )
+            });
+        assert_uint_fits(variable, stored, value);
         class_data
             .valuations
-            .set_uint(index, variable.location.clone(), value);
+            .set_uint(index, variable.location.clone(), stored);
     }
 
     fn set_double(&mut self, variable_index: ClassEntryIdx, value: f64) {
