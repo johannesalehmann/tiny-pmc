@@ -1,4 +1,4 @@
-use crate::valuations::{ModelValuationEntry, Valuations};
+use crate::valuations::{ModelValuationEntry, ValuationLookupTable, Valuations};
 use crate::{HasIx, Ix, Model, StateIndex};
 
 pub trait ReadValuations: HasIx {
@@ -7,6 +7,8 @@ pub trait ReadValuations: HasIx {
     fn state_valuations(
         &self,
     ) -> impl Iterator<Item = (StateIndex<Self::Ix>, ModelValuationEntry<'_, Self::Ix>)>;
+
+    fn generate_lookup_table(&self) -> ValuationLookupTable<Self::Ix, StateIndex<Self::Ix>>;
 }
 
 macro_rules! derive_read_valuations {
@@ -28,6 +30,10 @@ macro_rules! derive_read_valuations {
         > {
             self.$subcomponent.state_valuations()
         }
+
+        fn generate_lookup_table(&self) -> ValuationLookupTable<Self::Ix, StateIndex<Self::Ix>> {
+            self.$subcomponent.generate_lookup_table()
+        }
     };
 }
 pub(crate) use derive_read_valuations;
@@ -41,6 +47,10 @@ impl<I: Ix> ReadValuations for Valuations<I> {
         &self,
     ) -> impl Iterator<Item = (StateIndex<I>, ModelValuationEntry<'_, I>)> {
         self.entries()
+    }
+
+    fn generate_lookup_table(&self) -> ValuationLookupTable<Self::Ix, StateIndex<Self::Ix>> {
+        ValuationLookupTable::from_valuations(self)
     }
 }
 
@@ -70,6 +80,10 @@ impl<T: ReadValuations> ReadValuations for &T {
     ) -> impl Iterator<Item = (StateIndex<Self::Ix>, ModelValuationEntry<'_, Self::Ix>)> {
         (**self).state_valuations()
     }
+
+    fn generate_lookup_table(&self) -> ValuationLookupTable<Self::Ix, StateIndex<Self::Ix>> {
+        (**self).generate_lookup_table()
+    }
 }
 
 impl<T: ReadValuations> ReadValuations for &mut T {
@@ -81,6 +95,10 @@ impl<T: ReadValuations> ReadValuations for &mut T {
         &self,
     ) -> impl Iterator<Item = (StateIndex<Self::Ix>, ModelValuationEntry<'_, Self::Ix>)> {
         (**self).state_valuations()
+    }
+
+    fn generate_lookup_table(&self) -> ValuationLookupTable<Self::Ix, StateIndex<Self::Ix>> {
+        (**self).generate_lookup_table()
     }
 }
 

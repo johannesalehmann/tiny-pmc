@@ -8,8 +8,12 @@ use crate::valuations::bits::SetBits;
 use bits::GetBits;
 
 mod class;
-mod state_valuations;
 pub use class::{Type, ValuationClass, ValuationClassEntry, ValuationEntryDescription};
+
+mod lookup_table;
+pub use lookup_table::ValuationLookupTable;
+
+mod state_valuations;
 
 #[derive(Default)]
 pub struct Valuations<I: Ix, EntityIdx: Index = StateIndex<I>> {
