@@ -4,23 +4,23 @@ use crate::{ActionIndex, ChoiceIndex, HasIx, Model};
 pub trait ReadChoiceLabels: HasIx {
     type E;
 
-    fn choice_label(&self, entity: ChoiceIndex<Self::Ix>) -> &Self::E;
-    fn choice_action_index(&self, entity: ChoiceIndex<Self::Ix>) -> ActionIndex<Self::Ix>;
+    fn choice_label(&self, choice: ChoiceIndex<Self::Ix>) -> &Self::E;
+    fn choice_action_index(&self, choice: ChoiceIndex<Self::Ix>) -> ActionIndex<Self::Ix>;
     fn label_of_choice_action(&self, action: ActionIndex<Self::Ix>) -> &Self::E;
 }
 
 #[allow(unused)]
 macro_rules! derive_read_choice_labels {
     ($subcomponent:ident) => {
-        fn choice_label(&self, entity: $crate::ChoiceIndex<Self::Ix>) -> &Self::E {
-            self.$subcomponent.choice_label(entity)
+        fn choice_label(&self, choice: $crate::ChoiceIndex<Self::Ix>) -> &Self::E {
+            self.$subcomponent.choice_label(choice)
         }
 
         fn choice_action_index(
             &self,
-            entity: $crate::ChoiceIndex<Self::Ix>,
+            choice: $crate::ChoiceIndex<Self::Ix>,
         ) -> $crate::ActionIndex<Self::Ix> {
-            self.$subcomponent.choice_action_index(entity)
+            self.$subcomponent.choice_action_index(choice)
         }
 
         fn label_of_choice_action(&self, action: $crate::ActionIndex<Self::Ix>) -> &Self::E {
@@ -45,12 +45,12 @@ impl<
 {
     type E = ChLabel::E;
 
-    fn choice_label(&self, entity: ChoiceIndex<Self::Ix>) -> &Self::E {
-        self.choice_labels.label(entity)
+    fn choice_label(&self, choice: ChoiceIndex<Self::Ix>) -> &Self::E {
+        self.choice_labels.label(choice)
     }
 
-    fn choice_action_index(&self, entity: ChoiceIndex<Self::Ix>) -> ActionIndex<Self::Ix> {
-        self.choice_labels.action_index(entity)
+    fn choice_action_index(&self, choice: ChoiceIndex<Self::Ix>) -> ActionIndex<Self::Ix> {
+        self.choice_labels.action_index(choice)
     }
 
     fn label_of_choice_action(&self, action: ActionIndex<Self::Ix>) -> &Self::E {
@@ -61,11 +61,11 @@ impl<
 impl<T: ReadChoiceLabels> ReadChoiceLabels for &T {
     type E = T::E;
 
-    fn choice_label(&self, entity: ChoiceIndex<Self::Ix>) -> &Self::E {
-        (**self).choice_label(entity)
+    fn choice_label(&self, choice: ChoiceIndex<Self::Ix>) -> &Self::E {
+        (**self).choice_label(choice)
     }
-    fn choice_action_index(&self, entity: ChoiceIndex<Self::Ix>) -> ActionIndex<Self::Ix> {
-        (**self).choice_action_index(entity)
+    fn choice_action_index(&self, choice: ChoiceIndex<Self::Ix>) -> ActionIndex<Self::Ix> {
+        (**self).choice_action_index(choice)
     }
     fn label_of_choice_action(&self, action: ActionIndex<Self::Ix>) -> &Self::E {
         (**self).label_of_choice_action(action)
@@ -75,11 +75,11 @@ impl<T: ReadChoiceLabels> ReadChoiceLabels for &T {
 impl<T: ReadChoiceLabels> ReadChoiceLabels for &mut T {
     type E = T::E;
 
-    fn choice_label(&self, entity: ChoiceIndex<Self::Ix>) -> &Self::E {
-        (**self).choice_label(entity)
+    fn choice_label(&self, choice: ChoiceIndex<Self::Ix>) -> &Self::E {
+        (**self).choice_label(choice)
     }
-    fn choice_action_index(&self, entity: ChoiceIndex<Self::Ix>) -> ActionIndex<Self::Ix> {
-        (**self).choice_action_index(entity)
+    fn choice_action_index(&self, choice: ChoiceIndex<Self::Ix>) -> ActionIndex<Self::Ix> {
+        (**self).choice_action_index(choice)
     }
     fn label_of_choice_action(&self, action: ActionIndex<Self::Ix>) -> &Self::E {
         (**self).label_of_choice_action(action)

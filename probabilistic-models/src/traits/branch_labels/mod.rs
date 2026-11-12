@@ -4,23 +4,23 @@ use crate::{ActionIndex, BranchIndex, HasIx, Model};
 pub trait ReadBranchLabels: HasIx {
     type E;
 
-    fn branch_label(&self, entity: BranchIndex<Self::Ix>) -> &Self::E;
-    fn branch_action_index(&self, entity: BranchIndex<Self::Ix>) -> ActionIndex<Self::Ix>;
+    fn branch_label(&self, branch: BranchIndex<Self::Ix>) -> &Self::E;
+    fn branch_action_index(&self, branch: BranchIndex<Self::Ix>) -> ActionIndex<Self::Ix>;
     fn label_of_branch_action(&self, action: ActionIndex<Self::Ix>) -> &Self::E;
 }
 
 #[allow(unused)]
 macro_rules! derive_read_branch_labels {
     ($subcomponent:ident) => {
-        fn branch_label(&self, entity: $crate::BranchIndex<Self::Ix>) -> &Self::E {
-            self.$subcomponent.branch_label(entity)
+        fn branch_label(&self, branch: $crate::BranchIndex<Self::Ix>) -> &Self::E {
+            self.$subcomponent.branch_label(branch)
         }
 
         fn branch_action_index(
             &self,
-            entity: $crate::BranchIndex<Self::Ix>,
+            branch: $crate::BranchIndex<Self::Ix>,
         ) -> $crate::ActionIndex<Self::Ix> {
-            self.$subcomponent.branch_action_index(entity)
+            self.$subcomponent.branch_action_index(branch)
         }
 
         fn label_of_branch_action(&self, action: $crate::ActionIndex<Self::Ix>) -> &Self::E {
@@ -45,12 +45,12 @@ impl<
 {
     type E = BrLabel::E;
 
-    fn branch_label(&self, entity: BranchIndex<Self::Ix>) -> &Self::E {
-        self.branch_labels.label(entity)
+    fn branch_label(&self, branch: BranchIndex<Self::Ix>) -> &Self::E {
+        self.branch_labels.label(branch)
     }
 
-    fn branch_action_index(&self, entity: BranchIndex<Self::Ix>) -> ActionIndex<Self::Ix> {
-        self.branch_labels.action_index(entity)
+    fn branch_action_index(&self, branch: BranchIndex<Self::Ix>) -> ActionIndex<Self::Ix> {
+        self.branch_labels.action_index(branch)
     }
 
     fn label_of_branch_action(&self, action: ActionIndex<Self::Ix>) -> &Self::E {
@@ -61,11 +61,11 @@ impl<
 impl<T: ReadBranchLabels> ReadBranchLabels for &T {
     type E = T::E;
 
-    fn branch_label(&self, entity: BranchIndex<Self::Ix>) -> &Self::E {
-        (**self).branch_label(entity)
+    fn branch_label(&self, branch: BranchIndex<Self::Ix>) -> &Self::E {
+        (**self).branch_label(branch)
     }
-    fn branch_action_index(&self, entity: BranchIndex<Self::Ix>) -> ActionIndex<Self::Ix> {
-        (**self).branch_action_index(entity)
+    fn branch_action_index(&self, branch: BranchIndex<Self::Ix>) -> ActionIndex<Self::Ix> {
+        (**self).branch_action_index(branch)
     }
     fn label_of_branch_action(&self, action: ActionIndex<Self::Ix>) -> &Self::E {
         (**self).label_of_branch_action(action)
@@ -75,11 +75,11 @@ impl<T: ReadBranchLabels> ReadBranchLabels for &T {
 impl<T: ReadBranchLabels> ReadBranchLabels for &mut T {
     type E = T::E;
 
-    fn branch_label(&self, entity: BranchIndex<Self::Ix>) -> &Self::E {
-        (**self).branch_label(entity)
+    fn branch_label(&self, branch: BranchIndex<Self::Ix>) -> &Self::E {
+        (**self).branch_label(branch)
     }
-    fn branch_action_index(&self, entity: BranchIndex<Self::Ix>) -> ActionIndex<Self::Ix> {
-        (**self).branch_action_index(entity)
+    fn branch_action_index(&self, branch: BranchIndex<Self::Ix>) -> ActionIndex<Self::Ix> {
+        (**self).branch_action_index(branch)
     }
     fn label_of_branch_action(&self, action: ActionIndex<Self::Ix>) -> &Self::E {
         (**self).label_of_branch_action(action)
