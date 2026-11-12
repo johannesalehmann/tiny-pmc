@@ -149,7 +149,7 @@
 //! #     [alpha] (x < N) -> (x'=x+1);
 //! #     [beta] (x >= 2 & x <= N-2) -> p: (x'=x+2) + (1-p): (x'=x-2);
 //! # endmodule"#;
-//! # let objs = &[];
+//! # let objs = &["Pmax=? [F N=10]"];
 //! # let parsed = parse_model_and_props(source, objs);
 //! use prism_model::Span;
 //! let model = parsed.model.expect("Failed to parse model");
@@ -271,9 +271,9 @@ fn parse_and_lex<'b, O>(
 ///
 /// The output contains a separate `Result` for the model and each property file. Use
 /// [`.all_ok()`](UnprocessedModelAndPropsResult::all_ok) to get a single result.
-pub fn parse_unprocessed_model_and_props<'a>(
+pub fn parse_unprocessed_model_and_props<'a, S: AsRef<str>>(
     source: &'a str,
-    property_sources: &'a [&'a str],
+    property_sources: &'a [S],
 ) -> UnprocessedModelAndPropsResult<'a> {
     let model = parse_and_lex(source, |_| parser::program_parser().boxed());
     let properties = parse_unprocessed_props(property_sources);
@@ -289,7 +289,9 @@ pub fn parse_unprocessed_model_and_props<'a>(
 /// *There is no parse_props*, i.e. properties cannot be processed without a model. To process
 /// properties, you must parse and process a model at the same time. This is because processing
 /// properties relies on the model's formulas, labels and variable manager.
-pub fn parse_unprocessed_props<'a>(property_sources: &'a [&'a str]) -> UnprocessedPropsResult<'a> {
+pub fn parse_unprocessed_props<'a, S: AsRef<str>>(
+    property_sources: &'a [S],
+) -> UnprocessedPropsResult<'a> {
     let mut properties = NamedQueries::new();
     let mut errors = Vec::new();
     let mut input_source_to_properties = Vec::new();
@@ -368,9 +370,9 @@ pub fn parse_unprocessed_model<'a>(source: &'a str) -> Result<UnprocessedModel, 
 ///
 /// The output contains a separate `Result` for the model and each property. Use
 /// [`.all_ok()`](ModelAndPropsResult::all_ok) to get a single result.
-pub fn parse_model_and_props<'a>(
+pub fn parse_model_and_props<'a, S: AsRef<str>>(
     source: &'a str,
-    property_sources: &'a [&'a str],
+    property_sources: &'a [S],
 ) -> ModelAndPropsResult<'a> {
     let unprocessed = parse_unprocessed_model_and_props(source, property_sources);
 

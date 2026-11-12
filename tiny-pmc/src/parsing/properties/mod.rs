@@ -6,7 +6,7 @@ pub use unprocessed_to_explicit_property::{
 };
 
 // TODO: Also support single property functions here?
-pub fn parse_properties(properties: &[&str]) -> Option<UnprocessedPrismQueries> {
+pub fn parse_properties<S: AsRef<str>>(properties: &[S]) -> Option<UnprocessedPrismQueries> {
     let parse = prism_parser::parse_unprocessed_props(properties);
     match parse.all_ok() {
         Ok(queries) => Some(queries),

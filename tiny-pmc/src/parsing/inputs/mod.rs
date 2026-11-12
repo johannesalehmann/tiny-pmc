@@ -110,10 +110,7 @@ impl Inputs {
             let parsed_model_and_objectives = crate::parsing::parse_prism_and_print_errors(
                 Some(&prism_file),
                 &source,
-                &property_strings
-                    .iter()
-                    .map(|s| s.as_str())
-                    .collect::<Vec<_>>(), // TODO: Allow `parse_prism_and_print_errors` to take &[String] in addition to &[&str]
+                &property_strings,
             );
             match parsed_model_and_objectives {
                 Some((model, queries)) => Ok(Inputs::Prism {
@@ -127,12 +124,8 @@ impl Inputs {
             let umb_file = args.umb_files.get(0).unwrap();
             let model = umb_parser::parse_umb(umb_file).unwrap();
 
-            let Some(unprocessed_queries) = crate::parsing::parse_properties(
-                &property_strings
-                    .iter()
-                    .map(|s| s.as_str())
-                    .collect::<Vec<_>>(),
-            ) else {
+            let Some(unprocessed_queries) = crate::parsing::parse_properties(&property_strings)
+            else {
                 return Err(InputError::ModelAndPropertyParsingError);
             };
             let queries = if let Some(ap_model) = model.as_ref().try_with_atomic_propositions() {

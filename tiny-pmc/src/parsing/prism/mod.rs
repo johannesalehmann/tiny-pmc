@@ -1,10 +1,10 @@
 use crate::PrismModel;
 
 // TODO: Also support single property functions here?
-pub fn parse_prism_and_print_errors<'a, 'b>(
-    file_name: Option<&'a str>,
-    source: &'b str,
-    properties: &'b [&'b str],
+pub fn parse_prism_and_print_errors<S: AsRef<str>>(
+    file_name: Option<&str>,
+    source: &str,
+    properties: &[S],
 ) -> Option<(PrismModel, crate::PrismQueries)> {
     // TODO: Just return a ModelAndProps from this function?
     let parse_result = prism_parser::parse_model_and_props(source, properties);

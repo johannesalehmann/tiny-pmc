@@ -71,11 +71,10 @@ impl Benchmark {
         let constants = tiny_pmc::parsing::parse_const_assignments(&self.constants).unwrap();
 
         let prop_vec = self.property_vector();
-        let prop_refs = prop_vec.iter().map(|p| &**p).collect::<Vec<_>>();
         let parsed_model_and_objectives = tiny_pmc::parsing::parse_prism_and_print_errors(
             Some(&self.path),
             &source,
-            &prop_refs[..],
+            &prop_vec,
         );
         let (mut prism_model, properties) = match parsed_model_and_objectives {
             None => panic!("Error parsing model"),
