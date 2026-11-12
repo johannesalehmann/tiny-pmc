@@ -8,7 +8,7 @@ pub trait ReadValuations: HasIx {
         &self,
     ) -> impl Iterator<Item = (StateIndex<Self::Ix>, ModelValuationEntry<'_, Self::Ix>)>;
 
-    fn generate_lookup_table(&self) -> ValuationLookupTable<Self::Ix, StateIndex<Self::Ix>>;
+    fn generate_valuation_lookup(&self) -> ValuationLookupTable<Self::Ix, StateIndex<Self::Ix>>;
 }
 
 macro_rules! derive_read_valuations {
@@ -31,8 +31,10 @@ macro_rules! derive_read_valuations {
             self.$subcomponent.state_valuations()
         }
 
-        fn generate_lookup_table(&self) -> ValuationLookupTable<Self::Ix, StateIndex<Self::Ix>> {
-            self.$subcomponent.generate_lookup_table()
+        fn generate_valuation_lookup(
+            &self,
+        ) -> ValuationLookupTable<Self::Ix, StateIndex<Self::Ix>> {
+            self.$subcomponent.generate_valuation_lookup()
         }
     };
 }
@@ -49,7 +51,7 @@ impl<I: Ix> ReadValuations for Valuations<I> {
         self.entries()
     }
 
-    fn generate_lookup_table(&self) -> ValuationLookupTable<Self::Ix, StateIndex<Self::Ix>> {
+    fn generate_valuation_lookup(&self) -> ValuationLookupTable<Self::Ix, StateIndex<Self::Ix>> {
         ValuationLookupTable::from_valuations(self)
     }
 }
@@ -81,8 +83,8 @@ impl<T: ReadValuations> ReadValuations for &T {
         (**self).state_valuations()
     }
 
-    fn generate_lookup_table(&self) -> ValuationLookupTable<Self::Ix, StateIndex<Self::Ix>> {
-        (**self).generate_lookup_table()
+    fn generate_valuation_lookup(&self) -> ValuationLookupTable<Self::Ix, StateIndex<Self::Ix>> {
+        (**self).generate_valuation_lookup()
     }
 }
 
@@ -97,8 +99,8 @@ impl<T: ReadValuations> ReadValuations for &mut T {
         (**self).state_valuations()
     }
 
-    fn generate_lookup_table(&self) -> ValuationLookupTable<Self::Ix, StateIndex<Self::Ix>> {
-        (**self).generate_lookup_table()
+    fn generate_valuation_lookup(&self) -> ValuationLookupTable<Self::Ix, StateIndex<Self::Ix>> {
+        (**self).generate_valuation_lookup()
     }
 }
 
