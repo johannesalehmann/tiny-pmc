@@ -3,6 +3,7 @@ pub use distributions::{
     Distribution, IdentityDistribution, MixedDistribution, ProbabilisticDistribution,
 };
 
+use crate::traits::ReadStateSpace;
 use crate::{
     AtomicPropositionIndex, ChoiceIndex, HasIx, Ix, Model, OptionalComponent, RewardIndex,
     StateIndex,
@@ -103,6 +104,88 @@ impl<M, I, CL, BL, Obs, APs, Rew, Ann: OptionalComponent, Val, Pred>
             atomic_propositions: self.atomic_propositions,
             rewards: self.rewards,
             annotations: (),
+            state_valuations: self.state_valuations,
+            predecessors: self.predecessors,
+        }
+    }
+}
+
+impl<M: ReadStateSpace, I, CL, BL, Obs, Rew, Ann, Val, Pred>
+    Model<M, I, CL, BL, Obs, (), Rew, Ann, Val, Pred>
+{
+    pub fn with_atomic_propositions(
+        self,
+        atomic_propositions: AtomicPropositions<M::Ix>,
+    ) -> Model<M, I, CL, BL, Obs, AtomicPropositions<M::Ix>, Rew, Ann, Val, Pred> {
+        Model {
+            base: self.base,
+            initial: self.initial,
+            choice_labels: self.choice_labels,
+            branch_labels: self.branch_labels,
+            observations: self.observations,
+            atomic_propositions,
+            rewards: self.rewards,
+            annotations: self.annotations,
+            state_valuations: self.state_valuations,
+            predecessors: self.predecessors,
+        }
+    }
+}
+
+impl<M, I, CL, BL, Obs, APs: OptionalComponent, Rew, Ann, Val, Pred>
+    Model<M, I, CL, BL, Obs, APs, Rew, Ann, Val, Pred>
+{
+    pub fn without_atomic_propositions(self) -> Model<M, I, CL, BL, Obs, (), Rew, Ann, Val, Pred> {
+        Model {
+            base: self.base,
+            initial: self.initial,
+            choice_labels: self.choice_labels,
+            branch_labels: self.branch_labels,
+            observations: self.observations,
+            atomic_propositions: (),
+            rewards: self.rewards,
+            annotations: self.annotations,
+            state_valuations: self.state_valuations,
+            predecessors: self.predecessors,
+        }
+    }
+}
+
+impl<M: ReadStateSpace, I, CL, BL, Obs, APs, Ann, Val, Pred>
+    Model<M, I, CL, BL, Obs, APs, (), Ann, Val, Pred>
+{
+    pub fn with_rewards(
+        self,
+        rewards: RewardAnnotations<M::Ix>,
+    ) -> Model<M, I, CL, BL, Obs, APs, RewardAnnotations<M::Ix>, Ann, Val, Pred> {
+        Model {
+            base: self.base,
+            initial: self.initial,
+            choice_labels: self.choice_labels,
+            branch_labels: self.branch_labels,
+            observations: self.observations,
+            atomic_propositions: self.atomic_propositions,
+            rewards,
+            annotations: self.annotations,
+            state_valuations: self.state_valuations,
+            predecessors: self.predecessors,
+        }
+    }
+}
+
+impl<M, I, CL, BL, Obs, APs, Rew: OptionalComponent, Ann, Val, Pred>
+    Model<M, I, CL, BL, Obs, APs, Rew, Ann, Val, Pred>
+{
+    pub fn without_rewards(self) -> Model<M, I, CL, BL, Obs, APs, (), Ann, Val, Pred> {
+        Model {
+            base: self.base,
+            initial: self.initial,
+            choice_labels: self.choice_labels,
+            branch_labels: self.branch_labels,
+            observations: self.observations,
+            atomic_propositions: self.atomic_propositions,
+            rewards: (),
+            annotations: self.annotations,
             state_valuations: self.state_valuations,
             predecessors: self.predecessors,
         }
