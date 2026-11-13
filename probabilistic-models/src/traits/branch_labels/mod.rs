@@ -1,5 +1,5 @@
-use crate::labels::ReadLabels;
-use crate::{ActionIndex, BranchIndex, HasIx, Model};
+use crate::labels::{BranchLabels, ReadLabels};
+use crate::{ActionIndex, BranchIndex, HasIx, Ix, Model};
 
 pub trait ReadBranchLabels: HasIx {
     type E;
@@ -9,7 +9,6 @@ pub trait ReadBranchLabels: HasIx {
     fn label_of_branch_action(&self, action: ActionIndex<Self::Ix>) -> &Self::E;
 }
 
-#[allow(unused)]
 macro_rules! derive_read_branch_labels {
     ($subcomponent:ident) => {
         fn branch_label(&self, branch: $crate::BranchIndex<Self::Ix>) -> &Self::E {
@@ -30,11 +29,27 @@ macro_rules! derive_read_branch_labels {
 }
 pub(crate) use derive_read_branch_labels;
 
+impl<I: Ix, E> ReadBranchLabels for BranchLabels<I, E> {
+    type E = E;
+
+    fn branch_label(&self, branch: BranchIndex<Self::Ix>) -> &Self::E {
+        self.label(branch)
+    }
+
+    fn branch_action_index(&self, branch: BranchIndex<Self::Ix>) -> ActionIndex<Self::Ix> {
+        self.action_index(branch)
+    }
+
+    fn label_of_branch_action(&self, action: ActionIndex<Self::Ix>) -> &Self::E {
+        self.label_of_action(action)
+    }
+}
+
 impl<
     M: HasIx,
     Ini,
     ChLabel,
-    BrLabel: ReadLabels<EntityIdx = BranchIndex<M::Ix>, ActionIdx = ActionIndex<M::Ix>>,
+    BrLabel: ReadBranchLabels<Ix = M::Ix>,
     Obs,
     APs,
     Rew,
@@ -45,17 +60,7 @@ impl<
 {
     type E = BrLabel::E;
 
-    fn branch_label(&self, branch: BranchIndex<Self::Ix>) -> &Self::E {
-        self.branch_labels.label(branch)
-    }
-
-    fn branch_action_index(&self, branch: BranchIndex<Self::Ix>) -> ActionIndex<Self::Ix> {
-        self.branch_labels.action_index(branch)
-    }
-
-    fn label_of_branch_action(&self, action: ActionIndex<Self::Ix>) -> &Self::E {
-        self.branch_labels.label_of_action(action)
-    }
+    derive_read_branch_labels!(branch_labels);
 }
 
 impl<T: ReadBranchLabels> ReadBranchLabels for &T {
@@ -124,7 +129,7 @@ impl<
     M: HasIx,
     Ini,
     ChLabel,
-    BrLabel: ReadLabels<EntityIdx = BranchIndex<M::Ix>, ActionIdx = ActionIndex<M::Ix>>,
+    BrLabel: ReadBranchLabels<Ix = M::Ix>,
     Obs,
     APs,
     Rew,

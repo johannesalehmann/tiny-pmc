@@ -1,5 +1,5 @@
-use crate::labels::ReadLabels;
-use crate::{ActionIndex, ChoiceIndex, HasIx, Model};
+use crate::labels::{ChoiceLabels, ReadLabels};
+use crate::{ActionIndex, ChoiceIndex, HasIx, Ix, Model};
 
 pub trait ReadChoiceLabels: HasIx {
     type E;
@@ -9,7 +9,6 @@ pub trait ReadChoiceLabels: HasIx {
     fn label_of_choice_action(&self, action: ActionIndex<Self::Ix>) -> &Self::E;
 }
 
-#[allow(unused)]
 macro_rules! derive_read_choice_labels {
     ($subcomponent:ident) => {
         fn choice_label(&self, choice: $crate::ChoiceIndex<Self::Ix>) -> &Self::E {
@@ -30,10 +29,26 @@ macro_rules! derive_read_choice_labels {
 }
 pub(crate) use derive_read_choice_labels;
 
+impl<I: Ix, E> ReadChoiceLabels for ChoiceLabels<I, E> {
+    type E = E;
+
+    fn choice_label(&self, choice: ChoiceIndex<Self::Ix>) -> &Self::E {
+        self.label(choice)
+    }
+
+    fn choice_action_index(&self, choice: ChoiceIndex<Self::Ix>) -> ActionIndex<Self::Ix> {
+        self.action_index(choice)
+    }
+
+    fn label_of_choice_action(&self, action: ActionIndex<Self::Ix>) -> &Self::E {
+        self.label_of_action(action)
+    }
+}
+
 impl<
     M: HasIx,
     Ini,
-    ChLabel: ReadLabels<EntityIdx = ChoiceIndex<M::Ix>, ActionIdx = ActionIndex<M::Ix>>,
+    ChLabel: ReadChoiceLabels<Ix = M::Ix>,
     BrLabel,
     Obs,
     APs,
@@ -45,17 +60,7 @@ impl<
 {
     type E = ChLabel::E;
 
-    fn choice_label(&self, choice: ChoiceIndex<Self::Ix>) -> &Self::E {
-        self.choice_labels.label(choice)
-    }
-
-    fn choice_action_index(&self, choice: ChoiceIndex<Self::Ix>) -> ActionIndex<Self::Ix> {
-        self.choice_labels.action_index(choice)
-    }
-
-    fn label_of_choice_action(&self, action: ActionIndex<Self::Ix>) -> &Self::E {
-        self.choice_labels.label_of_action(action)
-    }
+    derive_read_choice_labels!(choice_labels);
 }
 
 impl<T: ReadChoiceLabels> ReadChoiceLabels for &T {
@@ -123,7 +128,7 @@ impl<T: ReadChoiceLabels> ReadChoiceLabelsMaybe for Option<T> {
 impl<
     M: HasIx,
     Ini,
-    ChLabel: ReadLabels<EntityIdx = ChoiceIndex<M::Ix>, ActionIdx = ActionIndex<M::Ix>>,
+    ChLabel: ReadChoiceLabels<Ix = M::Ix>,
     BrLabel,
     Obs,
     APs,

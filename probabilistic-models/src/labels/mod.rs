@@ -1,9 +1,11 @@
 mod branch_labels;
 mod choice_labels;
 
-use crate::{ActionIndex, BranchIndex, ChoiceIndex};
+use crate::{ActionIndex, BranchIndex, ChoiceIndex, HasIx, Ix};
 use typed_index_collections::{Index, To1};
 
+// TODO: This has largely been superseded by ReadChoiceLabels and ReadBranchLabels. Consider
+//  removing it.
 pub trait ReadLabels {
     type EntityIdx: Index;
     type ActionIdx: Index;
@@ -23,6 +25,14 @@ impl<EI: Index, AI: Index, E> crate::Component for Labels<EI, AI, E> {}
 
 pub type ChoiceLabels<I, E> = Labels<ChoiceIndex<I>, ActionIndex<I>, E>;
 pub type BranchLabels<I, E> = Labels<BranchIndex<I>, ActionIndex<I>, E>;
+
+impl<I: Ix, E> HasIx for ChoiceLabels<I, E> {
+    type Ix = I;
+}
+
+impl<I: Ix, E> HasIx for BranchLabels<I, E> {
+    type Ix = I;
+}
 
 impl<EntityIdx: Index, ActionIdx: Index, E> Labels<EntityIdx, ActionIdx, E> {
     pub fn new() -> Self {
