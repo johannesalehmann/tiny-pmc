@@ -2,6 +2,7 @@ use crate::checking::{
     CheckerError, CheckerOptions, CheckingResult, TypedCheckingResult, require_atomic_propositions,
     require_initial_states, require_rewards, sub_model,
 };
+use prism_model_builder::queries::ProcessedQuery;
 use probabilistic_model_algorithms::state_description::StateDescription;
 use probabilistic_model_algorithms::value_iteration::NonDeterminism;
 use probabilistic_model_algorithms::value_iteration::until::rebuild_model_for_until;
@@ -14,7 +15,7 @@ use probabilistic_models::typed_index_collections::To1;
 use probabilistic_models::{AsRefComponent, Model};
 use probabilistic_models::{AtomicPropositionIndex, StateIndex};
 use probabilistic_properties::{
-    NonDeterminismKind, PathFormula, Query, RewardFormula, StateFormula,
+    NoCoalition, NonDeterminismKind, PathFormula, Query, QueryEnum, RewardFormula, StateFormula,
 };
 
 pub fn check_mdp<'a, B, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>(
@@ -30,7 +31,37 @@ pub fn check_mdp<'a, B, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>(
         StateVals,
         Preds,
     >,
-    query: probabilistic_properties::Query<i64, f64, AtomicPropositionIndex<B::Ix>>,
+    query: ProcessedQuery<B::Ix>,
+    options: &CheckerOptions,
+) -> Result<CheckingResult<B::Ix>, CheckerError>
+where
+    B: ReadStateSpace,
+    APs: AsRefComponent,
+    APs::Output<'a>: ReadAtomicPropositionsMaybe<Ix = B::Ix>,
+    Rew: AsRefComponent,
+    Rew::Output<'a>: ReadRewardsMaybe<Ix = B::Ix>,
+    Preds: ReadPredecessors<Ix = B::Ix>,
+{
+    match query {
+        QueryEnum::Pctl(query) => check_pctl_mdp(model, query, options),
+        QueryEnum::Rpatl(_) => Err(CheckerError::UnsuitableQuery),
+    }
+}
+
+pub fn check_pctl_mdp<'a, B, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>(
+    model: &'a Model<
+        B,
+        SingleInitialState<B::Ix>,
+        ChLabel,
+        BrLabel,
+        Obs,
+        APs,
+        Rew,
+        Ann,
+        StateVals,
+        Preds,
+    >,
+    query: Query<i64, f64, AtomicPropositionIndex<B::Ix>, NoCoalition>,
     options: &CheckerOptions,
 ) -> Result<CheckingResult<B::Ix>, CheckerError>
 where
@@ -54,6 +85,7 @@ where
         Query::ProbabilityValue {
             non_determinism,
             path: PathFormula::Until { before, after },
+            ..
         } => {
             let result =
                 compute_until_value(model, non_determinism, &before, &after, state, options)?;
@@ -64,6 +96,7 @@ where
         Query::ProbabilityValue {
             non_determinism,
             path,
+            ..
         } => {
             let model = sub_model(
                 &model.base,
@@ -96,6 +129,7 @@ where
             name,
             bound,
             reward,
+            ..
         } => {
             let result = compute_reward_value(model, non_determinism, name, &reward, options)?;
             Ok(CheckingResult::Bool(TypedCheckingResult::for_single_state(
@@ -107,6 +141,7 @@ where
             non_determinism,
             name,
             reward,
+            ..
         } => {
             let result = compute_reward_value(model, non_determinism, name, &reward, options)?;
             Ok(CheckingResult::Float(
@@ -117,6 +152,7 @@ where
             non_determinism,
             bound,
             reward,
+            ..
         } => {
             let model = sub_model(
                 &model.base,
@@ -134,6 +170,7 @@ where
         Query::TimeValue {
             non_determinism,
             reward,
+            ..
         } => {
             let model = sub_model(
                 &model.base,
@@ -155,8 +192,8 @@ where
 fn compute_until_value<B, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>(
     model: &Model<B, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>,
     non_determinism: Option<NonDeterminismKind>,
-    before: &StateFormula<i64, f64, AtomicPropositionIndex<APs::Ix>>,
-    after: &StateFormula<i64, f64, AtomicPropositionIndex<APs::Ix>>,
+    before: &StateFormula<i64, f64, AtomicPropositionIndex<APs::Ix>, NoCoalition>,
+    after: &StateFormula<i64, f64, AtomicPropositionIndex<APs::Ix>, NoCoalition>,
     state: StateIndex<B::Ix>,
     options: &CheckerOptions,
 ) -> Result<f64, CheckerError>
@@ -219,7 +256,7 @@ where
 fn compute_path_value<'a, B, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>(
     model: &'a Model<B, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>,
     non_determinism: Option<NonDeterminismKind>,
-    formula: &PathFormula<i64, f64, AtomicPropositionIndex<APs::Ix>>,
+    formula: &PathFormula<i64, f64, AtomicPropositionIndex<APs::Ix>, NoCoalition>,
     options: &CheckerOptions,
 ) -> Result<To1<StateIndex<B::Ix>, f64>, CheckerError>
 where
@@ -276,7 +313,7 @@ fn compute_reward_value<B, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals,
     model: &Model<B, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>,
     non_determinism: Option<NonDeterminismKind>,
     name: Option<String>,
-    formula: &RewardFormula<i64, f64, AtomicPropositionIndex<APs::Ix>>,
+    formula: &RewardFormula<i64, f64, AtomicPropositionIndex<APs::Ix>, NoCoalition>,
     options: &CheckerOptions,
 ) -> Result<To1<StateIndex<B::Ix>, f64>, CheckerError>
 where
@@ -335,7 +372,7 @@ where
 fn compute_time_value<'a, B, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>(
     model: &'a Model<B, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>,
     non_determinism: Option<NonDeterminismKind>,
-    formula: &RewardFormula<i64, f64, AtomicPropositionIndex<APs::Ix>>,
+    formula: &RewardFormula<i64, f64, AtomicPropositionIndex<APs::Ix>, NoCoalition>,
     options: &CheckerOptions,
 ) -> Result<To1<StateIndex<B::Ix>, f64>, CheckerError>
 where
@@ -380,7 +417,7 @@ where
 
 fn compute_state_value<'a, B, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>(
     model: &'a Model<B, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>,
-    formula: &StateFormula<i64, f64, AtomicPropositionIndex<APs::Ix>>,
+    formula: &StateFormula<i64, f64, AtomicPropositionIndex<APs::Ix>, NoCoalition>,
     options: &CheckerOptions,
 ) -> Result<
     StateDescription<'a, Model<B, Ini, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>>,
@@ -400,6 +437,7 @@ where
             non_determinism,
             bound,
             path,
+            ..
         } => {
             // TODO: Handle qualitative bounds (=0, >0, <1, >=1) separately
             let path_value = compute_path_value(model, *non_determinism, path, options)?;

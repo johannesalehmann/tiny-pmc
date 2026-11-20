@@ -1,9 +1,10 @@
 use crate::checking::{CheckerError, CheckerOptions, CheckingResult};
+use prism_model_builder::queries::ProcessedQuery;
 use probabilistic_models::initial_states::SingleInitialState;
 use probabilistic_models::traits::{
     ReadAtomicPropositionsMaybe, ReadChoiceDestinations, ReadPredecessors, ReadRewardsMaybe,
 };
-use probabilistic_models::{AsRefComponent, AtomicPropositionIndex, Model};
+use probabilistic_models::{AsRefComponent, Model};
 
 pub fn check_transition_system<'a, B, ChLabel, BrLabel, Obs, APs, Rew, Ann, StateVals, Preds>(
     model: &'a Model<
@@ -18,7 +19,7 @@ pub fn check_transition_system<'a, B, ChLabel, BrLabel, Obs, APs, Rew, Ann, Stat
         StateVals,
         Preds,
     >,
-    query: probabilistic_properties::Query<i64, f64, AtomicPropositionIndex<B::Ix>>,
+    query: ProcessedQuery<B::Ix>,
     options: &CheckerOptions,
 ) -> Result<CheckingResult<B::Ix>, CheckerError>
 where

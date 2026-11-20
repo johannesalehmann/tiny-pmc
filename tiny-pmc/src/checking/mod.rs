@@ -8,7 +8,7 @@ mod transition_systems;
 pub use transition_systems::check_transition_system;
 
 mod markov_decision_processes;
-pub use markov_decision_processes::check_mdp;
+pub use markov_decision_processes::{check_mdp, check_pctl_mdp};
 
 mod nonstochastic_games;
 pub use nonstochastic_games::check_nonstochastic_game;
@@ -33,6 +33,7 @@ use probabilistic_models::traits::{
 
 pub enum CheckerError {
     NoSuitableAlgorithm,
+    UnsuitableQuery,
     UnknownRewardStructure { name: Option<String> },
     ModelBuilding(prism_model_builder::ModelBuildingError),
 }
@@ -40,6 +41,9 @@ impl std::fmt::Debug for CheckerError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             CheckerError::NoSuitableAlgorithm => write!(f, "No suitable model-checking algorithm"),
+            CheckerError::UnsuitableQuery => {
+                write!(f, "The query cannot be checked on this type of model")
+            }
             CheckerError::UnknownRewardStructure { name } => {
                 let name = match name {
                     Some(name) => format!(" named \"{name}\""),
