@@ -44,7 +44,7 @@ pub fn build_model(
     input: Inputs,
     constants: impl IntoIterator<Item = (String, UserProvidedConstValue)>,
     options: &ProcessingOptions,
-) -> Result<(OptionalModel, Vec<ProcessedQuery<API>>), CheckerError> {
+) -> Result<(OptionalModel, Vec<ProcessedQuery<DefaultIx>>), CheckerError> {
     // TODO: Preserve property names through the following block. The UMB case does this already,
     //  whereas for PRISM, we'd have to change the `with_queries` function to take NamedQueries.
     //  Perhaps it makes sense to add a separate `with_named_queries` function.
@@ -108,7 +108,7 @@ pub fn build_model(
 //  property names for the results.
 pub fn check_model<Out: CheckerOutput>(
     model: OptionalModel,
-    queries: Vec<ProcessedQuery<API>>,
+    queries: Vec<ProcessedQuery<DefaultIx>>,
     checker_options: &CheckerOptions,
     mut output: Out,
 ) -> Result<Out::Return, CheckerError> {

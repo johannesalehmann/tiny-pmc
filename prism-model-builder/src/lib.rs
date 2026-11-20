@@ -1,7 +1,8 @@
 pub use probabilistic_models;
-use probabilistic_models::AtomicPropositionIndex;
 use probabilistic_models::base_model::BaseModelType;
 use probabilistic_models::{ValuationClassEntryIndex, ValuationClassIndex};
+use probabilistic_properties::UnknownPlayer;
+use typed_index_collections::NamedTo1;
 
 pub mod atomic_propositions_builder;
 pub mod bases;
@@ -111,7 +112,7 @@ impl<
                     Valuations<Sel::Ix>,
                     (),
                 >,
-                AtomicPropositionIndex<APs::Ix>,
+                Sel::Ix,
             >,
             ModelVariableInfo<ValuationClassIndex<Sel::Ix>, ValuationClassEntryIndex<Sel::Ix>>,
         ),
@@ -158,7 +159,7 @@ impl<
                     Valuations<Sel::Ix>,
                     (),
                 >,
-                AtomicPropositionIndex<APs::Ix>,
+                Sel::Ix,
             >,
             ModelVariableInfo<ValuationClassIndex<Sel::Ix>, ValuationClassEntryIndex<Sel::Ix>>,
         ),
@@ -176,12 +177,17 @@ impl<
         )
         .unwrap();
 
+        let mut players = NamedTo1::new();
+        for player in &self.model.players {
+            players.add_entry(player.name.name.clone(), ());
+        }
         let processed = self.queries.process_queries(
             &self.model.labels,
             &mut labels,
+            &players,
             &mut TreeWalkingEvaluator::new(),
             &variable_info.get_const_only_valuation_source(),
-        );
+        )?;
 
         let mut sub_exprs = SubExpressionManager::new();
         // Reward expressions that are not built would otherwise enlarge the sub-expression cache
@@ -302,7 +308,7 @@ impl<
                 Valuations<Sel::Ix>,
                 (),
             >,
-            AtomicPropositionIndex<APs::Ix>,
+            Sel::Ix,
         >,
         ModelBuildingError,
     > {
@@ -397,4 +403,6 @@ pub enum ModelBuildingError {
     StateWithoutOwner {
         state: usize,
     },
+    /// A query contains a coalition with an unknown player
+    UnknownCoalitionPlayer(UnknownPlayer),
 }

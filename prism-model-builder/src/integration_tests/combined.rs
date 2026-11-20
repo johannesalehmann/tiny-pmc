@@ -2,7 +2,6 @@ use super::*;
 use crate::ModelBuilder;
 use crate::choice_labels::{CommandIndexComponent, CommandIndices};
 use crate::queries::{ModelAndQuery, ProcessedQuery};
-use probabilistic_models::AtomicPropositionIndex;
 use probabilistic_models::annotations::{AtomicPropositions, RewardAnnotations};
 use probabilistic_models::base_model::{Dtmc, ReadOwners, ReadPlayers, StochasticGame};
 use probabilistic_models::initial_states::InitialStates;
@@ -82,7 +81,7 @@ fn everything_enabled_dtmc() {
     let _: &ChoiceLabels<Ix, CommandIndices> = &model.choice_labels;
     let _: &AtomicPropositions<Ix> = &model.atomic_propositions;
     let _: &RewardAnnotations<Ix> = &model.rewards;
-    let _: &ProcessedQuery<AtomicPropositionIndex<Ix>> = &query;
+    let _: &ProcessedQuery<Ix> = &query;
 
     mdp!(expected = { s0 -> 0.5: s1 & 0.5: s2, s1 -> 1.0: s0, s2 -> 1.0: s0 });
     assert_eq!(valuations(&model), ["x=0", "x=1", "x=2"]);
@@ -132,7 +131,7 @@ fn everything_enabled_game() {
     let _: &ChoiceLabels<Ix, CommandIndices> = &model.choice_labels;
     let _: &AtomicPropositions<Ix> = &model.atomic_propositions;
     let _: &RewardAnnotations<Ix> = &model.rewards;
-    let _: &ProcessedQuery<AtomicPropositionIndex<Ix>> = &query;
+    let _: &ProcessedQuery<Ix> = &query;
 
     smg!(expected = {
         players: [p1, p2],

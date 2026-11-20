@@ -2502,6 +2502,9 @@ dependencies = [
 [[package]]
 name = "probabilistic-properties"
 version = "0.1.0"
+dependencies = [
+ "typed-index-collections",
+]
 
 [[package]]
 name = "proc-macro-crate"

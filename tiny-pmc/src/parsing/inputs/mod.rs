@@ -1,7 +1,9 @@
 use super::model_and_prop_args::{ModelAndPropArgs, UnknownExtension};
 use crate::parsing::PropertySource;
 use crate::{ExplicitModel, ExplicitQueries, PrismModel, PrismQueries};
+use probabilistic_models::base_model::BaseModelEnum;
 use probabilistic_models::traits::ReadAtomicPropositionsMaybe;
+use probabilistic_models::typed_index_collections::NamedTo1;
 use probabilistic_properties::NamedQueries;
 use std::fmt::{Display, Formatter};
 
@@ -128,10 +130,17 @@ impl Inputs {
             else {
                 return Err(InputError::ModelAndPropertyParsingError);
             };
+            let no_players = NamedTo1::new();
+            let players = match &model.base {
+                BaseModelEnum::NonstochasticGame(game) => &game.players.players,
+                BaseModelEnum::StochasticGame(game) => &game.players.players,
+                _ => &no_players,
+            };
             let queries = if let Some(ap_model) = model.as_ref().try_with_atomic_propositions() {
                 crate::parsing::from_unprocessed_to_explicit_properties(
                     unprocessed_queries,
                     &ap_model,
+                    players,
                 )
                 .unwrap()
             } else {
@@ -150,10 +159,10 @@ impl Inputs {
         }
     }
 
-    fn filter_queries<I, F, E>(
-        queries: NamedQueries<I, F, E>,
+    fn filter_queries<I, F, E, C>(
+        queries: NamedQueries<I, F, E, C>,
         names: Vec<String>,
-    ) -> NamedQueries<I, F, E> {
+    ) -> NamedQueries<I, F, E, C> {
         // TODO: This isn't quite doing what it's supposed to do: If names contains a query that
         //  doesn't exist, it will just ignore that, instead of flagging an error.
         if names.is_empty() {

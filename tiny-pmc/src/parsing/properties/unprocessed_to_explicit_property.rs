@@ -1,9 +1,11 @@
 use crate::{ExplicitQueries, UnprocessedPrismQueries};
 use prism_model::{Expression, FullSpan, Identifier};
 use probabilistic_models::traits::ReadAtomicPropositions;
-use probabilistic_models::{AtomicPropositionIndex, DefaultIx};
+use probabilistic_models::typed_index_collections::NamedTo1;
+use probabilistic_models::{AtomicPropositionIndex, DefaultIx, PlayerIndex};
 use probabilistic_properties::{
     Bound, NamedQueries, NamedQuery, PathFormula, Query, QueryEnum, RewardFormula, StateFormula,
+    UnknownPlayer,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -11,11 +13,13 @@ pub enum FormulaProcessingError {
     NonLiteralExpression(Expression<Identifier<FullSpan>, FullSpan>),
     NonLabelExpression(Expression<Identifier<FullSpan>, FullSpan>),
     UnknownLabel(String),
+    UnknownPlayer(UnknownPlayer),
 }
 
 pub fn from_unprocessed_to_explicit_properties<M: ReadAtomicPropositions<Ix = DefaultIx>>(
     queries: UnprocessedPrismQueries,
     model: &M,
+    players: &NamedTo1<PlayerIndex<DefaultIx>, ()>,
 ) -> Result<ExplicitQueries, FormulaProcessingError> {
     // TODO: This function is currently very limited in scope and does not use all the information
     //  that is available. It could be extended as follows:
@@ -30,7 +34,11 @@ pub fn from_unprocessed_to_explicit_properties<M: ReadAtomicPropositions<Ix = De
 
     let mut result = NamedQueries::with_capacity(queries.len());
     for named_query in queries {
-        let query = match named_query.query {
+        let query = named_query
+            .query
+            .try_map_c(&mut |coalition| coalition.to_index_based_coalition(players))
+            .map_err(FormulaProcessingError::UnknownPlayer)?;
+        let query = match query {
             QueryEnum::Pctl(query) => QueryEnum::Pctl(handle_query(query, model)?),
             QueryEnum::Rpatl(query) => QueryEnum::Rpatl(handle_query(query, model)?),
         };

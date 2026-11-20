@@ -4,3 +4,4 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
+typed-index-collections = { path = "../typed-index-collections" }

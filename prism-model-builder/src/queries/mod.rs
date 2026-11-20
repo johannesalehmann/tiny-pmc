@@ -1,31 +1,36 @@
-use crate::ModelBuilder;
 use crate::expression_context::ExpressionContext;
 use crate::expressions::ValuationSource;
 use crate::labels::Labels;
+use crate::{ModelBuilder, ModelBuildingError};
 use prism_model::{Expression, LabelManager, Span, VariableReference};
-use probabilistic_properties::QueryEnum;
+use probabilistic_models::{AtomicPropositionIndex, Ix, PlayerIndex};
+use probabilistic_properties::{IndexBasedCoalition, QueryEnum};
 use std::marker::PhantomData;
-use typed_index_collections::Index;
+use typed_index_collections::NamedTo1;
 
 pub trait QueryCollection {
     type Span: Span;
-    type ProcessedType<APIdx: Index>;
-    type OutputType<Model, APIdx: Index>;
+    type ProcessedType<I: Ix>;
+    type OutputType<Model, I: Ix>;
     fn process_queries<
-        APIdx: Index,
+        I: Ix,
         EC: ExpressionContext<Expression<VariableReference, Self::Span>>,
         V: ValuationSource,
     >(
         &self,
         labels: &LabelManager<Self::Span, Expression<VariableReference, Self::Span>>,
-        selected_labels: &mut Labels<APIdx, Expression<VariableReference, Self::Span>>,
+        selected_labels: &mut Labels<
+            AtomicPropositionIndex<I>,
+            Expression<VariableReference, Self::Span>,
+        >,
+        players: &NamedTo1<PlayerIndex<I>, ()>,
         context: &mut EC,
         valuations: &V,
-    ) -> Self::ProcessedType<APIdx>;
-    fn output<APIdx: Index, Model>(
+    ) -> Result<Self::ProcessedType<I>, ModelBuildingError>;
+    fn output<I: Ix, Model>(
         model: Model,
-        processed: Self::ProcessedType<APIdx>,
-    ) -> Self::OutputType<Model, APIdx>;
+        processed: Self::ProcessedType<I>,
+    ) -> Self::OutputType<Model, I>;
 }
 
 pub type UnprocessedQuery<S> = QueryEnum<
@@ -33,7 +38,8 @@ pub type UnprocessedQuery<S> = QueryEnum<
     Expression<VariableReference, S>,
     Expression<VariableReference, S>,
 >;
-pub type ProcessedQuery<APIdx> = QueryEnum<i64, f64, APIdx>;
+pub type ProcessedQuery<I> =
+    QueryEnum<i64, f64, AtomicPropositionIndex<I>, IndexBasedCoalition<PlayerIndex<I>>>;
 
 pub struct ModelOnly<S: Span> {
     _phantom_data: PhantomData<S>,
@@ -49,27 +55,28 @@ impl<S: Span> Default for ModelOnly<S> {
 
 impl<S: Span> QueryCollection for ModelOnly<S> {
     type Span = S;
-    type ProcessedType<APIdx: Index> = ();
-    type OutputType<Model, APIdx: Index> = Model;
+    type ProcessedType<I: Ix> = ();
+    type OutputType<Model, I: Ix> = Model;
 
     fn process_queries<
-        APIdx: Index,
+        I: Ix,
         EC: ExpressionContext<Expression<VariableReference, S>>,
         V: ValuationSource,
     >(
         &self,
         _labels: &LabelManager<S, Expression<VariableReference, S>>,
-        _selected_labels: &mut Labels<APIdx, Expression<VariableReference, S>>,
+        _selected_labels: &mut Labels<AtomicPropositionIndex<I>, Expression<VariableReference, S>>,
+        _players: &NamedTo1<PlayerIndex<I>, ()>,
         _context: &mut EC,
         _valuations: &V,
-    ) -> Self::ProcessedType<APIdx> {
-        ()
+    ) -> Result<Self::ProcessedType<I>, ModelBuildingError> {
+        Ok(())
     }
 
-    fn output<APIdx: Index, Model>(
+    fn output<I: Ix, Model>(
         model: Model,
-        _processed: Self::ProcessedType<APIdx>,
-    ) -> Self::OutputType<Model, APIdx> {
+        _processed: Self::ProcessedType<I>,
+    ) -> Self::OutputType<Model, I> {
         model
     }
 }
@@ -106,41 +113,43 @@ pub struct SingleQuery<S: Span> {
     query: UnprocessedQuery<S>,
 }
 
-pub struct ModelAndQuery<Model, APIdx: Index> {
+pub struct ModelAndQuery<Model, I: Ix> {
     pub model: Model,
-    pub query: ProcessedQuery<APIdx>,
+    pub query: ProcessedQuery<I>,
 }
 
 impl<S: Span> QueryCollection for SingleQuery<S> {
     type Span = S;
-    type ProcessedType<APIdx: Index> = ProcessedQuery<APIdx>;
-    type OutputType<Model, APIdx: Index> = ModelAndQuery<Model, APIdx>;
+    type ProcessedType<I: Ix> = ProcessedQuery<I>;
+    type OutputType<Model, I: Ix> = ModelAndQuery<Model, I>;
 
     fn process_queries<
-        APIdx: Index,
+        I: Ix,
         EC: ExpressionContext<Expression<VariableReference, S>>,
         V: ValuationSource,
     >(
         &self,
         labels: &LabelManager<S, Expression<VariableReference, S>>,
-        selected_labels: &mut Labels<APIdx, Expression<VariableReference, S>>,
+        selected_labels: &mut Labels<AtomicPropositionIndex<I>, Expression<VariableReference, S>>,
+        players: &NamedTo1<PlayerIndex<I>, ()>,
         context: &mut EC,
         valuations: &V,
-    ) -> Self::ProcessedType<APIdx> {
+    ) -> Result<Self::ProcessedType<I>, ModelBuildingError> {
         map_query(
             self.query.clone(),
             labels,
             selected_labels,
+            players,
             context,
             valuations,
             None,
         )
     }
 
-    fn output<APIdx: Index, Model>(
+    fn output<I: Ix, Model>(
         model: Model,
-        query: Self::ProcessedType<APIdx>,
-    ) -> Self::OutputType<Model, APIdx> {
+        query: Self::ProcessedType<I>,
+    ) -> Self::OutputType<Model, I> {
         ModelAndQuery { model, query }
     }
 }
@@ -181,27 +190,28 @@ pub struct QueryVector<S: Span> {
     queries: Vec<UnprocessedQuery<S>>,
 }
 
-pub struct ModelAndQueries<Model, APIdx: Index> {
+pub struct ModelAndQueries<Model, I: Ix> {
     pub model: Model,
-    pub queries: Vec<ProcessedQuery<APIdx>>,
+    pub queries: Vec<ProcessedQuery<I>>,
 }
 
 impl<S: Span> QueryCollection for QueryVector<S> {
     type Span = S;
-    type ProcessedType<APIdx: Index> = Vec<ProcessedQuery<APIdx>>;
-    type OutputType<Model, APIdx: Index> = ModelAndQueries<Model, APIdx>;
+    type ProcessedType<I: Ix> = Vec<ProcessedQuery<I>>;
+    type OutputType<Model, I: Ix> = ModelAndQueries<Model, I>;
 
     fn process_queries<
-        APIdx: Index,
+        I: Ix,
         EC: ExpressionContext<Expression<VariableReference, S>>,
         V: ValuationSource,
     >(
         &self,
         labels: &LabelManager<S, Expression<VariableReference, S>>,
-        selected_labels: &mut Labels<APIdx, Expression<VariableReference, S>>,
+        selected_labels: &mut Labels<AtomicPropositionIndex<I>, Expression<VariableReference, S>>,
+        players: &NamedTo1<PlayerIndex<I>, ()>,
         context: &mut EC,
         valuations: &V,
-    ) -> Self::ProcessedType<APIdx> {
+    ) -> Result<Self::ProcessedType<I>, ModelBuildingError> {
         self.queries
             .iter()
             .cloned()
@@ -211,6 +221,7 @@ impl<S: Span> QueryCollection for QueryVector<S> {
                     query,
                     labels,
                     selected_labels,
+                    players,
                     context,
                     valuations,
                     Some(index),
@@ -219,10 +230,10 @@ impl<S: Span> QueryCollection for QueryVector<S> {
             .collect()
     }
 
-    fn output<APIdx: Index, Model>(
+    fn output<I: Ix, Model>(
         model: Model,
-        queries: Self::ProcessedType<APIdx>,
-    ) -> Self::OutputType<Model, APIdx> {
+        queries: Self::ProcessedType<I>,
+    ) -> Self::OutputType<Model, I> {
         ModelAndQueries { model, queries }
     }
 }
@@ -264,18 +275,22 @@ impl<
 
 fn map_query<
     S: Span,
-    APIdx: Index,
+    I: Ix,
     EC: ExpressionContext<Expression<VariableReference, S>>,
     V: ValuationSource,
 >(
     property: UnprocessedQuery<S>,
     labels: &LabelManager<S, Expression<VariableReference, S>>,
-    selected_labels: &mut Labels<APIdx, Expression<VariableReference, S>>,
+    selected_labels: &mut Labels<AtomicPropositionIndex<I>, Expression<VariableReference, S>>,
+    players: &NamedTo1<PlayerIndex<I>, ()>,
     context: &mut EC,
     valuations: &V,
     index: Option<usize>,
-) -> ProcessedQuery<APIdx> {
-    property
+) -> Result<ProcessedQuery<I>, ModelBuildingError> {
+    let property = property
+        .try_map_c(&mut |coalition| coalition.to_index_based_coalition(players))
+        .map_err(ModelBuildingError::UnknownCoalitionPlayer)?;
+    Ok(property
         .map_i(&mut |i| context.evaluate_int(&i, valuations))
         .map_f(&mut |i| context.evaluate_float(&i, valuations))
         .map_e(&mut |e| {
@@ -292,5 +307,5 @@ fn map_query<
                 };
                 selected_labels.get_or_add(name, e.clone())
             }
-        })
+        }))
 }

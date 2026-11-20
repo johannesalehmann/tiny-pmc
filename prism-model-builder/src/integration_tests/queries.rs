@@ -37,14 +37,14 @@ pub(super) fn parse(
 }
 
 /// Displays `query` with atomic propositions shown as their raw index.
-pub(super) fn show(query: &ProcessedQuery<Ap>) -> String {
+pub(super) fn show(query: &ProcessedQuery<Ix>) -> String {
     query.clone().map_e(&mut |ap| ap.raw()).to_string()
 }
 
 #[test]
 fn with_query() {
     let (mut prism, mut queries) = parse(MODEL, &[r#"P=? [F "start"]"#]);
-    let out: ModelAndQuery<_, Ap> = ModelBuilder::new(&mut prism)
+    let out: ModelAndQuery<_, Ix> = ModelBuilder::new(&mut prism)
         .with_mdp_model_type()
         .with_all_labels()
         .with_query(queries.pop().unwrap())
@@ -63,7 +63,7 @@ mod query_order {
     fn with_queries() {
         let (mut prism, mut queries) = parse(MODEL, &[A, B, C]);
         let c = queries.pop().unwrap();
-        let out: ModelAndQueries<_, Ap> = ModelBuilder::new(&mut prism)
+        let out: ModelAndQueries<_, Ix> = ModelBuilder::new(&mut prism)
             .with_mdp_model_type()
             .with_queries(queries)
             .and_with_query(c)
@@ -76,7 +76,7 @@ mod query_order {
     fn and_with_query() {
         let (mut prism, queries) = parse(MODEL, &[A, B, C]);
         let [a, b, c]: [_; 3] = queries.try_into().ok().unwrap();
-        let out: ModelAndQueries<_, Ap> = ModelBuilder::new(&mut prism)
+        let out: ModelAndQueries<_, Ix> = ModelBuilder::new(&mut prism)
             .with_mdp_model_type()
             .with_query(a)
             .and_with_query(b)
@@ -90,7 +90,7 @@ mod query_order {
     fn and_with_queries() {
         let (mut prism, mut queries) = parse(MODEL, &[A, B, C]);
         let a = queries.remove(0);
-        let out: ModelAndQueries<_, Ap> = ModelBuilder::new(&mut prism)
+        let out: ModelAndQueries<_, Ix> = ModelBuilder::new(&mut prism)
             .with_mdp_model_type()
             .with_query(a)
             .and_with_queries(queries)
@@ -170,7 +170,7 @@ fn query_constants_evaluated() {
         .with_query(queries.pop().unwrap())
         .build()
         .unwrap();
-    let _: &QueryEnum<i64, f64, Ap> = &out.query;
+    let _: &QueryEnum<i64, f64, Ap, _> = &out.query;
     assert_eq!(show(&out.query), "P>=0.25 [ F<=2 0 ]");
 }
 

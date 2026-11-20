@@ -47,7 +47,9 @@
 
 mod coalitions;
 mod named_queries;
-pub use coalitions::{Coalition, CoalitionAsMut, CoalitionAsRef, NoCoalition};
+pub use coalitions::{
+    Coalition, CoalitionAsMut, CoalitionAsRef, IndexBasedCoalition, NoCoalition, UnknownPlayer,
+};
 pub use named_queries::{NamedQueries, NamedQuery, QueryExists};
 
 use std::borrow::Borrow;

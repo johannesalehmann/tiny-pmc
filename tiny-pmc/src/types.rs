@@ -5,7 +5,8 @@ use probabilistic_models::initial_states::InitialStates;
 use probabilistic_models::labels::{BranchLabels, ChoiceLabels};
 use probabilistic_models::predecessors::Predecessors;
 use probabilistic_models::valuations::Valuations;
-use probabilistic_models::{AtomicPropositionIndex, DefaultIx, Model};
+use probabilistic_models::{AtomicPropositionIndex, DefaultIx, Model, PlayerIndex};
+use probabilistic_properties::IndexBasedCoalition;
 use std::convert::Infallible;
 
 pub type PrismModel = prism_model::Model<
@@ -43,7 +44,12 @@ pub type ExplicitModel = Model<
     (),
     (),
 >;
-pub type ExplicitQueries = probabilistic_properties::NamedQueries<i64, f64, API>;
+pub type ExplicitQueries = probabilistic_properties::NamedQueries<
+    i64,
+    f64,
+    API,
+    IndexBasedCoalition<PlayerIndex<DefaultIx>>,
+>;
 
 // The model that can be given to the model checker
 pub type OptionalModel = Model<
