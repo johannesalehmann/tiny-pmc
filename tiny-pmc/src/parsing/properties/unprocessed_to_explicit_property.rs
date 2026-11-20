@@ -110,7 +110,18 @@ fn handle_state_formula<M: ReadAtomicPropositions>(
                 Some(index) => Ok(StateFormula::Expression(index)),
                 None => Err(FormulaProcessingError::UnknownLabel(name.name)),
             },
-            _ => Err(FormulaProcessingError::NonLabelExpression(e.clone())),
+            Expression::Negation(inner, _) => Ok(StateFormula::Not(Box::new(
+                handle_state_formula(StateFormula::Expression(*inner), model)?,
+            ))),
+            Expression::Conjunction(lhs, rhs, _) => Ok(StateFormula::And(
+                Box::new(handle_state_formula(StateFormula::Expression(*lhs), model)?),
+                Box::new(handle_state_formula(StateFormula::Expression(*rhs), model)?),
+            )),
+            Expression::Disjunction(lhs, rhs, _) => Ok(StateFormula::Or(
+                Box::new(handle_state_formula(StateFormula::Expression(*lhs), model)?),
+                Box::new(handle_state_formula(StateFormula::Expression(*rhs), model)?),
+            )),
+            other => Err(FormulaProcessingError::NonLabelExpression(other)),
         },
         StateFormula::ProbabilityBound {
             non_determinism,
@@ -130,6 +141,17 @@ fn handle_state_formula<M: ReadAtomicPropositions>(
             bound: handle_float_bound(bound)?,
             states: Box::new(handle_state_formula(*states, model)?),
         }),
+        StateFormula::Not(inner) => Ok(StateFormula::Not(Box::new(handle_state_formula(
+            *inner, model,
+        )?))),
+        StateFormula::And(lhs, rhs) => Ok(StateFormula::And(
+            Box::new(handle_state_formula(*lhs, model)?),
+            Box::new(handle_state_formula(*rhs, model)?),
+        )),
+        StateFormula::Or(lhs, rhs) => Ok(StateFormula::Or(
+            Box::new(handle_state_formula(*lhs, model)?),
+            Box::new(handle_state_formula(*rhs, model)?),
+        )),
     }
 }
 

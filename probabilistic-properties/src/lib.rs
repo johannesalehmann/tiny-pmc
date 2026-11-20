@@ -114,7 +114,8 @@ pub enum Query<I, F, E> {
 
 impl<I, F, E> Query<I, F, E> {
     /// If the query is a boolean query (i.e. not a `...Value` query), this returns the negation
-    /// of the query by inverting the bounds. Otherwise, it returns `None`.
+    /// of the query by inverting the bounds and updating the boolean operations in state formulas.
+    /// If the query is a `...Value` query, it returns `None`.
     ///
     /// The parameter `invert_expression` is a function that inverts the given expression. This is
     /// necessary because expressions are of type `E`, which is opaque to this library. Therefore,
@@ -123,30 +124,9 @@ impl<I, F, E> Query<I, F, E> {
     pub fn invert<IE: Fn(E) -> E>(self, invert_expression: IE) -> Option<Self> {
         match self {
             Query::ProbabilityValue { .. } => None,
-            Query::StateFormula(state_formula) => {
-                let new_state_formula = match state_formula {
-                    StateFormula::Expression(e) => StateFormula::Expression(invert_expression(e)),
-                    StateFormula::ProbabilityBound {
-                        non_determinism,
-                        bound,
-                        path,
-                    } => StateFormula::ProbabilityBound {
-                        non_determinism,
-                        bound: bound.invert(),
-                        path,
-                    },
-                    StateFormula::LongRunAverage {
-                        non_determinism,
-                        bound,
-                        states,
-                    } => StateFormula::LongRunAverage {
-                        non_determinism,
-                        bound: bound.invert(),
-                        states,
-                    },
-                };
-                Some(Query::StateFormula(new_state_formula))
-            }
+            Query::StateFormula(state_formula) => Some(Query::StateFormula(
+                state_formula.invert(&invert_expression),
+            )),
             Query::RewardBound {
                 non_determinism,
                 name,
@@ -554,14 +534,69 @@ pub enum StateFormula<I, F, E> {
         /// The set of states for which the long-run average is computed.
         states: Box<StateFormula<I, F, E>>,
     },
+
+    /// A negation of the given state formula.
+    Not(Box<StateFormula<I, F, E>>),
+
+    /// The conjunction of two state formulas.
+    And(Box<StateFormula<I, F, E>>, Box<StateFormula<I, F, E>>),
+
+    /// The disjunction of two state formulas.
+    Or(Box<StateFormula<I, F, E>>, Box<StateFormula<I, F, E>>),
 }
 
 impl<I, F, E> StateFormula<I, F, E> {
+    /// Returns the negation of the state formula.
+    ///
+    /// See [`Query::invert`] for details.
+    #[must_use]
+    pub fn invert<IE: Fn(E) -> E>(self, invert_expression: &IE) -> Self {
+        match self {
+            StateFormula::Expression(e) => StateFormula::Expression(invert_expression(e)),
+            StateFormula::ProbabilityBound {
+                non_determinism,
+                bound,
+                path,
+            } => StateFormula::ProbabilityBound {
+                non_determinism,
+                bound: bound.invert(),
+                path,
+            },
+            StateFormula::LongRunAverage {
+                non_determinism,
+                bound,
+                states,
+            } => StateFormula::LongRunAverage {
+                non_determinism,
+                bound: bound.invert(),
+                states,
+            },
+            StateFormula::Not(inner) => *inner,
+            StateFormula::And(lhs, rhs) => StateFormula::Or(
+                Box::new(lhs.invert(invert_expression)),
+                Box::new(rhs.invert(invert_expression)),
+            ),
+            StateFormula::Or(lhs, rhs) => StateFormula::And(
+                Box::new(lhs.invert(invert_expression)),
+                Box::new(rhs.invert(invert_expression)),
+            ),
+        }
+    }
+
     /// Returns a state formula where the integers, floats and expressions are stored as mutable
     /// references.
     pub fn as_mut(&mut self) -> StateFormula<&mut I, &mut F, &mut E> {
         match self {
             StateFormula::Expression(e) => StateFormula::Expression(e),
+            StateFormula::Not(inner) => StateFormula::Not(Box::new(StateFormula::as_mut(inner))),
+            StateFormula::And(lhs, rhs) => StateFormula::And(
+                Box::new(StateFormula::as_mut(lhs)),
+                Box::new(StateFormula::as_mut(rhs)),
+            ),
+            StateFormula::Or(lhs, rhs) => StateFormula::Or(
+                Box::new(StateFormula::as_mut(lhs)),
+                Box::new(StateFormula::as_mut(rhs)),
+            ),
             StateFormula::ProbabilityBound {
                 non_determinism,
                 bound,
@@ -587,6 +622,15 @@ impl<I, F, E> StateFormula<I, F, E> {
     pub fn as_ref(&self) -> StateFormula<&I, &F, &E> {
         match self {
             StateFormula::Expression(e) => StateFormula::Expression(e),
+            StateFormula::Not(inner) => StateFormula::Not(Box::new(StateFormula::as_ref(inner))),
+            StateFormula::And(lhs, rhs) => StateFormula::And(
+                Box::new(StateFormula::as_ref(lhs)),
+                Box::new(StateFormula::as_ref(rhs)),
+            ),
+            StateFormula::Or(lhs, rhs) => StateFormula::Or(
+                Box::new(StateFormula::as_ref(lhs)),
+                Box::new(StateFormula::as_ref(rhs)),
+            ),
             StateFormula::ProbabilityBound {
                 non_determinism,
                 bound,
@@ -624,6 +668,13 @@ impl<I, F, E> StateFormula<I, F, E> {
     ) -> Result<StateFormula<I2, F, E>, Er> {
         Ok(match self {
             StateFormula::Expression(expression) => StateFormula::Expression(expression),
+            StateFormula::Not(inner) => StateFormula::Not(Box::new(inner.try_map_i(map)?)),
+            StateFormula::And(lhs, rhs) => {
+                StateFormula::And(Box::new(lhs.try_map_i(map)?), Box::new(rhs.try_map_i(map)?))
+            }
+            StateFormula::Or(lhs, rhs) => {
+                StateFormula::Or(Box::new(lhs.try_map_i(map)?), Box::new(rhs.try_map_i(map)?))
+            }
             StateFormula::ProbabilityBound {
                 non_determinism,
                 bound,
@@ -660,6 +711,13 @@ impl<I, F, E> StateFormula<I, F, E> {
     ) -> Result<StateFormula<I, F2, E>, Er> {
         Ok(match self {
             StateFormula::Expression(expression) => StateFormula::Expression(expression),
+            StateFormula::Not(inner) => StateFormula::Not(Box::new(inner.try_map_f(map)?)),
+            StateFormula::And(lhs, rhs) => {
+                StateFormula::And(Box::new(lhs.try_map_f(map)?), Box::new(rhs.try_map_f(map)?))
+            }
+            StateFormula::Or(lhs, rhs) => {
+                StateFormula::Or(Box::new(lhs.try_map_f(map)?), Box::new(rhs.try_map_f(map)?))
+            }
             StateFormula::ProbabilityBound {
                 non_determinism,
                 bound,
@@ -697,6 +755,13 @@ impl<I, F, E> StateFormula<I, F, E> {
     ) -> Result<StateFormula<I, F, E2>, Er> {
         Ok(match self {
             StateFormula::Expression(expression) => StateFormula::Expression(map(expression)?),
+            StateFormula::Not(inner) => StateFormula::Not(Box::new(inner.try_map_e(map)?)),
+            StateFormula::And(lhs, rhs) => {
+                StateFormula::And(Box::new(lhs.try_map_e(map)?), Box::new(rhs.try_map_e(map)?))
+            }
+            StateFormula::Or(lhs, rhs) => {
+                StateFormula::Or(Box::new(lhs.try_map_e(map)?), Box::new(rhs.try_map_e(map)?))
+            }
             StateFormula::ProbabilityBound {
                 non_determinism,
                 bound,
@@ -739,6 +804,9 @@ impl<I: Display, F: Display, E: Display> Display for StateFormula<I, F, E> {
             } => {
                 write!(f, "LRA{}{bound} [{states}", non_determinism.to_str())
             }
+            StateFormula::Not(inner) => write!(f, "!({inner})"),
+            StateFormula::And(lhs, rhs) => write!(f, "({lhs}) & ({rhs})"),
+            StateFormula::Or(lhs, rhs) => write!(f, "({lhs}) | ({rhs})"),
         }
     }
 }

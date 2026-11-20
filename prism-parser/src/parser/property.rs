@@ -1,5 +1,5 @@
-use super::{E, expression_parser, identifier_parser};
-use crate::{ParserSpan, Token};
+use super::{E, expression_parser, expression_parser_with, identifier_parser};
+use crate::{ParserSpan, Token, ValidationError};
 use chumsky::input::ValueInput;
 use chumsky::prelude::{Recursive, just};
 use chumsky::{IterParser, Parser};
@@ -8,6 +8,7 @@ use probabilistic_properties::{
     Bound, BoundOperator, NamedQuery, NonDeterminismKind, PathFormula, Query, RewardFormula,
     StateFormula,
 };
+use std::cell::Cell;
 
 // TODO: Support property-file constants
 // TODO: Support property-file labels
@@ -305,7 +306,8 @@ pub fn define_state_formula_parser<
                 Expression<Identifier<ParserSpan>, ParserSpan>,
             >,
             E<'a>,
-        > + Clone,
+        > + Clone
+        + 'a,
     PF: Parser<
             'a,
             I,
@@ -315,7 +317,8 @@ pub fn define_state_formula_parser<
                 Expression<Identifier<ParserSpan>, ParserSpan>,
             >,
             E<'a>,
-        > + Clone,
+        > + Clone
+        + 'a,
 >(
     state_formula_parser: SF,
     path_formula_parser: PF,
@@ -332,8 +335,6 @@ pub fn define_state_formula_parser<
 where
     I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
-    let expression = expression_parser().map(|e| StateFormula::Expression(e));
-
     let probability_bound = probability_min_max()
         .then(bound_parser())
         .then_ignore(just(Token::LeftSqBracket))
@@ -358,7 +359,78 @@ where
             },
         );
 
-    expression.or(probability_bound).or(long_run_average)
+    let atom = identifier_parser()
+        .map(IdentifierOrStateFormula::Identifier)
+        .or(probability_bound
+            .or(long_run_average)
+            .map(|formula| IdentifierOrStateFormula::StateFormula(Box::new(formula))));
+
+    expression_parser_with(atom).try_map(|expression, _| {
+        into_state_formula(expression)
+            .map_err(|span| ValidationError::InvalidNestedStateFormula { span }.into())
+    })
+}
+
+type ParsedExpression = Expression<Identifier<ParserSpan>, ParserSpan>;
+type ParsedStateFormula = StateFormula<ParsedExpression, ParsedExpression, ParsedExpression>;
+
+// To represent nested state formulas, we abuse Expression::VarOrConst by storing this enum in it.
+enum IdentifierOrStateFormula {
+    Identifier(Identifier<ParserSpan>),
+    StateFormula(Box<ParsedStateFormula>),
+}
+
+fn into_state_formula(
+    expression: Expression<IdentifierOrStateFormula, ParserSpan>,
+) -> Result<ParsedStateFormula, ParserSpan> {
+    Ok(match expression {
+        Expression::VarOrConst(IdentifierOrStateFormula::StateFormula(formula), _) => *formula,
+        Expression::Negation(inner, span) => match into_state_formula(*inner)? {
+            StateFormula::Expression(inner) => {
+                StateFormula::Expression(Expression::Negation(Box::new(inner), span))
+            }
+            inner => StateFormula::Not(Box::new(inner)),
+        },
+        Expression::Conjunction(lhs, rhs, span) => {
+            match (into_state_formula(*lhs)?, into_state_formula(*rhs)?) {
+                (StateFormula::Expression(lhs), StateFormula::Expression(rhs)) => {
+                    StateFormula::Expression(Expression::Conjunction(
+                        Box::new(lhs),
+                        Box::new(rhs),
+                        span,
+                    ))
+                }
+                (lhs, rhs) => StateFormula::And(Box::new(lhs), Box::new(rhs)),
+            }
+        }
+        Expression::Disjunction(lhs, rhs, span) => {
+            match (into_state_formula(*lhs)?, into_state_formula(*rhs)?) {
+                (StateFormula::Expression(lhs), StateFormula::Expression(rhs)) => {
+                    StateFormula::Expression(Expression::Disjunction(
+                        Box::new(lhs),
+                        Box::new(rhs),
+                        span,
+                    ))
+                }
+                (lhs, rhs) => StateFormula::Or(Box::new(lhs), Box::new(rhs)),
+            }
+        }
+        expression => {
+            let span = *expression.span();
+            let contains_state_formula = Cell::new(false);
+            let expression = expression.map_variable(&|atom| match atom {
+                IdentifierOrStateFormula::Identifier(identifier) => identifier,
+                IdentifierOrStateFormula::StateFormula(_) => {
+                    contains_state_formula.set(true);
+                    Identifier::new_unchecked("")
+                }
+            });
+            if contains_state_formula.get() {
+                return Err(span);
+            }
+            StateFormula::Expression(expression)
+        }
+    })
 }
 
 pub fn bound_parser<'a, 'b, I>()

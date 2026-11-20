@@ -53,6 +53,13 @@ fn condition_of_state_formula<S: Span>(
         StateFormula::Expression(e) => Some(e.clone()),
         StateFormula::ProbabilityBound { .. } => None,
         StateFormula::LongRunAverage { .. } => None,
+        StateFormula::Not(inner) => Some(condition_of_state_formula(inner)?.negate_bool()),
+        StateFormula::And(lhs, rhs) => {
+            Some(condition_of_state_formula(lhs)?.and(condition_of_state_formula(rhs)?))
+        }
+        StateFormula::Or(lhs, rhs) => {
+            Some(condition_of_state_formula(lhs)?.or(condition_of_state_formula(rhs)?))
+        }
     }
 }
 

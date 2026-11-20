@@ -326,6 +326,18 @@ impl<'a> ParserError<'a, ParserSpan, String> {
                 // TODO: Add a more helpful message once we have access to spans
                 builder
             }
+            ValidationError::InvalidNestedStateFormula { span } => {
+                let mut builder = MaybeReportBuilder::new_error(&span);
+                builder.set_message("State formula is invalidly nested inside an expression");
+                // TODO: This error message can be improved:
+                //  - Highlight the specific part that is incorrectly nested
+                //  - Explain better how state formulas can be nested and how they cannot be nested
+                builder
+                    .add_label(MaybeLabel::new(&span).with_message(
+                        "State formulas can only be combined using `!`, `&` and `|`",
+                    ));
+                builder
+            }
         }
     }
 }

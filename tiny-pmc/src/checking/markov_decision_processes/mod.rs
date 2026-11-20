@@ -408,5 +408,16 @@ where
             ))
         }
         StateFormula::LongRunAverage { .. } => Err(CheckerError::NoSuitableAlgorithm),
+        StateFormula::Not(inner) => Ok(StateDescription::Negation(Box::new(compute_state_value(
+            model, inner, options,
+        )?))),
+        StateFormula::And(lhs, rhs) => Ok(StateDescription::Conjunction(
+            Box::new(compute_state_value(model, lhs, options)?),
+            Box::new(compute_state_value(model, rhs, options)?),
+        )),
+        StateFormula::Or(lhs, rhs) => Ok(StateDescription::Disjunction(
+            Box::new(compute_state_value(model, lhs, options)?),
+            Box::new(compute_state_value(model, rhs, options)?),
+        )),
     }
 }

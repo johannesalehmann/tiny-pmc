@@ -11,6 +11,19 @@ pub fn expression_parser<'a, 'b, I>()
 where
     I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
+    expression_parser_with(identifier_parser())
+}
+
+// Parses an expression with a custom parser for variable names. This can be used to inject
+// custom components into expressions (abusing Expression::VarOrConst to store arbitrary
+// information).
+pub fn expression_parser_with<'a, 'b, I, V>(
+    variable_parser: impl Parser<'a, I, V, E<'a>> + Clone + 'a,
+) -> impl Parser<'a, I, prism_model::Expression<V, ParserSpan>, E<'a>> + Clone
+where
+    I: ValueInput<'a, Token = Token, Span = ParserSpan>,
+    V: 'a,
+{
     use prism_model::Expression;
     recursive(|expr| {
         let int = select! {Token::Integer(val) = e =>  Expression::Int(val.parse::<i64>().unwrap(), e.span())};
@@ -19,7 +32,7 @@ where
         let true_exp = just(Token::True).map_with(|_, e| Expression::Bool(true, e.span()));
         let false_exp = just(Token::False).map_with(|_, e| Expression::Bool(false, e.span()));
 
-        let identifier = identifier_parser().map_with(|i, e| Expression::VarOrConst(i, e.span()));
+        let identifier = variable_parser.map_with(|v, e| Expression::VarOrConst(v, e.span()));
 
         let function = identifier_parser_potentially_reserved()
             .then_ignore(just(Token::LeftBracket))

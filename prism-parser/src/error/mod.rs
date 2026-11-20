@@ -219,6 +219,27 @@ pub enum ValidationError<S: prism_model::Span> {
         /// processing of the property.
         previous_index: Option<usize>,
     },
+    /// An expression contains a nested state formula that is nested in an unspported way.
+    ///
+    /// # Example
+    ///
+    /// ```pCTL
+    /// P>1.0 [F "a"] => P>0.5 [F "b"]
+    /// x=5 => (y=6 & P>1.0 [G "c"])
+    /// ```
+    ///
+    /// These state formulas are fine:
+    ///
+    /// ```pCTL
+    /// "a" => "b"
+    /// P>1.0 [F "a"] & x=5
+    /// P>1.0 [F "a"] & P>0.5 [G "c"]
+    /// (x=5 => x=6) | P>0.5 [G "b"]
+    /// ```
+    InvalidNestedStateFormula {
+        /// The span of the expression containing the state formula.
+        span: S,
+    },
 }
 
 /// A type of component of a PRISM model (used by [`ValidationError::DuplicateElement`]).
