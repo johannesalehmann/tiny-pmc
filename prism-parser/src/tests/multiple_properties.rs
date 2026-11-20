@@ -1,12 +1,13 @@
 use crate::{Error, ErrorSource, ValidationError};
 use prism_model::Displayable;
-use probabilistic_properties::{PathFormula, Query, StateFormula};
+use probabilistic_properties::{PathFormula, Query, QueryEnum, StateFormula};
 
-/// Asserts that `$query` (a `NamedQuery`) has the given name and that its query matches `$pattern`.
-macro_rules! assert_query {
+/// Asserts that `$query` (a `NamedQuery`) has the given name and that it is a pCTL query matching
+/// `$pattern`.
+macro_rules! assert_pctl_query {
     ($query: expr, $name: expr, $pattern: pat) => {
         assert_eq!($query.name.as_deref(), $name);
-        assert!(matches!($query.query, $pattern));
+        assert!(matches!($query.query, QueryEnum::Pctl($pattern)));
     };
 }
 
@@ -35,15 +36,15 @@ fn two_unnamed_in_one_file() {
 
     let file_0 = parse.result_for_input_file(0).unwrap();
     assert_eq!(file_0.len(), 2);
-    assert_query!(file_0[0], None, Query::ProbabilityValue { .. });
-    assert_query!(file_0[1], None, Query::RewardValue { .. });
+    assert_pctl_query!(file_0[0], None, Query::ProbabilityValue { .. });
+    assert_pctl_query!(file_0[1], None, Query::RewardValue { .. });
 
     let Ok(queries) = parse.all_ok() else {
         panic!()
     };
     assert_eq!(queries.len(), 2);
-    assert_query!(queries[0], None, Query::ProbabilityValue { .. });
-    assert_query!(queries[1], None, Query::RewardValue { .. });
+    assert_pctl_query!(queries[0], None, Query::ProbabilityValue { .. });
+    assert_pctl_query!(queries[1], None, Query::RewardValue { .. });
 }
 
 #[test]
@@ -53,17 +54,17 @@ fn three_in_one_file() {
 
     let file_0 = parse.result_for_input_file(0).unwrap();
     assert_eq!(file_0.len(), 3);
-    assert_query!(file_0[0], None, Query::ProbabilityValue { .. });
-    assert_query!(file_0[1], Some("p2"), Query::RewardBound { .. });
-    assert_query!(file_0[2], None, Query::RewardValue { .. });
+    assert_pctl_query!(file_0[0], None, Query::ProbabilityValue { .. });
+    assert_pctl_query!(file_0[1], Some("p2"), Query::RewardBound { .. });
+    assert_pctl_query!(file_0[2], None, Query::RewardValue { .. });
 
     let Ok(queries) = parse.all_ok() else {
         panic!()
     };
     assert_eq!(queries.len(), 3);
-    assert_query!(queries[0], None, Query::ProbabilityValue { .. });
-    assert_query!(queries[1], Some("p2"), Query::RewardBound { .. });
-    assert_query!(queries[2], None, Query::RewardValue { .. });
+    assert_pctl_query!(queries[0], None, Query::ProbabilityValue { .. });
+    assert_pctl_query!(queries[1], Some("p2"), Query::RewardBound { .. });
+    assert_pctl_query!(queries[2], None, Query::RewardValue { .. });
 }
 
 #[test]
@@ -73,19 +74,19 @@ fn three_in_two_files() {
 
     let file_0 = parse.result_for_input_file(0).unwrap();
     assert_eq!(file_0.len(), 1);
-    assert_query!(file_0[0], None, Query::ProbabilityValue { .. });
+    assert_pctl_query!(file_0[0], None, Query::ProbabilityValue { .. });
     let file_1 = parse.result_for_input_file(1).unwrap();
     assert_eq!(file_1.len(), 2);
-    assert_query!(file_1[0], Some("p2"), Query::RewardBound { .. });
-    assert_query!(file_1[1], None, Query::RewardValue { .. });
+    assert_pctl_query!(file_1[0], Some("p2"), Query::RewardBound { .. });
+    assert_pctl_query!(file_1[1], None, Query::RewardValue { .. });
 
     let Ok(queries) = parse.all_ok() else {
         panic!()
     };
     assert_eq!(queries.len(), 3);
-    assert_query!(queries[0], None, Query::ProbabilityValue { .. });
-    assert_query!(queries[1], Some("p2"), Query::RewardBound { .. });
-    assert_query!(queries[2], None, Query::RewardValue { .. });
+    assert_pctl_query!(queries[0], None, Query::ProbabilityValue { .. });
+    assert_pctl_query!(queries[1], Some("p2"), Query::RewardBound { .. });
+    assert_pctl_query!(queries[2], None, Query::RewardValue { .. });
 }
 #[test]
 fn some_files_empty() {
@@ -100,11 +101,11 @@ fn some_files_empty() {
 
     let file_0 = parse.result_for_input_file(0).unwrap();
     assert_eq!(file_0.len(), 1);
-    assert_query!(file_0[0], None, Query::ProbabilityValue { .. });
+    assert_pctl_query!(file_0[0], None, Query::ProbabilityValue { .. });
     let file_3 = parse.result_for_input_file(3).unwrap();
     assert_eq!(file_3.len(), 2);
-    assert_query!(file_3[0], Some("p2"), Query::RewardBound { .. });
-    assert_query!(file_3[1], None, Query::RewardValue { .. });
+    assert_pctl_query!(file_3[0], Some("p2"), Query::RewardBound { .. });
+    assert_pctl_query!(file_3[1], None, Query::RewardValue { .. });
 
     for i in [1, 2, 4] {
         assert!(parse.result_for_input_file(i).unwrap().is_empty());
@@ -114,9 +115,9 @@ fn some_files_empty() {
         panic!()
     };
     assert_eq!(queries.len(), 3);
-    assert_query!(queries[0], None, Query::ProbabilityValue { .. });
-    assert_query!(queries[1], Some("p2"), Query::RewardBound { .. });
-    assert_query!(queries[2], None, Query::RewardValue { .. });
+    assert_pctl_query!(queries[0], None, Query::ProbabilityValue { .. });
+    assert_pctl_query!(queries[1], Some("p2"), Query::RewardBound { .. });
+    assert_pctl_query!(queries[2], None, Query::RewardValue { .. });
 }
 #[test]
 fn some_files_malformed() {
@@ -131,7 +132,7 @@ fn some_files_malformed() {
 
     let file_0 = parse.result_for_input_file(0).unwrap();
     assert_eq!(file_0.len(), 1);
-    assert_query!(file_0[0], None, Query::ProbabilityValue { .. });
+    assert_pctl_query!(file_0[0], None, Query::ProbabilityValue { .. });
     for i in [1, 4] {
         let Err(e) = parse.result_for_input_file(i) else {
             panic!()
@@ -140,8 +141,8 @@ fn some_files_malformed() {
     }
     let file_3 = parse.result_for_input_file(3).unwrap();
     assert_eq!(file_3.len(), 2);
-    assert_query!(file_3[0], Some("p2"), Query::RewardBound { .. });
-    assert_query!(file_3[1], None, Query::RewardValue { .. });
+    assert_pctl_query!(file_3[0], Some("p2"), Query::RewardBound { .. });
+    assert_pctl_query!(file_3[1], None, Query::RewardValue { .. });
 
     assert!(parse.result_for_input_file(2).unwrap().is_empty());
 
@@ -166,13 +167,13 @@ fn single_with_and_without_semicolon() {
 
         let file_0 = parse.result_for_input_file(0).unwrap();
         assert_eq!(file_0.len(), 1);
-        assert_query!(file_0[0], None, Query::ProbabilityValue { .. });
+        assert_pctl_query!(file_0[0], None, Query::ProbabilityValue { .. });
 
         let Ok(queries) = parse.all_ok() else {
             panic!()
         };
         assert_eq!(queries.len(), 1);
-        assert_query!(queries[0], None, Query::ProbabilityValue { .. });
+        assert_pctl_query!(queries[0], None, Query::ProbabilityValue { .. });
     }
 }
 
@@ -187,7 +188,7 @@ fn duplicate_name_in_one_file() {
     assert_eq!(errors_0, &[duplicate_name("a", Some(0))]);
     // The first occurrence is kept, the duplicate is dropped
     assert_eq!(parse.properties.len(), 1);
-    assert_query!(
+    assert_pctl_query!(
         parse.properties[0],
         Some("a"),
         Query::ProbabilityValue { .. }
@@ -220,12 +221,12 @@ fn two_duplicate_names_in_one_file() {
         &[duplicate_name("b", Some(1)), duplicate_name("a", Some(0))]
     );
     assert_eq!(parse.properties.len(), 2);
-    assert_query!(
+    assert_pctl_query!(
         parse.properties[0],
         Some("a"),
         Query::ProbabilityValue { .. }
     );
-    assert_query!(parse.properties[1], Some("b"), Query::RewardValue { .. });
+    assert_pctl_query!(parse.properties[1], Some("b"), Query::RewardValue { .. });
 
     let Err(errors) = parse.all_ok() else {
         panic!()
@@ -257,14 +258,14 @@ fn duplicate_name_in_two_files() {
 
     let file_0 = parse.result_for_input_file(0).unwrap();
     assert_eq!(file_0.len(), 2);
-    assert_query!(file_0[0], None, Query::ProbabilityValue { .. });
-    assert_query!(file_0[1], Some("a"), Query::ProbabilityValue { .. });
+    assert_pctl_query!(file_0[0], None, Query::ProbabilityValue { .. });
+    assert_pctl_query!(file_0[1], Some("a"), Query::ProbabilityValue { .. });
     let Err(errors_1) = parse.result_for_input_file(1) else {
         panic!()
     };
     assert_eq!(errors_1, &[duplicate_name("a", Some(1))]);
     assert_eq!(parse.properties.len(), 3);
-    assert_query!(parse.properties[2], Some("b"), Query::RewardValue { .. });
+    assert_pctl_query!(parse.properties[2], Some("b"), Query::RewardValue { .. });
 
     let Err(errors) = parse.all_ok() else {
         panic!()
@@ -288,10 +289,10 @@ fn nested_labels_are_substituted() {
 
     // Returns the condition of a query `P=? [F condition]` as a string
     let condition = |query: &crate::Query| {
-        let Query::ProbabilityValue {
+        let QueryEnum::Pctl(Query::ProbabilityValue {
             path: PathFormula::Eventually { condition },
             ..
-        } = &query.query
+        }) = &query.query
         else {
             panic!()
         };
@@ -330,12 +331,12 @@ fn duplicate_names_with_model() {
 
     // Only "good" (from the first file) and "ok" remain
     assert_eq!(props.properties.len(), 2);
-    assert_query!(
+    assert_pctl_query!(
         props.properties[0],
         Some("good"),
         Query::ProbabilityValue { .. }
     );
-    assert_query!(props.properties[1], Some("ok"), Query::RewardValue { .. });
+    assert_pctl_query!(props.properties[1], Some("ok"), Query::RewardValue { .. });
     assert_eq!(props.input_source_to_properties, vec![0..1, 1..2]);
 
     let Err(errors_0) = props.result_for_input_file(0) else {

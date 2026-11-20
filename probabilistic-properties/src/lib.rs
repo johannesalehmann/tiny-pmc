@@ -1,24 +1,29 @@
 #![warn(missing_docs)]
 
-//! Provides a representation of a model checker query, combining a pCTL [^1] with query operators
-//! for getting values or comparing them to bounds.
+//! Provides a representation of a model checker query, combining a pCTL [^1] or rPATL [^2] formula
+//! with query operators for getting values or comparing them to bounds.
 //!
 //! This crate can represent the (single-objective) queries for the STORM model checker, [as
-//! described here](https://www.stormchecker.org/documentation/background/properties.html).
+//! described here](https://www.stormchecker.org/documentation/background/properties.html), as
+//! well as rPATL queries with coalitions as used by PRISM-games.
 //!
 //! # Example
 //!
 //! The query `Pmax=? [F "goal"]` is expressed as follows
 //! ```
-//! use probabilistic_properties::{NonDeterminismKind, PathFormula, Query, StateFormula};
+//! use probabilistic_properties::{
+//!     NoCoalition, NonDeterminismKind, PathFormula, Query, QueryEnum, StateFormula,
+//! };
 //!
 //! let goal = "goal"; // You can use other types, e.g. expressions or atomic proposition indices
-//! let query: Query<i64, f64, &str> = Query::ProbabilityValue {
+//! let query: Query<i64, f64, &str, NoCoalition> = Query::ProbabilityValue {
 //!     non_determinism: Some(NonDeterminismKind::Maximise),
+//!     coalition: NoCoalition,
 //!     path: PathFormula::Eventually {
 //!         condition: Box::new(StateFormula::Expression(goal)),
 //!     },
 //! };
+//! let query: QueryEnum<i64, f64, &str> = QueryEnum::Pctl(query);
 //! ```
 //!
 //! # Generics
@@ -28,25 +33,169 @@
 //! - `I`: Type used to describe integers
 //! - `F`: Type used to describe floats
 //! - `E`: Type used to describe sets of states
+//! - `C`: Type used to describe coalitions. All operators of a [`Query`] use the same coalition
+//!   type, so a query either has a coalition on every operator or on none of them. pCTL queries
+//!   use [`NoCoalition`], rPATL queries usually use [`Coalition`].
 //!
 //! Usually, either `I`, `F` and `E` are all modeled as expressions or `I` uses `i64`, `F` uses
 //! `f64` and `E` stores an atomic proposition that describes the states.
 //!
 //! [^1]: probabilistic Computation Tree Logic
 //!
+//! [^2]: probabilistic Alternating-time Temporal Logic with Rewards
+//!
 
+mod coalitions;
 mod named_queries;
+pub use coalitions::{Coalition, CoalitionAsMut, CoalitionAsRef, NoCoalition};
 pub use named_queries::{NamedQueries, NamedQuery, QueryExists};
 
 use std::borrow::Borrow;
 use std::fmt::{Display, Formatter};
 
-/// Represents a pCTL query that can be answered by a model checker.
+/// A query that is either a pCTL query (without coalitions) or an rPATL query (with a coalition on
+/// every operator).
+///
+/// The coalition type `C` of rPATL queries is generic, so that coalitions can be mapped to other
+/// representations (e.g. resolved player indices) with [`QueryEnum::map_c`].
+#[derive(Clone, PartialEq, Eq)]
+pub enum QueryEnum<I, F, E, C = Coalition> {
+    /// A pCTL query, i.e. a query without coalitions.
+    Pctl(Query<I, F, E, NoCoalition>),
+    /// An rPATL query, i.e. a query with a coalition on every operator.
+    Rpatl(Query<I, F, E, C>),
+}
+
+impl<I, F, E, C> QueryEnum<I, F, E, C> {
+    /// Returns a query where the integers, floats, expressions and coalitions are stored as mutable
+    /// references.
+    pub fn as_mut(&mut self) -> QueryEnum<&mut I, &mut F, &mut E, C::Output<'_>>
+    where
+        C: CoalitionAsMut,
+    {
+        match self {
+            QueryEnum::Pctl(query) => QueryEnum::Pctl(query.as_mut()),
+            QueryEnum::Rpatl(query) => QueryEnum::Rpatl(query.as_mut()),
+        }
+    }
+
+    /// Returns a query where the integers, floats, expressions and coalitions are stored as
+    /// references.
+    pub fn as_ref(&self) -> QueryEnum<&I, &F, &E, C::Output<'_>>
+    where
+        C: CoalitionAsRef,
+    {
+        match self {
+            QueryEnum::Pctl(query) => QueryEnum::Pctl(query.as_ref()),
+            QueryEnum::Rpatl(query) => QueryEnum::Rpatl(query.as_ref()),
+        }
+    }
+
+    /// Maps the integer values of the query according to the given mapping function.
+    pub fn map_i<I2, M: FnMut(I) -> I2>(self, map: &mut M) -> QueryEnum<I2, F, E, C> {
+        self.try_map_i(&mut |ex| Result::<_, ()>::Ok(map(ex)))
+            .unwrap()
+    }
+
+    /// Maps the integer values of the query according to the given fallible mapping function.
+    ///
+    /// If the mapping function returns `Err(...)`, then `try_map_i()` also returns `Err(...)`.
+    pub fn try_map_i<Er, I2, M: FnMut(I) -> Result<I2, Er>>(
+        self,
+        map: &mut M,
+    ) -> Result<QueryEnum<I2, F, E, C>, Er> {
+        Ok(match self {
+            QueryEnum::Pctl(query) => QueryEnum::Pctl(query.try_map_i(map)?),
+            QueryEnum::Rpatl(query) => QueryEnum::Rpatl(query.try_map_i(map)?),
+        })
+    }
+
+    /// Maps the float values of the query according to the given mapping function.
+    pub fn map_f<F2, M: FnMut(F) -> F2>(self, map: &mut M) -> QueryEnum<I, F2, E, C> {
+        self.try_map_f(&mut |ex| Result::<_, ()>::Ok(map(ex)))
+            .unwrap()
+    }
+
+    /// Maps the float values of the query according to the given fallible mapping function.
+    ///
+    /// If the mapping function returns `Err(...)`, then `try_map_f()` also returns `Err(...)`.
+    pub fn try_map_f<Er, F2, M: FnMut(F) -> Result<F2, Er>>(
+        self,
+        map: &mut M,
+    ) -> Result<QueryEnum<I, F2, E, C>, Er> {
+        Ok(match self {
+            QueryEnum::Pctl(query) => QueryEnum::Pctl(query.try_map_f(map)?),
+            QueryEnum::Rpatl(query) => QueryEnum::Rpatl(query.try_map_f(map)?),
+        })
+    }
+
+    /// Maps the expression values of the query according to the given mapping function.
+    pub fn map_e<E2, M: FnMut(E) -> E2>(self, map: &mut M) -> QueryEnum<I, F, E2, C> {
+        self.try_map_e(&mut |ex| Result::<_, ()>::Ok(map(ex)))
+            .unwrap()
+    }
+
+    /// Maps the expression values of the query according to the given fallible mapping function.
+    ///
+    /// If the mapping function returns `Err(...)`, then `try_map_e()` also returns `Err(...)`.
+    pub fn try_map_e<Er, E2, M: FnMut(E) -> Result<E2, Er>>(
+        self,
+        map: &mut M,
+    ) -> Result<QueryEnum<I, F, E2, C>, Er> {
+        Ok(match self {
+            QueryEnum::Pctl(query) => QueryEnum::Pctl(query.try_map_e(map)?),
+            QueryEnum::Rpatl(query) => QueryEnum::Rpatl(query.try_map_e(map)?),
+        })
+    }
+
+    /// Maps the coalitions of the query according to the given mapping function.
+    ///
+    /// pCTL queries do not contain coalitions and are therefore returned unchanged.
+    pub fn map_c<C2, M: FnMut(C) -> C2>(self, map: &mut M) -> QueryEnum<I, F, E, C2> {
+        self.try_map_c(&mut |ex| Result::<_, ()>::Ok(map(ex)))
+            .unwrap()
+    }
+
+    /// Maps the coalitions of the query according to the given fallible mapping function.
+    ///
+    /// pCTL queries do not contain coalitions and are therefore returned unchanged.
+    ///
+    /// If the mapping function returns `Err(...)`, then `try_map_c()` also returns `Err(...)`.
+    pub fn try_map_c<Er, C2, M: FnMut(C) -> Result<C2, Er>>(
+        self,
+        map: &mut M,
+    ) -> Result<QueryEnum<I, F, E, C2>, Er> {
+        Ok(match self {
+            QueryEnum::Pctl(query) => QueryEnum::Pctl(query),
+            QueryEnum::Rpatl(query) => QueryEnum::Rpatl(query.try_map_c(map)?),
+        })
+    }
+}
+
+impl<I: Display, F: Display, E: Display, C: Display> Display for QueryEnum<I, F, E, C> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            QueryEnum::Pctl(query) => write!(f, "{query}"),
+            QueryEnum::Rpatl(query) => write!(f, "{query}"),
+        }
+    }
+}
+
+/// Represents a query that can be answered by a model checker.
 ///
 /// A query can either ask for a value (a probability, a reward value or a time value) or compare
 /// a value to a bound.
+///
+/// # Generics
+/// - `I`: The type used for integers (e.g. the number of steps)
+/// - `F`: The type used for floats (e.g. probability bounds)
+/// - `E`: The type used for conditions (e.g. a predicate over states)
+/// - `C`: The type used for coalitions. This can be [`NoCoalition`] for queries on non-game models,
+///        or [`Coalition`] for queries on games.
+///
+/// `I`, `F` and `E` are usually either an expression or the computed result of this expression.
 #[derive(Clone, PartialEq, Eq)]
-pub enum Query<I, F, E> {
+pub enum Query<I, F, E, C> {
     /// A query for a probability value, expressed as `P=? [path]`, `Pmin=? [path]` or
     /// `Pmax=? [path]`.
     ///
@@ -55,12 +204,16 @@ pub enum Query<I, F, E> {
         /// How non-determinism should be resolved. If `None`, this corresponds to `P=? [path]`,
         /// e.g. because the model does not exhibit non-determinism.
         non_determinism: Option<NonDeterminismKind>,
+        /// The coalition of players that behave according to
+        /// [`non_determinism`](Query::ProbabilityValue::non_determinism). For pCTL queries, this is
+        /// [`NoCoalition`].
+        coalition: C,
         /// The path formula for which the probability is queried
-        path: PathFormula<I, F, E>,
+        path: PathFormula<I, F, E, C>,
     },
     /// A query for a state formula, which evaluates to a bool (or float for long-run average). This
     /// variant is used for `P>=threshold [path]`.
-    StateFormula(StateFormula<I, F, E>),
+    StateFormula(StateFormula<I, F, E, C>),
 
     // TODO: Could we move RewardBound to StateFormula? That way, it could occur in nested queries.
     /// A query for whether a rewards formula adheres to a bound, e.g. `Rmin <= t [F "goal"]`,
@@ -69,23 +222,31 @@ pub enum Query<I, F, E> {
         /// How non-determinism should be resolved. If `None`, no `min`/`max` is specified, e.g.
         /// because the model does not exhibit non-determinism.
         non_determinism: Option<NonDeterminismKind>,
+        /// The coalition of players that behave according to
+        /// [`non_determinism`](Query::RewardBound::non_determinism). For pCTL queries, this is
+        /// [`NoCoalition`].
+        coalition: C,
         /// The name of the rewards structure
         name: Option<String>,
         /// The bounds against which the rewards value is checked, i.e. a comparison operator and a
         /// float value.
         bound: Bound<F>,
         /// The rewards formula for which the value is queried
-        reward: RewardFormula<I, F, E>,
+        reward: RewardFormula<I, F, E, C>,
     },
     /// A query for the value of a rewards formula, e.g. `R=? [I=k]` or `R{"name"}min=? [F "goal"]`.
     RewardValue {
         /// How non-determinism should be resolved. If `None`, no `min`/`max` is specified, e.g.
         /// because the model does not exhibit non-determinism.
         non_determinism: Option<NonDeterminismKind>,
+        /// The coalition of players that behave according to
+        /// [`non_determinism`](Query::RewardValue::non_determinism). For pCTL queries, this is
+        /// [`NoCoalition`].
+        coalition: C,
         /// The name of the rewards structure
         name: Option<String>,
         /// The rewards formula for which the value is queried
-        reward: RewardFormula<I, F, E>,
+        reward: RewardFormula<I, F, E, C>,
     },
     /// A query for whether the (implicit) "time" rewards structure adheres to a bound.
     ///
@@ -94,11 +255,15 @@ pub enum Query<I, F, E> {
         /// How non-determinism should be resolved. If `None`, no `min`/`max` is specified, e.g.
         /// because the model does not exhibit non-determinism.
         non_determinism: Option<NonDeterminismKind>,
+        /// The coalition of players that behave according to
+        /// [`non_determinism`](Query::TimeBound::non_determinism). For pCTL queries, this is
+        /// [`NoCoalition`].
+        coalition: C,
         /// The bounds against which the time value is checked, i.e. a comparison operator and a
         /// float value.
         bound: Bound<F>,
         /// The rewards formula for which the value is queried
-        reward: RewardFormula<I, F, E>,
+        reward: RewardFormula<I, F, E, C>,
     },
     /// A query for the value of the (implicit) "time" rewards structure.
     ///
@@ -107,12 +272,16 @@ pub enum Query<I, F, E> {
         /// How non-determinism should be resolved. If `None`, no `min`/`max` is specified, e.g.
         /// because the model does not exhibit non-determinism.
         non_determinism: Option<NonDeterminismKind>,
+        /// The coalition of players that behave according to
+        /// [`non_determinism`](Query::TimeValue::non_determinism). For pCTL queries, this is
+        /// [`NoCoalition`].
+        coalition: C,
         /// The rewards formula for which the value is queried
-        reward: RewardFormula<I, F, E>,
+        reward: RewardFormula<I, F, E, C>,
     },
 }
 
-impl<I, F, E> Query<I, F, E> {
+impl<I, F, E> Query<I, F, E, NoCoalition> {
     /// If the query is a boolean query (i.e. not a `...Value` query), this returns the negation
     /// of the query by inverting the bounds and updating the boolean operations in state formulas.
     /// If the query is a `...Value` query, it returns `None`.
@@ -129,11 +298,13 @@ impl<I, F, E> Query<I, F, E> {
             )),
             Query::RewardBound {
                 non_determinism,
+                coalition,
                 name,
                 bound,
                 reward,
             } => Some(Query::RewardBound {
                 non_determinism,
+                coalition,
                 name,
                 bound: bound.invert(),
                 reward,
@@ -141,36 +312,48 @@ impl<I, F, E> Query<I, F, E> {
             Query::RewardValue { .. } => None,
             Query::TimeBound {
                 non_determinism,
+                coalition,
                 bound,
                 reward,
             } => Some(Query::TimeBound {
                 non_determinism,
+                coalition,
                 bound: bound.invert(),
                 reward,
             }),
             Query::TimeValue { .. } => None,
         }
     }
+}
 
-    /// Returns a query where the integers, floats and expressions are stored as mutable references.
-    pub fn as_mut(&mut self) -> Query<&mut I, &mut F, &mut E> {
+impl<I, F, E, C> Query<I, F, E, C> {
+    /// Returns a query where the integers, floats, expressions and coalitions are stored as mutable
+    /// references.
+    pub fn as_mut(&mut self) -> Query<&mut I, &mut F, &mut E, C::Output<'_>>
+    where
+        C: CoalitionAsMut,
+    {
         match self {
             Query::ProbabilityValue {
                 non_determinism,
+                coalition,
                 path,
             } => Query::ProbabilityValue {
                 non_determinism: *non_determinism,
+                coalition: CoalitionAsMut::as_mut(coalition),
                 path: path.as_mut(),
             },
             Query::StateFormula(formula) => Query::StateFormula(formula.as_mut()),
             Query::RewardBound {
                 non_determinism,
+                coalition,
                 name,
                 bound,
                 reward,
             } => {
                 Query::RewardBound {
                     non_determinism: *non_determinism,
+                    coalition: CoalitionAsMut::as_mut(coalition),
                     name: name.clone(), // TODO: Avoid cloning name here?
                     bound: bound.as_mut(),
                     reward: reward.as_mut(),
@@ -178,51 +361,67 @@ impl<I, F, E> Query<I, F, E> {
             }
             Query::RewardValue {
                 non_determinism,
+                coalition,
                 name,
                 reward,
             } => Query::RewardValue {
                 non_determinism: *non_determinism,
+                coalition: CoalitionAsMut::as_mut(coalition),
                 name: name.clone(),
                 reward: reward.as_mut(),
             },
             Query::TimeBound {
                 non_determinism,
+                coalition,
                 bound,
                 reward,
             } => Query::TimeBound {
                 non_determinism: *non_determinism,
+                coalition: CoalitionAsMut::as_mut(coalition),
                 bound: bound.as_mut(),
                 reward: reward.as_mut(),
             },
             Query::TimeValue {
                 non_determinism,
+                coalition,
                 reward,
             } => Query::TimeValue {
                 non_determinism: *non_determinism,
+                coalition: CoalitionAsMut::as_mut(coalition),
                 reward: reward.as_mut(),
             },
         }
     }
 
-    /// Returns a query where the integers, floats and expressions are stored as references.
-    pub fn as_ref(&self) -> Query<&I, &F, &E> {
+    /// Returns a query where the integers, floats, expressions and coalitions are stored as
+    /// references.
+    ///
+    /// For [`NoCoalition`], the coalition type stays [`NoCoalition`], see [`CoalitionAsRef`].
+    pub fn as_ref(&self) -> Query<&I, &F, &E, C::Output<'_>>
+    where
+        C: CoalitionAsRef,
+    {
         match self {
             Query::ProbabilityValue {
                 non_determinism,
+                coalition,
                 path,
             } => Query::ProbabilityValue {
                 non_determinism: *non_determinism,
+                coalition: CoalitionAsRef::as_ref(coalition),
                 path: path.as_ref(),
             },
             Query::StateFormula(formula) => Query::StateFormula(formula.as_ref()),
             Query::RewardBound {
                 non_determinism,
+                coalition,
                 name,
                 bound,
                 reward,
             } => {
                 Query::RewardBound {
                     non_determinism: *non_determinism,
+                    coalition: CoalitionAsRef::as_ref(coalition),
                     name: name.clone(), // TODO: Avoid cloning name here?
                     bound: bound.as_ref(),
                     reward: reward.as_ref(),
@@ -230,34 +429,40 @@ impl<I, F, E> Query<I, F, E> {
             }
             Query::RewardValue {
                 non_determinism,
+                coalition,
                 name,
                 reward,
             } => Query::RewardValue {
                 non_determinism: *non_determinism,
+                coalition: CoalitionAsRef::as_ref(coalition),
                 name: name.clone(),
                 reward: reward.as_ref(),
             },
             Query::TimeBound {
                 non_determinism,
+                coalition,
                 bound,
                 reward,
             } => Query::TimeBound {
                 non_determinism: *non_determinism,
+                coalition: CoalitionAsRef::as_ref(coalition),
                 bound: bound.as_ref(),
                 reward: reward.as_ref(),
             },
             Query::TimeValue {
                 non_determinism,
+                coalition,
                 reward,
             } => Query::TimeValue {
                 non_determinism: *non_determinism,
+                coalition: CoalitionAsRef::as_ref(coalition),
                 reward: reward.as_ref(),
             },
         }
     }
 
     /// Maps the integer values of the query according to the given mapping function.
-    pub fn map_i<I2, M: FnMut(I) -> I2>(self, map: &mut M) -> Query<I2, F, E> {
+    pub fn map_i<I2, M: FnMut(I) -> I2>(self, map: &mut M) -> Query<I2, F, E, C> {
         self.try_map_i(&mut |ex| Result::<_, ()>::Ok(map(ex)))
             .unwrap()
     }
@@ -268,57 +473,67 @@ impl<I, F, E> Query<I, F, E> {
     pub fn try_map_i<Er, I2, M: FnMut(I) -> Result<I2, Er>>(
         self,
         map: &mut M,
-    ) -> Result<Query<I2, F, E>, Er> {
+    ) -> Result<Query<I2, F, E, C>, Er> {
         Ok(match self {
             Query::ProbabilityValue {
                 non_determinism,
+                coalition,
                 path,
             } => Query::ProbabilityValue {
                 non_determinism,
+                coalition,
                 path: path.try_map_i(map)?,
             },
             Query::StateFormula(formula) => Query::StateFormula(formula.try_map_i(map)?),
             Query::RewardBound {
                 non_determinism,
+                coalition,
                 name,
                 bound,
                 reward,
             } => Query::RewardBound {
                 non_determinism,
+                coalition,
                 name,
                 bound,
                 reward: reward.try_map_i(map)?,
             },
             Query::RewardValue {
                 non_determinism,
+                coalition,
                 name,
                 reward,
             } => Query::RewardValue {
                 non_determinism,
+                coalition,
                 name,
                 reward: reward.try_map_i(map)?,
             },
             Query::TimeBound {
                 non_determinism,
+                coalition,
                 bound,
                 reward,
             } => Query::TimeBound {
                 non_determinism,
+                coalition,
                 bound,
                 reward: reward.try_map_i(map)?,
             },
             Query::TimeValue {
                 non_determinism,
+                coalition,
                 reward,
             } => Query::TimeValue {
                 non_determinism,
+                coalition,
                 reward: reward.try_map_i(map)?,
             },
         })
     }
 
     /// Maps the float values of the query according to the given mapping function.
-    pub fn map_f<F2, M: FnMut(F) -> F2>(self, map: &mut M) -> Query<I, F2, E> {
+    pub fn map_f<F2, M: FnMut(F) -> F2>(self, map: &mut M) -> Query<I, F2, E, C> {
         self.try_map_f(&mut |ex| Result::<_, ()>::Ok(map(ex)))
             .unwrap()
     }
@@ -329,57 +544,67 @@ impl<I, F, E> Query<I, F, E> {
     pub fn try_map_f<Er, F2, M: FnMut(F) -> Result<F2, Er>>(
         self,
         map: &mut M,
-    ) -> Result<Query<I, F2, E>, Er> {
+    ) -> Result<Query<I, F2, E, C>, Er> {
         Ok(match self {
             Query::ProbabilityValue {
                 non_determinism,
+                coalition,
                 path,
             } => Query::ProbabilityValue {
                 non_determinism,
+                coalition,
                 path: path.try_map_f(map)?,
             },
             Query::StateFormula(formula) => Query::StateFormula(formula.try_map_f(map)?),
             Query::RewardBound {
                 non_determinism,
+                coalition,
                 name,
                 bound,
                 reward,
             } => Query::RewardBound {
                 non_determinism,
+                coalition,
                 name,
                 bound: bound.try_map_value(map)?,
                 reward: reward.try_map_f(map)?,
             },
             Query::RewardValue {
                 non_determinism,
+                coalition,
                 name,
                 reward,
             } => Query::RewardValue {
                 non_determinism,
+                coalition,
                 name,
                 reward: reward.try_map_f(map)?,
             },
             Query::TimeBound {
                 non_determinism,
+                coalition,
                 bound,
                 reward,
             } => Query::TimeBound {
                 non_determinism,
+                coalition,
                 bound: bound.try_map_value(map)?,
                 reward: reward.try_map_f(map)?,
             },
             Query::TimeValue {
                 non_determinism,
+                coalition,
                 reward,
             } => Query::TimeValue {
                 non_determinism,
+                coalition,
                 reward: reward.try_map_f(map)?,
             },
         })
     }
 
     /// Maps the expression values of the query according to the given mapping function.
-    pub fn map_e<E2, M: FnMut(E) -> E2>(self, map: &mut M) -> Query<I, F, E2> {
+    pub fn map_e<E2, M: FnMut(E) -> E2>(self, map: &mut M) -> Query<I, F, E2, C> {
         self.try_map_e(&mut |ex| Result::<_, ()>::Ok(map(ex)))
             .unwrap()
     }
@@ -390,78 +615,161 @@ impl<I, F, E> Query<I, F, E> {
     pub fn try_map_e<Er, E2, M: FnMut(E) -> Result<E2, Er>>(
         self,
         map: &mut M,
-    ) -> Result<Query<I, F, E2>, Er> {
+    ) -> Result<Query<I, F, E2, C>, Er> {
         Ok(match self {
             Query::ProbabilityValue {
                 non_determinism,
+                coalition,
                 path,
             } => Query::ProbabilityValue {
                 non_determinism,
+                coalition,
                 path: path.try_map_e(map)?,
             },
             Query::StateFormula(formula) => Query::StateFormula(formula.try_map_e(map)?),
             Query::RewardBound {
                 non_determinism,
+                coalition,
                 name,
                 bound,
                 reward,
             } => Query::RewardBound {
                 non_determinism,
+                coalition,
                 name,
                 bound,
                 reward: reward.try_map_e(map)?,
             },
             Query::RewardValue {
                 non_determinism,
+                coalition,
                 name,
                 reward,
             } => Query::RewardValue {
                 non_determinism,
+                coalition,
                 name,
                 reward: reward.try_map_e(map)?,
             },
             Query::TimeBound {
                 non_determinism,
+                coalition,
                 bound,
                 reward,
             } => Query::TimeBound {
                 non_determinism,
+                coalition,
                 bound,
                 reward: reward.try_map_e(map)?,
             },
             Query::TimeValue {
                 non_determinism,
+                coalition,
                 reward,
             } => Query::TimeValue {
                 non_determinism,
+                coalition,
                 reward: reward.try_map_e(map)?,
+            },
+        })
+    }
+
+    /// Maps the coalitions of the query according to the given mapping function.
+    pub fn map_c<C2, M: FnMut(C) -> C2>(self, map: &mut M) -> Query<I, F, E, C2> {
+        self.try_map_c(&mut |ex| Result::<_, ()>::Ok(map(ex)))
+            .unwrap()
+    }
+
+    /// Maps the coalitions of the query according to the given fallible mapping function.
+    ///
+    /// If the mapping function returns `Err(...)`, then `try_map_c()` also returns `Err(...)`.
+    pub fn try_map_c<Er, C2, M: FnMut(C) -> Result<C2, Er>>(
+        self,
+        map: &mut M,
+    ) -> Result<Query<I, F, E, C2>, Er> {
+        Ok(match self {
+            Query::ProbabilityValue {
+                non_determinism,
+                coalition,
+                path,
+            } => Query::ProbabilityValue {
+                non_determinism,
+                coalition: map(coalition)?,
+                path: path.try_map_c(map)?,
+            },
+            Query::StateFormula(formula) => Query::StateFormula(formula.try_map_c(map)?),
+            Query::RewardBound {
+                non_determinism,
+                coalition,
+                name,
+                bound,
+                reward,
+            } => Query::RewardBound {
+                non_determinism,
+                coalition: map(coalition)?,
+                name,
+                bound,
+                reward: reward.try_map_c(map)?,
+            },
+            Query::RewardValue {
+                non_determinism,
+                coalition,
+                name,
+                reward,
+            } => Query::RewardValue {
+                non_determinism,
+                coalition: map(coalition)?,
+                name,
+                reward: reward.try_map_c(map)?,
+            },
+            Query::TimeBound {
+                non_determinism,
+                coalition,
+                bound,
+                reward,
+            } => Query::TimeBound {
+                non_determinism,
+                coalition: map(coalition)?,
+                bound,
+                reward: reward.try_map_c(map)?,
+            },
+            Query::TimeValue {
+                non_determinism,
+                coalition,
+                reward,
+            } => Query::TimeValue {
+                non_determinism,
+                coalition: map(coalition)?,
+                reward: reward.try_map_c(map)?,
             },
         })
     }
 }
 
 // TODO: The Display implementation does not yet properly parenthesise nested formulas.
-impl<I: Display, F: Display, E: Display> Display for Query<I, F, E> {
+impl<I: Display, F: Display, E: Display, C: Display> Display for Query<I, F, E, C> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             Query::ProbabilityValue {
                 non_determinism,
+                coalition,
                 path,
             } => {
-                write!(f, "P{}=? [{}]", non_determinism.to_str(), path)
+                write!(f, "{coalition}P{}=? [{}]", non_determinism.to_str(), path)
             }
             Query::StateFormula(state_formula) => {
                 write!(f, "{}", state_formula)
             }
             Query::RewardBound {
                 non_determinism,
+                coalition,
                 name,
                 bound,
                 reward,
             } => {
                 write!(
                     f,
-                    "R{}{}{} [{}]",
+                    "{coalition}R{}{}{} [{}]",
                     name.display(),
                     non_determinism.to_str(),
                     bound,
@@ -470,12 +778,13 @@ impl<I: Display, F: Display, E: Display> Display for Query<I, F, E> {
             }
             Query::RewardValue {
                 non_determinism,
+                coalition,
                 name,
                 reward,
             } => {
                 write!(
                     f,
-                    "R{}{}=? [{}]",
+                    "{coalition}R{}{}=? [{}]",
                     name.display(),
                     non_determinism.to_str(),
                     reward
@@ -483,16 +792,24 @@ impl<I: Display, F: Display, E: Display> Display for Query<I, F, E> {
             }
             Query::TimeBound {
                 non_determinism,
+                coalition,
                 bound,
                 reward,
             } => {
-                write!(f, "T{}{} [{}]", non_determinism.to_str(), bound, reward)
+                write!(
+                    f,
+                    "{coalition}T{}{} [{}]",
+                    non_determinism.to_str(),
+                    bound,
+                    reward
+                )
             }
             Query::TimeValue {
                 non_determinism,
+                coalition,
                 reward,
             } => {
-                write!(f, "T{}=? [{}]", non_determinism.to_str(), reward)
+                write!(f, "{coalition}T{}=? [{}]", non_determinism.to_str(), reward)
             }
         }
     }
@@ -500,7 +817,7 @@ impl<I: Display, F: Display, E: Display> Display for Query<I, F, E> {
 
 /// A state formula, describing a set of states.
 #[derive(Clone, PartialEq, Eq)]
-pub enum StateFormula<I, F, E> {
+pub enum StateFormula<I, F, E, C> {
     /// A boolean expression over the models. A state is included if the expression evaluates to
     /// `true` in it.
     ///
@@ -515,11 +832,15 @@ pub enum StateFormula<I, F, E> {
         /// How non-determinism should be resolved. If `None`, no `min`/`max` is specified, e.g.
         /// because the model does not exhibit non-determinism.
         non_determinism: Option<NonDeterminismKind>,
+        /// The coalition of players that behave according to
+        /// [`non_determinism`](StateFormula::ProbabilityBound::non_determinism). For pCTL queries,
+        /// this is [`NoCoalition`].
+        coalition: C,
         /// The bounds against which the probability is checked, i.e. a comparison operator and a
         /// float value.
         bound: Bound<F>,
         /// The path formula for which the probability is queried
-        path: Box<PathFormula<I, F, E>>,
+        path: Box<PathFormula<I, F, E, C>>,
     },
 
     /// Describes the set of states from which the long-run average probability of being in a state
@@ -528,24 +849,28 @@ pub enum StateFormula<I, F, E> {
         /// How non-determinism should be resolved. If `None`, no `min`/`max` is specified, e.g.
         /// because the model does not exhibit non-determinism.
         non_determinism: Option<NonDeterminismKind>,
+        /// The coalition of players that behave according to
+        /// [`non_determinism`](StateFormula::LongRunAverage::non_determinism). For pCTL queries,
+        /// this is [`NoCoalition`].
+        coalition: C,
         /// The bounds against which the long-run average probability is checked, i.e. a comparison
         /// operator and a float value.
         bound: Bound<F>,
         /// The set of states for which the long-run average is computed.
-        states: Box<StateFormula<I, F, E>>,
+        states: Box<StateFormula<I, F, E, C>>,
     },
 
     /// A negation of the given state formula.
-    Not(Box<StateFormula<I, F, E>>),
+    Not(Box<StateFormula<I, F, E, C>>),
 
     /// The conjunction of two state formulas.
-    And(Box<StateFormula<I, F, E>>, Box<StateFormula<I, F, E>>),
+    And(Box<StateFormula<I, F, E, C>>, Box<StateFormula<I, F, E, C>>),
 
     /// The disjunction of two state formulas.
-    Or(Box<StateFormula<I, F, E>>, Box<StateFormula<I, F, E>>),
+    Or(Box<StateFormula<I, F, E, C>>, Box<StateFormula<I, F, E, C>>),
 }
 
-impl<I, F, E> StateFormula<I, F, E> {
+impl<I, F, E> StateFormula<I, F, E, NoCoalition> {
     /// Returns the negation of the state formula.
     ///
     /// See [`Query::invert`] for details.
@@ -555,19 +880,23 @@ impl<I, F, E> StateFormula<I, F, E> {
             StateFormula::Expression(e) => StateFormula::Expression(invert_expression(e)),
             StateFormula::ProbabilityBound {
                 non_determinism,
+                coalition,
                 bound,
                 path,
             } => StateFormula::ProbabilityBound {
                 non_determinism,
+                coalition,
                 bound: bound.invert(),
                 path,
             },
             StateFormula::LongRunAverage {
                 non_determinism,
+                coalition,
                 bound,
                 states,
             } => StateFormula::LongRunAverage {
                 non_determinism,
+                coalition,
                 bound: bound.invert(),
                 states,
             },
@@ -582,10 +911,15 @@ impl<I, F, E> StateFormula<I, F, E> {
             ),
         }
     }
+}
 
-    /// Returns a state formula where the integers, floats and expressions are stored as mutable
-    /// references.
-    pub fn as_mut(&mut self) -> StateFormula<&mut I, &mut F, &mut E> {
+impl<I, F, E, C> StateFormula<I, F, E, C> {
+    /// Returns a state formula where the integers, floats, expressions and coalitions are stored as
+    /// mutable references.
+    pub fn as_mut(&mut self) -> StateFormula<&mut I, &mut F, &mut E, C::Output<'_>>
+    where
+        C: CoalitionAsMut,
+    {
         match self {
             StateFormula::Expression(e) => StateFormula::Expression(e),
             StateFormula::Not(inner) => StateFormula::Not(Box::new(StateFormula::as_mut(inner))),
@@ -599,27 +933,35 @@ impl<I, F, E> StateFormula<I, F, E> {
             ),
             StateFormula::ProbabilityBound {
                 non_determinism,
+                coalition,
                 bound,
                 path,
             } => StateFormula::ProbabilityBound {
                 non_determinism: *non_determinism,
+                coalition: CoalitionAsMut::as_mut(coalition),
                 bound: bound.as_mut(),
                 path: Box::new(PathFormula::as_mut(path)),
             },
             StateFormula::LongRunAverage {
                 non_determinism,
+                coalition,
                 bound,
                 states,
             } => StateFormula::LongRunAverage {
                 non_determinism: non_determinism.clone(),
+                coalition: CoalitionAsMut::as_mut(coalition),
                 bound: bound.as_mut(),
                 states: Box::new(StateFormula::as_mut(states)),
             },
         }
     }
 
-    /// Returns a state formula where the integers, floats and expressions are stored as references.
-    pub fn as_ref(&self) -> StateFormula<&I, &F, &E> {
+    /// Returns a state formula where the integers, floats, expressions and coalitions are stored as
+    /// references.
+    pub fn as_ref(&self) -> StateFormula<&I, &F, &E, C::Output<'_>>
+    where
+        C: CoalitionAsRef,
+    {
         match self {
             StateFormula::Expression(e) => StateFormula::Expression(e),
             StateFormula::Not(inner) => StateFormula::Not(Box::new(StateFormula::as_ref(inner))),
@@ -633,19 +975,23 @@ impl<I, F, E> StateFormula<I, F, E> {
             ),
             StateFormula::ProbabilityBound {
                 non_determinism,
+                coalition,
                 bound,
                 path,
             } => StateFormula::ProbabilityBound {
                 non_determinism: *non_determinism,
+                coalition: CoalitionAsRef::as_ref(coalition),
                 bound: bound.as_ref(),
                 path: Box::new(PathFormula::as_ref(path)),
             },
             StateFormula::LongRunAverage {
                 non_determinism,
+                coalition,
                 bound,
                 states,
             } => StateFormula::LongRunAverage {
                 non_determinism: non_determinism.clone(),
+                coalition: CoalitionAsRef::as_ref(coalition),
                 bound: bound.as_ref(),
                 states: Box::new(StateFormula::as_ref(states)),
             },
@@ -653,7 +999,7 @@ impl<I, F, E> StateFormula<I, F, E> {
     }
 
     /// Maps the integer values of the state formula according to the given mapping function.
-    pub fn map_i<I2, M: FnMut(I) -> I2>(self, map: &mut M) -> StateFormula<I2, F, E> {
+    pub fn map_i<I2, M: FnMut(I) -> I2>(self, map: &mut M) -> StateFormula<I2, F, E, C> {
         self.try_map_i(&mut |ex| Result::<_, ()>::Ok(map(ex)))
             .unwrap()
     }
@@ -665,7 +1011,7 @@ impl<I, F, E> StateFormula<I, F, E> {
     pub fn try_map_i<Er, I2, M: FnMut(I) -> Result<I2, Er>>(
         self,
         map: &mut M,
-    ) -> Result<StateFormula<I2, F, E>, Er> {
+    ) -> Result<StateFormula<I2, F, E, C>, Er> {
         Ok(match self {
             StateFormula::Expression(expression) => StateFormula::Expression(expression),
             StateFormula::Not(inner) => StateFormula::Not(Box::new(inner.try_map_i(map)?)),
@@ -677,19 +1023,23 @@ impl<I, F, E> StateFormula<I, F, E> {
             }
             StateFormula::ProbabilityBound {
                 non_determinism,
+                coalition,
                 bound,
                 path,
             } => StateFormula::ProbabilityBound {
                 non_determinism,
+                coalition,
                 bound,
                 path: Box::new(path.try_map_i(map)?),
             },
             StateFormula::LongRunAverage {
                 non_determinism,
+                coalition,
                 bound,
                 states,
             } => StateFormula::LongRunAverage {
                 non_determinism: non_determinism.clone(),
+                coalition,
                 bound,
                 states: Box::new(states.try_map_i(map)?),
             },
@@ -697,7 +1047,7 @@ impl<I, F, E> StateFormula<I, F, E> {
     }
 
     /// Maps the float values of the state formula according to the given mapping function.
-    pub fn map_f<F2, M: FnMut(F) -> F2>(self, map: &mut M) -> StateFormula<I, F2, E> {
+    pub fn map_f<F2, M: FnMut(F) -> F2>(self, map: &mut M) -> StateFormula<I, F2, E, C> {
         self.try_map_f(&mut |ex| Result::<_, ()>::Ok(map(ex)))
             .unwrap()
     }
@@ -708,7 +1058,7 @@ impl<I, F, E> StateFormula<I, F, E> {
     pub fn try_map_f<Er, F2, M: FnMut(F) -> Result<F2, Er>>(
         self,
         map: &mut M,
-    ) -> Result<StateFormula<I, F2, E>, Er> {
+    ) -> Result<StateFormula<I, F2, E, C>, Er> {
         Ok(match self {
             StateFormula::Expression(expression) => StateFormula::Expression(expression),
             StateFormula::Not(inner) => StateFormula::Not(Box::new(inner.try_map_f(map)?)),
@@ -720,19 +1070,23 @@ impl<I, F, E> StateFormula<I, F, E> {
             }
             StateFormula::ProbabilityBound {
                 non_determinism,
+                coalition,
                 bound,
                 path,
             } => StateFormula::ProbabilityBound {
                 non_determinism,
+                coalition,
                 bound: bound.try_map_value(map)?,
                 path: Box::new(path.try_map_f(map)?),
             },
             StateFormula::LongRunAverage {
                 non_determinism,
+                coalition,
                 bound,
                 states,
             } => StateFormula::LongRunAverage {
                 non_determinism: non_determinism.clone(),
+                coalition,
                 bound: bound.try_map_value(map)?,
                 states: Box::new(states.try_map_f(map)?),
             },
@@ -740,7 +1094,7 @@ impl<I, F, E> StateFormula<I, F, E> {
     }
 
     /// Maps the expression values of the state formula according to the given mapping function.
-    pub fn map_e<E2, M: FnMut(E) -> E2>(self, map: &mut M) -> StateFormula<I, F, E2> {
+    pub fn map_e<E2, M: FnMut(E) -> E2>(self, map: &mut M) -> StateFormula<I, F, E2, C> {
         self.try_map_e(&mut |ex| Result::<_, ()>::Ok(map(ex)))
             .unwrap()
     }
@@ -752,7 +1106,7 @@ impl<I, F, E> StateFormula<I, F, E> {
     pub fn try_map_e<Er, E2, M: FnMut(E) -> Result<E2, Er>>(
         self,
         map: &mut M,
-    ) -> Result<StateFormula<I, F, E2>, Er> {
+    ) -> Result<StateFormula<I, F, E2, C>, Er> {
         Ok(match self {
             StateFormula::Expression(expression) => StateFormula::Expression(map(expression)?),
             StateFormula::Not(inner) => StateFormula::Not(Box::new(inner.try_map_e(map)?)),
@@ -764,27 +1118,79 @@ impl<I, F, E> StateFormula<I, F, E> {
             }
             StateFormula::ProbabilityBound {
                 non_determinism,
+                coalition,
                 bound,
                 path,
             } => StateFormula::ProbabilityBound {
                 non_determinism,
+                coalition,
                 bound,
                 path: Box::new(path.try_map_e(map)?),
             },
             StateFormula::LongRunAverage {
                 non_determinism,
+                coalition,
                 bound,
                 states,
             } => StateFormula::LongRunAverage {
                 non_determinism: non_determinism.clone(),
+                coalition,
                 bound,
                 states: Box::new(states.try_map_e(map)?),
             },
         })
     }
+
+    /// Maps the coalitions of the state formula according to the given mapping function.
+    pub fn map_c<C2, M: FnMut(C) -> C2>(self, map: &mut M) -> StateFormula<I, F, E, C2> {
+        self.try_map_c(&mut |ex| Result::<_, ()>::Ok(map(ex)))
+            .unwrap()
+    }
+
+    /// Maps the coalitions of the state formula according to the given fallible mapping
+    /// function.
+    ///
+    /// If the mapping function returns `Err(...)`, then `try_map_c()` also returns `Err(...)`.
+    pub fn try_map_c<Er, C2, M: FnMut(C) -> Result<C2, Er>>(
+        self,
+        map: &mut M,
+    ) -> Result<StateFormula<I, F, E, C2>, Er> {
+        Ok(match self {
+            StateFormula::Expression(expression) => StateFormula::Expression(expression),
+            StateFormula::Not(inner) => StateFormula::Not(Box::new(inner.try_map_c(map)?)),
+            StateFormula::And(lhs, rhs) => {
+                StateFormula::And(Box::new(lhs.try_map_c(map)?), Box::new(rhs.try_map_c(map)?))
+            }
+            StateFormula::Or(lhs, rhs) => {
+                StateFormula::Or(Box::new(lhs.try_map_c(map)?), Box::new(rhs.try_map_c(map)?))
+            }
+            StateFormula::ProbabilityBound {
+                non_determinism,
+                coalition,
+                bound,
+                path,
+            } => StateFormula::ProbabilityBound {
+                non_determinism,
+                coalition: map(coalition)?,
+                bound,
+                path: Box::new(path.try_map_c(map)?),
+            },
+            StateFormula::LongRunAverage {
+                non_determinism,
+                coalition,
+                bound,
+                states,
+            } => StateFormula::LongRunAverage {
+                non_determinism,
+                coalition: map(coalition)?,
+                bound,
+                states: Box::new(states.try_map_c(map)?),
+            },
+        })
+    }
 }
 
-impl<I: Display, F: Display, E: Display> Display for StateFormula<I, F, E> {
+impl<I: Display, F: Display, E: Display, C: Display> Display for StateFormula<I, F, E, C> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             StateFormula::Expression(e) => {
@@ -792,17 +1198,27 @@ impl<I: Display, F: Display, E: Display> Display for StateFormula<I, F, E> {
             }
             StateFormula::ProbabilityBound {
                 non_determinism,
+                coalition,
                 bound,
                 path,
             } => {
-                write!(f, "P{}{bound} [ {path} ]", non_determinism.to_str())
+                write!(
+                    f,
+                    "{coalition}P{}{bound} [ {path} ]",
+                    non_determinism.to_str()
+                )
             }
             StateFormula::LongRunAverage {
                 non_determinism,
+                coalition,
                 bound,
                 states,
             } => {
-                write!(f, "LRA{}{bound} [{states}", non_determinism.to_str())
+                write!(
+                    f,
+                    "{coalition}LRA{}{bound} [{states}",
+                    non_determinism.to_str()
+                )
             }
             StateFormula::Not(inner) => write!(f, "!({inner})"),
             StateFormula::And(lhs, rhs) => write!(f, "({lhs}) & ({rhs})"),
@@ -813,16 +1229,16 @@ impl<I: Display, F: Display, E: Display> Display for StateFormula<I, F, E> {
 
 /// A path formula describes a set of paths.
 #[derive(Clone, PartialEq, Eq)]
-pub enum PathFormula<I, F, E> {
+pub enum PathFormula<I, F, E, C> {
     /// Until formula, corresponding to syntax `before U after`.
     ///
     /// A path is included if there is some `k >= 0` such that the first `k` states satisfy
     /// `before` and state `k+1` satisfies `after`.
     Until {
         /// The "before" condition (i.e. the first part) of the until formula
-        before: Box<StateFormula<I, F, E>>,
+        before: Box<StateFormula<I, F, E, C>>,
         /// The "after" condition (i.e. the second part) of the until formula
-        after: Box<StateFormula<I, F, E>>,
+        after: Box<StateFormula<I, F, E, C>>,
     },
 
     /// Eventually formula, corresponding to syntax `F condition`.
@@ -830,7 +1246,7 @@ pub enum PathFormula<I, F, E> {
     /// A path is included if it contains a state that satisfies `condition`
     Eventually {
         /// The condition that must be met at least once along the path
-        condition: Box<StateFormula<I, F, E>>,
+        condition: Box<StateFormula<I, F, E, C>>,
     },
 
     /// A bounded until formula, corresponding e.g. to syntax `before U<=k after` or
@@ -840,9 +1256,9 @@ pub enum PathFormula<I, F, E> {
     /// states satisfy `before` and state `k+1` satisfies `after`.
     BoundedUntil {
         /// The "before" condition (i.e. the first part) of the until formula
-        before: Box<StateFormula<I, F, E>>,
+        before: Box<StateFormula<I, F, E, C>>,
         /// The "after" condition (i.e. the second part) of the until formula
-        after: Box<StateFormula<I, F, E>>,
+        after: Box<StateFormula<I, F, E, C>>,
         /// The bound that determines after how many steps `after` must be visited.
         bound: Bound<I>,
     },
@@ -854,7 +1270,7 @@ pub enum PathFormula<I, F, E> {
     /// the path adheres to condition.
     BoundedEventually {
         /// The condition that must be met at least once along the path
-        condition: Box<StateFormula<I, F, E>>,
+        condition: Box<StateFormula<I, F, E, C>>,
         /// The bound that determines after how many steps `condition` must be satisfied.
         bound: Bound<I>,
     },
@@ -864,14 +1280,14 @@ pub enum PathFormula<I, F, E> {
     /// A path is included if every state of the path satisfies `condition`.
     Generally {
         /// The condition that must be satisfied by every state along the path
-        condition: Box<StateFormula<I, F, E>>,
+        condition: Box<StateFormula<I, F, E, C>>,
     },
 }
 
-impl<I, F, E> PathFormula<I, F, E> {
+impl<I, F, E, C> PathFormula<I, F, E, C> {
     /// Returns the condition of the "eventually" formula if the path formula is an "eventually"
     /// formula, otherwise `None`.
-    pub fn eventually_condition(&self) -> Option<&StateFormula<I, F, E>> {
+    pub fn eventually_condition(&self) -> Option<&StateFormula<I, F, E, C>> {
         match self {
             PathFormula::Eventually { condition } => Some(condition),
             _ => None,
@@ -880,16 +1296,19 @@ impl<I, F, E> PathFormula<I, F, E> {
 
     /// Returns the condition of the "generally" formula if the path formula is a "generally"
     /// formula, otherwise `None`.
-    pub fn generally_condition(&self) -> Option<&StateFormula<I, F, E>> {
+    pub fn generally_condition(&self) -> Option<&StateFormula<I, F, E, C>> {
         match self {
             PathFormula::Generally { condition } => Some(condition),
             _ => None,
         }
     }
 
-    /// Returns a path formula where the integers, floats and expressions are stored as mutable
-    /// references.
-    pub fn as_mut(&mut self) -> PathFormula<&mut I, &mut F, &mut E> {
+    /// Returns a path formula where the integers, floats, expressions and coalitions are stored as
+    /// mutable references.
+    pub fn as_mut(&mut self) -> PathFormula<&mut I, &mut F, &mut E, C::Output<'_>>
+    where
+        C: CoalitionAsMut,
+    {
         match self {
             PathFormula::Until { before, after } => PathFormula::Until {
                 before: Box::new(StateFormula::as_mut(before)),
@@ -917,8 +1336,12 @@ impl<I, F, E> PathFormula<I, F, E> {
         }
     }
 
-    /// Returns a path formula where the integers, floats and expressions are stored as references.
-    pub fn as_ref(&self) -> PathFormula<&I, &F, &E> {
+    /// Returns a path formula where the integers, floats, expressions and coalitions are stored as
+    /// references.
+    pub fn as_ref(&self) -> PathFormula<&I, &F, &E, C::Output<'_>>
+    where
+        C: CoalitionAsRef,
+    {
         match self {
             PathFormula::Until { before, after } => PathFormula::Until {
                 before: Box::new(StateFormula::as_ref(before)),
@@ -947,7 +1370,7 @@ impl<I, F, E> PathFormula<I, F, E> {
     }
 
     /// Maps the integer values of the path formula according to the given mapping function.
-    pub fn map_i<I2, M: FnMut(I) -> I2>(self, map: &mut M) -> PathFormula<I2, F, E> {
+    pub fn map_i<I2, M: FnMut(I) -> I2>(self, map: &mut M) -> PathFormula<I2, F, E, C> {
         self.try_map_i(&mut |ex| Result::<_, ()>::Ok(map(ex)))
             .unwrap()
     }
@@ -958,7 +1381,7 @@ impl<I, F, E> PathFormula<I, F, E> {
     pub fn try_map_i<Er, I2, M: FnMut(I) -> Result<I2, Er>>(
         self,
         map: &mut M,
-    ) -> Result<PathFormula<I2, F, E>, Er> {
+    ) -> Result<PathFormula<I2, F, E, C>, Er> {
         Ok(match self {
             PathFormula::Until { before, after } => PathFormula::Until {
                 before: Box::new(before.try_map_i(map)?),
@@ -987,7 +1410,7 @@ impl<I, F, E> PathFormula<I, F, E> {
     }
 
     /// Maps the float values of the path formula according to the given mapping function.
-    pub fn map_f<F2, M: FnMut(F) -> F2>(self, map: &mut M) -> PathFormula<I, F2, E> {
+    pub fn map_f<F2, M: FnMut(F) -> F2>(self, map: &mut M) -> PathFormula<I, F2, E, C> {
         self.try_map_f(&mut |ex| Result::<_, ()>::Ok(map(ex)))
             .unwrap()
     }
@@ -998,7 +1421,7 @@ impl<I, F, E> PathFormula<I, F, E> {
     pub fn try_map_f<Er, F2, M: FnMut(F) -> Result<F2, Er>>(
         self,
         map: &mut M,
-    ) -> Result<PathFormula<I, F2, E>, Er> {
+    ) -> Result<PathFormula<I, F2, E, C>, Er> {
         Ok(match self {
             PathFormula::Until { before, after } => PathFormula::Until {
                 before: Box::new(before.try_map_f(map)?),
@@ -1027,7 +1450,7 @@ impl<I, F, E> PathFormula<I, F, E> {
     }
 
     /// Maps the expression values of the path formula according to the given mapping function.
-    pub fn map_e<E2, M: FnMut(E) -> E2>(self, map: &mut M) -> PathFormula<I, F, E2> {
+    pub fn map_e<E2, M: FnMut(E) -> E2>(self, map: &mut M) -> PathFormula<I, F, E2, C> {
         self.try_map_e(&mut |ex| Result::<_, ()>::Ok(map(ex)))
             .unwrap()
     }
@@ -1039,7 +1462,7 @@ impl<I, F, E> PathFormula<I, F, E> {
     pub fn try_map_e<Er, E2, M: FnMut(E) -> Result<E2, Er>>(
         self,
         map: &mut M,
-    ) -> Result<PathFormula<I, F, E2>, Er> {
+    ) -> Result<PathFormula<I, F, E2, C>, Er> {
         Ok(match self {
             PathFormula::Until { before, after } => PathFormula::Until {
                 before: Box::new(before.try_map_e(map)?),
@@ -1066,9 +1489,50 @@ impl<I, F, E> PathFormula<I, F, E> {
             },
         })
     }
+
+    /// Maps the coalitions of the path formula according to the given mapping function.
+    pub fn map_c<C2, M: FnMut(C) -> C2>(self, map: &mut M) -> PathFormula<I, F, E, C2> {
+        self.try_map_c(&mut |ex| Result::<_, ()>::Ok(map(ex)))
+            .unwrap()
+    }
+
+    /// Maps the coalitions of the path formula according to the given fallible mapping
+    /// function.
+    ///
+    /// If the mapping function returns `Err(...)`, then `try_map_c()` also returns `Err(...)`.
+    pub fn try_map_c<Er, C2, M: FnMut(C) -> Result<C2, Er>>(
+        self,
+        map: &mut M,
+    ) -> Result<PathFormula<I, F, E, C2>, Er> {
+        Ok(match self {
+            PathFormula::Until { before, after } => PathFormula::Until {
+                before: Box::new(before.try_map_c(map)?),
+                after: Box::new(after.try_map_c(map)?),
+            },
+            PathFormula::Eventually { condition } => PathFormula::Eventually {
+                condition: Box::new(condition.try_map_c(map)?),
+            },
+            PathFormula::BoundedUntil {
+                before,
+                after,
+                bound,
+            } => PathFormula::BoundedUntil {
+                before: Box::new(before.try_map_c(map)?),
+                after: Box::new(after.try_map_c(map)?),
+                bound,
+            },
+            PathFormula::BoundedEventually { condition, bound } => PathFormula::BoundedEventually {
+                condition: Box::new(condition.try_map_c(map)?),
+                bound,
+            },
+            PathFormula::Generally { condition } => PathFormula::Generally {
+                condition: Box::new(condition.try_map_c(map)?),
+            },
+        })
+    }
 }
 
-impl<I: Display, F: Display, E: Display> Display for PathFormula<I, F, E> {
+impl<I: Display, F: Display, E: Display, C: Display> Display for PathFormula<I, F, E, C> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             PathFormula::Until { before, after } => {
@@ -1096,7 +1560,7 @@ impl<I: Display, F: Display, E: Display> Display for PathFormula<I, F, E> {
 
 /// A rewards formula, describing a value computed over a rewards structure of a model.
 #[derive(Clone, PartialEq, Eq)]
-pub enum RewardFormula<I, F, E> {
+pub enum RewardFormula<I, F, E, C> {
     /// An instantaneous reward, equal to the syntax `I=k`.
     ///
     /// The value of the formula is the expected reward after exactly `k` steps.
@@ -1116,17 +1580,20 @@ pub enum RewardFormula<I, F, E> {
     /// The expected reward until reaching `states`, equal to syntax `F states`.
     Finally {
         /// The set of states up to which the reward is accumulated.
-        states: StateFormula<I, F, E>,
+        states: StateFormula<I, F, E, C>,
     },
 
     /// The long-run average reward
     LongRunAverage,
 }
 
-impl<I, F, E> RewardFormula<I, F, E> {
-    /// Returns a reward formula where the integers, floats and expressions are stored as mutable
-    /// references.
-    pub fn as_mut(&mut self) -> RewardFormula<&mut I, &mut F, &mut E> {
+impl<I, F, E, C> RewardFormula<I, F, E, C> {
+    /// Returns a reward formula where the integers, floats, expressions and coalitions are stored as
+    /// mutable references.
+    pub fn as_mut(&mut self) -> RewardFormula<&mut I, &mut F, &mut E, C::Output<'_>>
+    where
+        C: CoalitionAsMut,
+    {
         match self {
             RewardFormula::Instantaneous { k } => RewardFormula::Instantaneous { k },
             RewardFormula::Cumulative { k } => RewardFormula::Cumulative { k },
@@ -1137,8 +1604,12 @@ impl<I, F, E> RewardFormula<I, F, E> {
         }
     }
 
-    /// Returns a reward formula where the integers, floats and expressions are stored as references.
-    pub fn as_ref(&self) -> RewardFormula<&I, &F, &E> {
+    /// Returns a reward formula where the integers, floats, expressions and coalitions are stored as
+    /// references.
+    pub fn as_ref(&self) -> RewardFormula<&I, &F, &E, C::Output<'_>>
+    where
+        C: CoalitionAsRef,
+    {
         match self {
             RewardFormula::Instantaneous { k } => RewardFormula::Instantaneous { k },
             RewardFormula::Cumulative { k } => RewardFormula::Cumulative { k },
@@ -1150,7 +1621,7 @@ impl<I, F, E> RewardFormula<I, F, E> {
     }
 
     /// Maps the integer values of the reward formula according to the given mapping function.
-    pub fn map_i<I2, M: FnMut(I) -> I2>(self, map: &mut M) -> RewardFormula<I2, F, E> {
+    pub fn map_i<I2, M: FnMut(I) -> I2>(self, map: &mut M) -> RewardFormula<I2, F, E, C> {
         self.try_map_i(&mut |ex| Result::<_, ()>::Ok(map(ex)))
             .unwrap()
     }
@@ -1162,7 +1633,7 @@ impl<I, F, E> RewardFormula<I, F, E> {
     pub fn try_map_i<Er, I2, M: FnMut(I) -> Result<I2, Er>>(
         self,
         map: &mut M,
-    ) -> Result<RewardFormula<I2, F, E>, Er> {
+    ) -> Result<RewardFormula<I2, F, E, C>, Er> {
         Ok(match self {
             RewardFormula::Instantaneous { k } => RewardFormula::Instantaneous { k: map(k)? },
             RewardFormula::Cumulative { k } => RewardFormula::Cumulative { k: map(k)? },
@@ -1174,7 +1645,7 @@ impl<I, F, E> RewardFormula<I, F, E> {
     }
 
     /// Maps the float values of the reward formula according to the given mapping function.
-    pub fn map_f<F2, M: FnMut(F) -> F2>(self, map: &mut M) -> RewardFormula<I, F2, E> {
+    pub fn map_f<F2, M: FnMut(F) -> F2>(self, map: &mut M) -> RewardFormula<I, F2, E, C> {
         self.try_map_f(&mut |ex| Result::<_, ()>::Ok(map(ex)))
             .unwrap()
     }
@@ -1185,7 +1656,7 @@ impl<I, F, E> RewardFormula<I, F, E> {
     pub fn try_map_f<Er, F2, M: FnMut(F) -> Result<F2, Er>>(
         self,
         map: &mut M,
-    ) -> Result<RewardFormula<I, F2, E>, Er> {
+    ) -> Result<RewardFormula<I, F2, E, C>, Er> {
         Ok(match self {
             RewardFormula::Instantaneous { k } => RewardFormula::Instantaneous { k },
             RewardFormula::Cumulative { k } => RewardFormula::Cumulative { k },
@@ -1197,7 +1668,7 @@ impl<I, F, E> RewardFormula<I, F, E> {
     }
 
     /// Maps the expression values of the reward formula according to the given mapping function.
-    pub fn map_e<E2, M: FnMut(E) -> E2>(self, map: &mut M) -> RewardFormula<I, F, E2> {
+    pub fn map_e<E2, M: FnMut(E) -> E2>(self, map: &mut M) -> RewardFormula<I, F, E2, C> {
         self.try_map_e(&mut |ex| Result::<_, ()>::Ok(map(ex)))
             .unwrap()
     }
@@ -1209,7 +1680,7 @@ impl<I, F, E> RewardFormula<I, F, E> {
     pub fn try_map_e<Er, E2, M: FnMut(E) -> Result<E2, Er>>(
         self,
         map: &mut M,
-    ) -> Result<RewardFormula<I, F, E2>, Er> {
+    ) -> Result<RewardFormula<I, F, E2, C>, Er> {
         Ok(match self {
             RewardFormula::Instantaneous { k } => RewardFormula::Instantaneous { k },
             RewardFormula::Cumulative { k } => RewardFormula::Cumulative { k },
@@ -1219,9 +1690,33 @@ impl<I, F, E> RewardFormula<I, F, E> {
             RewardFormula::LongRunAverage => RewardFormula::LongRunAverage,
         })
     }
+
+    /// Maps the coalitions of the reward formula according to the given mapping function.
+    pub fn map_c<C2, M: FnMut(C) -> C2>(self, map: &mut M) -> RewardFormula<I, F, E, C2> {
+        self.try_map_c(&mut |ex| Result::<_, ()>::Ok(map(ex)))
+            .unwrap()
+    }
+
+    /// Maps the coalitions of the reward formula according to the given fallible mapping
+    /// function.
+    ///
+    /// If the mapping function returns `Err(...)`, then `try_map_c()` also returns `Err(...)`.
+    pub fn try_map_c<Er, C2, M: FnMut(C) -> Result<C2, Er>>(
+        self,
+        map: &mut M,
+    ) -> Result<RewardFormula<I, F, E, C2>, Er> {
+        Ok(match self {
+            RewardFormula::Instantaneous { k } => RewardFormula::Instantaneous { k },
+            RewardFormula::Cumulative { k } => RewardFormula::Cumulative { k },
+            RewardFormula::Finally { states: state } => RewardFormula::Finally {
+                states: state.try_map_c(map)?,
+            },
+            RewardFormula::LongRunAverage => RewardFormula::LongRunAverage,
+        })
+    }
 }
 
-impl<I: Display, F: Display, E: Display> Display for RewardFormula<I, F, E> {
+impl<I: Display, F: Display, E: Display, C: Display> Display for RewardFormula<I, F, E, C> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             RewardFormula::Instantaneous { k } => write!(f, "I={k}"),

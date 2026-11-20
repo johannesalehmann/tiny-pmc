@@ -4,7 +4,7 @@ use crate::ModelBuilder;
 use crate::queries::{ModelAndQueries, ModelAndQuery, ProcessedQuery, UnprocessedQuery};
 use prism_parser::ParserSpan;
 use probabilistic_models::AtomicPropositionIndex;
-use probabilistic_properties::Query;
+use probabilistic_properties::QueryEnum;
 use std::collections::HashSet;
 use typed_index_collections::Index;
 
@@ -170,7 +170,7 @@ fn query_constants_evaluated() {
         .with_query(queries.pop().unwrap())
         .build()
         .unwrap();
-    let _: &Query<i64, f64, Ap> = &out.query;
+    let _: &QueryEnum<i64, f64, Ap> = &out.query;
     assert_eq!(show(&out.query), "P>=0.25 [ F<=2 0 ]");
 }
 

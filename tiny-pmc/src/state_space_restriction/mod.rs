@@ -1,11 +1,26 @@
 use prism_model::{Expression, Span, VariableReference};
-use probabilistic_properties::{PathFormula, Query, RewardFormula, StateFormula};
+use probabilistic_properties::{PathFormula, Query, QueryEnum, RewardFormula, StateFormula};
 
-pub fn get_state_space_restriction<S: Span>(
+pub fn get_state_space_restriction<S: Span, C>(
+    query: &QueryEnum<
+        Expression<VariableReference, S>,
+        Expression<VariableReference, S>,
+        Expression<VariableReference, S>,
+        C,
+    >,
+) -> Option<Expression<VariableReference, S>> {
+    match query {
+        QueryEnum::Pctl(query) => restriction_of_query(query),
+        QueryEnum::Rpatl(query) => restriction_of_query(query),
+    }
+}
+
+fn restriction_of_query<S: Span, C>(
     query: &Query<
         Expression<VariableReference, S>,
         Expression<VariableReference, S>,
         Expression<VariableReference, S>,
+        C,
     >,
 ) -> Option<Expression<VariableReference, S>> {
     match query {
@@ -21,11 +36,12 @@ pub fn get_state_space_restriction<S: Span>(
     }
 }
 
-fn condition_of_top_level_path<S: Span>(
+fn condition_of_top_level_path<S: Span, C>(
     path: &PathFormula<
         Expression<VariableReference, S>,
         Expression<VariableReference, S>,
         Expression<VariableReference, S>,
+        C,
     >,
 ) -> Option<Expression<VariableReference, S>> {
     match path {
@@ -42,11 +58,12 @@ fn condition_of_top_level_path<S: Span>(
     }
 }
 
-fn condition_of_state_formula<S: Span>(
+fn condition_of_state_formula<S: Span, C>(
     formula: &StateFormula<
         Expression<VariableReference, S>,
         Expression<VariableReference, S>,
         Expression<VariableReference, S>,
+        C,
     >,
 ) -> Option<Expression<VariableReference, S>> {
     match formula {
@@ -63,11 +80,12 @@ fn condition_of_state_formula<S: Span>(
     }
 }
 
-fn condition_of_reward_formula<S: Span>(
+fn condition_of_reward_formula<S: Span, C>(
     formula: &RewardFormula<
         Expression<VariableReference, S>,
         Expression<VariableReference, S>,
         Expression<VariableReference, S>,
+        C,
     >,
 ) -> Option<Expression<VariableReference, S>> {
     match formula {

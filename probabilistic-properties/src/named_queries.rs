@@ -1,4 +1,4 @@
-use crate::Query;
+use crate::{Coalition, QueryEnum};
 use std::collections::HashMap;
 use std::ops::{Index, Range};
 
@@ -13,12 +13,12 @@ pub struct QueryExists {
 }
 
 /// A collection of [`NamedQuery`], together with a map for efficient name-to-query lookups.
-pub struct NamedQueries<I, F, E> {
-    queries: Vec<NamedQuery<I, F, E>>,
+pub struct NamedQueries<I, F, E, C = Coalition> {
+    queries: Vec<NamedQuery<I, F, E, C>>,
     name_to_query: HashMap<String, usize>,
 }
 
-impl<I, F, E> NamedQueries<I, F, E> {
+impl<I, F, E, C> NamedQueries<I, F, E, C> {
     /// Constructs an empty `NamedQueries`.
     pub fn new() -> Self {
         Self::default()
@@ -37,7 +37,7 @@ impl<I, F, E> NamedQueries<I, F, E> {
     /// is returned.
     ///
     /// Multiple unnamed queries may be added.
-    pub fn add(&mut self, query: NamedQuery<I, F, E>) -> Result<(), QueryExists> {
+    pub fn add(&mut self, query: NamedQuery<I, F, E, C>) -> Result<(), QueryExists> {
         if let Some(name) = &query.name {
             if let Some(existing_index) = self.name_to_query.get(name).cloned() {
                 return Err(QueryExists {
@@ -74,7 +74,7 @@ impl<I, F, E> NamedQueries<I, F, E> {
     /// Returns the subset of queries that fulfil the given predicate.
     ///
     /// The predicate has form `pred(i, q)`, where `i` is the index of query `q`.
-    pub fn filtered_enumerated<Pred: FnMut(usize, &NamedQuery<I, F, E>) -> bool>(
+    pub fn filtered_enumerated<Pred: FnMut(usize, &NamedQuery<I, F, E, C>) -> bool>(
         self,
         mut predicate: Pred,
     ) -> Self {
@@ -95,7 +95,10 @@ impl<I, F, E> NamedQueries<I, F, E> {
     }
 
     /// Returns the subset of queries that fulfil the given predicate.
-    pub fn filtered<Pred: FnMut(&NamedQuery<I, F, E>) -> bool>(self, mut predicate: Pred) -> Self {
+    pub fn filtered<Pred: FnMut(&NamedQuery<I, F, E, C>) -> bool>(
+        self,
+        mut predicate: Pred,
+    ) -> Self {
         self.filtered_enumerated(|_, q| predicate(q))
     }
 
@@ -107,13 +110,13 @@ impl<I, F, E> NamedQueries<I, F, E> {
     }
 }
 
-impl<I, F, E> From<NamedQueries<I, F, E>> for Vec<Query<I, F, E>> {
-    fn from(value: NamedQueries<I, F, E>) -> Self {
+impl<I, F, E, C> From<NamedQueries<I, F, E, C>> for Vec<QueryEnum<I, F, E, C>> {
+    fn from(value: NamedQueries<I, F, E, C>) -> Self {
         value.queries.into_iter().map(|q| q.query).collect()
     }
 }
 
-impl<I, F, E> Default for NamedQueries<I, F, E> {
+impl<I, F, E, C> Default for NamedQueries<I, F, E, C> {
     fn default() -> Self {
         Self {
             queries: Vec::new(),
@@ -122,32 +125,32 @@ impl<I, F, E> Default for NamedQueries<I, F, E> {
     }
 }
 
-impl<I, F, E> IntoIterator for NamedQueries<I, F, E> {
-    type Item = NamedQuery<I, F, E>;
-    type IntoIter = std::vec::IntoIter<NamedQuery<I, F, E>>;
+impl<I, F, E, C> IntoIterator for NamedQueries<I, F, E, C> {
+    type Item = NamedQuery<I, F, E, C>;
+    type IntoIter = std::vec::IntoIter<NamedQuery<I, F, E, C>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.queries.into_iter()
     }
 }
-impl<'a, I, F, E> IntoIterator for &'a NamedQueries<I, F, E> {
-    type Item = &'a NamedQuery<I, F, E>;
-    type IntoIter = std::slice::Iter<'a, NamedQuery<I, F, E>>;
+impl<'a, I, F, E, C> IntoIterator for &'a NamedQueries<I, F, E, C> {
+    type Item = &'a NamedQuery<I, F, E, C>;
+    type IntoIter = std::slice::Iter<'a, NamedQuery<I, F, E, C>>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.queries.iter()
     }
 }
 
-impl<I, F, E> Index<usize> for NamedQueries<I, F, E> {
-    type Output = NamedQuery<I, F, E>;
+impl<I, F, E, C> Index<usize> for NamedQueries<I, F, E, C> {
+    type Output = NamedQuery<I, F, E, C>;
 
     fn index(&self, index: usize) -> &Self::Output {
         &self.queries[index]
     }
 }
-impl<I, F, E> Index<&str> for NamedQueries<I, F, E> {
-    type Output = NamedQuery<I, F, E>;
+impl<I, F, E, C> Index<&str> for NamedQueries<I, F, E, C> {
+    type Output = NamedQuery<I, F, E, C>;
 
     fn index(&self, index: &str) -> &Self::Output {
         let index = self.name_to_query[index];
@@ -155,8 +158,8 @@ impl<I, F, E> Index<&str> for NamedQueries<I, F, E> {
     }
 }
 
-impl<I, F, E> Index<Range<usize>> for NamedQueries<I, F, E> {
-    type Output = [NamedQuery<I, F, E>];
+impl<I, F, E, C> Index<Range<usize>> for NamedQueries<I, F, E, C> {
+    type Output = [NamedQuery<I, F, E, C>];
 
     fn index(&self, index: Range<usize>) -> &Self::Output {
         &self.queries[index]
@@ -166,44 +169,44 @@ impl<I, F, E> Index<Range<usize>> for NamedQueries<I, F, E> {
 /// A query with an optional name.
 ///
 /// Multiple named queries can be collected in a [`NamedQueries`] structure.
-pub struct NamedQuery<I, F, E> {
+pub struct NamedQuery<I, F, E, C = Coalition> {
     // TODO: It would be nice to use an `Identifier` here, but supporting that would require a bit
     //  or re-organisation to make `Identifier` available in this crate
     /// The name of the query or `None` if the query is unnamed
     pub name: Option<String>,
     /// The underlying query
-    pub query: Query<I, F, E>,
+    pub query: QueryEnum<I, F, E, C>,
 }
 
-impl<I, F, E> NamedQuery<I, F, E> {
+impl<I, F, E, C> NamedQuery<I, F, E, C> {
     /// Constructs a named query with the given `query` and optional name.
-    pub fn new(name: Option<String>, query: Query<I, F, E>) -> Self {
+    pub fn new(name: Option<String>, query: QueryEnum<I, F, E, C>) -> Self {
         Self { name, query }
     }
     /// Constructs a named query without a name, i.e. with `named_query.name = None`.
-    pub fn without_name(query: Query<I, F, E>) -> Self {
+    pub fn without_name(query: QueryEnum<I, F, E, C>) -> Self {
         Self::new(None, query)
     }
     /// Constructs a named query with the given name, i.e. with `named_query.name = Some(name)`.
-    pub fn with_name(name: String, query: Query<I, F, E>) -> Self {
+    pub fn with_name(name: String, query: QueryEnum<I, F, E, C>) -> Self {
         Self::new(Some(name), query)
     }
 }
 
-impl<I, F, E> From<NamedQuery<I, F, E>> for Query<I, F, E> {
-    fn from(value: NamedQuery<I, F, E>) -> Self {
+impl<I, F, E, C> From<NamedQuery<I, F, E, C>> for QueryEnum<I, F, E, C> {
+    fn from(value: NamedQuery<I, F, E, C>) -> Self {
         value.query
     }
 }
 
-impl<I, F, E> AsRef<Query<I, F, E>> for NamedQuery<I, F, E> {
-    fn as_ref(&self) -> &Query<I, F, E> {
+impl<I, F, E, C> AsRef<QueryEnum<I, F, E, C>> for NamedQuery<I, F, E, C> {
+    fn as_ref(&self) -> &QueryEnum<I, F, E, C> {
         &self.query
     }
 }
 
-impl<I, F, E> AsMut<Query<I, F, E>> for NamedQuery<I, F, E> {
-    fn as_mut(&mut self) -> &mut Query<I, F, E> {
+impl<I, F, E, C> AsMut<QueryEnum<I, F, E, C>> for NamedQuery<I, F, E, C> {
+    fn as_mut(&mut self) -> &mut QueryEnum<I, F, E, C> {
         &mut self.query
     }
 }

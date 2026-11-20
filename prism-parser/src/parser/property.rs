@@ -2,31 +2,23 @@ use super::{E, expression_parser, expression_parser_with, identifier_parser};
 use crate::{ParserSpan, Token, ValidationError};
 use chumsky::input::ValueInput;
 use chumsky::prelude::{Recursive, just};
-use chumsky::{IterParser, Parser};
+use chumsky::{IterParser, Parser, select};
 use prism_model::{Expression, Identifier};
 use probabilistic_properties::{
-    Bound, BoundOperator, NamedQuery, NonDeterminismKind, PathFormula, Query, RewardFormula,
-    StateFormula,
+    Bound, BoundOperator, Coalition, NamedQuery, NoCoalition, NonDeterminismKind, PathFormula,
+    Query, QueryEnum, RewardFormula, StateFormula,
 };
 use std::cell::Cell;
+use std::collections::BTreeSet;
 
 // TODO: Support property-file constants
 // TODO: Support property-file labels
 
 // We don't return NamedQueries here, as the name deduplication happens at a later stage (because
 // there could be multiple query files that will be parsed separately).
-pub fn named_queries_parser<'a, 'b, I>() -> impl Parser<
-    'a,
-    I,
-    Vec<
-        NamedQuery<
-            Expression<Identifier<ParserSpan>, ParserSpan>,
-            Expression<Identifier<ParserSpan>, ParserSpan>,
-            Expression<Identifier<ParserSpan>, ParserSpan>,
-        >,
-    >,
-    E<'a>,
-> + Clone
+pub fn named_queries_parser<'a, 'b, I>()
+-> impl Parser<'a, I, Vec<NamedQuery<ParsedExpression, ParsedExpression, ParsedExpression>>, E<'a>>
++ Clone
 where
     I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
@@ -35,16 +27,8 @@ where
         .collect()
         .then_ignore(just(Token::Semicolon).or_not())
 }
-pub fn named_query_parser<'a, 'b, I>() -> impl Parser<
-    'a,
-    I,
-    NamedQuery<
-        Expression<Identifier<ParserSpan>, ParserSpan>,
-        Expression<Identifier<ParserSpan>, ParserSpan>,
-        Expression<Identifier<ParserSpan>, ParserSpan>,
-    >,
-    E<'a>,
-> + Clone
+pub fn named_query_parser<'a, 'b, I>()
+-> impl Parser<'a, I, NamedQuery<ParsedExpression, ParsedExpression, ParsedExpression>, E<'a>> + Clone
 where
     I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
@@ -53,21 +37,41 @@ where
         .then_ignore(just(Token::Quote))
         .then_ignore(just(Token::Colon));
 
+    let query = query_parser().try_map(|query, span| {
+        into_query_enum(query).map_err(|()| ValidationError::InconsistentCoalitions { span }.into())
+    });
+
     name.map(|n| n.name)
         .or_not()
-        .then(query_parser())
+        .then(query)
         .map(|(n, q)| NamedQuery::new(n, q))
 }
-pub fn query_parser<'a, 'b, I>() -> impl Parser<
-    'a,
-    I,
-    Query<
-        Expression<Identifier<ParserSpan>, ParserSpan>,
-        Expression<Identifier<ParserSpan>, ParserSpan>,
-        Expression<Identifier<ParserSpan>, ParserSpan>,
-    >,
-    E<'a>,
-> + Clone
+
+/// Determines whether the parsed `query` is a pCTL query (no operator has a coalition) or an rPATL
+/// query (every operator has a coalition). Returns `Err(())` if the query mixes both.
+fn into_query_enum(
+    query: ParsedQuery,
+) -> Result<QueryEnum<ParsedExpression, ParsedExpression, ParsedExpression>, ()> {
+    let mut with_coalition = false;
+    let mut without_coalition = false;
+    let query = query.map_c(&mut |coalition: Option<Coalition>| {
+        match coalition {
+            Some(_) => with_coalition = true,
+            None => without_coalition = true,
+        }
+        coalition
+    });
+    match (with_coalition, without_coalition) {
+        (true, true) => Err(()),
+        (true, false) => {
+            Ok(QueryEnum::Rpatl(query.map_c(&mut |coalition| {
+                coalition.expect("all operators have a coalition")
+            })))
+        }
+        (false, _) => Ok(QueryEnum::Pctl(query.map_c(&mut |_| NoCoalition))),
+    }
+}
+pub fn query_parser<'a, 'b, I>() -> impl Parser<'a, I, ParsedQuery, E<'a>> + Clone
 where
     I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
@@ -80,26 +84,34 @@ where
     ));
     path_formula_parser.define(define_path_formula_parser(state_formula_parser.clone()));
 
-    let probability_value = probability_min_max()
+    let probability_value = coalition_parser()
+        .or_not()
+        .then(probability_min_max())
         .then_ignore(just(Token::Equal))
         .then_ignore(just(Token::Questionmark))
         .then_ignore(just(Token::LeftSqBracket))
         .then(path_formula_parser)
         .then_ignore(just(Token::RightSqBracket))
-        .map(|(non_determinism, path)| Query::ProbabilityValue {
-            non_determinism,
-            path,
-        });
+        .map(
+            |((coalition, non_determinism), path)| Query::ProbabilityValue {
+                coalition,
+                non_determinism,
+                path,
+            },
+        );
 
     let state_formula = state_formula_parser.clone().map(|s| Query::StateFormula(s));
 
-    let reward_bound = reward_name_and_min_max()
+    let reward_bound = coalition_parser()
+        .or_not()
+        .then(reward_name_and_min_max())
         .then(bound_parser())
         .then_ignore(just(Token::LeftSqBracket))
         .then(reward_formula(state_formula_parser.clone()))
         .then_ignore(just(Token::RightSqBracket))
         .map(
-            |(((name, non_determinism), bound), reward)| Query::RewardBound {
+            |(((coalition, (name, non_determinism)), bound), reward)| Query::RewardBound {
+                coalition,
                 non_determinism,
                 name: name.map(|i| i.name), // TODO: Store span instead of name in reward
                 bound,
@@ -107,36 +119,49 @@ where
             },
         );
 
-    let reward_value = reward_name_and_min_max()
+    let reward_value = coalition_parser()
+        .or_not()
+        .then(reward_name_and_min_max())
         .then_ignore(just(Token::Equal))
         .then_ignore(just(Token::Questionmark))
         .then_ignore(just(Token::LeftSqBracket))
         .then(reward_formula(state_formula_parser.clone()))
         .then_ignore(just(Token::RightSqBracket))
-        .map(|((name, non_determinism), reward)| Query::RewardValue {
-            non_determinism,
-            name: name.map(|i| i.name), // TODO: Store span instead of name in reward
-            reward,
-        });
+        .map(
+            |((coalition, (name, non_determinism)), reward)| Query::RewardValue {
+                coalition,
+                non_determinism,
+                name: name.map(|i| i.name), // TODO: Store span instead of name in reward
+                reward,
+            },
+        );
 
-    let time_bound = time_min_max()
+    let time_bound = coalition_parser()
+        .or_not()
+        .then(time_min_max())
         .then(bound_parser())
         .then_ignore(just(Token::LeftSqBracket))
         .then(reward_formula(state_formula_parser.clone()))
         .then_ignore(just(Token::RightSqBracket))
-        .map(|((non_determinism, bound), reward)| Query::TimeBound {
-            non_determinism,
-            bound,
-            reward,
-        });
+        .map(
+            |(((coalition, non_determinism), bound), reward)| Query::TimeBound {
+                coalition,
+                non_determinism,
+                bound,
+                reward,
+            },
+        );
 
-    let time_value = time_min_max()
+    let time_value = coalition_parser()
+        .or_not()
+        .then(time_min_max())
         .then_ignore(just(Token::Equal))
         .then_ignore(just(Token::Questionmark))
         .then_ignore(just(Token::LeftSqBracket))
         .then(reward_formula(state_formula_parser.clone()))
         .then_ignore(just(Token::RightSqBracket))
-        .map(|(non_determinism, reward)| Query::TimeValue {
+        .map(|((coalition, non_determinism), reward)| Query::TimeValue {
+            coalition,
             non_determinism,
             reward,
         });
@@ -147,6 +172,53 @@ where
         .or(reward_value)
         .or(time_bound)
         .or(time_value)
+}
+
+/// Parses a coalition of the form `<<p1,p2,3>>`, where each player is given either by its name or
+/// by its 1-based index.
+pub fn coalition_parser<'a, 'b, I>() -> impl Parser<'a, I, Coalition, E<'a>> + Clone
+where
+    I: ValueInput<'a, Token = Token, Span = ParserSpan>,
+{
+    enum Player {
+        Name(String),
+        Index(usize),
+    }
+
+    let index = select! { Token::Integer(index) => index }.try_map(|index, span| {
+        match index.parse::<usize>() {
+            Ok(index) if index > 0 => Ok(index),
+            _ => Err(ValidationError::InvalidPlayerIndex { span }.into()),
+        }
+    });
+
+    let player = identifier_parser()
+        .map(|identifier| Player::Name(identifier.name))
+        .or(index.map(Player::Index));
+
+    player
+        .separated_by(just(Token::Comma))
+        .collect::<Vec<_>>()
+        .delimited_by(
+            just(Token::LessThan).then(just(Token::LessThan)),
+            just(Token::GreaterThan).then(just(Token::GreaterThan)),
+        )
+        .map(|players| {
+            let mut names = BTreeSet::new();
+            let mut indices = BTreeSet::new();
+            for player in players {
+                match player {
+                    Player::Name(name) => {
+                        names.insert(name);
+                    }
+                    Player::Index(index) => {
+                        indices.insert(index);
+                    }
+                }
+            }
+            Coalition::new(names, indices)
+        })
+        .labelled("coalition")
 }
 
 pub fn probability_min_max<'a, 'b, I>()
@@ -217,32 +289,9 @@ where
         .or(just(Token::LRAMin).map(|_| Some(NonDeterminismKind::Minimise)))
 }
 
-pub fn define_path_formula_parser<
-    'a,
-    'b,
-    I,
-    SF: Parser<
-            'a,
-            I,
-            StateFormula<
-                Expression<Identifier<ParserSpan>, ParserSpan>,
-                Expression<Identifier<ParserSpan>, ParserSpan>,
-                Expression<Identifier<ParserSpan>, ParserSpan>,
-            >,
-            E<'a>,
-        > + Clone,
->(
+pub fn define_path_formula_parser<'a, 'b, I, SF: Parser<'a, I, ParsedStateFormula, E<'a>> + Clone>(
     state_formula_parser: SF,
-) -> impl Parser<
-    'a,
-    I,
-    PathFormula<
-        Expression<Identifier<ParserSpan>, ParserSpan>,
-        Expression<Identifier<ParserSpan>, ParserSpan>,
-        Expression<Identifier<ParserSpan>, ParserSpan>,
-    >,
-    E<'a>,
-> + Clone
+) -> impl Parser<'a, I, ParsedPathFormula, E<'a>> + Clone
 where
     I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
@@ -297,62 +346,39 @@ pub fn define_state_formula_parser<
     'a,
     'b,
     I,
-    SF: Parser<
-            'a,
-            I,
-            StateFormula<
-                Expression<Identifier<ParserSpan>, ParserSpan>,
-                Expression<Identifier<ParserSpan>, ParserSpan>,
-                Expression<Identifier<ParserSpan>, ParserSpan>,
-            >,
-            E<'a>,
-        > + Clone
-        + 'a,
-    PF: Parser<
-            'a,
-            I,
-            PathFormula<
-                Expression<Identifier<ParserSpan>, ParserSpan>,
-                Expression<Identifier<ParserSpan>, ParserSpan>,
-                Expression<Identifier<ParserSpan>, ParserSpan>,
-            >,
-            E<'a>,
-        > + Clone
-        + 'a,
+    SF: Parser<'a, I, ParsedStateFormula, E<'a>> + Clone + 'a,
+    PF: Parser<'a, I, ParsedPathFormula, E<'a>> + Clone + 'a,
 >(
     state_formula_parser: SF,
     path_formula_parser: PF,
-) -> impl Parser<
-    'a,
-    I,
-    StateFormula<
-        Expression<Identifier<ParserSpan>, ParserSpan>,
-        Expression<Identifier<ParserSpan>, ParserSpan>,
-        Expression<Identifier<ParserSpan>, ParserSpan>,
-    >,
-    E<'a>,
-> + Clone
+) -> impl Parser<'a, I, ParsedStateFormula, E<'a>> + Clone
 where
     I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {
-    let probability_bound = probability_min_max()
+    let probability_bound = coalition_parser()
+        .or_not()
+        .then(probability_min_max())
         .then(bound_parser())
         .then_ignore(just(Token::LeftSqBracket))
         .then(path_formula_parser.clone())
         .then_ignore(just(Token::RightSqBracket))
         .map(
-            |((non_determinism, bound), path)| StateFormula::ProbabilityBound {
+            |(((coalition, non_determinism), bound), path)| StateFormula::ProbabilityBound {
+                coalition,
                 non_determinism,
                 bound,
                 path: Box::new(path),
             },
         );
 
-    let long_run_average = lra_min_max()
+    let long_run_average = coalition_parser()
+        .or_not()
+        .then(lra_min_max())
         .then(bound_parser())
         .then(state_formula_parser)
         .map(
-            |((non_determinism, bound), states)| StateFormula::LongRunAverage {
+            |(((coalition, non_determinism), bound), states)| StateFormula::LongRunAverage {
+                coalition,
                 non_determinism,
                 bound,
                 states: Box::new(states),
@@ -371,8 +397,16 @@ where
     })
 }
 
+// Coalitions are parsed as `Option<Coalition>`. Whether a query consistently uses coalitions on
+// all or on none of its operators is checked afterwards by `into_query_enum`.
 type ParsedExpression = Expression<Identifier<ParserSpan>, ParserSpan>;
-type ParsedStateFormula = StateFormula<ParsedExpression, ParsedExpression, ParsedExpression>;
+type ParsedQuery = Query<ParsedExpression, ParsedExpression, ParsedExpression, Option<Coalition>>;
+type ParsedStateFormula =
+    StateFormula<ParsedExpression, ParsedExpression, ParsedExpression, Option<Coalition>>;
+type ParsedPathFormula =
+    PathFormula<ParsedExpression, ParsedExpression, ParsedExpression, Option<Coalition>>;
+type ParsedRewardFormula =
+    RewardFormula<ParsedExpression, ParsedExpression, ParsedExpression, Option<Coalition>>;
 
 // To represent nested state formulas, we abuse Expression::VarOrConst by storing this enum in it.
 enum IdentifierOrStateFormula {
@@ -451,32 +485,9 @@ where
         .map(|(operator, value)| Bound { operator, value })
 }
 
-pub fn reward_formula<
-    'a,
-    'b,
-    I,
-    SF: Parser<
-            'a,
-            I,
-            StateFormula<
-                Expression<Identifier<ParserSpan>, ParserSpan>,
-                Expression<Identifier<ParserSpan>, ParserSpan>,
-                Expression<Identifier<ParserSpan>, ParserSpan>,
-            >,
-            E<'a>,
-        > + Clone,
->(
+pub fn reward_formula<'a, 'b, I, SF: Parser<'a, I, ParsedStateFormula, E<'a>> + Clone>(
     state_formula_parser: SF,
-) -> impl Parser<
-    'a,
-    I,
-    RewardFormula<
-        Expression<Identifier<ParserSpan>, ParserSpan>,
-        Expression<Identifier<ParserSpan>, ParserSpan>,
-        Expression<Identifier<ParserSpan>, ParserSpan>,
-    >,
-    E<'a>,
-> + Clone
+) -> impl Parser<'a, I, ParsedRewardFormula, E<'a>> + Clone
 where
     I: ValueInput<'a, Token = Token, Span = ParserSpan>,
 {

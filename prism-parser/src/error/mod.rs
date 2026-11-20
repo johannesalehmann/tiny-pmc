@@ -240,6 +240,31 @@ pub enum ValidationError<S: prism_model::Span> {
         /// The span of the expression containing the state formula.
         span: S,
     },
+    /// A query uses coalitions on some, but not all of its operators. pCTL queries must have no
+    /// coalitions, rPATL must have coalitions on all operators.
+    ///
+    /// These queries are invalid:
+    ///
+    /// ```rPATL
+    /// <<p1>> Pmax=? [F P>0.5 [F "goal"]]
+    /// Pmax=? [F <<p1>> P>0.5 [F "goal"]]
+    /// ```
+    ///
+    /// These queries are fine:
+    ///
+    /// ```rPATL
+    /// <<p1>> Pmax=? [F <<p2>> P>0.5 [F "goal"]]
+    /// Pmax=? [F P>0.5 [F "goal"]]
+    /// ```
+    InconsistentCoalitions {
+        /// The span of the query.
+        span: S,
+    },
+    /// A player in a coalition is referenced by an invalid index. Player indices start at 1.
+    InvalidPlayerIndex {
+        /// The span of the player index.
+        span: S,
+    },
 }
 
 /// A type of component of a PRISM model (used by [`ValidationError::DuplicateElement`]).

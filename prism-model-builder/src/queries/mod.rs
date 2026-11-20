@@ -3,7 +3,7 @@ use crate::expression_context::ExpressionContext;
 use crate::expressions::ValuationSource;
 use crate::labels::Labels;
 use prism_model::{Expression, LabelManager, Span, VariableReference};
-use probabilistic_properties::Query;
+use probabilistic_properties::QueryEnum;
 use std::marker::PhantomData;
 use typed_index_collections::Index;
 
@@ -28,12 +28,12 @@ pub trait QueryCollection {
     ) -> Self::OutputType<Model, APIdx>;
 }
 
-pub type UnprocessedQuery<S> = Query<
+pub type UnprocessedQuery<S> = QueryEnum<
     Expression<VariableReference, S>,
     Expression<VariableReference, S>,
     Expression<VariableReference, S>,
 >;
-pub type ProcessedQuery<APIdx> = Query<i64, f64, APIdx>;
+pub type ProcessedQuery<APIdx> = QueryEnum<i64, f64, APIdx>;
 
 pub struct ModelOnly<S: Span> {
     _phantom_data: PhantomData<S>,

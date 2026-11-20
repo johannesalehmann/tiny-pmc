@@ -338,6 +338,22 @@ impl<'a> ParserError<'a, ParserSpan, String> {
                     ));
                 builder
             }
+            ValidationError::InconsistentCoalitions { span } => {
+                let mut builder = MaybeReportBuilder::new_error(&span);
+                builder.set_message("Query contains both operators with and without coaltions");
+                // TODO: This error would benefit from highlighting which specific operators
+                //  are a problem.
+                builder.add_label(MaybeLabel::new(&span).with_message(
+                    "Either all operators in a query must have a coalition `<<...>>` or none",
+                ));
+                builder
+            }
+            ValidationError::InvalidPlayerIndex { span } => {
+                let mut builder = MaybeReportBuilder::new_error(&span);
+                builder.set_message("Invalid player index");
+                builder.add_label(MaybeLabel::new(&span).with_message("Player indices start at 1"));
+                builder
+            }
         }
     }
 }

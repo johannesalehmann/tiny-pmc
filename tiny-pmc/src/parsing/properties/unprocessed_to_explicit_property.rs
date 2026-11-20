@@ -3,7 +3,7 @@ use prism_model::{Expression, FullSpan, Identifier};
 use probabilistic_models::traits::ReadAtomicPropositions;
 use probabilistic_models::{AtomicPropositionIndex, DefaultIx};
 use probabilistic_properties::{
-    Bound, NamedQueries, NamedQuery, PathFormula, Query, RewardFormula, StateFormula,
+    Bound, NamedQueries, NamedQuery, PathFormula, Query, QueryEnum, RewardFormula, StateFormula,
 };
 
 #[derive(Debug, Clone, PartialEq)]
@@ -30,7 +30,10 @@ pub fn from_unprocessed_to_explicit_properties<M: ReadAtomicPropositions<Ix = De
 
     let mut result = NamedQueries::with_capacity(queries.len());
     for named_query in queries {
-        let query = handle_query(named_query.query, model)?;
+        let query = match named_query.query {
+            QueryEnum::Pctl(query) => QueryEnum::Pctl(handle_query(query, model)?),
+            QueryEnum::Rpatl(query) => QueryEnum::Rpatl(handle_query(query, model)?),
+        };
         result
             .add(NamedQuery::new(named_query.name, query))
             .unwrap() // Query names are unique, as they were unique in the unprocessed queries
@@ -38,20 +41,23 @@ pub fn from_unprocessed_to_explicit_properties<M: ReadAtomicPropositions<Ix = De
     Ok(result)
 }
 
-fn handle_query<M: ReadAtomicPropositions>(
+fn handle_query<M: ReadAtomicPropositions, C>(
     query: Query<
         Expression<Identifier<FullSpan>, FullSpan>,
         Expression<Identifier<FullSpan>, FullSpan>,
         Expression<Identifier<FullSpan>, FullSpan>,
+        C,
     >,
     model: &M,
-) -> Result<Query<i64, f64, AtomicPropositionIndex<M::Ix>>, FormulaProcessingError> {
+) -> Result<Query<i64, f64, AtomicPropositionIndex<M::Ix>, C>, FormulaProcessingError> {
     match query {
         Query::ProbabilityValue {
             non_determinism,
+            coalition,
             path,
         } => Ok(Query::ProbabilityValue {
             non_determinism,
+            coalition,
             path: handle_path_formula(path, model)?,
         }),
         Query::StateFormula(state_formula) => Ok(Query::StateFormula(handle_state_formula(
@@ -60,50 +66,59 @@ fn handle_query<M: ReadAtomicPropositions>(
         )?)),
         Query::RewardBound {
             non_determinism,
+            coalition,
             name,
             bound,
             reward,
         } => Ok(Query::RewardBound {
             non_determinism,
+            coalition,
             name,
             bound: handle_float_bound(bound)?,
             reward: handle_rewards_formula(reward, model)?,
         }),
         Query::RewardValue {
             non_determinism,
+            coalition,
             name,
             reward,
         } => Ok(Query::RewardValue {
             non_determinism,
+            coalition,
             name,
             reward: handle_rewards_formula(reward, model)?,
         }),
         Query::TimeBound {
             non_determinism,
+            coalition,
             bound,
             reward,
         } => Ok(Query::TimeBound {
             non_determinism,
+            coalition,
             bound: handle_float_bound(bound)?,
             reward: handle_rewards_formula(reward, model)?,
         }),
         Query::TimeValue {
             non_determinism,
+            coalition,
             reward,
         } => Ok(Query::TimeValue {
             non_determinism,
+            coalition,
             reward: handle_rewards_formula(reward, model)?,
         }),
     }
 }
-fn handle_state_formula<M: ReadAtomicPropositions>(
+fn handle_state_formula<M: ReadAtomicPropositions, C>(
     state_formula: StateFormula<
         Expression<Identifier<FullSpan>, FullSpan>,
         Expression<Identifier<FullSpan>, FullSpan>,
         Expression<Identifier<FullSpan>, FullSpan>,
+        C,
     >,
     model: &M,
-) -> Result<StateFormula<i64, f64, AtomicPropositionIndex<M::Ix>>, FormulaProcessingError> {
+) -> Result<StateFormula<i64, f64, AtomicPropositionIndex<M::Ix>, C>, FormulaProcessingError> {
     match state_formula {
         StateFormula::Expression(e) => match e {
             Expression::Label(name, _) => match model.atomic_proposition_by_name(&name.name) {
@@ -125,19 +140,23 @@ fn handle_state_formula<M: ReadAtomicPropositions>(
         },
         StateFormula::ProbabilityBound {
             non_determinism,
+            coalition,
             bound,
             path,
         } => Ok(StateFormula::ProbabilityBound {
             non_determinism,
+            coalition,
             bound: handle_float_bound(bound)?,
             path: Box::new(handle_path_formula(*path, model)?),
         }),
         StateFormula::LongRunAverage {
             non_determinism,
+            coalition,
             bound,
             states,
         } => Ok(StateFormula::LongRunAverage {
             non_determinism,
+            coalition,
             bound: handle_float_bound(bound)?,
             states: Box::new(handle_state_formula(*states, model)?),
         }),
@@ -155,14 +174,15 @@ fn handle_state_formula<M: ReadAtomicPropositions>(
     }
 }
 
-fn handle_path_formula<M: ReadAtomicPropositions>(
+fn handle_path_formula<M: ReadAtomicPropositions, C>(
     path_formula: PathFormula<
         Expression<Identifier<FullSpan>, FullSpan>,
         Expression<Identifier<FullSpan>, FullSpan>,
         Expression<Identifier<FullSpan>, FullSpan>,
+        C,
     >,
     model: &M,
-) -> Result<PathFormula<i64, f64, AtomicPropositionIndex<M::Ix>>, FormulaProcessingError> {
+) -> Result<PathFormula<i64, f64, AtomicPropositionIndex<M::Ix>, C>, FormulaProcessingError> {
     match path_formula {
         PathFormula::Until { before, after } => Ok(PathFormula::Until {
             before: Box::new(handle_state_formula(*before, model)?),
@@ -189,14 +209,15 @@ fn handle_path_formula<M: ReadAtomicPropositions>(
         }),
     }
 }
-fn handle_rewards_formula<M: ReadAtomicPropositions>(
+fn handle_rewards_formula<M: ReadAtomicPropositions, C>(
     rewards_formula: RewardFormula<
         Expression<Identifier<FullSpan>, FullSpan>,
         Expression<Identifier<FullSpan>, FullSpan>,
         Expression<Identifier<FullSpan>, FullSpan>,
+        C,
     >,
     model: &M,
-) -> Result<RewardFormula<i64, f64, AtomicPropositionIndex<M::Ix>>, FormulaProcessingError> {
+) -> Result<RewardFormula<i64, f64, AtomicPropositionIndex<M::Ix>, C>, FormulaProcessingError> {
     match rewards_formula {
         RewardFormula::Instantaneous { k } => Ok(RewardFormula::Instantaneous {
             k: handle_integer(k)?,

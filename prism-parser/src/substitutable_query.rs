@@ -2,7 +2,7 @@ use prism_model::{
     CyclicDependency, Expression, FormulaManager, Identifier, LabelManager, Span,
     UnknownVariableError, VariableManager, VariableReference,
 };
-use probabilistic_properties::Query;
+use probabilistic_properties::QueryEnum;
 
 pub trait SubstitutableQuery<S: Span> {
     fn substitute_nested_labels(&mut self, labels: &LabelManager<S, Expression<Identifier<S>, S>>);
@@ -16,7 +16,7 @@ pub trait SubstitutableQuery<S: Span> {
         self,
         variable_manager: &VariableManager<S, R>,
     ) -> Result<
-        Query<
+        QueryEnum<
             Expression<VariableReference, S>,
             Expression<VariableReference, S>,
             Expression<VariableReference, S>,
@@ -25,7 +25,7 @@ pub trait SubstitutableQuery<S: Span> {
     >;
 }
 impl<S: Span> SubstitutableQuery<S>
-    for Query<
+    for QueryEnum<
         Expression<Identifier<S>, S>,
         Expression<Identifier<S>, S>,
         Expression<Identifier<S>, S>,
@@ -71,7 +71,7 @@ impl<S: Span> SubstitutableQuery<S>
         self,
         variable_manager: &VariableManager<S, R>,
     ) -> Result<
-        Query<
+        QueryEnum<
             Expression<VariableReference, S>,
             Expression<VariableReference, S>,
             Expression<VariableReference, S>,
